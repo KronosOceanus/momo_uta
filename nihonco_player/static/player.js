@@ -394,10 +394,7 @@ function renderLrcTable(){
       else { SEL.clear(); }
       ESEL=i; paintSelection();
       const r=EROWS[i];
-      if(r && r.t!==null){
-        au.currentTime=Math.max(0, r.t+OFFSET);
-        syncSideToTime(au.currentTime);
-      }
+      if(r && r.t!==null) seekIdx(i, true);
     };
   });
   box.querySelectorAll('input.ts').forEach(el=>{
@@ -705,22 +702,8 @@ function renderSide(){
     <span class="tx">${String(n+1).padStart(2,'0')}</span>${(MODE==='rm'?(l.rmH||l.rm):(l.kyH||l.ky))||''}</div>`).join('');
   col.querySelectorAll('.ln2').forEach(el=>el.onclick=()=>{
     const n=+el.dataset.n;
-    if(LRCEDIT){
-      const t=LINES[n] ? LINES[n].t : null;
-      if(t!==null && t!==undefined) au.currentTime=Math.max(0, t+OFFSET);
-      let row=-1;
-      for(let i=0;i<EROWS.length;i++){ if(EROWS[i].t!==null && EROWS[i].t<=t) row=i; }
-      CUR=n;                       // 右侧高亮停在点的那一行
-      paint2(n);
-      if(row>=0){
-        ESEL=row; SEL.clear(); LRC_CUR=row; LRC_MANUAL=row;
-        document.querySelectorAll('.lerow').forEach(x=>x.classList.remove('cur'));
-        paintSelection();
-        document.querySelector(`.lerow[data-i="${row}"]`)?.scrollIntoView({block:'center'});
-      }
-      return;
-    }
-    seek(n);
+    if(!LINES[n] || isMetaLine(LINES[n])) return;
+    seekIdx(LRCEDIT ? rowForTime(LINES[n].t) : n, true);
   });
   if(CUR>=0) paint2(CUR);
 }
@@ -750,19 +733,63 @@ function commitAudio(){
   document.getElementById('ttl').textContent = '▶ ' + S.title + (S.artist?' · '+S.artist:'');
   syncPlayBtn();
 }
-function seek(n){
-  if(!LINES[n]||LINES[n].meta) return;
-  const wasPlaying = !au.paused;          // 记住当前是播还是停
-  if(PLAYING!==S.idx) commitAudio();      // 换歌（会打断音频）
-  au.currentTime = LINES[n].t;
-  if(wasPlaying) au.play().catch(()=>{}); // 原来是播的就接着播
-  paint(n);
+// ── 统一播放层：普通视图与编辑表格共用同一套时间语义 ──
+const META_RE=/^(作词|作曲|编曲|制作|演唱|歌\s*[:：]|Lyrics|Composer|Arranger|Producer)/;
+function viewLines(){ return LRCEDIT ? EROWS : LINES; }
+function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+OFFSET : null; }
+function isMetaLine(l){ return !l || l.meta || META_RE.test((l.text||'').trim()); }
+function idxAt(t){
+  const ls=viewLines(); let n=-1;
+  for(let i=0;i<ls.length;i++){ const tt=lineT(ls[i]); if(tt!==null && tt<=t) n=i; }
+  return n;
 }
+function navItems(){
+  return viewLines().map((l,i)=>({i, t:lineT(l)})).filter(x=>x.t!==null && !isMetaLine(viewLines()[x.i]));
+}
+function seekIdx(i, keepPlaying){
+  const ls=viewLines(); const l=ls[i];
+  if(!l || isMetaLine(l) || lineT(l)===null) return;
+  const wasPlaying = keepPlaying!==false && !au.paused;
+  if(PLAYING!==S.idx) commitAudio();
+  au.currentTime = Math.max(0, lineT(l));
+  if(wasPlaying) au.play().catch(()=>{});
+  highlight(i);
+  if(loop && !isMetaLine(viewLines()[i])) LOOP_ROW=i;
+  if(LRCEDIT){ ESEL=i; SEL.clear(); paintSelection(); }
+}
+function nextIdx(dir){
+  const items=navItems(); if(!items.length) return null;
+  const t=au.currentTime;
+  if(dir>0){
+    const n=items.find(x=>x.t> t+0.05);
+    return n? n.i : items[items.length-1].i;
+  }
+  const before=items.filter(x=>x.t< t-0.05);
+  return before.length? before[before.length-1].i : items[0].i;
+}
+function rowForTime(t){
+  let n=-1;
+  for(let i=0;i<EROWS.length;i++){ const tt=EROWS[i].t; if(tt!==null && tt<=t) n=i; }
+  return n<0?0:n;
+}
+function highlight(i){
+  const ls=viewLines(); const l=ls[i];
+  CUR=i;
+  if(LRCEDIT){
+    document.querySelectorAll('.lerow').forEach(el=>
+      el.classList.toggle('cur', +el.dataset.i===i));
+    if(!SEL.size) document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'center',behavior:'smooth'});
+  }else{
+    document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
+    document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'center',behavior:'smooth'});
+  }
+  // 右侧罗马音：按时间对齐到最近的一行
+  syncSideToTime(lineT(l)===null? au.currentTime : lineT(l));
+}
+function seek(n){ seekIdx(n, true); }
 function paint(n){
-  if(n===CUR)return; CUR=n;
-  document.querySelectorAll('.ln').forEach((el,i)=>el.classList.toggle('on',i===n&&!LINES[i].meta));
-  const el=document.querySelectorAll('.ln')[n]; if(el)el.scrollIntoView({block:'center',behavior:'smooth'});
-  paint2(n);
+  if(n===CUR) return;
+  highlight(n);
 }
 au.onloadedmetadata=()=>{
   if(!LINES.length) return;
@@ -771,52 +798,22 @@ au.onloadedmetadata=()=>{
     document.getElementById('ttl').textContent += `　⚠ 歌词只覆盖到 ${Math.round(last/au.duration*100)}%`;
   }
 };
-function lrcCurRow(t){
-  let n=-1;
-  for(let i=0;i<EROWS.length;i++){ const tt=EROWS[i].t; if(tt!==null && tt+OFFSET<=t) n=i; }
-  return n;
-}
-let LRC_MANUAL=-1;          // 用户刚手动选中的行（这一行不画播放光标）
-function lrcFollow(){
-  if(!LRCEDIT || !EROWS.length) return;
-  const i=lrcCurRow(au.currentTime);
-  if(i<0 || i===LRC_CUR) return;
-  if(i===LRC_MANUAL){ LRC_CUR=i; return; }
-  LRC_CUR=i;
-  document.querySelectorAll('.lerow').forEach(el=>
-    el.classList.toggle('cur', +el.dataset.i===i));
-  const rt=EROWS[i] && EROWS[i].t;
-  if(rt!==null && rt!==undefined) syncSideToTime(rt+OFFSET);
-  const row=document.querySelector(`.lerow[data-i="${i}"]`);
-  if(row && !SEL.size) row.scrollIntoView({block:'center', behavior:'smooth'});
-}
 let LRC_CUR=-1;
+let LOOP_ROW=-1;
 
 au.ontimeupdate=()=>{
-  // 正在看别的歌时，不要让它的歌词跟着当前音频滚动
   if(!S || String(PLAYING) !== String(S.idx)) return;
   const t=au.currentTime;
-  if(LRCEDIT){
-    lrcFollow();
-    if(loop){                                   // 单句循环：重复选中行
-      const i=ESEL>=0?ESEL:lrcCurRow(t);
-      const row=EROWS[i];
-      if(row && row.t!==null){
-        const start=row.t+OFFSET;
-        let end=null;
-        for(let k=i+1;k<EROWS.length;k++){ if(EROWS[k].t!==null){ end=EROWS[k].t+OFFSET; break; } }
-        if(t>=start && (end===null || t>=end)) au.currentTime=start;
-      }
+  const i=idxAt(t);
+  if(i>=0 && i!==CUR){ highlight(i); }
+  if(loop && LOOP_ROW>=0){              // 单句循环：锚定开启时的那一行
+    const items=navItems();
+    const at=items.findIndex(x=>x.i===LOOP_ROW);
+    if(at>=0){
+      const start=items[at].t;
+      const end=(at+1<items.length)? items[at+1].t : start+8;
+      if(t>=end) au.currentTime=start;
     }
-    return;
-  }
-  const prev=CUR; let n=-1;
-  for(let i=0;i<LINES.length;i++){ if(LINES[i].t<=t) n=i; else break; }
-  paint(n);
-  // 循环用"上一句"做基准：t 跨过下一句起点时退回上一句开头（尾音不截）
-  if(loop&&prev>=0&&!LINES[prev].meta){
-    const k=NAV.indexOf(prev); const nx=NAV[k+1];
-    if(nx!==undefined&&t>=LINES[nx].t){ au.currentTime=LINES[prev].t; }
   }
 };
 const playBtn=document.getElementById('play');
@@ -829,30 +826,8 @@ playBtn.onclick=()=>{
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>au.addEventListener(ev, syncPlayBtn));
 au.addEventListener('play', syncPlayBtn); au.addEventListener('pause', syncPlayBtn);
 document.getElementById('rate').oninput=e=>{au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
-function lrcJump(dir){
-  const rows=EROWS.map((r,i)=>({i, t:r.t})).filter(x=>x.t!==null)
-                  .sort((a,b)=>a.t-b.t);
-  if(!rows.length) return;
-  const cur=lrcCurRow(au.currentTime);
-  let target;
-  if(dir<0){
-    const before=rows.filter(x=>x.t+OFFSET < au.currentTime-0.05);
-    target=(before[before.length-1]||rows[0]);
-  }else{
-    target=rows.find(x=>x.t+OFFSET > au.currentTime+0.05) || rows[rows.length-1];
-  }
-  au.currentTime=Math.max(0, target.t+OFFSET);
-  ESEL=target.i; SEL.clear(); LRC_CUR=target.i; LRC_MANUAL=-1;
-  paintSelection();
-  document.querySelectorAll('.lerow').forEach(el=>
-    el.classList.toggle('cur', +el.dataset.i===target.i));
-  document.querySelector(`.lerow[data-i="${target.i}"]`)?.scrollIntoView({block:'center'});
-  syncSideToTime(target.t+OFFSET);
-}
-document.getElementById('prev').onclick=()=>{ if(LRCEDIT) return lrcJump(-1);
-  const k=navIdx(CUR); seek(NAV[Math.max(0,k-1)]);};
-document.getElementById('next').onclick=()=>{ if(LRCEDIT) return lrcJump(1);
-  const k=navIdx(CUR); seek(NAV[Math.min(NAV.length-1,k+1)]);};
+document.getElementById('prev').onclick=()=>{ const n=nextIdx(-1); if(n!==null) seekIdx(n,true); };
+document.getElementById('next').onclick=()=>{ const n=nextIdx(1);  if(n!==null) seekIdx(n,true); };
 document.getElementById('t-rm').onclick=e=>{MODE='rm';e.target.classList.add('on');document.getElementById('t-ky').classList.remove('on');const l=LINES[CUR];renderSide();};
 document.getElementById('t-ky').onclick=e=>{MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=LINES[CUR];renderSide();};
 document.getElementById('rem').onclick=async()=>{
@@ -908,6 +883,12 @@ document.getElementById('rem').onclick=async()=>{
   box.style.left=left+'px'; box.style.top=top+'px';
 };
 document.getElementById('loop').onclick=e=>{loop=!loop;e.target.classList.toggle('on',loop);
+  if(loop){
+    const items=navItems();
+    const cur=idxAt(au.currentTime);
+    const hit=items.find(x=>x.i>=cur) || items[0];
+    LOOP_ROW = hit? hit.i : -1;
+  }
   e.target.textContent = loop ? '单句循环：开' : '单句循环';};
 
 document.onkeydown=e=>{
