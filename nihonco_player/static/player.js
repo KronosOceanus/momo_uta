@@ -51,15 +51,18 @@ function drawWave(){
     cx.moveTo(x,0); cx.lineTo(x,h);
   }
   cx.stroke();
-  // 每句起始线 + 行号
-  cx.strokeStyle='#3b5f52'; cx.fillStyle='#6f8f81'; cx.font='10px ui-monospace, monospace';
-  (LINES||[]).forEach((l,n)=>{
-    if(!l || l.t==null) return;
-    if(l.t<start || l.t>start+span) return;
-    const lx=Math.round((l.t-start)/perPx)+0.5;
-    cx.beginPath(); cx.moveTo(lx,0); cx.lineTo(lx,h); cx.stroke();
-    cx.fillText(String(n+1), lx+2, 22);
-  });
+  // 只画"当前这一句"的起点线，避免一堆线显得乱
+  {
+    const cur = (typeof idxAt==='function') ? idxAt(au.currentTime||0) : -1;
+    const line = cur>=0 ? (LRCEDIT? EROWS[cur] : LINES[cur]) : null;
+    const lt = line && line.t!=null ? line.t + OFFSET : null;
+    if(lt!=null && lt>=start && lt<=start+span){
+      const lx=Math.round((lt-start)/perPx)+0.5;
+      cx.strokeStyle='#5c8f79'; cx.beginPath(); cx.moveTo(lx,0); cx.lineTo(lx,h); cx.stroke();
+      cx.fillStyle='#7fbfa6'; cx.font='10px ui-monospace, monospace';
+      cx.fillText(String(cur+1), lx+2, 22);
+    }
+  }
   // 播放头居中
   const x=Math.round(((au.currentTime||0)-start)/perPx);
   cx.strokeStyle='#7fbfa6'; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
