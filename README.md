@@ -76,22 +76,20 @@ nihonco_yomi/          标注引擎（纯计算：不联网、不开服务、不
   serve.py             标注测试页（8765，可选）
 
 nihonco_player/        播放器（只依赖 nihonco_yomi）
-  core/                数据与规则（无 HTTP）
-    library / playlists / lyrics_text / lyrics_cache / lyrics_fetch / lyrics
-    lrcio（.lrc 读写与 JSON 歌词兼容） / waveform / importing
-    edits（手改读音） / song_meta（整体偏移）
-  service/             业务编排
-    song.py（载荷、改读音、重新匹配、选候选）
-    playlist.py（歌单动作、导入、打标）
-    lrc.py（加载/保存/备份/恢复/导入）
-  http/                路由、静态文件、音频流、起服务
-  static/              player.html / player.css / 10-app.js / 20-editor.js / 30-playback.js
-  server.py            16 行兼容壳（内部已拆到 core/service/http）
+  core/     数据与规则：library playlists lyrics* lrcio waveform importing edits song_meta
+  service/  业务编排：song playlist lrc
+  http/     路由、静态文件、音频流、起服务
+  static/   player.html player.css 10-app.js 20-editor.js 30-playback.js
+  server.py 16 行兼容壳
 nihonco_player_app/    桌面窗口壳（pywebview）：唯一入口
 scripts/               架构与前端检查（check_arch.py / check_js.py）
 
 tools/                 离线批处理（评测、建表、语料、抓歌词）
 config/ data/ eval/ demo/ docs/ tests/
+```
+
+```text
+更细的分层、依赖规则、数据流见 docs/architecture.md（含行数的结构图）
 ```
 
 ## 目录
