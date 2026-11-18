@@ -12,6 +12,7 @@ make app        # 唯一入口：随机端口起服务 + 原生窗口
 ```text
 没有浏览器模式：页面与静态资源由 app 内置服务提供
 依赖：pywebview（窗口）、ffmpeg（波形）、mutagen（时长）
+日志：data/cache/app.log（stdout/stderr 同时写一份，含 traceback；超过 2MB 轮转）
 ```
 
 ## 2. 模块

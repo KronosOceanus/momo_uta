@@ -5,7 +5,9 @@
 """
 from __future__ import annotations
 
+import sys
 import threading
+import traceback
 from pathlib import Path
 
 import webview
@@ -14,8 +16,13 @@ from webview import FileDialog
 from nihonco_player.core import library as LIB
 from nihonco_player import server as SRV
 
+from . import logsetup
+
 
 def main() -> None:
+    log_path = logsetup.setup()
+    sys.excepthook = logsetup.log_exception
+    print(f"日志：{log_path}")
     lib = LIB.scan_library()
     SRV.CACHE.update({str(i): x for i, x in enumerate(lib)})
 
