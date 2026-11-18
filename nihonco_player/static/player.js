@@ -3,23 +3,27 @@ const au=document.getElementById('au'), lyr=document.getElementById('lyr');
 let LIB=[], PLS=[], DRAG=null;
 
 // ── 波形与整体偏移 ────────────────────────────────
-let WAVE=null, VIEW={span:5}, OFFSET=0, FOLLOW=true;
+let WAVE=null, VIEW={span:5}, OFFSET=0, FOLLOW=true, DRAWN=null;
 const cv=document.getElementById('wave'), cx=cv.getContext('2d');
-const SPAN_MIN=2, SPAN_MAX=15, OFFSET_LEAD=0;      // 秒
+const SPAN_MIN=2, SPAN_MAX=10, OFFSET_LEAD=0;      // 秒
 
 function viewStart(){
   const dur=(WAVE && WAVE.duration) || 0;
   const span=Math.min(VIEW.span, dur||VIEW.span);
+  if(!FOLLOW && DRAWN){ return {start:DRAWN.start, span:Math.min(span, DRAWN.span)}; }
   let s0=(au.currentTime||0) - span/2;
   s0=Math.max(0, Math.min((dur||0)-span, s0));
   return {start:s0, span};
 }
+let CANVAS_W=0, CANVAS_H=0;
 function fitCanvas(){
   const r=cv.getBoundingClientRect();
   const dpr=window.devicePixelRatio||1;
-  cv.width=Math.max(1,Math.round(r.width*dpr));
-  cv.height=Math.max(1,Math.round(r.height*dpr));
-  cx.setTransform(dpr,0,0,dpr,0,0);
+  const w=Math.max(1,Math.round(r.width*dpr)), h=Math.max(1,Math.round(r.height*dpr));
+  if(w!==CANVAS_W || h!==CANVAS_H){        // 只在尺寸变化时重设，避免每帧重建缓冲
+    cv.width=w; cv.height=h; CANVAS_W=w; CANVAS_H=h;
+    cx.setTransform(dpr,0,0,dpr,0,0);
+  }
   return r.width;
 }
 function drawWave(){
@@ -28,6 +32,7 @@ function drawWave(){
   cx.fillStyle='#12161b'; cx.fillRect(0,0,w,h);
   if(!WAVE || !WAVE.peaks){ return; }
   const {start, span}=viewStart();
+  DRAWN={start, span};
   const {step, peaks}=WAVE;
   const perPx=span/w, mid=h/2;
   const i0=Math.max(0,Math.floor(start/step)), i1=Math.min(peaks.length, Math.ceil((start+span)/step));
@@ -46,6 +51,15 @@ function drawWave(){
     cx.moveTo(x,0); cx.lineTo(x,h);
   }
   cx.stroke();
+  // 每句起始线 + 行号
+  cx.strokeStyle='#3b5f52'; cx.fillStyle='#6f8f81'; cx.font='10px ui-monospace, monospace';
+  (LINES||[]).forEach((l,n)=>{
+    if(!l || l.t==null) return;
+    if(l.t<start || l.t>start+span) return;
+    const lx=Math.round((l.t-start)/perPx)+0.5;
+    cx.beginPath(); cx.moveTo(lx,0); cx.lineTo(lx,h); cx.stroke();
+    cx.fillText(String(n+1), lx+2, 22);
+  });
   // 播放头居中
   const x=Math.round(((au.currentTime||0)-start)/perPx);
   cx.strokeStyle='#7fbfa6'; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
@@ -62,25 +76,33 @@ async function loadWave(){
     const d=await api('/api/wave/'+S.idx);
     if(d.error){ document.getElementById('wavehint').textContent='无法生成波形：'+d.error; return; }
     WAVE=d;
-    document.getElementById('wavehint').textContent=`波形 ${fmt(d.duration)} · 窗口 ${VIEW.span}s · 滚轮 2–15s`;
+    document.getElementById('wavehint').textContent=`波形 ${fmt(d.duration)} · 窗口 ${VIEW.span}s · 滚轮 2–10s`;
     drawWave();
   }catch(e){ document.getElementById('wavehint').textContent='波形加载失败'; }
 }
 (function waveLoop(){
-  function tick(){
-    if(WAVE && LRCEDIT && !au.paused) drawWave();
+  let last=0;
+  function tick(ts){
+    if(WAVE && LRCEDIT && !au.paused && ts-last>32){ drawWave(); last=ts; }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 })();
+document.getElementById('wavefollow').onclick=e=>{
+  FOLLOW=!FOLLOW;
+  e.target.textContent='跟随：'+(FOLLOW?'开':'关');
+  e.target.classList.toggle('on', FOLLOW);
+  if(!FOLLOW){ DRAWN=DRAWN||viewStart(); }   // 关掉时冻结当前窗口
+};
 cv.addEventListener('click', e=>{
   if(!WAVE) return;
   const r=cv.getBoundingClientRect();
   const ratio=Math.max(0, Math.min(1,(e.clientX-r.left)/r.width));
-  const v=viewStart();
-  const t=v.start + ratio*v.span;
+  const v=DRAWN || viewStart();                 // 所见即所得
+  const t=Math.round((v.start + ratio*v.span)*100)/100;
   au.currentTime=t;
   MARK=Math.round(t*100)/100;
+  drawWave();
   const el=document.getElementById('mark');
   el.textContent='标记：'+lrcFmt(MARK); el.classList.add('set');
   drawWave();
@@ -90,7 +112,7 @@ cv.addEventListener('wheel', e=>{
   e.preventDefault();
   VIEW.span=Math.min(SPAN_MAX, Math.max(SPAN_MIN, VIEW.span*(e.deltaY>0?1.25:0.8)));
   document.getElementById('wavehint').textContent=
-    `波形 ${fmt(WAVE.duration)} · 窗口 ${VIEW.span.toFixed(1)}s · 滚轮 2–15s`;
+    `波形 ${fmt(WAVE.duration)} · 窗口 ${VIEW.span.toFixed(1)}s · 滚轮 2–10s`;
   drawWave();
 }, {passive:false});
 window.addEventListener('resize', ()=>drawWave());
@@ -105,7 +127,6 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   if(i>=0) highlight(i);
   await api('/api/pl',{action:'ui_offset', idx:S.idx, offset:OFFSET});
 });
-setInterval(()=>{ if(WAVE) drawWave(); }, 120);
 
 let OPEN=new Set();
 function saveOpen(){
