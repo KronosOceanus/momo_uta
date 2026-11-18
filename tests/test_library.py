@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player import library as LIB  # noqa: E402
+from nihonco_player.core import library as LIB  # noqa: E402
 
 
 class TestLibrary(unittest.TestCase):

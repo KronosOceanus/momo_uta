@@ -16,7 +16,7 @@ try:
 except Exception:                     # pragma: no cover
     HAVE_WEBVIEW = False
 
-from nihonco_player import library as LIB
+from nihonco_player.core import library as LIB
 from nihonco_player import server as SRV
 
 

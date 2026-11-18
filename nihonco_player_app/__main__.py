@@ -11,7 +11,7 @@ from pathlib import Path
 import webview
 from webview import FileDialog
 
-from nihonco_player import library as LIB
+from nihonco_player.core import library as LIB
 from nihonco_player import server as SRV
 
 

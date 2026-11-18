@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player import lyrics as L  # noqa: E402
+from nihonco_player.core import lyrics as L  # noqa: E402
 
 
 class TestParseLrc(unittest.TestCase):

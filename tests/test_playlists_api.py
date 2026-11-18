@@ -9,8 +9,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player import edits as ED        # noqa: E402
-from nihonco_player import playlists as PL   # noqa: E402
+from nihonco_player.core import edits as ED        # noqa: E402
+from nihonco_player.core import playlists as PL   # noqa: E402
 from nihonco_player import server as S       # noqa: E402
 
 FAKE = {"key": "k1", "uid": "u1", "file": "/tmp/a.mp3", "stem": "X - A", "orig": "A",
