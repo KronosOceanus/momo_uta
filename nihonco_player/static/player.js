@@ -709,8 +709,13 @@ function renderSide(){
 }
 function syncSideToTime(t){
   if(!LINES.length) return;
-  let n=-1;
-  for(let i=0;i<LINES.length;i++){ if(LINES[i].t<=t) n=i; else break; }
+  // 取时间最接近的一行（避免边界处偏到下一句）
+  let n=-1, best=1e9;
+  for(let i=0;i<LINES.length;i++){
+    if(isMetaLine(LINES[i])) continue;
+    const d=Math.abs(LINES[i].t-t);
+    if(d<best){ best=d; n=i; }
+  }
   if(n<0) return;
   CUR=n;
   document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on', i===n && !LINES[i].meta));
@@ -759,13 +764,16 @@ function seekIdx(i, keepPlaying){
 }
 function nextIdx(dir){
   const items=navItems(); if(!items.length) return null;
-  const t=au.currentTime;
-  if(dir>0){
-    const n=items.find(x=>x.t> t+0.05);
-    return n? n.i : items[items.length-1].i;
+  const i=idxAt(au.currentTime);
+  let at=items.findIndex(x=>x.i===i);
+  if(at<0){                       // 不在任何行上：按时间找最近位置
+    const t=au.currentTime;
+    at = dir>0 ? items.findIndex(x=>x.t> t) : items.length-1;
+    if(at<0) at = dir>0 ? items.length-1 : 0;
   }
-  const before=items.filter(x=>x.t< t-0.05);
-  return before.length? before[before.length-1].i : items[0].i;
+  const to = at + (dir>0?1:-1);
+  if(to<0 || to>=items.length) return items[dir>0?at:0].i;
+  return items[to].i;
 }
 function rowForTime(t){
   let n=-1;
@@ -783,8 +791,13 @@ function highlight(i){
     document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
     document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'center',behavior:'smooth'});
   }
-  // 右侧罗马音：按时间对齐到最近的一行
-  syncSideToTime(lineT(l)===null? au.currentTime : lineT(l));
+  // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间
+  if(LRCEDIT){
+    const k=Math.min(i, LINES.length-1);
+    if(k>=0){ CUR=k; paint2(k); }
+  }else{
+    syncSideToTime(lineT(l)===null? au.currentTime : lineT(l));
+  }
 }
 function seek(n){ seekIdx(n, true); }
 function paint(n){
@@ -812,7 +825,7 @@ au.ontimeupdate=()=>{
     if(at>=0){
       const start=items[at].t;
       const end=(at+1<items.length)? items[at+1].t : start+8;
-      if(t>=end) au.currentTime=start;
+      if(t>=end){ au.currentTime=start; highlight(LOOP_ROW); }
     }
   }
 };
