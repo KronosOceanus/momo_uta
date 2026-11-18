@@ -83,7 +83,7 @@ async function loadWave(){
 (function waveLoop(){
   let last=0;
   function tick(ts){
-    if(WAVE && LRCEDIT && !au.paused && ts-last>32){ drawWave(); last=ts; }
+    if(WAVE && LRCEDIT && !au.paused && ts-last>=16){ drawWave(); last=ts; }   // ~60fps
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -384,8 +384,9 @@ function markDirty(){
 function lrcPayload(){
   return EROWS.map(x=>({t:x.t, text:x.text}));
 }
-async function saveLrc(silent){
-  if(!S || !LRCEDIT || !EDIRTY) return false;
+async function saveLrc(silent, force){
+  if(!S || !LRCEDIT) return false;
+  if(!EDIRTY && !force) return false;
   clearTimeout(SAVE_T);
   const h=document.getElementById('savehint');
   try{
@@ -655,8 +656,7 @@ document.getElementById('lrcreset').onclick=async()=>{
 document.getElementById('lrcsave').onclick=()=>{
   if(!LRCEDIT) return;
   if(!EROWS.length){ done('没有歌词行'); return; }
-  if(!EDIRTY){ done('没有需要保存的修改'); return; }
-  saveLrc(false);
+  saveLrc(false, true);          // 主动保存：总是写一次
 };
 
 document.addEventListener('keydown', e=>{
