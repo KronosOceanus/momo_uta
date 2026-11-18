@@ -1,0 +1,9 @@
+{
+  "_note": "歌词/歌名里出现这些词就排除（伴奏、卡拉OK、消音版等）。全是小写、去符号后匹配。",
+  "patterns": [
+    "instrumental", "inst.", "off vocal", "offvocal", "karaoke",
+    "カラオケ", "インスト", "オフボーカル", "オフヴォーカル",
+    "伴奏", "消音", "纯音乐", "純音楽", "无人声", "無人都声",
+    "backing track", "minus one", "piano ver", "piano version"
+  ]
+}

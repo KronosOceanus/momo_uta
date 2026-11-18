@@ -1,0 +1,26 @@
+# 虚拟环境
+.venv/
+__pycache__/
+*.pyc
+
+# 可重建的大数据（靠 make 目标生成，见 README）
+data/sources/
+data/corpus/
+data/tables/
+data/cache/
+data/config.json
+data/curated/*.lock
+
+# 自动生成
+eval/reports/
+demo/out/
+*.log
+
+# 测试用媒体
+music_test/
+
+# 系统
+.DS_Store
+
+# 本地密钥
+.env

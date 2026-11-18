@@ -1,0 +1,31 @@
+{
+  "_note": "运行参数（B 类）。改了重启生效。A 类设计常量在 nihonco_yomi/thresholds.py，改完必须重跑 eval。",
+  "lyrics": {
+    "mb_max_delta": 3.0,
+    "fallback_max_delta": 30.0,
+    "min_content_lines": 3,
+    "name_min_len": 4,
+    "kana_ratio_min": 0.1,
+    "lang_min_chars": 20,
+    "weights": {
+      "title": 40,
+      "artist": 20,
+      "duration": 40
+    },
+    "delta_tiers": [
+      3,
+      10,
+      30
+    ]
+  },
+  "player": {
+    "coverage_warn": 0.7,
+    "merge_same_ts": 0.05,
+    "speed_min": 0.5,
+    "speed_max": 1.25,
+    "show_hidden": false,
+    "music_dirs": [
+      "~/Music/网易云音乐"
+    ]
+  }
+}

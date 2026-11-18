@@ -1,0 +1,26 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>逐句练习</title><link rel="stylesheet" href="/static/player.css"></head><body>
+<aside>
+  <div class="top"><div class="improw"><button id="newlist" title="新建歌单">＋ 新建歌单</button></div>
+    <input id="q" placeholder="搜索歌名 / 歌手"></div>
+  <div id="list"></div></aside>
+<main>
+ <div class="hdr"><button id="start">开始</button><span id="vtitle">—</span>
+   </div>
+ <div class="bar"><button id="edit">编辑模式</button>
+  <span style="font-size:11px;color:#6d737c">A <span style="color:#7fbfa6">●</span> AB <span style="color:#c8843f">●</span> B <span style="color:#6d737c">●</span> C <span style="opacity:.5">●</span></span>
+  <button id="resetall">全部重置</button></div>
+ <div class="split">
+  <div class="lyr" id="lyr"></div>
+  <div class="side"><div class="tg"><button id="t-rm" class="on">罗马音</button><button id="t-ky">键位</button></div>
+   <div class="rm2" id="rmcol"></div></div>
+ </div>
+ <div class="bar2"><h1 id="ttl">选一首歌</h1>
+  <div class="btns">
+   <button id="prev">◀ 上一句</button><button id="play">播放</button><button id="next">下一句 ▶</button>
+   <button id="loop">单句循环</button><button id="rem">重新匹配歌词</button>
+  </div>
+  <label style="color:var(--dim);font-size:12px;justify-self:end;white-space:nowrap">速度 <input id="rate" type="range" min="__SMIN__" max="__SMAX__" step="__SSTEP__" value="1" style="width:80px;vertical-align:middle"><span id="rv">1.00×</span></label>
+ </div>
+ <audio id="au" controls></audio>
+</main>
+<script src="/static/player.js"></script></body></html>
