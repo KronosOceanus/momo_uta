@@ -166,6 +166,11 @@ nihonco_player_app/
   server.py 只剩 16 行兼容壳（app 壳与测试继续 from nihonco_player import server）
 
 第 2 步  前端拆分 —— ✅ 已完成（按加载顺序切文件，共享全局作用域）
+  尝试过改 ES module 并已放弃，原因记录如下：
+    三个文件互相调用（10↔20↔30 都有），转换成 module 需要把每个全局名改成
+    st.xxx。但全局名和函数内的局部变量重名（例如 ids / lock / WAVE），
+    纯文本替换会把局部变量也改掉 → 直接语法错误。
+    要安全转换必须先做作用域分析（或每个名字都改掉），风险远大于收益。
   static/10-app.js      365 行  状态、工具、歌单、载入单曲、右侧面板
   static/20-editor.js   509 行  LRC 表格（对齐、增删、粘贴、保存）
   static/30-playback.js 244 行  时间语义、播放条、波形跟随、键盘
@@ -174,8 +179,10 @@ nihonco_player_app/
   以后要做，建议一次只改一个文件、每步跑冒烟。
 
 第 3 步  约束固化 —— ✅ 已完成
-  scripts/check_arch.py 扫描 import，违反第 2 节规则即失败
-  已接进 make test（先跑 arch 再跑单元测试）
+  scripts/check_arch.py  扫描 Python import，违反第 2 节规则即失败
+  scripts/check_js.py    单独语法检查 + 三个文件合并后再检查一次
+                         （能抓到跨文件重复定义这类历史 bug）
+  两者都接进 make test（arch → 单元测试）
 ```
 
 ## 8. 明确不做

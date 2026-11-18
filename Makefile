@@ -52,6 +52,7 @@ test: arch
 
 arch:
 	$(PY) scripts/check_arch.py
+	$(PY) scripts/check_js.py
 
 build-tables:
 	$(PY) tools/build_tables.py
