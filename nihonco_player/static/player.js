@@ -393,6 +393,11 @@ function renderLrcTable(){
         for(let k=Math.min(ESEL,i);k<=Math.max(ESEL,i);k++) SEL.add(k); }
       else { SEL.clear(); }
       ESEL=i; paintSelection();
+      const r=EROWS[i];
+      if(r && r.t!==null){
+        au.currentTime=Math.max(0, r.t+OFFSET);
+        syncSideToTime(au.currentTime);
+      }
     };
   });
   box.querySelectorAll('input.ts').forEach(el=>{
@@ -698,8 +703,34 @@ function renderSide(){
   const col=document.getElementById('rmcol');
   col.innerHTML=LINES.map((l,n)=>`<div class="ln2" data-n="${n}">
     <span class="tx">${String(n+1).padStart(2,'0')}</span>${(MODE==='rm'?(l.rmH||l.rm):(l.kyH||l.ky))||''}</div>`).join('');
-  col.querySelectorAll('.ln2').forEach(el=>el.onclick=()=>seek(+el.dataset.n));
+  col.querySelectorAll('.ln2').forEach(el=>el.onclick=()=>{
+    const n=+el.dataset.n;
+    if(LRCEDIT){
+      const t=LINES[n] ? LINES[n].t : null;
+      if(t!==null && t!==undefined) au.currentTime=Math.max(0, t+OFFSET);
+      let row=-1;
+      for(let i=0;i<EROWS.length;i++){ if(EROWS[i].t!==null && EROWS[i].t<=t) row=i; }
+      if(row>=0){
+        ESEL=row; SEL.clear(); LRC_CUR=row; LRC_MANUAL=row;
+        document.querySelectorAll('.lerow').forEach(x=>x.classList.remove('cur'));
+        paintSelection();
+        document.querySelector(`.lerow[data-i="${row}"]`)?.scrollIntoView({block:'center'});
+      }
+      return;
+    }
+    seek(n);
+  });
   if(CUR>=0) paint2(CUR);
+}
+function syncSideToTime(t){
+  if(!LINES.length) return;
+  let n=-1;
+  for(let i=0;i<LINES.length;i++){ if(LINES[i].t<=t) n=i; else break; }
+  if(n<0) return;
+  CUR=n;
+  document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on', i===n && !LINES[i].meta));
+  const el=document.querySelectorAll('.ln2')[n];
+  if(el) el.scrollIntoView({block:'center', behavior:'smooth'});
 }
 function paint2(n){
   document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on',i===n&&!LINES[i].meta));
@@ -743,13 +774,17 @@ function lrcCurRow(t){
   for(let i=0;i<EROWS.length;i++){ const tt=EROWS[i].t; if(tt!==null && tt+OFFSET<=t) n=i; }
   return n;
 }
+let LRC_MANUAL=-1;          // 用户刚手动选中的行（这一行不画播放光标）
 function lrcFollow(){
   if(!LRCEDIT || !EROWS.length) return;
   const i=lrcCurRow(au.currentTime);
   if(i<0 || i===LRC_CUR) return;
+  if(i===LRC_MANUAL){ LRC_CUR=i; return; }
   LRC_CUR=i;
   document.querySelectorAll('.lerow').forEach(el=>
     el.classList.toggle('cur', +el.dataset.i===i));
+  const rt=EROWS[i] && EROWS[i].t;
+  if(rt!==null && rt!==undefined) syncSideToTime(rt+OFFSET);
   const row=document.querySelector(`.lerow[data-i="${i}"]`);
   if(row && !SEL.size) row.scrollIntoView({block:'center', behavior:'smooth'});
 }
@@ -822,10 +857,22 @@ document.getElementById('rem').onclick=async()=>{
     const mm=Math.floor(c.duration/60), ss=String(Math.round(c.duration%60)).padStart(2,'0');
     const delta=(c.delta===null||c.delta===undefined)?'' : (c.delta>=0?'+':'')+c.delta+'s';
     b.innerHTML=`${c.current?'● ':''}${c.name} · ${c.artist} · ${mm}:${ss} ${delta} · ${c.score}`;
-    b.onclick=async ev=>{ev.stopPropagation();
-      await fetch('/api/pick',{method:'POST',headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({action:'pick', idx:S.idx, id:c.id})});
-      document.getElementById('list').innerHTML=''; loadLib(); load(S.idx); box.remove();};
+    if(!c.id){                       // 当前这首可能没有 id（来自缓存）→ 不可切换
+      b.onclick=ev=>{ev.stopPropagation(); done('当前用的就是这条');};
+      b.style.opacity='.6';
+    }else b.onclick=async ev=>{ev.stopPropagation();
+      box.remove();
+      busy('换歌词中…');
+      try{
+        const r=await fetch('/api/pick',{method:'POST',headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({action:'pick', idx:S.idx, id:c.id})});
+        const d=await r.json();
+        if(!r.ok || !d.ok){ done(d.error||'换歌词失败'); return; }
+        await load(d.idx || S.idx);        // 重新拉这一首（已换新歌词）
+        loadLib();
+        done(`已换成 ${c.name}（${d.lines} 行歌词）`);
+      }catch(err){ done('换歌词失败：'+err.message); }
+    };
     box.appendChild(b);
   });
   document.body.appendChild(box);

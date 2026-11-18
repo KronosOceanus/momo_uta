@@ -212,21 +212,23 @@ class H(BaseHTTPRequestHandler):
         rows.sort(key=lambda r: (not r.get("current"), -r["score"]))
         return {"stem": item["stem"], "candidates": rows[:10]}
 
-    def _pick(self, idx, song_id) -> bool:
-        """用户选定某个候选：把它的歌词写进缓存。"""
+    def _pick(self, idx, song_id) -> dict:
+        """用户选定某个候选：把它的歌词写进缓存，返回结果。"""
         item = CACHE.get(str(idx))
         if not item or not song_id:
-            return False
+            return {"ok": False, "error": "缺少歌曲或候选 id"}
         artist, title = LY.split_name(item["stem"])
-        lrc = LY.fetch_lrc_by_id(song_id) if hasattr(LY, "fetch_lrc_by_id") else ""
-        if not lrc:
-            return False
+        lrc = LY.fetch_lrc_by_id(song_id)
+        if not lrc or LY.content_lines(lrc) < 3:
+            return {"ok": False, "error": "这个候选没有可用歌词"}
         LY.write_local_lrc(title, artist, lrc,
                            duration=LY.audio_duration(item["file"]), name=title, by=artist)
         lib = LIB.scan_library()
         CACHE.clear()
         CACHE.update({str(i): x for i, x in enumerate(lib)})
-        return True
+        idx2 = next((k for k, v in CACHE.items() if v["file"] == item["file"]), str(idx))
+        d = song_payload(int(idx2))
+        return {"ok": True, "idx": idx2, "lines": len(d.get("lines") or [])}
 
     def _lazy_match(self, item: dict) -> None:
         """按需抓歌词：MB 规范化 + 时长门槛那条流程。"""
@@ -497,8 +499,8 @@ class H(BaseHTTPRequestHandler):
                                           ensure_ascii=False))
 
     def _post_pick(self, req):
-        ok = self._pick(req.get("idx"), req.get("id"))
-        return self._send(200 if ok else 400, json.dumps({"ok": bool(ok)}))
+        r = self._pick(req.get("idx"), req.get("id"))
+        return self._send(200 if r.get("ok") else 400, json.dumps(r, ensure_ascii=False))
 
     def _post_import(self, req):
         return self._send(200, json.dumps(self._import_to_list(req), ensure_ascii=False))
