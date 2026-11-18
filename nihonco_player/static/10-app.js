@@ -192,7 +192,7 @@ function toast(msg, ms=4200){
 let BUSY=false;
 function lock(btn, on){
   BUSY=on;
-  document.querySelectorAll('.padd,#rem').forEach(b=>{ if(!b) return;
+  document.querySelectorAll('#rem').forEach(b=>{ if(!b) return;
     b.style.pointerEvents = on ? 'none' : '';
     b.style.opacity = on ? '.45' : '';
   });
@@ -228,13 +228,10 @@ function renderList(){
     const its=g.items.filter(hit);
     if(q && !its.length) return;
     const open=q || OPEN.has(g.id);
-    const add=`<b class="padd" data-act="add-to" data-id="${g.id}" title="往这个歌单导入">＋</b>`;
-    const clr=`<b class="pclear" data-act="clear-list" data-id="${g.id}" title="清空歌单"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 4.5h10M6.2 4.5V3.2h3.6v1.3M4.6 4.5l.5 8.3h5.8l.5-8.3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></b>`;
-    const del=g.locked?'':`<b class="pdel" data-act="del-list" data-id="${g.id}" title="删除歌单">✕</b>`;
     html+=`<div class="pl" data-id="${g.id}">
-      <div class="plh" draggable="true" data-act="toggle" data-id="${g.id}">
+      <div class="plh" draggable="true" data-act="toggle" data-id="${g.id}" title="右键：导入 / 重命名 / 清空 / 删除">
         <span class="car">${open?'▾':'▸'}</span><span class="pln">${g.name}</span>
-        <span class="plc">${its.length}</span>${add}${clr}${del}</div>
+        <span class="plc">${its.length}</span></div>
       <div class="plb" ${open?'':'hidden'}>`
       + its.map(x=>`<div class="it" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" draggable="true">
           <div class="t1"><span class="orig">${x.orig||x.title}</span>
@@ -247,21 +244,52 @@ function renderList(){
   document.getElementById('list').innerHTML=html||'<div class="empty">没有歌</div>';
 }
 
+// 歌单右键菜单：导入 / 重命名 / 清空 / 删除
+function closeCtx(){ document.getElementById('ctxmenu')?.remove(); }
+function openPlMenu(x, y, g){
+  closeCtx();
+  const box=document.createElement('div');
+  box.className='menu'; box.id='ctxmenu'; box.style.minWidth='150px';
+  const mk=(label, fn, danger)=>{
+    const b=document.createElement('button'); b.textContent=label;
+    if(danger) b.style.color='#e06c75';
+    b.onclick=ev=>{ ev.stopPropagation(); closeCtx(); fn(); };
+    box.appendChild(b);
+  };
+  mk('导入音乐…', ()=>doImport(g.id));
+  mk('重命名…', async ()=>{
+    const name=prompt('新的歌单名', g.name);
+    if(!name || name===g.name) return;
+    await api('/api/pl',{action:'list_rename',id:g.id,name});
+    loadLib();
+  });
+  mk('清空歌单', async ()=>{
+    if(!confirm(`清空「${g.name}」？歌本身不会丢`)) return;
+    await api('/api/pl',{action:'list_clear',id:g.id});
+    loadLib();
+  });
+  if(!g.locked) mk('删除歌单', async ()=>{
+    if(!confirm(`删除歌单「${g.name}」？（歌本身不会丢）`)) return;
+    await api('/api/pl',{action:'list_delete',id:g.id});
+    loadLib();
+  }, true);
+  document.body.appendChild(box);
+  const r=box.getBoundingClientRect();
+  box.style.left=Math.min(x, window.innerWidth-r.width-8)+'px';
+  box.style.top=Math.min(y, window.innerHeight-r.height-8)+'px';
+}
+document.getElementById('list').addEventListener('contextmenu', e=>{
+  const h=e.target.closest('.plh');
+  if(!h) return;
+  e.preventDefault();
+  const g=PLS.find(x=>x.id===h.dataset.id);
+  if(g) openPlMenu(e.clientX, e.clientY, g);
+});
+document.addEventListener('click', closeCtx);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeCtx(); });
+
 // 一次事件委托，避免重复绑定
 document.getElementById('list').addEventListener('click', async e=>{
-  const addBtn=e.target.closest('[data-act="add-to"]');
-  if(addBtn){ e.stopPropagation(); return doImport(addBtn.dataset.id, addBtn); }
-
-  const clearList=e.target.closest('[data-act="clear-list"]');
-  if(clearList){ e.stopPropagation();
-    if(!confirm('清空「默认歌单」？歌本身不会丢')) return;
-    await api('/api/pl',{action:'list_clear',id:clearList.dataset.id}); return loadLib(); }
-
-  const delList=e.target.closest('[data-act="del-list"]');
-  if(delList){ e.stopPropagation();
-    if(!confirm('删除这个歌单？（歌本身不会丢）')) return;
-    await api('/api/pl',{action:'list_delete',id:delList.dataset.id}); return loadLib(); }
-
   const delEntry=e.target.closest('[data-act="del-entry"]');
   if(delEntry){ e.stopPropagation();
     await api('/api/pl',{action:'entry_remove',uid:delEntry.dataset.u,from:delEntry.dataset.id});

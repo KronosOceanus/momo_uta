@@ -78,14 +78,6 @@ audio{width:100%;margin:0;position:sticky;bottom:0}
 .plh .car{color:#5b626c;font-size:11px;width:10px}
 .plh .pln{flex:1;color:#dfe3e8;font-size:13.5px}
 .plh .plc{color:#6d737c;font-size:12px}
-.plh .padd,.plh .pclear,.plh .pdel{width:20px;height:20px;display:flex;align-items:center;
-  justify-content:center;border-radius:4px;color:#5b626c;font-weight:400;font-size:12px;cursor:pointer}
-.plh .padd:hover,.plh .pclear:hover,.plh .pdel:hover{color:#dfe3e8}
-.padd:hover{background:#1d2a22;color:#7fbfa6}
-.pclear:hover{background:#2a2418;color:#c8843f}
-.plh .pdel{width:20px;height:20px;display:flex;align-items:center;justify-content:center;
-  border-radius:4px;color:#5b626c;font-weight:400;font-size:12px;cursor:pointer}
-.pdel:hover{background:#2a1216;color:#e06c75}
 .plb{padding-left:4px}
 .it{position:relative}
 .del{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:20px;height:20px;
