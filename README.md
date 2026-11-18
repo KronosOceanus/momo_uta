@@ -52,7 +52,7 @@ make build-stats      # 语料 → data/corpus/
 cp .env.example .env  # 需要 LLM 消歧时填 key（默认不用）
 
 make test             # 93 条
-make app              # 桌面窗口
+make app              # 桌面窗口（唯一入口）
 ```
 
 ```text
@@ -64,21 +64,25 @@ make app              # 桌面窗口
 ## 目录结构
 
 ```text
-nihonco_yomi/          标注引擎（不联网、不开服务、不读歌）
-  annotate.py romaji.py counters.py invariants.py kana.py llm.py
-  render.py            注音 HTML 的唯一实现（player 与 serve 共用）
-  paths.py thresholds.py config.py
-  serve.py             标注测试页（8765）
+nihonco_yomi/          标注引擎（纯计算：不联网、不开服务、不读歌）
+  annotate.py  romaji.py  counters.py  invariants.py  kana.py  llm.py
+  render.py            注音 HTML 的唯一实现
+  paths.py  thresholds.py  config.py
+  serve.py             标注测试页（8765，可选）
 
-nihonco_player/        播放器（只依赖 nihonco_yomi）
-  library.py           扫目录 + 缓存 + 标签
-  lyrics.py            抓取 + 匹配 + 缓存 + LRC 解析
-  ruby.py              调 render，补候选/可编辑属性
-  web.py               前端（HTML/CSS/JS）
-  server.py            HTTP 路由
-  （入口在 nihonco_player_app/：桌面窗口）
+nihonco_player/        播放器（服务 + 前端，只依赖 nihonco_yomi）
+  server.py            路由表 + 业务
+  lyrics.py            门面：lyrics_text / lyrics_cache / lyrics_fetch
+  lrcio.py             .lrc 读写、备份、恢复、JSON 歌词兼容
+  waveform.py          ffmpeg → 峰值 → 缓存
+  library.py           扫目录 / 缓存 / 导入索引
+  importing.py         导入（目录 / 音频+lrc / 纯音频 / 纯 lrc）
+  playlists.py         歌单（uid 集合 + 文件锁）
+  edits.py  song_meta.py   手改读音 / 整体偏移
+  web.py  static/      页面与前端资源
+nihonco_player_app/    桌面窗口壳（pywebview）：唯一入口
 
-tools/                 离线批处理（评测、建表、抓歌词）
+tools/                 离线批处理（评测、建表、语料、抓歌词）
 config/ data/ eval/ demo/ docs/ tests/
 ```
 

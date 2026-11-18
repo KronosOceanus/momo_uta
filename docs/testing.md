@@ -1,7 +1,7 @@
 # 测试
 
 ```bash
-make test                       # 全部（82 条）
+make test                       # 全部（93 条）
 .venv/bin/python -m unittest tests.test_lyrics -v      # 单组
 ```
 
@@ -17,6 +17,7 @@ make test                       # 全部（82 条）
 | `tests/test_lyrics.py` | LRC 解析、歌名匹配、打分、语言判定、排除词 |
 | `tests/test_player_http.py` | 起真服务打 6 个接口（随机端口，不联网） |
 | `tests/test_library.py` | 扫目录、缓存命中、标签读写 |
+| `tests/test_playlists_api.py` | 歌单接口（建/删/清空/移动/排序/默认锁定）与读音持久化 |
 | `tests/test_ui_smoke.py` | **界面冒烟**：真开 pywebview 窗口，断言歌单渲染、点歌出歌词、无 JS 错误 |
 
 ## 三档测试策略
