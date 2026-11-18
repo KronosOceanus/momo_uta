@@ -90,7 +90,7 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   OFFSET=Math.round((OFFSET+parseFloat(b.dataset.off))*100)/100;
   S.offset=OFFSET;
   document.getElementById('offval').textContent=OFFSET.toFixed(2)+'s';
-  drawWave();
+  syncModes(); drawWave();
   await api('/api/pl',{action:'ui_offset', idx:S.idx, offset:OFFSET});
 });
 setInterval(()=>{ if(WAVE) drawWave(); }, 120);
@@ -133,6 +133,7 @@ async function load(i, autoplay){
     restoreEdits();
     OFFSET = d.offset || 0;
     document.getElementById('offval').textContent = OFFSET.toFixed(2)+'s';
+    syncModes();
     if(LRCEDIT) loadWave(); else { WAVE=null; }
     if(PLAYING===null) commitAudio();                 // 第一次载入才绑定音频
 
@@ -419,62 +420,51 @@ function bindMark(i){
   renderLrcTable();
   document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
 }
-document.getElementById('lrcadd').onclick=()=>{
-  if(!LRCEDIT) return;
-  // 有选中 → 插在它下面；没选中 → 追加到末尾
-  const at = (ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length;
-  snapshot();
-  EROWS.splice(at, 0, {t:null, text:''});
-  ESEL=at; renderLrcTable();
-  document.querySelector(`.lerow[data-i="${at}"]`)?.scrollIntoView({block:'center'});
-};
-document.getElementById('lrcdel').onclick=()=>{
-  if(!LRCEDIT) return;
-  if(ESEL<0 || ESEL>=EROWS.length) return;
-  snapshot();
-  EROWS.splice(ESEL,1);
-  if(!EROWS.length) EROWS=[{t:null,text:''}];
-  ESEL=Math.min(ESEL, EROWS.length-1);
-  renderLrcTable();
-};
-document.getElementById('lrcsave').onclick=async()=>{
-  if(!LRCEDIT) return;
-  if(!EROWS.length){ toast('没有歌词行'); return; }
-  // 校验：时间戳是否非递减
-  const ts=EROWS.map(r=>r.t).filter(t=>t!==null);
-  let back=false;
-  for(let i=1;i<ts.length;i++) if(ts[i]<ts[i-1]) { back=true; break; }
-  if(back && !confirm('有时间戳倒退的行，仍然保存？')) return;
-  const unaligned=EROWS.filter(r=>r.t===null).length;
-  if(unaligned && !confirm(`有 ${unaligned} 行还没对齐时间，仍然保存？`)) return;
-  busy('保存中…');
-  try{
-    const r=await api('/api/lrc',{action:'save', idx:S.idx,
-      lines:EROWS.map(x=>({t:x.t, text:x.text}))});
-    if(!r.ok){ done(r.error||'保存失败'); return; }
-    EDIRTY=false;
-    done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
-    load(S.idx);
-  }catch(e){ done('保存失败：'+e.message); }
-};
 
-document.getElementById('lrcedit').onclick=e=>{
+
+function syncModes(){
+  const e=document.getElementById('edit'), l=document.getElementById('lrcedit');
+  const body=document.body;
+  body.classList.toggle('fak', EDITMODE);
+  body.classList.toggle('lrcedit', LRCEDIT);
+
+  e.textContent='振假名编辑模式：'+(EDITMODE?'开':'关');
+  l.textContent='LRC 编辑模式：'+(LRCEDIT?'开':'关');
+  e.classList.toggle('on', EDITMODE);
+  l.classList.toggle('on', LRCEDIT);
+
+  e.title='编辑读音';
+  l.title='编辑歌词时间轴';
+
+  const chip=document.getElementById('offchip');
+  if(Math.abs(OFFSET)>0.001){
+    chip.hidden=false; chip.textContent='偏移 '+(OFFSET>0?'+':'')+OFFSET.toFixed(2)+'s';
+  }else chip.hidden=true;
+}
+
+document.getElementById('lrcedit').onclick=()=>{
   LRCEDIT=!LRCEDIT;
-  document.body.classList.toggle('lrcedit', LRCEDIT);
-  e.target.classList.toggle('on', LRCEDIT);
-  e.target.textContent = LRCEDIT ? 'LRC 编辑：开' : 'LRC 编辑模式';
+  if(LRCEDIT && EDITMODE){ EDITMODE=false; }   // 互斥：开这个就关那个
+  syncModes();
   if(LRCEDIT){
-    if(S && !WAVE) loadWave();              // 波形只在编辑时按需加载
+    if(S && !WAVE) loadWave();
     if(S) openLrcEditor();
-  }else{
-    if(S) load(S.idx);
+  }else if(S){
+    load(S.idx);
   }
 };
-document.getElementById('edit').onclick=e=>{
+
+document.getElementById('offchip').onclick=async()=>{
+  OFFSET=0; if(S) S.offset=0;
+  document.getElementById('offval').textContent='0.00s';
+  syncModes();
+  await api('/api/pl',{action:'ui_offset', idx:S?.idx, offset:0});
+};
+
+document.getElementById('edit').onclick=()=>{
   EDITMODE=!EDITMODE;
-  document.body.classList.toggle('edit', EDITMODE);
-  e.target.classList.toggle('on', EDITMODE);
-  e.target.textContent = EDITMODE ? '振假名编辑：开' : '振假名编辑模式';
+  if(EDITMODE && LRCEDIT){ LRCEDIT=false; if(S) load(S.idx); }   // 互斥
+  syncModes();
 };
 document.addEventListener('click', async e=>{
   const ew = e.target.closest('.ew');

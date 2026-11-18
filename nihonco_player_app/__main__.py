@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 import webview
 from webview import FileDialog
@@ -59,6 +60,19 @@ def main() -> None:
         def pick_folder(self):
             r = webview.windows[0].create_file_dialog(FileDialog.FOLDER)
             return r[0] if r else ""
+
+        def save_text(self, default_name: str, text: str):
+            """弹出保存对话框，把文本写到用户选的位置。"""
+            try:
+                r = webview.windows[0].create_file_dialog(
+                    FileDialog.SAVE, save_filename=default_name)
+                if not r:
+                    return ""
+                path = r if isinstance(r, str) else r[0]
+                Path(path).write_text(text, encoding="utf-8")
+                return path
+            except Exception as e:
+                return ""
 
         def pick_files(self):
             return webview.windows[0].create_file_dialog(

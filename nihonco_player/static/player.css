@@ -50,8 +50,8 @@ main{flex:1;display:flex;flex-direction:column;min-width:0}
 .rm2 .ln2.on .cur{color:var(--a)}
 .rm2 .w{border-radius:4px;padding:0 1px}
 .ew{border-bottom:1px dashed transparent}
-body.edit .ew{cursor:pointer;border-bottom-color:#3a414b}
-body.edit .ew:hover rt{color:var(--a)}
+body.fak .ew{cursor:pointer;border-bottom-color:#3a414b}
+body.fak .ew:hover rt{color:var(--a)}
 .flash{box-shadow:0 0 0 2px rgba(200,132,63,.9)!important;border-radius:6px;
   display:inline-block;padding:.55em .12em .12em;margin:-.55em 0 -.12em}
 .kin{background:#0f1318;border:1px solid #2b313a;color:var(--fg);border-radius:6px;padding:2px 8px;font-size:12px;width:7em;font-family:inherit}
@@ -156,3 +156,32 @@ body.lrcedit .lrcwrap{display:flex}
 .lerow .del{color:#5b626c;cursor:pointer;padding:0 4px}
 .lerow .del:hover{color:#e06c75}
 body.lrcedit .lyr{padding:0}
+
+/* 头部：模式按钮居右 */
+.hdr .modes{margin-left:auto;display:flex;gap:8px}
+.hdr .modes button{min-width:11em}
+.hdr .modes button.on{border-color:var(--a);color:var(--a);background:#20323d}
+.hdr .modes button:disabled{opacity:.4;cursor:not-allowed}
+.legend{font-size:11px;color:#6d737c}
+#fakbar,#lrcbar{display:none}
+body.fak #fakbar{display:flex}
+body.lrcedit #lrcbar{display:flex}
+.off .oflab{color:#8a9099;margin-right:2px}
+.off{margin-left:auto}
+
+/* 模式条 */
+.hdr .modes{margin-left:auto;display:flex;gap:8px}
+.hdr .modes button{min-width:11.5em;text-align:center}
+.hdr .modes button.on{border-color:var(--a);color:var(--a);background:#20323d}
+.hdr .modes button:disabled{opacity:.4;cursor:not-allowed}
+.hdr .chip{font-size:11px;color:#c8843f;border:1px solid #3a2f22;border-radius:6px;
+  padding:2px 7px;cursor:pointer;margin-left:8px}
+#fakbar,#lrcbar{display:none;padding-top:5px;padding-bottom:5px}
+body.fak #fakbar{display:flex}
+body.lrcedit #lrcbar{display:grid}
+.lrcgrid{grid-template-columns:1fr auto 1fr;align-items:center}
+.lrcgrid .left{justify-self:start;display:flex;gap:6px}
+.lrcgrid .mid{justify-self:center;display:flex;gap:6px}
+.lrcgrid .off{justify-self:end}
+.legend{font-size:11px;color:#6d737c}
+.off .oflab{color:#8a9099;margin-right:4px}
