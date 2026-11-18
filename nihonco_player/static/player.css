@@ -196,3 +196,7 @@ body.lrcedit #lrcbar{display:grid}
 /* LRC 模式：隐藏右侧罗马音，编辑表格占满 */
 body.lrcedit .side{display:none}
 body.lrcedit .lyr{flex:1 1 100%;border-right:0}
+
+.savehint{color:#5b626c;font-size:11px;margin-left:10px;align-self:center;white-space:nowrap}
+.savehint.dirty{color:#c8843f}
+.savehint.ok{color:#5b8c74}

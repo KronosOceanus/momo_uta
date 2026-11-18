@@ -104,6 +104,7 @@ function saveOpen(){
 }
 
 async function load(i, autoplay){
+  if(LRCEDIT && EDIRTY) await saveLrc(true);       // 切歌/切模式前先存
   const prevIdx = S ? String(S.idx) : null;
   const d = await (await fetch('/api/song/'+i)).json();
   if(prevIdx !== String(d.idx)){        // 换歌 → 两个编辑模式都关掉
@@ -338,7 +339,37 @@ let EROWS=[], ESEL=-1, SEL=new Set(), MARK=null, EDIRTY=false, UNDO=[], REDO=[];
 
 function snapshot(){
   UNDO.push(JSON.stringify(EROWS)); if(UNDO.length>50) UNDO.shift();
-  REDO=[]; EDIRTY=true;
+  REDO=[]; markDirty();
+}
+
+let SAVE_T=null;
+function markDirty(){
+  EDIRTY=true;
+  const h=document.getElementById('savehint');
+  if(h){ h.textContent='未保存…'; h.className='savehint dirty'; }
+  clearTimeout(SAVE_T);
+  SAVE_T=setTimeout(()=>saveLrc(true), 1500);     // 停止编辑 1.5 秒后自动保存
+}
+function lrcPayload(){
+  return EROWS.map(x=>({t:x.t, text:x.text}));
+}
+async function saveLrc(silent){
+  if(!S || !LRCEDIT || !EDIRTY) return false;
+  clearTimeout(SAVE_T);
+  const h=document.getElementById('savehint');
+  try{
+    const r=await api('/api/lrc',{action:'save', idx:S.idx, lines:lrcPayload()});
+    if(!r.ok){ if(h){h.textContent='保存失败';h.className='savehint dirty';} if(!silent) done(r.error||'保存失败'); return false; }
+    EDIRTY=false;
+    const now=new Date().toLocaleTimeString().slice(0,8);
+    if(h){ h.textContent=`已保存 ${now}`; h.className='savehint ok'; }
+    if(!silent) done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
+    return true;
+  }catch(e){
+    if(h){ h.textContent='保存失败'; h.className='savehint dirty'; }
+    if(!silent) done('保存失败：'+e.message);
+    return false;
+  }
 }
 function undo(){
   if(!UNDO.length) return;
@@ -426,7 +457,7 @@ function renderLrcTable(){
   box.querySelectorAll('input.tx').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
     el.onfocus=()=>{ ESEL=+el.dataset.i; paintSelection(); };
-    el.oninput=()=>{ EROWS[+el.dataset.i].text=el.value; EDIRTY=true; };
+    el.oninput=()=>{ EROWS[+el.dataset.i].text=el.value; markDirty(); };
     el.onkeydown=ev=>{
       if(ev.isComposing||ev.keyCode===229) return;
       if(ev.key==='Enter'){
@@ -590,21 +621,11 @@ document.getElementById('lrcreset').onclick=async()=>{
   done(`已恢复最初版本（${r.lines} 行）`);
   await openLrcEditor();
 };
-document.getElementById('lrcsave').onclick=async()=>{
+document.getElementById('lrcsave').onclick=()=>{
   if(!LRCEDIT) return;
   if(!EROWS.length){ done('没有歌词行'); return; }
-  const back=EROWS.some((r,i)=>i>0 && r.t!==null && EROWS.slice(0,i).some(p=>p.t!==null && r.t<p.t));
-  if(back && !confirm('有时间戳倒退的行，仍然保存？')) return;
-  const unaligned=EROWS.filter(r=>r.t===null).length;
-  if(unaligned && !confirm(`有 ${unaligned} 行还没对齐时间，仍然保存？`)) return;
-  busy('保存中…');
-  try{
-    const r=await api('/api/lrc',{action:'save', idx:S.idx,
-      lines:EROWS.map(x=>({t:x.t, text:x.text}))});
-    if(!r.ok){ done(r.error||'保存失败'); return; }
-    EDIRTY=false;
-    done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
-  }catch(e){ done('保存失败：'+e.message); }
+  if(!EDIRTY){ done('没有需要保存的修改'); return; }
+  saveLrc(false);
 };
 
 document.addEventListener('keydown', e=>{
