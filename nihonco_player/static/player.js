@@ -566,28 +566,6 @@ document.addEventListener('paste', e=>{
   const n=insertLines(text);
   if(n) done(`粘贴了 ${n} 行`);
 });
-document.getElementById('lrcpaste').onclick=()=>{
-  if(!LRCEDIT) return;
-  const wrap=document.createElement('div'); wrap.className='pastewrap';
-  wrap.innerHTML=`<div class="pastebox">
-    <h3>粘贴歌词（每行一句，支持 [mm:ss.xx] 前缀；插入到选中行下面）</h3>
-    <textarea id="pastearea" placeholder="把歌词粘贴到这里…"></textarea>
-    <div class="row"><button id="pastecancel">取消</button>
-      <button id="pasteok" class="primary">插入</button></div></div>`;
-  document.body.appendChild(wrap);
-  const ta=wrap.querySelector('#pastearea'); ta.focus();
-
-  const close=()=>wrap.remove();
-  wrap.querySelector('#pastecancel').onclick=close;
-  wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
-  wrap.querySelector('#pasteok').onclick=()=>{
-    const text=ta.value||'';
-    const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
-    const n=insertLines(ta.value);
-    close();
-    n ? done(`插入 ${n} 行`) : done('没粘贴到内容');
-  };
-};
 document.getElementById('lrcadd').onclick=()=>{ if(LRCEDIT) addRow(); };
 document.getElementById('lrcdel').onclick=()=>{ if(LRCEDIT) delRows(); };
 document.getElementById('lrcselall').onclick=()=>{ if(LRCEDIT) selectAll(); };

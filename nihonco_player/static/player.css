@@ -192,22 +192,6 @@ body.lrcedit #lrcbar{display:grid}
 .lerow.cur{background:#152a22;box-shadow:inset 2px 0 0 var(--a)}
 .lerow.cur .no{color:var(--a)}
 
-/* 粘贴面板 */
-.pastewrap{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:120;display:flex;
-  align-items:center;justify-content:center}
-.pastebox{background:#171b21;border:1px solid #2b313a;border-radius:10px;padding:14px;
-  width:min(680px,86vw);box-shadow:0 12px 40px rgba(0,0,0,.6)}
-.pastebox h3{margin:0 0 8px;font-size:13px;color:#c9ced5;font-weight:400}
-.pastebox textarea{width:100%;height:220px;background:#0f1318;color:#e6e4e1;border:1px solid #2b313a;
-  border-radius:8px;padding:10px;font-size:14px;font-family:inherit;line-height:1.6;resize:vertical}
-.pastebox .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-.pastebox button{background:#1b2129;border:1px solid #2b313a;color:#cfd3d8;border-radius:7px;
-  padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit}
-.pastebox button.primary{border-color:var(--a);color:var(--a);background:#20323d}
-.pastebox button:hover{border-color:var(--a);color:var(--a)}
-
-.marquee{position:fixed;border:1px solid var(--a);background:rgba(127,191,166,.12);
-  pointer-events:none;z-index:110;border-radius:3px}
 
 /* LRC 模式：隐藏右侧罗马音，编辑表格占满 */
 body.lrcedit .side{display:none}
