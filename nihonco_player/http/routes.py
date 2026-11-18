@@ -83,13 +83,12 @@ class H(BaseHTTPRequestHandler):
         return self._json({"lists": lists, "open": SVC_PL.playlists_open()})
 
     def _get_library(self):
-        from nihonco_yomi.config import PL as PCFG
         tags = LIB.load_tags()
-        HIDE = set() if PCFG.get("show_hidden") else {"inst", "nonja"}
+        # 不再隐藏任何歌：标签只作为展示信息
         rows = [{"idx": k, "title": v["title"], "orig": v.get("orig") or v["title"],
                  "artist": v["artist"], "key": v["key"], "group": v.get("group", ""),
                  "tags": tags.get(v["key"], [])}
-                for k, v in CACHE.items() if not (set(tags.get(v["key"], [])) & HIDE)]
+                for k, v in CACHE.items()]
         return self._json(rows)
 
     def _get_song(self, idx):

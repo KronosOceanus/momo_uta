@@ -99,13 +99,17 @@ def create(name: str) -> str:
 
 
 
-def rename(lid: str, name: str) -> None:
+def rename(lid: str, name: str) -> bool:
+    """改名；默认歌单锁定，不允许改。"""
+    if lid == DEFAULT_ID:
+        return False
     with _locked():
         d = load()
         for x in d["lists"]:
             if x["id"] == lid:
                 x["name"] = name
         save(d)
+    return True
 
 
 

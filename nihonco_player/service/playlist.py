@@ -23,7 +23,9 @@ def playlists_action(req) -> dict:
     if act == "list_create":
         PL.create(str(req.get("name") or "新歌单"))
     elif act == "list_rename":
-        PL.rename(str(req.get("id")), str(req.get("name") or ""))
+        if not PL.rename(str(req.get("id")), str(req.get("name") or "")):
+            return {"ok": False, "error": "默认歌单不能改名",
+                    "lists": PL.build(cached_items())}
     elif act == "list_delete":
         if not PL.delete(str(req.get("id"))):
             return {"ok": False, "error": "默认歌单不能删除",

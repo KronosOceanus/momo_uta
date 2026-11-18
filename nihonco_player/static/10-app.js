@@ -257,7 +257,7 @@ function openPlMenu(x, y, g){
     box.appendChild(b);
   };
   mk('导入音乐…', ()=>doImport(g.id));
-  mk('重命名…', async ()=>{
+  if(!g.locked) mk('重命名…', async ()=>{
     const name=prompt('新的歌单名', g.name);
     if(!name || name===g.name) return;
     await api('/api/pl',{action:'list_rename',id:g.id,name});
