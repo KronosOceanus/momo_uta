@@ -505,6 +505,38 @@ function bindMark(i){
   document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
 }
 
+document.getElementById('lrcpaste').onclick=()=>{
+  if(!LRCEDIT) return;
+  const wrap=document.createElement('div'); wrap.className='pastewrap';
+  wrap.innerHTML=`<div class="pastebox">
+    <h3>粘贴歌词（每行一句，支持 [mm:ss.xx] 前缀；插入到选中行下面）</h3>
+    <textarea id="pastearea" placeholder="把歌词粘贴到这里…"></textarea>
+    <div class="row"><button id="pastecancel">取消</button>
+      <button id="pasteok" class="primary">插入</button></div></div>`;
+  document.body.appendChild(wrap);
+  const ta=wrap.querySelector('#pastearea'); ta.focus();
+
+  const close=()=>wrap.remove();
+  wrap.querySelector('#pastecancel').onclick=close;
+  wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+  wrap.querySelector('#pasteok').onclick=()=>{
+    const text=ta.value||'';
+    const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
+    if(!lines.length){ done('没粘贴到内容'); return; }
+    snapshot();
+    const at=(ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length;
+    const fresh=lines.map(x=>{
+      const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
+      return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3]}
+               : {t:null, text:x};
+    });
+    EROWS.splice(at,0,...fresh);
+    ESEL=at+fresh.length-1; SEL.clear(); renderLrcTable();
+    document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
+    close();
+    done(`插入 ${fresh.length} 行`);
+  };
+};
 document.getElementById('lrcadd').onclick=()=>{ if(LRCEDIT) addRow(); };
 document.getElementById('lrcdel').onclick=()=>{ if(LRCEDIT) delRows(); };
 document.getElementById('lrcselall').onclick=()=>{ if(LRCEDIT) selectAll(); };
