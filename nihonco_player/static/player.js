@@ -913,7 +913,14 @@ au.ontimeupdate=()=>{
   if(!S || String(PLAYING) !== String(S.idx)) return;
   const t=au.currentTime;
   const i=idxAt(t);
-  if(i>=0 && i!==CUR){ highlight(i); }
+  if(i>=0){
+    // 只在"索引变了"或"DOM 上确实没亮"时重绘（后者修 UI 被重建后不重画的问题）
+    const el=LRCEDIT ? document.querySelector(`.lerow[data-i="${i}"]`)
+                     : document.querySelectorAll('.ln')[i];
+    const lit=LRCEDIT ? (el && el.classList.contains('cur'))
+                      : (el && el.classList.contains('on'));
+    if(i!==CUR || !lit) highlight(i);
+  }
   if(loop && LOOP_ROW>=0){              // 单句循环：锚定开启时的那一行
     const items=navItems();
     const at=items.findIndex(x=>x.i===LOOP_ROW);
