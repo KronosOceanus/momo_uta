@@ -44,31 +44,22 @@ function drawWave(){
     cx.lineTo(x+0.5, mid-mn*mid*0.95);
   }
   cx.stroke();
-  // 刻度：每 0.5 秒一根，整秒加亮
-  cx.strokeStyle='#232a33'; cx.beginPath();
-  for(let t=Math.ceil(start*2)/2; t<=start+span; t+=0.5){
-    const x=Math.round((t-start)/perPx)+0.5;
-    cx.moveTo(x,0); cx.lineTo(x,h);
-  }
-  cx.stroke();
-  // 只画"当前这一句"的起点线，避免一堆线显得乱
+  // 只要"每一句开头的线"，其他辅助线一律不画
   {
-    const cur = (typeof idxAt==='function') ? idxAt(au.currentTime||0) : -1;
-    const line = cur>=0 ? (LRCEDIT? EROWS[cur] : LINES[cur]) : null;
-    const lt = line && line.t!=null ? line.t + OFFSET : null;
-    if(lt!=null && lt>=start && lt<=start+span){
+    const ls = LRCEDIT ? EROWS : LINES;
+    cx.strokeStyle='#4a7f6b'; cx.beginPath();
+    (ls||[]).forEach(l=>{
+      if(!l || l.t==null) return;
+      const lt=l.t+OFFSET;
+      if(lt<start || lt>start+span) return;
       const lx=Math.round((lt-start)/perPx)+0.5;
-      cx.strokeStyle='#5c8f79'; cx.beginPath(); cx.moveTo(lx,0); cx.lineTo(lx,h); cx.stroke();
-      cx.fillStyle='#7fbfa6'; cx.font='10px ui-monospace, monospace';
-      cx.fillText(String(cur+1), lx+2, 22);
-    }
+      cx.moveTo(lx,0); cx.lineTo(lx,h);
+    });
+    cx.stroke();
   }
   // 播放头居中
   const x=Math.round(((au.currentTime||0)-start)/perPx);
   cx.strokeStyle='#7fbfa6'; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
-  // 秒数标注
-  cx.fillStyle='#5b626c'; cx.font='11px ui-monospace, monospace';
-  for(let t=Math.ceil(start); t<=start+span; t+=1){ cx.fillText(fmtTime(t), Math.round((t-start)/perPx)+3, 12); }
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
