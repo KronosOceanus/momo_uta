@@ -476,11 +476,16 @@ function paintSelection(){
     el.classList.toggle('picked', SEL.has(i));
   });
 }
+function insertPos(){
+  if(SEL.size) return Math.max(...SEL)+1;
+  if(ESEL>=0 && ESEL<EROWS.length) return ESEL+1;
+  return EROWS.length;
+}
 function insertLines(text){
   const lines=(text||'').split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
   if(!lines.length) return 0;
   snapshot();
-  const at=(ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length;
+  const at=insertPos();
   const fresh=lines.map(x=>{
     const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
     return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3]}
@@ -493,9 +498,7 @@ function insertLines(text){
 }
 function addRow(at){
   snapshot();
-  const pos = (at===undefined)
-    ? ((ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length)
-    : at;
+  const pos = (at===undefined) ? insertPos() : at;
   EROWS.splice(pos,0,{t:null,text:''});
   ESEL=pos; SEL.clear(); renderLrcTable();
   document.querySelector(`.lerow[data-i="${pos}"]`)?.scrollIntoView({block:'center'});
