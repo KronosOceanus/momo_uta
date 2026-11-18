@@ -134,13 +134,31 @@ function saveOpen(){
     body:JSON.stringify({action:'ui_open', ids:[...OPEN]})});
 }
 
-async function load(i, autoplay){
-  if(LRCEDIT && EDIRTY) await saveLrc(true);       // 切歌/切模式前先存
-  const prevIdx = S ? String(S.idx) : null;
-  const d = await (await fetch('/api/song/'+i)).json();
-  if(prevIdx !== String(d.idx)){        // 换歌 → 两个编辑模式都关掉
-    EDITMODE=false; LRCEDIT=false;
-    if(typeof syncModes==='function') syncModes();
+let LOAD_REQUEST=0;
+async function load(i, autoplay, nextEditMode){
+  if(LRC_REPLACING) return false;
+  const request=++LOAD_REQUEST;
+  const editing=LRCEDIT;
+  let d;
+  try{
+    if(editing){
+      setLrcLocked(true);
+      if(!await flushLrc()) return false;
+      if(request!==LOAD_REQUEST) return false;
+    }
+    d=await api('/api/song/'+i);
+    if(request!==LOAD_REQUEST) return false;
+  }catch(e){
+    if(request===LOAD_REQUEST) done('加载歌曲失败：'+e.message);
+    return false;
+  }finally{
+    if(editing && request===LOAD_REQUEST) setLrcLocked(false);
+  }
+  const changedSong=!S || String(S.idx)!==String(d.idx);
+  if(changedSong || nextEditMode!==undefined){
+    EDITMODE=nextEditMode===true;
+    LRCEDIT=false;
+    syncModes();
   }
   if(d.pending){                               // 没有歌词 → 懒匹配
     S=d; LINES=[]; CUR=-1;
@@ -148,16 +166,22 @@ async function load(i, autoplay){
     lyr.innerHTML='<div class="lm">匹配歌词中…</div>';
     busy('匹配歌词中…');
     document.getElementById('rmcol').innerHTML='';
-    await fetch('/api/pl',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'match',idx:d.idx})});
-    for(let k=0;k<40;k++){
-      await new Promise(r=>setTimeout(r,1500));
-      const d2 = await (await fetch('/api/song/'+i)).json();
-      if(!d2.pending){ return load(i, autoplay); }
+    try{
+      await api('/api/pl',{action:'match',idx:d.idx});
+      for(let k=0;k<40 && request===LOAD_REQUEST;k++){
+        await new Promise(r=>setTimeout(r,1500));
+        if(request!==LOAD_REQUEST) return false;
+        const d2=await api('/api/song/'+i);
+        if(request!==LOAD_REQUEST) return false;
+        if(!d2.pending) return load(i, autoplay, nextEditMode);
+      }
+    }catch(e){
+      if(request!==LOAD_REQUEST) return false;
     }
+    if(request!==LOAD_REQUEST) return false;
     lyr.innerHTML='<div class="lm">没匹配到歌词</div>';
     done('这首歌没匹配到歌词');
-    return;
+    return false;
   }
   {
     S=d; LINES=d.lines; CUR=-1;
@@ -173,12 +197,14 @@ async function load(i, autoplay){
     OFFSET = d.offset || 0;
     document.getElementById('offval').textContent = OFFSET.toFixed(2)+'s';
     syncModes();
-    if(LRCEDIT) loadWave(); else { WAVE=null; }
+    if(LRCEDIT) renderLrcTable();
+    else WAVE=null;
     if(PLAYING===null) commitAudio();                 // 第一次载入才绑定音频
 
     if(autoplay){ commitAudio(); au.play().catch(()=>{}); }
     au.playbackRate=+document.getElementById('rate').value;
   }
+  return true;
 }
 function navIdx(n){ const k=NAV.indexOf(n); return k<0?0:k; }
 

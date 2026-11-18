@@ -3,14 +3,29 @@ let LRCEDIT=false;
 
 // ── LRC 编辑表格 ────────────────────────────────
 let EROWS=[], ESEL=-1, SEL=new Set(), MARK=null, EDIRTY=false, UNDO=[], REDO=[];
+let LRC_METADATA=[], LRC_LOCKED=false, LRC_REPLACING=false;
+
+function setLrcLocked(locked){
+  if(locked===LRC_LOCKED) return;
+  // 先让有焦点的时间输入框触发 change，再锁定表格。
+  if(locked){
+    const active=document.activeElement;
+    if(active?.closest('#lyr')) active.blur();
+    clearTimeout(SAVE_T);
+  }
+  LRC_LOCKED=locked;
+  document.getElementById('lyr').inert=locked;
+  document.getElementById('lrcrow2').inert=locked;
+}
 
 function snapshot(){
   UNDO.push(JSON.stringify(EROWS)); if(UNDO.length>50) UNDO.shift();
   REDO=[]; markDirty();
 }
 
-let SAVE_T=null;
+let SAVE_T=null, SAVE_PENDING=null, EDIT_REVISION=0;
 function markDirty(){
+  EDIT_REVISION++;
   EDIRTY=true;
   const h=document.getElementById('savehint');
   if(h){ h.textContent='未保存…'; h.className='savehint dirty'; }
@@ -21,34 +36,53 @@ function lrcPayload(){
   return EROWS.map(x=>({t:x.t, text:x.text}));
 }
 async function saveLrc(silent, force){
-  if(!S || !LRCEDIT) return false;
-  if(!EDIRTY && !force) return false;
-  clearTimeout(SAVE_T);
-  const h=document.getElementById('savehint');
-  try{
-    const r=await api('/api/lrc',{action:'save', idx:S.idx, lines:lrcPayload()});
-    if(!r.ok){ if(h){h.textContent='保存失败';h.className='savehint dirty';} if(!silent) done(r.error||'保存失败'); return false; }
-    EDIRTY=false;
-    const now=new Date().toLocaleTimeString().slice(0,8);
-    if(h){ h.textContent=`已保存 ${now}`; h.className='savehint ok'; }
-    if(!silent) done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
-    return true;
-  }catch(e){
-    if(h){ h.textContent='保存失败'; h.className='savehint dirty'; }
-    if(!silent) done('保存失败：'+e.message);
-    return false;
+  if(!S || !LRCEDIT || LRC_REPLACING) return false;
+  const song=S;
+  // 等前一次写入结束，再读取当前表格，避免旧内容后写覆盖新内容。
+  while(SAVE_PENDING){
+    await SAVE_PENDING;
+    if(S!==song || !LRCEDIT || LRC_REPLACING) return false;
   }
+  if(!EDIRTY && !force) return true;
+  clearTimeout(SAVE_T);
+  const revision=EDIT_REVISION;
+  const h=document.getElementById('savehint');
+  SAVE_PENDING=(async()=>{
+    try{
+      const r=await api('/api/lrc',{action:'save', idx:song.idx, lines:lrcPayload()});
+      if(!r.ok) throw new Error(r.error||'保存失败');
+      if(EDIT_REVISION===revision){
+        EDIRTY=false;
+        if(h){ h.textContent=`已保存 ${new Date().toLocaleTimeString().slice(0,8)}`; h.className='savehint ok'; }
+        if(!silent) done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
+      }
+      return true;
+    }catch(e){
+      if(h){ h.textContent='保存失败'; h.className='savehint dirty'; }
+      if(!silent) done('保存失败：'+e.message);
+      return false;
+    }
+  })();
+  try{ return await SAVE_PENDING; }
+  finally{ SAVE_PENDING=null; }
+}
+
+async function flushLrc(){
+  if(!EDIRTY && !SAVE_PENDING) return true;
+  if(await saveLrc(true) && !EDIRTY) return true;
+  done('歌词保存失败，当前编辑已保留，请重试');
+  return false;
 }
 function undo(){
   if(!UNDO.length) return;
   REDO.push(JSON.stringify(EROWS));
   EROWS=JSON.parse(UNDO.pop()); ESEL=Math.min(ESEL, EROWS.length-1);
-  SEL.clear(); renderLrcTable();
+  SEL.clear(); markDirty(); renderLrcTable();
 }
 function redo(){
   if(!REDO.length) return;
   UNDO.push(JSON.stringify(EROWS));
-  EROWS=JSON.parse(REDO.pop()); SEL.clear(); renderLrcTable();
+  EROWS=JSON.parse(REDO.pop()); SEL.clear(); markDirty(); renderLrcTable();
 }
 
 function lrcFmt(t){ if(t===null||t===undefined) return '';
@@ -59,27 +93,36 @@ function lrcParse(v){
   return Math.round((+m[1]*60 + +m[2])*100)/100;
 }
 function lrcText(){
-  return EROWS.map(r=>`[${lrcFmt(r.t)||'00:00.00'}]${r.text||''}`).join('\n')+'\n';
+  const rows=EROWS.map(r=>{
+    const stamp=lrcFmt(r.t);
+    return `${stamp ? `[${stamp}]` : ''}${r.text||''}`;
+  });
+  for(const tag of LRC_METADATA.slice().reverse()){
+    rows.splice(Math.min(tag.before, EROWS.length), 0, tag.text);
+  }
+  return rows.join('\n')+'\n';
 }
 
-async function openLrcEditor(){
-  const d=await api('/api/lrc',{action:'load', idx:S.idx});
-  const fileRows=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
-  // 优先用 .lrc 文件；行数不一致时改用"当前播放列表"的行，保证左右对齐
-  let base, note='';
-  if(fileRows.length && fileRows.length===LINES.length){
-    base=fileRows;
-  }else if(LINES.length){
-    base=LINES.map(l=>({t:(l.meta?l.t:l.t), text:l.text}));
-    if(fileRows.length) note='（.lrc 与播放列表行数不同，按播放列表对齐）';
-  }else{
-    base=fileRows;
+let LRC_OPEN_REQUEST=0;
+async function openLrcEditor(entering=false){
+  const song=S, request=LOAD_REQUEST, opening=++LRC_OPEN_REQUEST;
+  const d=await api('/api/lrc',{action:'load', idx:song.idx});
+  if(S!==song || request!==LOAD_REQUEST || opening!==LRC_OPEN_REQUEST || (!entering && !LRCEDIT)) return;
+  if(!d.ok) throw new Error(d.error||'无法读取歌词');
+  if(entering){
+    LRCEDIT=true;
+    EDITMODE=false;
+    syncModes();
   }
-  EROWS=base;
+  // 编辑器保留文件顺序及未打点的行，播放视图只展示有时间戳的行。
+  LRC_METADATA=d.metadata||[];
+  EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
   if(!EROWS.length) EROWS=[{t:null,text:''}];
-  if(note) done('已加载'+note);
   ESEL=0; SEL.clear(); EDIRTY=false; MARK=null;
+  UNDO=[]; REDO=[];
+  document.getElementById('savehint').textContent='';
   renderLrcTable();
+  if(entering && !WAVE) loadWave();
 }
 
 function rowHtml(r,i){
@@ -87,7 +130,7 @@ function rowHtml(r,i){
     <span class="no">${String(i+1).padStart(2,'0')}</span>
     <input class="ts${r.t===null?' none':''}" data-i="${i}" value="${r.t===null?'':lrcFmt(r.t)}" placeholder="mm:ss.xx">
     <span class="bind" data-i="${i}" title="把标记时间写进这一行">↤</span>
-    <input class="tx" data-i="${i}" value="${(r.text||'').replace(/"/g,'&quot;')}">
+    <input class="tx" data-i="${i}" value="${(r.text||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">
     <span class="del" data-i="${i}" title="删除这一行">✕</span>
   </div>`;
 }
@@ -113,6 +156,7 @@ function renderLrcTable(){
   box.querySelectorAll('input.ts').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
     el.onchange=()=>{
+      if(LRC_LOCKED) return;
       const i=+el.dataset.i, v=el.value.trim();
       if(!v){ snapshot(); EROWS[i].t=null; renderLrcTable(); return; }
       const t=lrcParse(v);
@@ -125,9 +169,12 @@ function renderLrcTable(){
   box.querySelectorAll('input.tx').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
     el.onfocus=()=>{ ESEL=+el.dataset.i; paintSelection(); };
-    el.oninput=()=>{ EROWS[+el.dataset.i].text=el.value; markDirty(); };
+    el.oninput=()=>{
+      if(LRC_LOCKED) return;
+      EROWS[+el.dataset.i].text=el.value; markDirty();
+    };
     el.onkeydown=ev=>{
-      if(ev.isComposing||ev.keyCode===229) return;
+      if(LRC_LOCKED || ev.isComposing||ev.keyCode===229) return;
       // 光标在行首按 Delete/⌫：把这一行接到上一行末尾
       if((ev.key==='Backspace'||ev.key==='Delete') &&
          el.selectionStart===0 && el.selectionEnd===0){
@@ -161,6 +208,7 @@ function renderLrcTable(){
       }
     };
     el.onpaste=ev=>{
+      if(LRC_LOCKED) return;
       const text=(ev.clipboardData||window.clipboardData).getData('text');
       if(!text || !text.includes('\n')) return;      // 单行正常粘贴
       ev.preventDefault();
@@ -179,10 +227,11 @@ function renderLrcTable(){
     };
   });
   box.querySelectorAll('.bind').forEach(el=>{
-    el.onclick=e=>{ e.stopPropagation(); bindMark(+el.dataset.i); };
+    el.onclick=e=>{ e.stopPropagation(); if(!LRC_LOCKED) bindMark(+el.dataset.i); };
   });
   box.querySelectorAll('.del').forEach(el=>{
-    el.onclick=e=>{ e.stopPropagation(); snapshot(); EROWS.splice(+el.dataset.i,1);
+    el.onclick=e=>{ e.stopPropagation(); if(LRC_LOCKED) return;
+      snapshot(); EROWS.splice(+el.dataset.i,1);
       if(!EROWS.length) EROWS=[{t:null,text:''}];
       ESEL=Math.min(ESEL,EROWS.length-1); SEL.clear(); renderLrcTable(); };
   });
@@ -274,7 +323,7 @@ function bindMark(i){
 }
 
 document.addEventListener('paste', e=>{
-  if(!LRCEDIT) return;
+  if(!LRCEDIT || LRC_LOCKED) return;
   if(e.target && e.target.tagName==='INPUT') return;   // 输入框里走原生粘贴
   const text=(e.clipboardData||window.clipboardData||{}).getData
     ? (e.clipboardData||window.clipboardData).getData('text') : '';
@@ -283,8 +332,8 @@ document.addEventListener('paste', e=>{
   const n=insertLines(text);
   if(n) done(`粘贴了 ${n} 行`);
 });
-document.getElementById('lrcadd').onclick=()=>{ if(LRCEDIT) addRow(); };
-document.getElementById('lrcdel').onclick=()=>{ if(LRCEDIT) delRows(); };
+document.getElementById('lrcadd').onclick=()=>{ if(LRCEDIT && !LRC_LOCKED) addRow(); };
+document.getElementById('lrcdel').onclick=()=>{ if(LRCEDIT && !LRC_LOCKED) delRows(); };
 document.getElementById('lrcselall').onclick=()=>{ if(LRCEDIT) selectAll(); };
 document.getElementById('lrcsaveas').onclick=async()=>{
   if(!LRCEDIT) return;
@@ -295,44 +344,58 @@ document.getElementById('lrcsaveas').onclick=async()=>{
     done(p ? '已另存为 '+p.split('/').pop() : '已取消');
   }else done('当前环境不支持另存为');
 };
-document.getElementById('lrcimport').onclick=async()=>{
-  if(!LRCEDIT || !S) return;
-  let r={};
-  if(window.pywebview && window.pywebview.api && window.pywebview.api.pick_lrc_text){
-    r=await window.pywebview.api.pick_lrc_text() || {};
-  }else{
-    done('当前环境不支持选文件'); return;
-  }
-  if(!r.text) return;
-  if(!confirm(`用「${r.name}」覆盖当前歌词？当前内容会被替换`)) return;
-  busy('导入中…');
+async function replaceLrc(req, pending, success){
+  LRC_REPLACING=true;
+  setLrcLocked(true);
+  busy(pending);
   try{
-    const res=await api('/api/lrc',{action:'import_lrc', idx:S.idx, text:r.text});
-    if(!res.ok){ done(res.error||'导入失败'); return; }
-    done(`已导入 ${res.lines} 行${res.backed_up?'（已备份原文件）':''}`);
+    // 覆盖操作须等已发出的自动保存结束，避免旧内容覆盖导入或备份。
+    await SAVE_PENDING;
+    const res=await api('/api/lrc',req);
+    if(!res.ok) throw new Error(res.error||'操作失败');
     await openLrcEditor();
-  }catch(e){ done('导入失败：'+e.message); }
+    done(success(res));
+  }catch(err){
+    done('歌词替换失败：'+err.message);
+  }finally{
+    LRC_REPLACING=false;
+    setLrcLocked(false);
+  }
+}
+document.getElementById('lrcimport').onclick=async()=>{
+  if(!LRCEDIT || LRC_LOCKED || !S) return;
+  const song=S;
+  const picker=window.pywebview?.api;
+  if(!picker?.pick_lrc_text){ done('当前环境不支持选文件'); return; }
+  try{
+    const r=await picker.pick_lrc_text();
+    if(!r?.text || S!==song || !LRCEDIT || LRC_LOCKED) return;
+    if(!confirm(`用「${r.name}」覆盖当前歌词？当前内容会被替换`)) return;
+    await replaceLrc({action:'import_lrc', idx:song.idx, text:r.text}, '导入中…',
+      res=>`已导入 ${res.lines} 行${res.backed_up?'（已备份原文件）':''}`);
+  }catch(err){ done('导入失败：'+err.message); }
 };
 document.getElementById('lrcreset').onclick=async()=>{
-  if(!LRCEDIT || !S) return;
-  const st=await api('/api/lrc',{action:'backup', idx:S.idx});
-  if(!st.exists){ done('没有备份（首次保存时才会生成）'); return; }
-  const when=new Date(st.mtime*1000).toLocaleString();
-  if(!confirm(`恢复到这个备份？\n${when} · ${st.lines} 行\n当前编辑内容会丢失`)) return;
-  busy('恢复中…');
-  const r=await api('/api/lrc',{action:'restore', idx:S.idx});
-  if(!r.ok){ done(r.error||'恢复失败'); return; }
-  done(`已恢复最初版本（${r.lines} 行）`);
-  await openLrcEditor();
+  if(!LRCEDIT || LRC_LOCKED || !S) return;
+  const song=S;
+  try{
+    const st=await api('/api/lrc',{action:'backup', idx:song.idx});
+    if(S!==song || !LRCEDIT || LRC_LOCKED) return;
+    if(!st.exists){ done('没有备份（首次保存时才会生成）'); return; }
+    const when=new Date(st.mtime*1000).toLocaleString();
+    if(!confirm(`恢复到这个备份？\n${when} · ${st.lines} 行\n当前编辑内容会丢失`)) return;
+    await replaceLrc({action:'restore', idx:song.idx}, '恢复中…',
+      res=>`已恢复最初版本（${res.lines} 行）`);
+  }catch(err){ done('恢复失败：'+err.message); }
 };
 document.getElementById('lrcsave').onclick=()=>{
-  if(!LRCEDIT) return;
+  if(!LRCEDIT || LRC_LOCKED) return;
   if(!EROWS.length){ done('没有歌词行'); return; }
   saveLrc(false, true);          // 主动保存：总是写一次
 };
 
 document.addEventListener('keydown', e=>{
-  if(!LRCEDIT) return;
+  if(!LRCEDIT || LRC_LOCKED) return;
   const ins=e.target.tagName==='INPUT';
   if(ins) return;                       // 输入框里的 Enter 走"拆行"
   if(e.key==='Enter'){ e.preventDefault(); addRow(); return; }
@@ -361,16 +424,14 @@ function syncModes(){
   }else chip.hidden=true;
 }
 
-document.getElementById('lrcedit').onclick=()=>{
-  LRCEDIT=!LRCEDIT;
-  if(LRCEDIT && EDITMODE){ EDITMODE=false; }   // 互斥：开这个就关那个
-  syncModes();
-  if(LRCEDIT){
-    if(S && !WAVE) loadWave();
-    if(S) openLrcEditor();
-  }else if(S){
-    load(S.idx);
-  }
+document.getElementById('lrcedit').onclick=async e=>{
+  if(!S) return;
+  if(LRCEDIT) return load(S.idx, false, false);
+  const button=e.currentTarget;
+  button.disabled=true;
+  try{ await openLrcEditor(true); }
+  catch(err){ done('打开歌词编辑失败：'+err.message); }
+  finally{ button.disabled=false; }
 };
 
 document.getElementById('offchip').onclick=async()=>{
@@ -382,8 +443,9 @@ document.getElementById('offchip').onclick=async()=>{
 };
 
 document.getElementById('edit').onclick=()=>{
+  if(LRCEDIT) return load(S.idx, false, true);
+  LRC_OPEN_REQUEST++;   // 如果正在读取 LRC，保留用户最后选择的模式
   EDITMODE=!EDITMODE;
-  if(EDITMODE && LRCEDIT){ LRCEDIT=false; }   // 互斥：只切模式，不重载
   syncModes();
 };
 document.addEventListener('click', async e=>{

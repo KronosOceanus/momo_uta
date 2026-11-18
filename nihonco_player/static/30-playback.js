@@ -177,20 +177,19 @@ document.getElementById('t-rm').onclick=e=>{MODE='rm';e.target.classList.add('on
 document.getElementById('t-ky').onclick=e=>{MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=LINES[CUR];renderSide();};
 document.getElementById('rem').onclick=async()=>{
   if(!S || BUSY) return;
-  if(LRCEDIT){                                   // 重新匹配前退出 LRC 编辑，并恢复普通歌词面板
-    LRCEDIT=false; syncModes();
-    if(S) load(S.idx);
-  }
+  if(LRCEDIT && !await load(S.idx, false, false)) return;
+  const song=S;
   document.querySelectorAll('.menu').forEach(m=>m.remove());
   busy('匹配中…'); lock(this, true);
   let d;
   try{
     const r = await fetch('/api/rematch',{method:'POST',headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({action:'rematch', idx:S.idx, duration:(au.duration||0)})});
+      body: JSON.stringify({action:'rematch', idx:song.idx, duration:(au.duration||0)})});
     d = await r.json();
   }catch(err){
     done('匹配失败：'+err.message); lock(null,false); return;
   }
+  if(S!==song || LRCEDIT){ lock(null,false); return; }
   if(!d.candidates || !d.candidates.length){ done('没找到候选，可以试试手动导入 lrc'); lock(null,false); return; }
   done(`找到 ${d.candidates.length} 个候选`); lock(null,false);
   const box=document.createElement('div'); box.className='menu'; box.style.maxWidth='520px';
@@ -205,16 +204,18 @@ document.getElementById('rem').onclick=async()=>{
       b.onclick=ev=>{ev.stopPropagation(); done('当前用的就是这条');};
       b.style.opacity='.6';
     }else b.onclick=async ev=>{ev.stopPropagation();
+      if(S!==song || LRCEDIT){ box.remove(); return; }
       if(c.local_edit && c.current &&
          !confirm('这条歌词你本地改过。用网上的原版覆盖吗？（覆盖前会备份，可用「恢复最初」找回）')) return;
       box.remove();
       busy('换歌词中…');
       try{
         const r=await fetch('/api/pick',{method:'POST',headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({action:'pick', idx:S.idx, id:c.id})});
+          body: JSON.stringify({action:'pick', idx:song.idx, id:c.id})});
         const d=await r.json();
         if(!r.ok || !d.ok){ done(d.error||'换歌词失败'); return; }
-        await load(d.idx || S.idx);        // 重新拉这一首（已换新歌词）
+        if(S!==song || LRCEDIT) return;
+        await load(d.idx || song.idx);        // 重新拉这一首（已换新歌词）
         loadLib();
         done(`已换成 ${c.name}（${d.lines} 行歌词）`);
       }catch(err){ done('换歌词失败：'+err.message); }
