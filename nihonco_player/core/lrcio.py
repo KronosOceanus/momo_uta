@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """读写 .lrc：解析、生成、备份、与歌词缓存同步。
 
-只处理「时间戳 + 文本」这一层，BGM/元数据标签按普通行保留。
+编辑行保留无时间戳的文本。文件元数据独立保留。
 """
 from __future__ import annotations
 
@@ -12,7 +12,11 @@ from pathlib import Path
 
 from . import lyrics as LY
 
-LINE = re.compile(r"^\[(\d+):(\d+(?:\.\d+)?)\](.*)$")
+LINE = re.compile(r"^\[(\d+):(\d+(?:\.\d+)?)(?:-\d+)?\](.*)$")
+METADATA = re.compile(
+    r"(?:\[(?:ar|al|ti|au|by|offset|length|re|ve|la|id|tool):[^\]\r\n]*\][ \t]*)+",
+    re.IGNORECASE,
+)
 
 
 def lrc_path(audio: str | Path) -> Path:
@@ -27,27 +31,34 @@ def load(audio: str | Path) -> dict:
     """优先读 .lrc 文件；没有就退回歌词缓存（网易云那套），方便首次导出成文件。"""
     audio = Path(audio)
     p = lrc_path(audio)
-    if p.is_file():
+    exists = p.is_file()
+    if exists:
         text = p.read_text(encoding="utf-8", errors="ignore")
-        return {"ok": True, "exists": True, "path": str(p), "text": text,
-                "lines": parse(text)}
-    artist, title = LY.split_name(audio.stem)
-    hit = LY.get_lrc(title, artist) or {}
-    text = hit.get("lrc") or ""
-    return {"ok": True, "exists": False, "from_cache": bool(text), "path": str(p),
-            "text": text, "lines": parse(text)}
+    else:
+        artist, title = LY.split_name(audio.stem)
+        text = (LY.get_lrc(title, artist) or {}).get("lrc") or ""
+    lines, metadata = _parse_document(text)
+    return {"ok": True, "exists": exists, "from_cache": not exists and bool(text),
+            "path": str(p), "text": text, "lines": lines, "metadata": metadata}
 
 
 def parse(text: str) -> list[dict]:
-    """同时支持标准 LRC 与网易云的 JSON 逐行格式。
+    """按文件顺序读取编辑行，保留还未打时间戳的非空文本。
 
     标准： [mm:ss.xx]文本
     JSON： {"t":毫秒,"c":[{"tx":"作词: "},{"tx":"Ayase"}]}
     """
-    out = []
-    for raw in (text or "").splitlines():
-        line = raw.strip()
+    return _parse_document(text)[0]
+
+
+def _parse_document(text: str) -> tuple[list[dict], list[dict]]:
+    out, metadata = [], []
+    for i, raw in enumerate((text or "").splitlines()):
+        line = (raw.lstrip("\ufeff") if i == 0 else raw).strip()
         if not line:
+            continue
+        if METADATA.fullmatch(line):
+            metadata.append({"before": len(out), "text": raw})
             continue
         m = LINE.match(line)
         if m:
@@ -58,11 +69,13 @@ def parse(text: str) -> list[dict]:
             try:
                 obj = json.loads(line)
                 t = float(obj.get("t", 0)) / 1000.0     # 毫秒 → 秒
-                text = "".join((c or {}).get("tx", "") for c in (obj.get("c") or []))
-                out.append({"t": round(t, 2), "text": text.strip()})
-            except Exception:
+                body = "".join((c or {}).get("tx", "") for c in (obj.get("c") or []))
+                out.append({"t": round(t, 2), "text": body.strip()})
+                continue
+            except (AttributeError, TypeError, ValueError):
                 pass
-    return out
+        out.append({"t": None, "text": raw})
+    return out, metadata
 
 
 def fmt(t: float | None) -> str:
@@ -73,8 +86,11 @@ def fmt(t: float | None) -> str:
     return f"[{m:02d}:{s:05.2f}]"
 
 
-def render(lines: list[dict]) -> str:
-    return "\n".join(f"{fmt(ln.get('t'))}{ln.get('text') or ''}" for ln in lines) + "\n"
+def render(lines: list[dict], metadata: list[dict] | None = None) -> str:
+    rows = [f"{fmt(ln.get('t'))}{ln.get('text') or ''}" for ln in lines]
+    for tag in reversed(metadata or ()):
+        rows.insert(min(tag["before"], len(lines)), tag["text"])
+    return "\n".join(rows) + "\n"
 
 
 def backup_path(audio: str | Path) -> Path:
@@ -130,17 +146,21 @@ def save(audio: str | Path, lines: list[dict]) -> dict:
     p = lrc_path(audio)
     p.parent.mkdir(parents=True, exist_ok=True)
 
+    artist, title = LY.split_name(audio.stem)
+    original = ""
     backed = False
     if p.is_file():
-        bak = p.with_suffix(".lrc.bak")
+        original = p.read_text(encoding="utf-8", errors="ignore")
+        bak = backup_path(audio)
         if not bak.exists():
             shutil.copy2(p, bak)
             backed = True
+    elif LY._cached(title, artist):
+        original = (LY.get_lrc(title, artist) or {}).get("lrc") or ""
 
-    text = render(lines)
+    _, metadata = _parse_document(original)
+    text = render(lines, metadata)
     p.write_text(text, encoding="utf-8")
-
-    artist, title = LY.split_name(audio.stem)
     LY.write_local_lrc(title, artist, text,
                        duration=LY.audio_duration(audio), name=title, by=artist)
     return {"ok": True, "path": str(p), "lines": len(lines), "backed_up": backed}

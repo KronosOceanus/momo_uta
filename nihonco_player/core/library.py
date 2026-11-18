@@ -59,8 +59,8 @@ def _entry(p: Path, group: str) -> dict | None:
     artist, title = LY.split_name(stem)
     has = LY._cached(title, artist)
     hit = LY.get_lrc(title, artist, use_cache=True) if has else None
-    if not hit or LY.content_lines(hit.get("lrc") or "") < 3:
-        # 没有歌词：也列出来，点开时再懒匹配
+    if not hit or (hit.get("source") != "local-lrc" and LY.content_lines(hit.get("lrc") or "") < 3):
+        # 网络匹配要有足够的歌词行。本地草稿可以尚未打点，不应再次匹配。
         return {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
                 "uid": hashlib.md5(str(p).encode()).hexdigest()[:12],
                 "file": str(p), "stem": stem, "orig": title, "group": group,
