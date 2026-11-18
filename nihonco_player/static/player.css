@@ -144,10 +144,10 @@ body.lrcedit .lrcwrap{display:flex}
 .lerow:hover{background:#141a20}
 .lerow.sel{background:#182430}
 .lerow .no{width:2.2em;color:#5b626c;font-size:12px;text-align:right}
-.lerow .ts{width:5.8em;background:transparent;border:0;color:#7fbfa6;font-size:12px;
+.lerow input.ts{flex:0 0 auto;width:5.8em;background:transparent;border:0;color:#7fbfa6;font-size:12px;
   font-family:ui-monospace,monospace;padding:2px 0;outline:none}
-.lerow .ts.none{color:#c8843f}
-.lerow .ts:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
+.lerow input.ts.none{color:#c8843f}
+.lerow input.ts:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
 .lerow .bind{color:#5b626c;cursor:pointer;font-size:12px;padding:0 3px}
 .lerow .bind:hover{color:#7fbfa6}
 .lerow input{flex:1;background:transparent;border:0;color:#dfe3e8;font-size:15px;
