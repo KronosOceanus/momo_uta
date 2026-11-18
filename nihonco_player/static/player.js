@@ -476,6 +476,21 @@ function paintSelection(){
     el.classList.toggle('picked', SEL.has(i));
   });
 }
+function insertLines(text){
+  const lines=(text||'').split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
+  if(!lines.length) return 0;
+  snapshot();
+  const at=(ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length;
+  const fresh=lines.map(x=>{
+    const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
+    return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3]}
+             : {t:null, text:x};
+  });
+  EROWS.splice(at,0,...fresh);
+  ESEL=at+fresh.length-1; SEL.clear(); renderLrcTable();
+  document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
+  return fresh.length;
+}
 function addRow(at){
   snapshot();
   const pos = (at===undefined)
@@ -505,6 +520,16 @@ function bindMark(i){
   document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
 }
 
+document.addEventListener('paste', e=>{
+  if(!LRCEDIT) return;
+  if(e.target && e.target.tagName==='INPUT') return;   // 输入框里走原生粘贴
+  const text=(e.clipboardData||window.clipboardData||{}).getData
+    ? (e.clipboardData||window.clipboardData).getData('text') : '';
+  if(!text) return;
+  e.preventDefault();
+  const n=insertLines(text);
+  if(n) done(`粘贴了 ${n} 行`);
+});
 document.getElementById('lrcpaste').onclick=()=>{
   if(!LRCEDIT) return;
   const wrap=document.createElement('div'); wrap.className='pastewrap';
@@ -522,19 +547,9 @@ document.getElementById('lrcpaste').onclick=()=>{
   wrap.querySelector('#pasteok').onclick=()=>{
     const text=ta.value||'';
     const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
-    if(!lines.length){ done('没粘贴到内容'); return; }
-    snapshot();
-    const at=(ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length;
-    const fresh=lines.map(x=>{
-      const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
-      return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3]}
-               : {t:null, text:x};
-    });
-    EROWS.splice(at,0,...fresh);
-    ESEL=at+fresh.length-1; SEL.clear(); renderLrcTable();
-    document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
+    const n=insertLines(ta.value);
     close();
-    done(`插入 ${fresh.length} 行`);
+    n ? done(`插入 ${n} 行`) : done('没粘贴到内容');
   };
 };
 document.getElementById('lrcadd').onclick=()=>{ if(LRCEDIT) addRow(); };
