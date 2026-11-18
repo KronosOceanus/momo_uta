@@ -194,16 +194,19 @@ document.getElementById('rem').onclick=async()=>{
   if(!d.candidates || !d.candidates.length){ done('没找到候选，可以试试手动导入 lrc'); lock(null,false); return; }
   done(`找到 ${d.candidates.length} 个候选`); lock(null,false);
   const box=document.createElement('div'); box.className='menu'; box.style.maxWidth='520px';
-  box.innerHTML='<div style="font-size:12px;color:#878c95;padding:4px 8px">选一个（分数越高越可能是同一版）</div>';
+  box.innerHTML='<div style="font-size:12px;color:#878c95;padding:4px 8px">选一个（分数越高越可能是同一版）· 候选来自网络，不读本地缓存</div>';
   d.candidates.forEach(c=>{
     const b=document.createElement('button');
     const mm=Math.floor(c.duration/60), ss=String(Math.round(c.duration%60)).padStart(2,'0');
     const delta=(c.delta===null||c.delta===undefined)?'' : (c.delta>=0?'+':'')+c.delta+'s';
-    b.innerHTML=`${c.current?'● ':''}${c.name} · ${c.artist} · ${mm}:${ss} ${delta} · ${c.score}`;
-    if(!c.id){                       // 当前这首可能没有 id（来自缓存）→ 不可切换
+    const localTag = c.local_edit ? ' · <span style="color:#c8843f">本地已修改</span>' : '';
+    b.innerHTML=`${c.current?'● ':''}${c.name} · ${c.artist} · ${mm}:${ss} ${delta} · ${c.score}${localTag}`;
+    if(!c.id){                       // 没有 id 的条目不可切换
       b.onclick=ev=>{ev.stopPropagation(); done('当前用的就是这条');};
       b.style.opacity='.6';
     }else b.onclick=async ev=>{ev.stopPropagation();
+      if(c.local_edit && c.current &&
+         !confirm('这条歌词你本地改过。用网上的原版覆盖吗？（覆盖前会备份，可用「恢复最初」找回）')) return;
       box.remove();
       busy('换歌词中…');
       try{

@@ -123,39 +123,49 @@ def edit_line(idx, li, start, reading):
             "rmH": _words(r, "romaji"), "kyH": _words(r, "keys")}
 
 def rematch(idx, duration):
-    """和首次匹配同一套逻辑：MB 规范化 → 网易云候选 → 按时长打分。"""
+    """重新匹配：候选**完全来自网络**，不拿本地缓存当候选。
+
+    缓存只用来知道"当前正在用哪个 id"，以便在列表里标 ●；
+    即使本地改过（缓存即本地编辑结果），网上同一 id 的原版仍会出现，
+    选中它就等于用网上版本覆盖本地（覆盖前有 .bak 备份）。
+    """
     item = CACHE.get(str(idx))
     if not item:
         return {"stem": "", "candidates": []}
     artist, title = LY.split_name(item["stem"])
     duration = float(duration or 0) or LY.audio_duration(item["file"])
+
     cur = LY.get_lrc(title, artist) or {}
+    cur_id = cur.get("id")
+    local_text = cur.get("lrc") or ""
+    local_modified = False
+    if cur_id and local_text:
+        try:
+            online = LY.fetch_lrc_by_id(cur_id)
+        except Exception:
+            online = ""
+        if online:
+            local_modified = ([x["text"] for x in LY.parse_lrc(online)] !=
+                              [x["text"] for x in LY.parse_lrc(local_text)])
 
     seen, rows = set(), []
 
     def add(c, src, q_title):
-        if not c or c.get("id") in seen:
+        if not c or not c.get("id") or c["id"] in seen:
             return
         if not LY._match(q_title, c.get("name", "")):
             return
-        if src != "current" and LY.is_excluded(c.get("name", "")):
+        if LY.is_excluded(c.get("name", "")):
             return
         delta = (round(c["duration"] - duration, 1)
                  if c.get("duration") and duration else None)
         limit = LY.CFG["mb_max_delta"] if src == "mb" else LY.CFG["fallback_max_delta"]
-        if src != "current" and delta is not None and abs(delta) > limit:
+        if delta is not None and abs(delta) > limit:
             return
-        seen.add(c.get("id"))
-        rows.append({"id": c.get("id"), "name": c.get("name", ""), "artist": c.get("artist", ""),
+        seen.add(c["id"])
+        rows.append({"id": c["id"], "name": c.get("name", ""), "artist": c.get("artist", ""),
                      "duration": c.get("duration") or 0, "delta": delta, "source": src,
                      "score": LY.score_candidate(c, title, artist, duration)})
-
-    if cur and not cur.get("miss"):
-        add({"id": cur.get("id"), "name": cur.get("name") or title,
-             "artist": cur.get("artist") or artist,
-             "duration": cur.get("duration") or 0}, "current", cur.get("name") or title)
-        for r in rows:
-            r["current"] = True
 
     canon = LY.mb_canonical(title, artist, duration)
     queries = {(canon["title"], canon["artist"]) if canon else (title, artist), (title, artist)}
@@ -164,8 +174,23 @@ def rematch(idx, duration):
         for c in LY.search_candidates(q_title, q_artist):
             add(c, src, q_title)
 
+    for r in rows:
+        if cur_id and str(r["id"]) == str(cur_id):
+            r["current"] = True
+            r["local_edit"] = local_modified
+
     rows.sort(key=lambda r: (not r.get("current"), -r["score"]))
+    if cur_id and not any(r.get("current") for r in rows):
+        rows.insert(0, {"id": cur_id, "name": cur.get("name") or title,
+                        "artist": cur.get("artist") or artist,
+                        "duration": cur.get("duration") or 0, "delta": None,
+                        "source": "current", "current": True, "local_edit": local_modified,
+                        "score": LY.score_candidate({"name": cur.get("name") or title,
+                                                     "artist": cur.get("artist") or artist,
+                                                     "duration": cur.get("duration") or 0},
+                                                    title, artist, duration)})
     return {"stem": item["stem"], "candidates": rows[:10]}
+
 
 def pick(idx, song_id) -> dict:
     """用户选定某个候选：把它的歌词写进缓存，返回结果。"""
