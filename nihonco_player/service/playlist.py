@@ -2,6 +2,7 @@
 """歌单 / 导入 / 打标 业务。只依赖 core。"""
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 from pathlib import Path
@@ -48,7 +49,7 @@ def playlists_action(req) -> dict:
         if item:
             ED.clear(item["key"])
     elif act == "import":
-        return _import_to_list(req)
+        return import_to_list(req)
     return {"ok": True, "lists": PL.build(cached_items())}
 
 
@@ -61,11 +62,16 @@ def import_to_list(req) -> dict:
     pool = [it["file"] for g in PL.build(cached_items()) if g["id"] == lid for it in g["items"]]
     res = IMP.import_paths(paths, pool)
 
+    # 导入的音频可能不在 music_dirs 里 → 先登记到 imports.json，
+    # 再按"路径 → uid"直接算，不依赖这次重扫的结果
+    for f in res["added"]:
+        p = Path(str(f))
+        artist, title = LIB.LY.split_name(p.stem)
+        LIB.save_import(str(p), title, artist)
     lib = LIB.scan_library()
     CACHE.clear()
     CACHE.update({str(i): x for i, x in enumerate(lib)})
-    by_file = {v["file"]: v["uid"] for v in CACHE.values()}
-    uids = [by_file[f] for f in res["added"] if f in by_file]
+    uids = [hashlib.md5(str(Path(str(f))).encode()).hexdigest()[:12] for f in res["added"]]
     added_n = PL.add(lid, uids)
 
     # "待匹配" = 真正进了歌单、但当前还没有歌词的那些
