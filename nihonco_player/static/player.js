@@ -47,7 +47,8 @@ function drawWave(){
   // 只要"每一句开头的线"，其他辅助线一律不画
   {
     const ls = LRCEDIT ? EROWS : LINES;
-    cx.strokeStyle='#4a7f6b'; cx.beginPath();
+    cx.strokeStyle='rgba(200,132,63,0.62)';   // 暖橙色，和绿色波形、亮绿播放头区分开
+    cx.lineWidth=1; cx.beginPath();
     (ls||[]).forEach(l=>{
       if(!l || l.t==null) return;
       const lt=l.t+OFFSET;
@@ -911,6 +912,7 @@ function highlight(i){
     document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
     document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'center',behavior:'smooth'});
   }
+  if(typeof WAVE!=='undefined' && WAVE && LRCEDIT) drawWave();
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间
   if(LRCEDIT){
     // 右侧罗马音在编辑模式下隐藏，不需要联动
@@ -1015,6 +1017,7 @@ playBtn.onclick=()=>{
   if(au.paused){ au.play().catch(()=>{}); } else { au.pause(); }
 };
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>au.addEventListener(ev, syncPlayBtn));
+['pause','seeked','loadedmetadata'].forEach(ev=>au.addEventListener(ev, ()=>{ if(typeof WAVE!=='undefined' && WAVE && LRCEDIT) drawWave(); }));
 au.addEventListener('play', syncPlayBtn); au.addEventListener('pause', syncPlayBtn);
 document.getElementById('rate').oninput=e=>{au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
 document.getElementById('prev').onclick=()=>{ const n=nextIdx(-1); if(n!==null) seekIdx(n,true); };
