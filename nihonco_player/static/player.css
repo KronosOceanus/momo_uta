@@ -215,3 +215,11 @@ body.lrcedit .lyr{flex:1 1 100%;border-right:0}
 .transport .ticks i{position:absolute;top:0;bottom:0;width:1px;background:#3a4450}
 .transport .vol{display:flex;align-items:center;gap:4px}
 .transport .vol input{width:70px}
+
+#lrcrow2,#lrcrow3{display:none;padding-top:5px;padding-bottom:5px}
+body.lrcedit #lrcrow2,body.lrcedit #lrcrow3{display:flex}
+.lrcrow{justify-content:space-between}
+.lrcrow .left,.lrcrow .right{display:flex;align-items:center;gap:6px}
+.lrcrow .right{margin-left:auto}
+.lrcrow #wavefollow{margin-left:auto}
+#lrcrow3 .off{margin-left:0}

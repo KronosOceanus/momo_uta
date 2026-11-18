@@ -9,21 +9,24 @@
   <span class="modes">
    <button id="edit">振假名编辑模式：关</button><button id="lrcedit">LRC 编辑模式：关</button>
   </span></div>
- <div class="bar lrcgrid" id="lrcbar" hidden>
+ <div class="bar" id="fakbar" hidden><button id="resetall">全部重置</button>
+  <span class="legend">A <span style="color:#7fbfa6">●</span> AB <span style="color:#c8843f">●</span> B <span style="color:#6d737c">●</span> C <span style="opacity:.5">●</span></span></div>
+ <div class="bar lrcrow" id="lrcrow2" hidden>
   <span class="left"><button id="lrcselall" title="选中所有行（⌘A）">全选</button>
    <button id="lrcadd" title="在选中行下面加一行">加行</button>
    <button id="lrcdel" title="删除选中的行（Delete）">删行</button></span>
-  <span class="mid"><button id="lrcsave">保存</button><button id="lrcsaveas">另存为</button>
+  <span class="right"><button id="lrcsave">保存</button><button id="lrcsaveas">另存为</button>
+   <button id="lrcimport" title="选一个 .lrc 直接覆盖当前歌词">导入LRC文件</button>
    <button id="lrcreset" title="把最早那次保存前的版本恢复回来">恢复最初</button>
    <span class="savehint" id="savehint"></span></span>
-  <button id="wavefollow" title="波形是否跟着播放滚动">跟随：开</button>
-  <span class="off"><span class="oflab">整体偏移</span>
+ </div>
+ <div class="bar lrcrow" id="lrcrow3" hidden>
+  <span class="left off"><span class="oflab">整体偏移</span>
    <button data-off="-0.5">−0.5s</button><button data-off="-0.1">−0.1s</button>
    <b id="offval">0.00s</b>
-   <button data-off="0.1">+0.1s</button><button data-off="0.5">+0.5s</button>
-  </span></div>
- <div class="bar" id="fakbar" hidden><button id="resetall">全部重置</button>
-  <span class="legend">A <span style="color:#7fbfa6">●</span> AB <span style="color:#c8843f">●</span> B <span style="color:#6d737c">●</span> C <span style="opacity:.5">●</span></span></div>
+   <button data-off="0.1">+0.1s</button><button data-off="0.5">+0.5s</button></span>
+  <button id="wavefollow" class="right" title="波形是否跟着播放滚动">跟随：开</button>
+ </div>
  <div class="wavewrap" id="wavewrap">
   <canvas id="wave" height="120"></canvas>
   <div class="wavehint" id="wavehint">点波形定位；滚轮缩放</div>

@@ -104,6 +104,26 @@ def restore_backup(audio: str | Path) -> dict:
     return {"ok": True, "path": str(p), "lines": len(parse(p.read_text(encoding="utf-8")))}
 
 
+def import_text(audio: str | Path, text: str) -> dict:
+    """用外部 .lrc 文本直接覆盖当前歌词（首次覆盖前备份）。"""
+    audio = Path(audio)
+    p = lrc_path(audio)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    backed = False
+    if p.is_file():
+        bak = p.with_suffix(".lrc.bak")
+        if not bak.exists():
+            shutil.copy2(p, bak)
+            backed = True
+    if not text.endswith("\n"):
+        text += "\n"
+    p.write_text(text, encoding="utf-8")
+    artist, title = LY.split_name(audio.stem)
+    LY.write_local_lrc(title, artist, text,
+                       duration=LY.audio_duration(audio), name=title, by=artist)
+    return {"ok": True, "path": str(p), "lines": len(parse(text)), "backed_up": backed}
+
+
 def save(audio: str | Path, lines: list[dict]) -> dict:
     """写回 .lrc（首次备份成 .lrc.bak），并同步歌词缓存。"""
     audio = Path(audio)

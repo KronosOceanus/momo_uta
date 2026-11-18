@@ -74,6 +74,20 @@ def main() -> None:
             except Exception as e:
                 return ""
 
+        def pick_lrc_text(self):
+            """选一个 .lrc，返回 {"name","text"}；取消返回空。"""
+            try:
+                r = webview.windows[0].create_file_dialog(
+                    FileDialog.OPEN, allow_multiple=False,
+                    file_types=("LRC 歌词 (*.lrc)", "全部文件 (*.*)"))
+                if not r:
+                    return {}
+                path = r if isinstance(r, str) else r[0]
+                return {"name": Path(path).name,
+                        "text": Path(path).read_text(encoding="utf-8", errors="ignore")}
+            except Exception:
+                return {}
+
         def pick_files(self):
             return webview.windows[0].create_file_dialog(
                 FileDialog.OPEN, allow_multiple=True,

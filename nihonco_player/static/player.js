@@ -636,6 +636,24 @@ document.getElementById('lrcsaveas').onclick=async()=>{
     done(p ? '已另存为 '+p.split('/').pop() : '已取消');
   }else done('当前环境不支持另存为');
 };
+document.getElementById('lrcimport').onclick=async()=>{
+  if(!LRCEDIT || !S) return;
+  let r={};
+  if(window.pywebview && window.pywebview.api && window.pywebview.api.pick_lrc_text){
+    r=await window.pywebview.api.pick_lrc_text() || {};
+  }else{
+    done('当前环境不支持选文件'); return;
+  }
+  if(!r.text) return;
+  if(!confirm(`用「${r.name}」覆盖当前歌词？当前内容会被替换`)) return;
+  busy('导入中…');
+  try{
+    const res=await api('/api/lrc',{action:'import_lrc', idx:S.idx, text:r.text});
+    if(!res.ok){ done(res.error||'导入失败'); return; }
+    done(`已导入 ${res.lines} 行${res.backed_up?'（已备份原文件）':''}`);
+    await openLrcEditor();
+  }catch(e){ done('导入失败：'+e.message); }
+};
 document.getElementById('lrcreset').onclick=async()=>{
   if(!LRCEDIT || !S) return;
   const st=await api('/api/lrc',{action:'backup', idx:S.idx});

@@ -520,6 +520,14 @@ class H(BaseHTTPRequestHandler):
                 lib = LIB.scan_library()
                 CACHE.clear(); CACHE.update({str(i): x for i, x in enumerate(lib)})
             return res
+        if act == "import_lrc":
+            text = str(req.get("text") or "")
+            if not text.strip():
+                return {"ok": False, "error": "文件是空的"}
+            res = LRC.import_text(item["file"], text)
+            lib = LIB.scan_library()
+            CACHE.clear(); CACHE.update({str(i): x for i, x in enumerate(lib)})
+            return res
         if act == "save":
             lines = req.get("lines") or []
             if not lines:
