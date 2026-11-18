@@ -128,6 +128,24 @@ function renderLrcTable(){
     el.oninput=()=>{ EROWS[+el.dataset.i].text=el.value; markDirty(); };
     el.onkeydown=ev=>{
       if(ev.isComposing||ev.keyCode===229) return;
+      // 光标在行首按 Delete/⌫：把这一行接到上一行末尾
+      if((ev.key==='Backspace'||ev.key==='Delete') &&
+         el.selectionStart===0 && el.selectionEnd===0){
+        const i=+el.dataset.i;
+        if(i<=0) return;                       // 第一行没有上一行
+        ev.preventDefault();
+        const prev=EROWS[i-1], cur=EROWS[i];
+        const joinAt=(prev.text||'').length;
+        snapshot();
+        prev.text=(prev.text||'')+(cur.text||'');
+        EROWS.splice(i,1);
+        ESEL=i-1; SEL.clear();
+        renderLrcTable();
+        const pv=document.querySelector(`.lerow[data-i="${i-1}"] input.tx`);
+        if(pv){ pv.focus(); pv.setSelectionRange(joinAt, joinAt); }
+        document.querySelector(`.lerow[data-i="${i-1}"]`)?.scrollIntoView({block:'center'});
+        return;
+      }
       if(ev.key==='Enter'){
         ev.preventDefault();
         const i=+el.dataset.i, pos=el.selectionStart, v=el.value;
