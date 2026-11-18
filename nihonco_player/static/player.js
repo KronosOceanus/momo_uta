@@ -327,7 +327,7 @@ document.getElementById('resetall').onclick=async()=>{
 let LRCEDIT=false;
 
 // ── LRC 编辑表格 ────────────────────────────────
-let EROWS=[], ESEL=-1, MARK=null, EDIRTY=false, UNDO=[], REDO=[];
+let EROWS=[], ESEL=-1, SEL=new Set(), MARK=null, EDIRTY=false, UNDO=[], REDO=[];
 
 function snapshot(){
   UNDO.push(JSON.stringify(EROWS)); if(UNDO.length>50) UNDO.shift();
@@ -337,54 +337,61 @@ function undo(){
   if(!UNDO.length) return;
   REDO.push(JSON.stringify(EROWS));
   EROWS=JSON.parse(UNDO.pop()); ESEL=Math.min(ESEL, EROWS.length-1);
-  renderLrcTable();
+  SEL.clear(); renderLrcTable();
 }
 function redo(){
   if(!REDO.length) return;
   UNDO.push(JSON.stringify(EROWS));
-  EROWS=JSON.parse(REDO.pop()); renderLrcTable();
+  EROWS=JSON.parse(REDO.pop()); SEL.clear(); renderLrcTable();
 }
-document.addEventListener('keydown', e=>{
-  if(!LRCEDIT) return;
-  if(!(e.metaKey||e.ctrlKey)) return;
-  if(e.key==='z'||e.key==='Z'){ e.preventDefault(); e.shiftKey?redo():undo(); }
-});
 
-function lrcFmt(t){ if(t===null||t===undefined) return '—';
+function lrcFmt(t){ if(t===null||t===undefined) return '';
   const m=Math.floor(t/60), s=(t-m*60);
   return `${String(m).padStart(2,'0')}:${s.toFixed(2).padStart(5,'0')}`; }
 function lrcParse(v){
-  const m=/^(\d+):(\d+(?:\.\d+)?)$/.exec(v.trim()); if(!m) return null;
+  const m=/^(\d+):(\d+(?:\.\d+)?)$/.exec((v||'').trim()); if(!m) return null;
   return Math.round((+m[1]*60 + +m[2])*100)/100;
 }
 function lrcText(){
-  return EROWS.map(r=>`[${lrcFmt(r.t).replace('—','00:00.00')}]${r.text}`).join('\n')+'\n';
+  return EROWS.map(r=>`[${lrcFmt(r.t)||'00:00.00'}]${r.text||''}`).join('\n')+'\n';
 }
+
 async function openLrcEditor(){
   const d=await api('/api/lrc',{action:'load', idx:S.idx});
-  EROWS=(d.lines||[]).map((x,i)=>({id:i, t:x.t, text:x.text}));
-  if(!EROWS.length) EROWS=[{id:0, t:null, text:''}];
-  ESEL=0; EDIRTY=false; MARK=null;
+  EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
+  if(!EROWS.length) EROWS=[{t:null,text:''}];
+  ESEL=0; SEL.clear(); EDIRTY=false; MARK=null;
   renderLrcTable();
 }
+
+function rowHtml(r,i){
+  return `<div class="lerow${i===ESEL?' sel':''}${SEL.has(i)?' picked':''}" data-i="${i}">
+    <span class="no">${String(i+1).padStart(2,'0')}</span>
+    <input class="ts${r.t===null?' none':''}" data-i="${i}" value="${r.t===null?'':lrcFmt(r.t)}" placeholder="mm:ss.xx">
+    <span class="bind" data-i="${i}" title="把标记时间写进这一行">↤</span>
+    <input class="tx" data-i="${i}" value="${(r.text||'').replace(/"/g,'&quot;')}">
+    <span class="del" data-i="${i}" title="删除这一行">✕</span>
+  </div>`;
+}
+
 function renderLrcTable(){
   const box=document.getElementById('lyr');
-  box.innerHTML='<div class="letable">'+EROWS.map((r,i)=>
-    `<div class="lerow${i===ESEL?' sel':''}" data-i="${i}">
-       <span class="no">${String(i+1).padStart(2,'0')}</span>
-       <input class="ts${r.t===null?' none':''}" data-i="${i}" value="${r.t===null?'':lrcFmt(r.t)}" placeholder="mm:ss.xx">
-       <span class="bind" data-i="${i}" title="把标记时间写进这一行">↤</span>
-       <input value="${(r.text||'').replace(/"/g,'&quot;')}" data-i="${i}">
-       <span class="del" data-i="${i}" title="删除这一行">✕</span>
-     </div>`).join('')+'</div>';
+  box.innerHTML='<div class="letable">'+EROWS.map(rowHtml).join('')+'</div>';
+  const rows=box.querySelectorAll('.lerow');
 
-  box.querySelectorAll('.lerow').forEach(el=>{
-    el.onclick=e=>{ if(e.target.tagName==='INPUT'||e.target.classList.contains('del')) return;
-      ESEL=+el.dataset.i; renderLrcTable(); };
+  rows.forEach(el=>{
+    el.onclick=e=>{
+      if(e.target.tagName==='INPUT') return;      // 输入框内点击：不抢焦点
+      const i=+el.dataset.i;
+      if(e.metaKey||e.ctrlKey){ SEL.has(i)?SEL.delete(i):SEL.add(i); }
+      else if(e.shiftKey && ESEL>=0){ SEL.clear();
+        for(let k=Math.min(ESEL,i);k<=Math.max(ESEL,i);k++) SEL.add(k); }
+      else { SEL.clear(); }
+      ESEL=i; paintSelection();
+    };
   });
-  box.querySelectorAll('.ts').forEach(el=>{
+  box.querySelectorAll('input.ts').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
-    el.onfocus=()=>{ ESEL=+el.dataset.i; };
     el.onchange=()=>{
       const i=+el.dataset.i, v=el.value.trim();
       if(!v){ snapshot(); EROWS[i].t=null; renderLrcTable(); return; }
@@ -395,32 +402,127 @@ function renderLrcTable(){
     el.onkeydown=ev=>{ if(ev.isComposing||ev.keyCode===229) return;
       if(ev.key==='Enter'){ ev.preventDefault(); el.blur(); } };
   });
+  box.querySelectorAll('input.tx').forEach(el=>{
+    el.onclick=e=>e.stopPropagation();
+    el.onfocus=()=>{ ESEL=+el.dataset.i; paintSelection(); };
+    el.oninput=()=>{ EROWS[+el.dataset.i].text=el.value; EDIRTY=true; };
+    el.onkeydown=ev=>{
+      if(ev.isComposing||ev.keyCode===229) return;
+      if(ev.key==='Enter'){ ev.preventDefault(); addRow(+el.dataset.i+1); }
+    };
+    el.onpaste=ev=>{
+      const text=(ev.clipboardData||window.clipboardData).getData('text');
+      if(!text || !text.includes('\n')) return;      // 单行正常粘贴
+      ev.preventDefault();
+      const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
+      if(!lines.length) return;
+      snapshot();
+      const at=Math.max(0,+el.dataset.i+1);
+      const fresh=lines.map(x=>{
+        const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
+        return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3]}
+                 : {t:null, text:x};
+      });
+      EROWS.splice(at,0,...fresh);
+      ESEL=at+fresh.length-1; SEL.clear(); renderLrcTable();
+      done(`粘贴了 ${fresh.length} 行`);
+    };
+  });
   box.querySelectorAll('.bind').forEach(el=>{
     el.onclick=e=>{ e.stopPropagation(); bindMark(+el.dataset.i); };
-  });
-  box.querySelectorAll('input').forEach(inp=>{
-    if(inp.classList.contains('ts')) return;
-    inp.oninput=()=>{ EROWS[+inp.dataset.i].text=inp.value; EDIRTY=true; };
-    inp.onkeydown=ev=>{
-      if(ev.isComposing||ev.keyCode===229) return;
-      if(ev.key==='Enter'){ ev.preventDefault(); ESEL=Math.min(EROWS.length-1, +inp.dataset.i+1); renderLrcTable();
-        const nx=document.querySelector(`.lerow[data-i="${ESEL}"] input`); if(nx) nx.focus(); }
-    };
   });
   box.querySelectorAll('.del').forEach(el=>{
     el.onclick=e=>{ e.stopPropagation(); snapshot(); EROWS.splice(+el.dataset.i,1);
       if(!EROWS.length) EROWS=[{t:null,text:''}];
-      ESEL=Math.min(ESEL, EROWS.length-1); EDIRTY=true; renderLrcTable(); };
+      ESEL=Math.min(ESEL,EROWS.length-1); SEL.clear(); renderLrcTable(); };
   });
 }
+
+function paintSelection(){
+  document.querySelectorAll('.lerow').forEach(el=>{
+    const i=+el.dataset.i;
+    el.classList.toggle('sel', i===ESEL);
+    el.classList.toggle('picked', SEL.has(i));
+  });
+}
+function addRow(at){
+  snapshot();
+  const pos = (at===undefined)
+    ? ((ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length)
+    : at;
+  EROWS.splice(pos,0,{t:null,text:''});
+  ESEL=pos; SEL.clear(); renderLrcTable();
+  document.querySelector(`.lerow[data-i="${pos}"]`)?.scrollIntoView({block:'center'});
+}
+function delRows(){
+  const idx = SEL.size ? [...SEL] : (ESEL>=0?[ESEL]:[]);
+  if(!idx.length) return;
+  snapshot();
+  idx.sort((a,b)=>b-a).forEach(i=>EROWS.splice(i,1));
+  if(!EROWS.length) EROWS=[{t:null,text:''}];
+  ESEL=Math.min(idx[idx.length-1],EROWS.length-1); SEL.clear(); renderLrcTable();
+}
+function selectAll(){
+  SEL.clear(); for(let i=0;i<EROWS.length;i++) SEL.add(i);
+  renderLrcTable(); done(`已选中 ${EROWS.length} 行`);
+}
 function bindMark(i){
-  if(MARK===null){ toast('先在波形上点一个位置'); return; }
+  if(MARK===null){ done('先在波形上点一个位置'); return; }
   snapshot(); EROWS[i].t=MARK;
-  ESEL=Math.min(EROWS.length-1, i+1);
+  ESEL=Math.min(EROWS.length-1, i+1); SEL.clear();
   renderLrcTable();
   document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
 }
 
+document.getElementById('lrcadd').onclick=()=>{ if(LRCEDIT) addRow(); };
+document.getElementById('lrcdel').onclick=()=>{ if(LRCEDIT) delRows(); };
+document.getElementById('lrcselall').onclick=()=>{ if(LRCEDIT) selectAll(); };
+document.getElementById('lrcsaveas').onclick=async()=>{
+  if(!LRCEDIT) return;
+  const name=(S&&S.title?S.title:'lyrics')+'.lrc';
+  const text=lrcText();
+  if(window.pywebview && window.pywebview.api && window.pywebview.api.save_text){
+    const p=await window.pywebview.api.save_text(name, text);
+    done(p ? '已另存为 '+p.split('/').pop() : '已取消');
+  }else done('当前环境不支持另存为');
+};
+document.getElementById('lrcreset').onclick=async()=>{
+  if(!LRCEDIT || !S) return;
+  const st=await api('/api/lrc',{action:'backup', idx:S.idx});
+  if(!st.exists){ done('没有备份（首次保存时才会生成）'); return; }
+  const when=new Date(st.mtime*1000).toLocaleString();
+  if(!confirm(`恢复到这个备份？\n${when} · ${st.lines} 行\n当前编辑内容会丢失`)) return;
+  busy('恢复中…');
+  const r=await api('/api/lrc',{action:'restore', idx:S.idx});
+  if(!r.ok){ done(r.error||'恢复失败'); return; }
+  done(`已恢复最初版本（${r.lines} 行）`);
+  await openLrcEditor();
+};
+document.getElementById('lrcsave').onclick=async()=>{
+  if(!LRCEDIT) return;
+  if(!EROWS.length){ done('没有歌词行'); return; }
+  const back=EROWS.some((r,i)=>i>0 && r.t!==null && EROWS.slice(0,i).some(p=>p.t!==null && r.t<p.t));
+  if(back && !confirm('有时间戳倒退的行，仍然保存？')) return;
+  const unaligned=EROWS.filter(r=>r.t===null).length;
+  if(unaligned && !confirm(`有 ${unaligned} 行还没对齐时间，仍然保存？`)) return;
+  busy('保存中…');
+  try{
+    const r=await api('/api/lrc',{action:'save', idx:S.idx,
+      lines:EROWS.map(x=>({t:x.t, text:x.text}))});
+    if(!r.ok){ done(r.error||'保存失败'); return; }
+    EDIRTY=false;
+    done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
+  }catch(e){ done('保存失败：'+e.message); }
+};
+
+document.addEventListener('keydown', e=>{
+  if(!LRCEDIT) return;
+  const ins=e.target.tagName==='INPUT';
+  if(ins) return;
+  if((e.metaKey||e.ctrlKey) && (e.key==='a'||e.key==='A')){ e.preventDefault(); selectAll(); return; }
+  if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); delRows(); return; }
+  if((e.metaKey||e.ctrlKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); e.shiftKey?redo():undo(); }
+});
 
 function syncModes(){
   const e=document.getElementById('edit'), l=document.getElementById('lrcedit');

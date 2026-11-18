@@ -60,6 +60,33 @@ def render(lines: list[dict]) -> str:
     return "\n".join(f"{fmt(ln.get('t'))}{ln.get('text') or ''}" for ln in lines) + "\n"
 
 
+def backup_path(audio: str | Path) -> Path:
+    return Path(audio).with_suffix(".lrc.bak")
+
+
+def backup_status(audio: str | Path) -> dict:
+    b = backup_path(audio)
+    if not b.is_file():
+        return {"exists": False}
+    text = b.read_text(encoding="utf-8", errors="ignore")
+    return {"exists": True, "path": str(b), "lines": len(parse(text)),
+            "mtime": b.stat().st_mtime, "size": b.stat().st_size}
+
+
+def restore_backup(audio: str | Path) -> dict:
+    """把 .lrc.bak 覆盖回 .lrc（恢复最初版本），并同步歌词缓存。"""
+    audio = Path(audio)
+    b = backup_path(audio)
+    if not b.is_file():
+        return {"ok": False, "error": "没有备份文件"}
+    p = lrc_path(audio)
+    shutil.copy2(b, p)
+    artist, title = LY.split_name(audio.stem)
+    LY.write_local_lrc(title, artist, p.read_text(encoding="utf-8"),
+                       duration=LY.audio_duration(audio), name=title, by=artist)
+    return {"ok": True, "path": str(p), "lines": len(parse(p.read_text(encoding="utf-8")))}
+
+
 def save(audio: str | Path, lines: list[dict]) -> dict:
     """写回 .lrc（首次备份成 .lrc.bak），并同步歌词缓存。"""
     audio = Path(audio)

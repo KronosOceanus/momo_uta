@@ -185,3 +185,6 @@ body.lrcedit #lrcbar{display:grid}
 .lrcgrid .off{justify-self:end}
 .legend{font-size:11px;color:#6d737c}
 .off .oflab{color:#8a9099;margin-right:4px}
+
+.lerow.picked{background:#1b232d}
+.lerow.picked .no{color:#7fbfa6}

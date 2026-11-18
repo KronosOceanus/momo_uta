@@ -510,6 +510,14 @@ class H(BaseHTTPRequestHandler):
         act = req.get("action") or "load"
         if act == "load":
             return LRC.load(item["file"])
+        if act == "backup":
+            return LRC.backup_status(item["file"])
+        if act == "restore":
+            res = LRC.restore_backup(item["file"])
+            if res.get("ok"):
+                lib = LIB.scan_library()
+                CACHE.clear(); CACHE.update({str(i): x for i, x in enumerate(lib)})
+            return res
         if act == "save":
             lines = req.get("lines") or []
             if not lines:
