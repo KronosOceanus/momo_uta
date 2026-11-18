@@ -91,6 +91,8 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   S.offset=OFFSET;
   document.getElementById('offval').textContent=OFFSET.toFixed(2)+'s';
   syncModes(); drawWave();
+  const i=idxAt(au.currentTime);
+  if(i>=0) highlight(i);
   await api('/api/pl',{action:'ui_offset', idx:S.idx, offset:OFFSET});
 });
 setInterval(()=>{ if(WAVE) drawWave(); }, 120);
@@ -469,6 +471,37 @@ function renderLrcTable(){
   });
 }
 
+let MARQ=null;
+document.getElementById('lyr').addEventListener('mousedown', e=>{
+  if(!LRCEDIT || !e.shiftKey) return;
+  if(e.target.tagName==='INPUT') return;
+  e.preventDefault();
+  MARQ={x0:e.clientX, y0:e.clientY};
+  const d=document.createElement('div'); d.className='marquee'; d.id='marquee';
+  document.body.appendChild(d);
+});
+document.addEventListener('mousemove', e=>{
+  if(!MARQ) return;
+  const el=document.getElementById('marquee'); if(!el) return;
+  const x=Math.min(MARQ.x0,e.clientX), y=Math.min(MARQ.y0,e.clientY);
+  const w=Math.abs(e.clientX-MARQ.x0), h=Math.abs(e.clientY-MARQ.y0);
+  Object.assign(el.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});
+});
+document.addEventListener('mouseup', e=>{
+  if(!MARQ) return;
+  const el=document.getElementById('marquee'); if(el) el.remove();
+  const x1=Math.min(MARQ.x0,e.clientX), x2=Math.max(MARQ.x0,e.clientX);
+  const y1=Math.min(MARQ.y0,e.clientY), y2=Math.max(MARQ.y0,e.clientY);
+  MARQ=null;
+  const rows=[...document.querySelectorAll('.lerow')];
+  const picked=rows.filter(r=>{
+    const b=r.getBoundingClientRect();
+    return b.bottom>=y1 && b.top<=y2 && b.right>=x1 && b.left<=x2;
+  }).map(r=>+r.dataset.i);
+  if(!picked.length) return;
+  SEL=new Set(picked); ESEL=Math.max(...picked);
+  paintSelection();
+});
 function paintSelection(){
   document.querySelectorAll('.lerow').forEach(el=>{
     const i=+el.dataset.i;
@@ -642,6 +675,7 @@ document.getElementById('offchip').onclick=async()=>{
   OFFSET=0; if(S) S.offset=0;
   document.getElementById('offval').textContent='0.00s';
   syncModes();
+  { const i=idxAt(au.currentTime); if(i>=0) highlight(i); }
   await api('/api/pl',{action:'ui_offset', idx:S?.idx, offset:0});
 };
 

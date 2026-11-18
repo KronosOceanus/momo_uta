@@ -205,3 +205,6 @@ body.lrcedit #lrcbar{display:grid}
   padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit}
 .pastebox button.primary{border-color:var(--a);color:var(--a);background:#20323d}
 .pastebox button:hover{border-color:var(--a);color:var(--a)}
+
+.marquee{position:fixed;border:1px solid var(--a);background:rgba(127,191,166,.12);
+  pointer-events:none;z-index:110;border-radius:3px}
