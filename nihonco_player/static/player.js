@@ -102,7 +102,12 @@ function saveOpen(){
 }
 
 async function load(i, autoplay){
+  const prevIdx = S ? String(S.idx) : null;
   const d = await (await fetch('/api/song/'+i)).json();
+  if(prevIdx !== String(d.idx)){        // 换歌 → 两个编辑模式都关掉
+    EDITMODE=false; LRCEDIT=false;
+    if(typeof syncModes==='function') syncModes();
+  }
   if(d.pending){                               // 没有歌词 → 懒匹配
     S=d; LINES=[]; CUR=-1;
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
@@ -408,7 +413,19 @@ function renderLrcTable(){
     el.oninput=()=>{ EROWS[+el.dataset.i].text=el.value; EDIRTY=true; };
     el.onkeydown=ev=>{
       if(ev.isComposing||ev.keyCode===229) return;
-      if(ev.key==='Enter'){ ev.preventDefault(); addRow(+el.dataset.i+1); }
+      if(ev.key==='Enter'){
+        ev.preventDefault();
+        const i=+el.dataset.i, pos=el.selectionStart, v=el.value;
+        const left=v.slice(0,pos), right=v.slice(pos);
+        snapshot();
+        EROWS[i].text=left;
+        EROWS.splice(i+1, 0, {t:null, text:right});
+        ESEL=i+1; SEL.clear(); EDIRTY=true;
+        renderLrcTable();
+        const nx=document.querySelector(`.lerow[data-i="${i+1}"] input.tx`);
+        if(nx){ nx.focus(); nx.setSelectionRange(0,0); }
+        document.querySelector(`.lerow[data-i="${i+1}"]`)?.scrollIntoView({block:'center'});
+      }
     };
     el.onpaste=ev=>{
       const text=(ev.clipboardData||window.clipboardData).getData('text');
@@ -518,7 +535,8 @@ document.getElementById('lrcsave').onclick=async()=>{
 document.addEventListener('keydown', e=>{
   if(!LRCEDIT) return;
   const ins=e.target.tagName==='INPUT';
-  if(ins) return;
+  if(ins) return;                       // 输入框里的 Enter 走"拆行"
+  if(e.key==='Enter'){ e.preventDefault(); addRow(); return; }
   if((e.metaKey||e.ctrlKey) && (e.key==='a'||e.key==='A')){ e.preventDefault(); selectAll(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); delRows(); return; }
   if((e.metaKey||e.ctrlKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); e.shiftKey?redo():undo(); }
@@ -565,7 +583,7 @@ document.getElementById('offchip').onclick=async()=>{
 
 document.getElementById('edit').onclick=()=>{
   EDITMODE=!EDITMODE;
-  if(EDITMODE && LRCEDIT){ LRCEDIT=false; if(S) load(S.idx); }   // 互斥
+  if(EDITMODE && LRCEDIT){ LRCEDIT=false; }   // 互斥：只切模式，不重载
   syncModes();
 };
 document.addEventListener('click', async e=>{
