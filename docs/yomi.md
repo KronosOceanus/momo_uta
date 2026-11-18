@@ -13,22 +13,22 @@
 罗马音、键位；
 
 ```text
-基线数字（歌词三集 / 散文）见 [`docs/eval.md`](docs/eval.md)「当前基线」，
+基线数字（歌词三集 / 散文）见 [`eval.md`](eval.md)「当前基线」，
 本文不再重复，避免两处数字漂移。
 ```
 
 **这份文档讲的是引擎**（标注怎么算、为什么这么算）。
-播放器与打轴工具见 [`docs/player.md`](docs/player.md)、[`docs/lrc-editor.md`](docs/lrc-editor.md)。
+播放器与打轴工具见 [`docs/player.md`](player.md)、[`docs/lrc-editor.md`](lrc-editor.md)。
 
-**全部文档的索引：**[`docs/README.md`](docs/README.md)
+**全部文档的索引：**[`docs/README.md`](README.md)
 
 ```text
-docs/architecture.md  架构与边界（改代码前看）
-docs/eval.md          评测集、跑分、基线、指标定义
-docs/testing.md       93 条测试怎么跑、覆盖什么
-docs/player.md        播放器（功能、交互、接口）
-docs/lrc-editor.md    LRC 编辑器（打轴）
-docs/NOTES.md         开发笔记（决策与失败记录，历史累积）
+architecture.md  架构与边界（改代码前看）
+eval.md          评测集、跑分、基线、指标定义
+testing.md       93 条测试怎么跑、覆盖什么
+player.md        播放器（功能、交互、接口）
+lrc-editor.md    LRC 编辑器（打轴）
+NOTES.md         开发笔记（决策与失败记录，历史累积）
 TODO.md               待做清单
 ```
 
@@ -89,7 +89,7 @@ config/ data/ eval/ demo/ docs/ tests/
 ```
 
 ```text
-更细的分层、依赖规则、数据流见 docs/architecture.md（含行数的结构图）
+更细的分层、依赖规则、数据流见 [architecture.md](architecture.md)（含行数的结构图）
 ```
 
 ## 目录
@@ -118,7 +118,7 @@ config/ data/ eval/ demo/ docs/ tests/
 
 | 设计项 | 状态 | 现状 |
 |---|---|---|
-| ① 振假名层 | ✅ 已实现 | Sudachi + 4 张表 + 规则链；分数见 [`docs/eval.md`](docs/eval.md) |
+| ① 振假名层 | ✅ 已实现 | Sudachi + 4 张表 + 规则链；分数见 [`eval.md`](eval.md) |
 | ② 罗马音层 | ✅ 已实现 | `nihonco_yomi/romaji.py`；完全逐字转写（`きょう→kyou`、`コーヒー→ko-hi-`），助詞按 POS 判 |
 | ③ 键位层 | ✅ 已实现 | 同一张表、不同写法（ん n'、ー -、を wo） |
 | 置信度分级 | ✅ 已实现 | A / AB / B / C + K；按语料统计定档（见 §3.1） |
@@ -128,7 +128,7 @@ config/ data/ eval/ demo/ docs/ tests/
 | stdio 入口（D4） | ✅ 已实现 | `annotate.py --stdio` |
 | 本地页面（`serve.py`） | ✅ 已实现 | 127.0.0.1:8765，输入日文出三层；候选可点、改动存本地 |
 | 正式 HTTP 服务 | ✅ 已实现（单机） | 桌面 app 内置：127.0.0.1 随机端口，ThreadingHTTPServer + Range；无多用户/部署单元（见 §5.4） |
-| 发布门禁 99.5%（§2.4） | ❌ 未达标 | 当前实测见 [`docs/eval.md`](docs/eval.md) |
+| 发布门禁 99.5%（§2.4） | ❌ 未达标 | 当前实测见 [`eval.md`](eval.md) |
 | 回归门禁 | ❌ 已移除 | 2026-11 删除，只看指标 |
 | 对外接口 | ✅ 已实现 | `nihonco_yomi/` 包：`Annotator().annotate(text, overrides)`，0.16ms/句 |
 | 候选选择（B 档） | ✅ 已实现 | 有候选点列表、无候选输假名；正文改单处、面板改全部 |

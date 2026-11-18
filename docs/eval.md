@@ -1,13 +1,13 @@
 # 评测集与基线
 
-> 服务设计见根目录 [`yomi.md`](../yomi.md)；开发笔记见 [`NOTES.md`](NOTES.md)。
+> 服务设计见 [`yomi.md`](yomi.md)；开发笔记见 [`NOTES.md`](NOTES.md)。
 
 给「日语标注服务」（振假名 / 罗马音 / 键盘键位）准备的评测底座。
 
 **为什么先做评测**：服务的核心约束是"不设人工复核"——那 precision 就必须可度量，
 否则每次改规则都只能靠感觉。这份文档说明**评什么、怎么算、现在多少、哪里不可信**。
 
-设计（判定链、档位、契约）在 [`../yomi.md`](../yomi.md)；
+设计（判定链、档位、契约）在 [`yomi.md`](yomi.md)；
 踩过的坑和决策记录在 [`NOTES.md`](NOTES.md)。
 
 ---
@@ -15,7 +15,7 @@
 ## 目录
 
 ```text
-yomi.md（根目录）
+yomi.md（本文档同目录）
   标注服务的设计：三支柱、四档判定、服务契约、架构、表清单
   ★ 开头有「实现状态」表，区分设计与现状
 
@@ -147,7 +147,7 @@ make audit-patches # 人工补丁赚亏
 .venv/bin/python tools/render.py --pair demo/src/gunjou.txt --title 群青
 ```
 
-单句标注、响应契约、版本字段见根目录 [`yomi.md`](../yomi.md) §5.4：
+单句标注、响应契约、版本字段见 [`yomi.md`](yomi.md) §5.4：
 
 ```bash
 .venv/bin/python tools/annotate.py --text "大人と子供"     # 单句 JSON
@@ -171,7 +171,7 @@ echo '{"text":"大人"}' | .venv/bin/python tools/annotate.py --stdio   # stdio 
 
 ### 按档位的结果
 
-判定规则、档位定义、LLM 的角色都在根目录 [`yomi.md`](../yomi.md) §3。
+判定规则、档位定义、LLM 的角色都在 [`yomi.md`](yomi.md) §3。
 这里只放结果（歌词开发集）：
 
 | 档 | span | precision | 含义 |
@@ -251,7 +251,7 @@ coverage  = 判对 / gold span 总数
 评测集按这里的规则编号分层。每条 gold 记录都带 `rules: [...]`，评测时按规则分组出指标。
 
 > **重要**：这些标签**只用于分层和分组统计**，不参与标注判定。
-> 标注器（`tools/annotate.py`）有独立的一套规则链，见根目录 `yomi.md` §3.3。
+> 标注器（`tools/annotate.py`）有独立的一套规则链，见`yomi.md`（docs 下） §3.3。
 > 检测实现见 `tools/rules.py`，是启发式的——同一句可以命中多条，`primary` 只决定它进哪一层。
 
 ## A 组：读音本身
