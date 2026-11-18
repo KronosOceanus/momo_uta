@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from pathlib import Path
@@ -38,13 +39,29 @@ def load(audio: str | Path) -> dict:
 
 
 def parse(text: str) -> list[dict]:
+    """同时支持标准 LRC 与网易云的 JSON 逐行格式。
+
+    标准： [mm:ss.xx]文本
+    JSON： {"t":毫秒,"c":[{"tx":"作词: "},{"tx":"Ayase"}]}
+    """
     out = []
     for raw in (text or "").splitlines():
-        m = LINE.match(raw.strip())
-        if not m:
+        line = raw.strip()
+        if not line:
             continue
-        t = int(m.group(1)) * 60 + float(m.group(2))
-        out.append({"t": round(t, 2), "text": m.group(3).strip()})
+        m = LINE.match(line)
+        if m:
+            t = int(m.group(1)) * 60 + float(m.group(2))
+            out.append({"t": round(t, 2), "text": m.group(3).strip()})
+            continue
+        if line.startswith("{") and '"t"' in line:      # 网易云 JSON 行
+            try:
+                obj = json.loads(line)
+                t = float(obj.get("t", 0)) / 1000.0     # 毫秒 → 秒
+                text = "".join((c or {}).get("tx", "") for c in (obj.get("c") or []))
+                out.append({"t": round(t, 2), "text": text.strip()})
+            except Exception:
+                pass
     return out
 
 

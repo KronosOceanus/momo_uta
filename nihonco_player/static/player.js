@@ -363,8 +363,20 @@ function lrcText(){
 
 async function openLrcEditor(){
   const d=await api('/api/lrc',{action:'load', idx:S.idx});
-  EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
+  const fileRows=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
+  // 优先用 .lrc 文件；行数不一致时改用"当前播放列表"的行，保证左右对齐
+  let base, note='';
+  if(fileRows.length && fileRows.length===LINES.length){
+    base=fileRows;
+  }else if(LINES.length){
+    base=LINES.map(l=>({t:(l.meta?l.t:l.t), text:l.text}));
+    if(fileRows.length) note='（.lrc 与播放列表行数不同，按播放列表对齐）';
+  }else{
+    base=fileRows;
+  }
+  EROWS=base;
   if(!EROWS.length) EROWS=[{t:null,text:''}];
+  if(note) done('已加载'+note);
   ESEL=0; SEL.clear(); EDIRTY=false; MARK=null;
   renderLrcTable();
 }
