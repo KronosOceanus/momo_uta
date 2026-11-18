@@ -1,4 +1,16 @@
-sudachipy
-sudachidict_core
-mutagen
-musicbrainzngs
+# 运行时依赖（pip install -r requirements.txt）
+
+# 引擎：分词
+SudachiPy==0.7.0
+sudachidict_core==20261015
+
+# 播放器：音频时长 + 歌词检索
+mutagen==1.48.1
+musicbrainzngs==0.7.1
+
+# 桌面窗口（macOS 下会自动带 pyobjc，用于原生文件对话框）
+pywebview==6.2.1
+
+# macOS 原生对话框与主线程调度（pywebview 的依赖，显式列出以便看懂）
+pyobjc-core==13.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa==13.0; sys_platform == "darwin"
