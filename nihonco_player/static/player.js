@@ -795,8 +795,22 @@ let LRC_CUR=-1;
 au.ontimeupdate=()=>{
   // 正在看别的歌时，不要让它的歌词跟着当前音频滚动
   if(!S || String(PLAYING) !== String(S.idx)) return;
-  if(LRCEDIT){ lrcFollow(); return; }
-  const t=au.currentTime; const prev=CUR; let n=-1;
+  const t=au.currentTime;
+  if(LRCEDIT){
+    lrcFollow();
+    if(loop){                                   // 单句循环：重复选中行
+      const i=ESEL>=0?ESEL:lrcCurRow(t);
+      const row=EROWS[i];
+      if(row && row.t!==null){
+        const start=row.t+OFFSET;
+        let end=null;
+        for(let k=i+1;k<EROWS.length;k++){ if(EROWS[k].t!==null){ end=EROWS[k].t+OFFSET; break; } }
+        if(t>=start && (end===null || t>=end)) au.currentTime=start;
+      }
+    }
+    return;
+  }
+  const prev=CUR; let n=-1;
   for(let i=0;i<LINES.length;i++){ if(LINES[i].t<=t) n=i; else break; }
   paint(n);
   // 循环用"上一句"做基准：t 跨过下一句起点时退回上一句开头（尾音不截）
@@ -828,8 +842,12 @@ function lrcJump(dir){
     target=rows.find(x=>x.t+OFFSET > au.currentTime+0.05) || rows[rows.length-1];
   }
   au.currentTime=Math.max(0, target.t+OFFSET);
-  ESEL=target.i; paintSelection();
+  ESEL=target.i; SEL.clear(); LRC_CUR=target.i; LRC_MANUAL=-1;
+  paintSelection();
+  document.querySelectorAll('.lerow').forEach(el=>
+    el.classList.toggle('cur', +el.dataset.i===target.i));
   document.querySelector(`.lerow[data-i="${target.i}"]`)?.scrollIntoView({block:'center'});
+  syncSideToTime(target.t+OFFSET);
 }
 document.getElementById('prev').onclick=()=>{ if(LRCEDIT) return lrcJump(-1);
   const k=navIdx(CUR); seek(NAV[Math.max(0,k-1)]);};
