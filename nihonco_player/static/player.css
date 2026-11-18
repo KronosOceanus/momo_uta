@@ -208,3 +208,7 @@ body.lrcedit #lrcbar{display:grid}
 
 .marquee{position:fixed;border:1px solid var(--a);background:rgba(127,191,166,.12);
   pointer-events:none;z-index:110;border-radius:3px}
+
+/* LRC 模式：隐藏右侧罗马音，编辑表格占满 */
+body.lrcedit .side{display:none}
+body.lrcedit .lyr{flex:1 1 100%;border-right:0}

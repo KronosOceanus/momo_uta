@@ -889,8 +889,7 @@ function highlight(i){
   }
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间
   if(LRCEDIT){
-    const k=Math.min(i, LINES.length-1);
-    if(k>=0){ CUR=k; paint2(k); }
+    // 右侧罗马音在编辑模式下隐藏，不需要联动
   }else{
     syncSideToTime(lineT(l)===null? au.currentTime : lineT(l));
   }
