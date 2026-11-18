@@ -421,7 +421,21 @@ function bindMark(i){
 }
 document.getElementById('lrcadd').onclick=()=>{
   if(!LRCEDIT) return;
-  snapshot(); EROWS.push({t:null, text:''}); ESEL=EROWS.length-1; renderLrcTable();
+  // 有选中 → 插在它下面；没选中 → 追加到末尾
+  const at = (ESEL>=0 && ESEL<EROWS.length) ? ESEL+1 : EROWS.length;
+  snapshot();
+  EROWS.splice(at, 0, {t:null, text:''});
+  ESEL=at; renderLrcTable();
+  document.querySelector(`.lerow[data-i="${at}"]`)?.scrollIntoView({block:'center'});
+};
+document.getElementById('lrcdel').onclick=()=>{
+  if(!LRCEDIT) return;
+  if(ESEL<0 || ESEL>=EROWS.length) return;
+  snapshot();
+  EROWS.splice(ESEL,1);
+  if(!EROWS.length) EROWS=[{t:null,text:''}];
+  ESEL=Math.min(ESEL, EROWS.length-1);
+  renderLrcTable();
 };
 document.getElementById('lrcsave').onclick=async()=>{
   if(!LRCEDIT) return;
