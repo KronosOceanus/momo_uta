@@ -16,9 +16,12 @@ from pathlib import Path
 from nihonco_yomi.config import PL as PCFG
 
 from . import importing as IMP
+from . import song_meta as META
+from . import waveform as WAVE
 from . import edits as ED
 from . import library as LIB
 from . import playlists as PL
+from . import lrcio as LRC
 from . import lyrics as LY
 from .library import CACHE
 from .web import PAGE
@@ -105,7 +108,9 @@ def song_payload(idx: int) -> dict:
         ln["rmH"] = _words(r, "romaji")
         ln["kyH"] = _words(r, "keys")
     return {"idx": idx, "key": item["key"], "title": item["title"], "artist": item["artist"],
-            "lines": lines, "edits": edits, "audio": f"/audio/{idx}",
+            "lines": lines, "edits": edits,
+        "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),
+        "audio": f"/audio/{idx}",
 }
 
 
@@ -254,6 +259,10 @@ class H(BaseHTTPRequestHandler):
             PL.reorder(str(req.get("list")), [x for x in (req.get("uids") or []) if x])
         elif act == "ui_open":
             PL.set_open([x for x in (req.get("ids") or []) if x])
+        elif act == "ui_offset":
+            item = CACHE.get(str(req.get("idx")))
+            if item:
+                META.put(item["key"], offset=round(float(req.get("offset") or 0), 3))
         elif act == "edit_clear":
             item = CACHE.get(str(req.get("idx")))
             if item:
@@ -346,6 +355,7 @@ class H(BaseHTTPRequestHandler):
         "/api/pick": "_post_pick",
         "/api/tag": "_post_tag",
         "/api/import/one": "_post_import",
+        "/api/lrc": "_post_lrc",
     }
 
     def do_GET(self):
@@ -354,6 +364,10 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, PAGE, "text/html; charset=utf-8")
         if p.startswith("/static/"):
             return self._static(p)
+        if p == "/api/lrc":
+            return self._send(404, "POST only")
+        if p.startswith("/api/wave/"):
+            return self._get_wave(p[len("/api/wave/"):])
         if p.startswith("/api/song/"):
             return self._get_song(p[len("/api/song/"):])
         if p.startswith("/audio/"):
@@ -443,6 +457,14 @@ class H(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
                 left -= len(chunk)
 
+    def _get_wave(self, idx):
+        item = CACHE.get(str(idx))
+        if not item:
+            return self._send(404, '{"error":"no such song"}')
+        src = "vocals" if item.get("vocals") else "mix"
+        data = WAVE.peaks(item["file"], src)
+        return self._send(200, json.dumps(data), ctype="application/json; charset=utf-8")
+
     def _get_song(self, idx):
         try:
             return self._send(200, json.dumps(song_payload(int(idx)), ensure_ascii=False))
@@ -480,6 +502,25 @@ class H(BaseHTTPRequestHandler):
 
     def _post_import(self, req):
         return self._send(200, json.dumps(self._import_to_list(req), ensure_ascii=False))
+
+    def _post_lrc(self, req):
+        item = CACHE.get(str(req.get("idx")))
+        if not item:
+            return {"ok": False, "error": "没有这首歌"}
+        act = req.get("action") or "load"
+        if act == "load":
+            return LRC.load(item["file"])
+        if act == "save":
+            lines = req.get("lines") or []
+            if not lines:
+                return {"ok": False, "error": "没有歌词行"}
+            res = LRC.save(item["file"], lines)
+            lib = LIB.scan_library()
+            CACHE.clear()
+            CACHE.update({str(i): x for i, x in enumerate(lib)})
+            res["library"] = len(lib)
+            return res
+        return {"ok": False, "error": "未知动作"}
 
     def _post_tag(self, req):
         key, tag = str(req.get("key") or ""), str(req.get("tag") or "")

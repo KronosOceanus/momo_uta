@@ -6,9 +6,26 @@
 <main>
  <div class="hdr"><button id="start">开始</button><span id="vtitle">—</span>
    </div>
- <div class="bar"><button id="edit">编辑模式</button>
+ <div class="bar"><button id="edit">振假名编辑模式</button>
   <span style="font-size:11px;color:#6d737c">A <span style="color:#7fbfa6">●</span> AB <span style="color:#c8843f">●</span> B <span style="color:#6d737c">●</span> C <span style="opacity:.5">●</span></span>
   <button id="resetall">全部重置</button></div>
+ <div class="bar" id="lrcbar">
+  <button id="lrcedit">LRC 编辑模式</button>
+  <button id="lrcsave">保存</button>
+  <button id="lrcadd">＋行</button>
+  <span class="mark" id="mark">标记：—</span>
+  <span class="lrcwrap" id="lrcwrap">
+    <span class="off">
+      <button data-off="-0.5">−0.5s</button><button data-off="-0.1">−0.1s</button>
+      <b id="offval">0.00s</b>
+      <button data-off="0.1">+0.1s</button><button data-off="0.5">+0.5s</button>
+    </span>
+  </span>
+ </div>
+ <div class="wavewrap" id="wavewrap">
+  <canvas id="wave" height="120"></canvas>
+  <div class="wavehint" id="wavehint">点波形定位；滚轮缩放</div>
+ </div>
  <div class="split">
   <div class="lyr" id="lyr"></div>
   <div class="side"><div class="tg"><button id="t-rm" class="on">罗马音</button><button id="t-ky">键位</button></div>

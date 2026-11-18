@@ -1,6 +1,100 @@
 let S=null, LINES=[], NAV=[], CUR=-1, loop=false, ids=[], MODE='rm', PLAYING=null, EDITMODE=false;
 const au=document.getElementById('au'), lyr=document.getElementById('lyr');
 let LIB=[], PLS=[], DRAG=null;
+
+// ── 波形与整体偏移 ────────────────────────────────
+let WAVE=null, VIEW={start:0, span:0}, OFFSET=0;
+const cv=document.getElementById('wave'), cx=cv.getContext('2d');
+
+function fitCanvas(){
+  const r=cv.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  cv.width=Math.max(1,Math.round(r.width*dpr));
+  cv.height=Math.max(1,Math.round(r.height*dpr));
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  return r.width;
+}
+function drawWave(){
+  const w=fitCanvas(), h=120;
+  cx.clearRect(0,0,w,h);
+  const mid=h/2;
+  cx.fillStyle='#1a2029'; cx.fillRect(0,0,w,h);
+  if(!WAVE || !WAVE.peaks){ return; }
+  const {step, peaks}=WAVE;
+  const span=VIEW.span || WAVE.duration || 1;
+  const start=VIEW.start;
+  const perPx=span/w;
+  const i0=Math.max(0, Math.floor(start/step)), i1=Math.min(peaks.length, Math.ceil((start+span)/step));
+  cx.strokeStyle='#4a7f6b'; cx.beginPath();
+  for(let i=i0;i<i1;i++){
+    const t=i*step;
+    const x=Math.round((t-start)/perPx);
+    const [mn,mx]=peaks[i];
+    cx.moveTo(x+0.5, mid-mx*mid*0.95);
+    cx.lineTo(x+0.5, mid-mn*mid*0.95);
+  }
+  cx.stroke();
+  // 播放头
+  const ct=au.currentTime||0;
+  if(ct>=start && ct<=start+span){
+    const x=Math.round((ct-start)/perPx);
+    cx.strokeStyle='#7fbfa6'; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
+  }
+  // 时间刻度
+  cx.fillStyle='#5b626c'; cx.font='11px ui-monospace, monospace';
+  const tick=span>30?10:span>10?5:1;
+  for(let t=Math.ceil(start/tick)*tick; t<=start+span; t+=tick){
+    const x=(t-start)/perPx;
+    cx.fillText(fmt(t), x+4, 12);
+  }
+}
+function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
+
+async function loadWave(){
+  if(!S) return;
+  WAVE=null; VIEW={start:0, span:0};
+  try{
+    const d=await api('/api/wave/'+S.idx);
+    if(d.error){ document.getElementById('wavehint').textContent='无法生成波形：'+d.error; return; }
+    WAVE=d; VIEW={start:0, span:Math.min(d.duration, 30)};
+    document.getElementById('wavehint').textContent=
+      `波形 ${fmt(d.duration)} · 滚轮缩放 · 点击定位` + (S.offset?` · 偏移 ${S.offset.toFixed(2)}s`:'');
+    drawWave();
+  }catch(e){ document.getElementById('wavehint').textContent='波形加载失败'; }
+}
+cv.addEventListener('click', e=>{
+  if(!WAVE) return;
+  const r=cv.getBoundingClientRect();
+  const ratio=(e.clientX-r.left)/r.width;
+  const t=VIEW.start + ratio*VIEW.span;
+  au.currentTime=t;
+  MARK=Math.round(t*100)/100;
+  const el=document.getElementById('mark');
+  el.textContent='标记：'+lrcFmt(MARK); el.classList.add('set');
+  drawWave();
+});
+cv.addEventListener('wheel', e=>{
+  if(!WAVE) return;
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  const ratio=(e.clientX-r.left)/r.width;
+  const anchor=VIEW.start+ratio*VIEW.span;
+  VIEW.span=Math.min(WAVE.duration, Math.max(1, VIEW.span*(e.deltaY>0?1.25:0.8)));
+  VIEW.start=Math.max(0, Math.min(WAVE.duration-VIEW.span, anchor-ratio*VIEW.span));
+  drawWave();
+}, {passive:false});
+window.addEventListener('resize', ()=>drawWave());
+
+document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
+  if(!S) return;
+  OFFSET=Math.round((OFFSET+parseFloat(b.dataset.off))*100)/100;
+  S.offset=OFFSET;
+  document.getElementById('offval').textContent=OFFSET.toFixed(2)+'s';
+  drawWave();
+  await api('/api/pl',{action:'ui_offset', idx:S.idx, offset:OFFSET});
+});
+setInterval(()=>{ if(WAVE) drawWave(); }, 120);
+
 let OPEN=new Set();
 function saveOpen(){
   fetch('/api/pl',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -37,6 +131,9 @@ async function load(i, autoplay){
     document.querySelectorAll('.ln').forEach(el=>el.onclick=()=>seek(+el.dataset.n));
     renderSide();
     restoreEdits();
+    OFFSET = d.offset || 0;
+    document.getElementById('offval').textContent = OFFSET.toFixed(2)+'s';
+    if(LRCEDIT) loadWave(); else { WAVE=null; }
     if(PLAYING===null) commitAudio();                 // 第一次载入才绑定音频
 
     if(autoplay){ commitAudio(); au.play().catch(()=>{}); }
@@ -226,11 +323,144 @@ document.getElementById('resetall').onclick=async()=>{
   toast('已恢复默认标注');
   load(S.idx);
 };
+let LRCEDIT=false;
+
+// ── LRC 编辑表格 ────────────────────────────────
+let EROWS=[], ESEL=-1, MARK=null, EDIRTY=false, UNDO=[], REDO=[];
+
+function snapshot(){
+  UNDO.push(JSON.stringify(EROWS)); if(UNDO.length>50) UNDO.shift();
+  REDO=[]; EDIRTY=true;
+}
+function undo(){
+  if(!UNDO.length) return;
+  REDO.push(JSON.stringify(EROWS));
+  EROWS=JSON.parse(UNDO.pop()); ESEL=Math.min(ESEL, EROWS.length-1);
+  renderLrcTable();
+}
+function redo(){
+  if(!REDO.length) return;
+  UNDO.push(JSON.stringify(EROWS));
+  EROWS=JSON.parse(REDO.pop()); renderLrcTable();
+}
+document.addEventListener('keydown', e=>{
+  if(!LRCEDIT) return;
+  if(!(e.metaKey||e.ctrlKey)) return;
+  if(e.key==='z'||e.key==='Z'){ e.preventDefault(); e.shiftKey?redo():undo(); }
+});
+
+function lrcFmt(t){ if(t===null||t===undefined) return '—';
+  const m=Math.floor(t/60), s=(t-m*60);
+  return `${String(m).padStart(2,'0')}:${s.toFixed(2).padStart(5,'0')}`; }
+function lrcParse(v){
+  const m=/^(\d+):(\d+(?:\.\d+)?)$/.exec(v.trim()); if(!m) return null;
+  return Math.round((+m[1]*60 + +m[2])*100)/100;
+}
+function lrcText(){
+  return EROWS.map(r=>`[${lrcFmt(r.t).replace('—','00:00.00')}]${r.text}`).join('\n')+'\n';
+}
+async function openLrcEditor(){
+  const d=await api('/api/lrc',{action:'load', idx:S.idx});
+  EROWS=(d.lines||[]).map((x,i)=>({id:i, t:x.t, text:x.text}));
+  if(!EROWS.length) EROWS=[{id:0, t:null, text:''}];
+  ESEL=0; EDIRTY=false; MARK=null;
+  renderLrcTable();
+}
+function renderLrcTable(){
+  const box=document.getElementById('lyr');
+  box.innerHTML='<div class="letable">'+EROWS.map((r,i)=>
+    `<div class="lerow${i===ESEL?' sel':''}" data-i="${i}">
+       <span class="no">${String(i+1).padStart(2,'0')}</span>
+       <input class="ts${r.t===null?' none':''}" data-i="${i}" value="${r.t===null?'':lrcFmt(r.t)}" placeholder="mm:ss.xx">
+       <span class="bind" data-i="${i}" title="把标记时间写进这一行">↤</span>
+       <input value="${(r.text||'').replace(/"/g,'&quot;')}" data-i="${i}">
+       <span class="del" data-i="${i}" title="删除这一行">✕</span>
+     </div>`).join('')+'</div>';
+
+  box.querySelectorAll('.lerow').forEach(el=>{
+    el.onclick=e=>{ if(e.target.tagName==='INPUT'||e.target.classList.contains('del')) return;
+      ESEL=+el.dataset.i; renderLrcTable(); };
+  });
+  box.querySelectorAll('.ts').forEach(el=>{
+    el.onclick=e=>e.stopPropagation();
+    el.onfocus=()=>{ ESEL=+el.dataset.i; };
+    el.onchange=()=>{
+      const i=+el.dataset.i, v=el.value.trim();
+      if(!v){ snapshot(); EROWS[i].t=null; renderLrcTable(); return; }
+      const t=lrcParse(v);
+      if(t===null){ done('时间戳格式应为 mm:ss.xx'); el.value=lrcFmt(EROWS[i].t); return; }
+      snapshot(); EROWS[i].t=t; renderLrcTable();
+    };
+    el.onkeydown=ev=>{ if(ev.isComposing||ev.keyCode===229) return;
+      if(ev.key==='Enter'){ ev.preventDefault(); el.blur(); } };
+  });
+  box.querySelectorAll('.bind').forEach(el=>{
+    el.onclick=e=>{ e.stopPropagation(); bindMark(+el.dataset.i); };
+  });
+  box.querySelectorAll('input').forEach(inp=>{
+    if(inp.classList.contains('ts')) return;
+    inp.oninput=()=>{ EROWS[+inp.dataset.i].text=inp.value; EDIRTY=true; };
+    inp.onkeydown=ev=>{
+      if(ev.isComposing||ev.keyCode===229) return;
+      if(ev.key==='Enter'){ ev.preventDefault(); ESEL=Math.min(EROWS.length-1, +inp.dataset.i+1); renderLrcTable();
+        const nx=document.querySelector(`.lerow[data-i="${ESEL}"] input`); if(nx) nx.focus(); }
+    };
+  });
+  box.querySelectorAll('.del').forEach(el=>{
+    el.onclick=e=>{ e.stopPropagation(); snapshot(); EROWS.splice(+el.dataset.i,1);
+      if(!EROWS.length) EROWS=[{t:null,text:''}];
+      ESEL=Math.min(ESEL, EROWS.length-1); EDIRTY=true; renderLrcTable(); };
+  });
+}
+function bindMark(i){
+  if(MARK===null){ toast('先在波形上点一个位置'); return; }
+  snapshot(); EROWS[i].t=MARK;
+  ESEL=Math.min(EROWS.length-1, i+1);
+  renderLrcTable();
+  document.querySelector(`.lerow[data-i="${ESEL}"]`)?.scrollIntoView({block:'center'});
+}
+document.getElementById('lrcadd').onclick=()=>{
+  if(!LRCEDIT) return;
+  snapshot(); EROWS.push({t:null, text:''}); ESEL=EROWS.length-1; renderLrcTable();
+};
+document.getElementById('lrcsave').onclick=async()=>{
+  if(!LRCEDIT) return;
+  if(!EROWS.length){ toast('没有歌词行'); return; }
+  // 校验：时间戳是否非递减
+  const ts=EROWS.map(r=>r.t).filter(t=>t!==null);
+  let back=false;
+  for(let i=1;i<ts.length;i++) if(ts[i]<ts[i-1]) { back=true; break; }
+  if(back && !confirm('有时间戳倒退的行，仍然保存？')) return;
+  const unaligned=EROWS.filter(r=>r.t===null).length;
+  if(unaligned && !confirm(`有 ${unaligned} 行还没对齐时间，仍然保存？`)) return;
+  busy('保存中…');
+  try{
+    const r=await api('/api/lrc',{action:'save', idx:S.idx,
+      lines:EROWS.map(x=>({t:x.t, text:x.text}))});
+    if(!r.ok){ done(r.error||'保存失败'); return; }
+    EDIRTY=false;
+    done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
+    load(S.idx);
+  }catch(e){ done('保存失败：'+e.message); }
+};
+
+document.getElementById('lrcedit').onclick=e=>{
+  LRCEDIT=!LRCEDIT;
+  document.body.classList.toggle('lrcedit', LRCEDIT);
+  e.target.classList.toggle('on', LRCEDIT);
+  e.target.textContent = LRCEDIT ? 'LRC 编辑：开' : 'LRC 编辑模式';
+  if(LRCEDIT){
+    if(S && !WAVE) loadWave();              // 波形只在编辑时按需加载
+    if(S) openLrcEditor();
+  }else{
+    if(S) load(S.idx);
+  }
+};
 document.getElementById('edit').onclick=e=>{
   EDITMODE=!EDITMODE;
   document.body.classList.toggle('edit', EDITMODE);
   e.target.classList.toggle('on', EDITMODE);
-  e.target.textContent = EDITMODE ? '编辑模式：开' : '编辑模式';
+  e.target.textContent = EDITMODE ? '振假名编辑：开' : '振假名编辑模式';
 };
 document.addEventListener('click', async e=>{
   const ew = e.target.closest('.ew');

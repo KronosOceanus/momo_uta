@@ -120,3 +120,39 @@ audio{width:100%;margin:0;position:sticky;bottom:0}
   padding:9px 16px;font-size:13px;opacity:0;transition:opacity .18s;pointer-events:none;
   max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #toast.on{opacity:1}
+
+/* 波形区 */
+.wavewrap{position:relative;border-bottom:1px solid #20242b;background:#0f1216;display:none}
+body.lrcedit .wavewrap{display:block}
+.wavewrap canvas{display:block;width:100%;height:120px;cursor:crosshair}
+.wavehint{position:absolute;left:10px;top:8px;font-size:11px;color:#5b626c;pointer-events:none}
+.off{display:flex;align-items:center;gap:4px;margin-left:8px;font-size:12px;color:#8a9099}
+.off button{background:#1b2129;border:1px solid #2b313a;color:#cfd3d8;border-radius:6px;
+  padding:3px 8px;font-size:12px;cursor:pointer;font-family:inherit}
+.off button:hover{border-color:var(--a);color:var(--a)}
+.off b{min-width:4.2em;text-align:center;color:#dfe3e8;font-weight:400}
+
+#lrcbar{border-bottom:1px solid #20242b}
+.lrcwrap{display:none;align-items:center;gap:8px}
+body.lrcedit .lrcwrap{display:flex}
+
+#lrcbar .mark{font-size:12px;color:#8a9099;min-width:9em}
+.mark.set{color:#7fbfa6}
+/* LRC 编辑表格 */
+.letable{padding:6px 0}
+.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px;border-bottom:1px solid #161a20;cursor:pointer}
+.lerow:hover{background:#141a20}
+.lerow.sel{background:#182430}
+.lerow .no{width:2.2em;color:#5b626c;font-size:12px;text-align:right}
+.lerow .ts{width:5.8em;background:transparent;border:0;color:#7fbfa6;font-size:12px;
+  font-family:ui-monospace,monospace;padding:2px 0;outline:none}
+.lerow .ts.none{color:#c8843f}
+.lerow .ts:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
+.lerow .bind{color:#5b626c;cursor:pointer;font-size:12px;padding:0 3px}
+.lerow .bind:hover{color:#7fbfa6}
+.lerow input{flex:1;background:transparent;border:0;color:#dfe3e8;font-size:15px;
+  font-family:inherit;padding:3px 0;outline:none}
+.lerow input:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
+.lerow .del{color:#5b626c;cursor:pointer;padding:0 4px}
+.lerow .del:hover{color:#e06c75}
+body.lrcedit .lyr{padding:0}
