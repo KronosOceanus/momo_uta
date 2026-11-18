@@ -127,25 +127,6 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
-    def _edit(self, idx, li, start, reading):
-        item = CACHE.get(str(idx))
-        if not item or not reading:
-            return None
-        artist, title = LY.split_name(item["stem"])
-        lines = LY.parse_lrc((LY.get_lrc(title, artist) or {}).get("lrc", ""))
-        if not (0 <= li < len(lines)):
-            return None
-        text = lines[li]["text"]
-        clean, _notes = strip_paren_ruby(text)
-        base = AN.annotate(clean)
-        seg = next((x for x in base["lines"][0]["segments"] if x["start"] == start), None)
-        if not seg:
-            return None
-        r = annotate_line_with_notes(text, extra_start=start, extra_reading=reading)
-        return {"line": li, "ruby": _ruby(r), "rm": r.get("romaji", {}).get("text", ""),
-                "ky": r.get("keys", {}).get("text", ""),
-                "rmH": _words(r, "romaji"), "kyH": _words(r, "keys")}
-
     # ── 单行编辑 / 重新匹配（原先被误删，重建）──────────────
     def _edit(self, idx, li, start, reading):
         """改一处的读音：返回该行的新 HTML 与罗马音。"""
@@ -298,49 +279,6 @@ class H(BaseHTTPRequestHandler):
                     "already": max(0, len(uids) - added_n)})
         res["lists"] = PL.build(_cached_items())
         return res
-
-    def do_POST(self):
-        n = int(self.headers.get("Content-Length") or 0)
-        try:
-            req = json.loads(self.rfile.read(n) or b"{}")
-        except Exception:
-            return self._send(400, '{"error":"bad json"}')
-        if urllib.parse.urlparse(self.path).path in ("/api/pl", "/api/playlist"):
-            return self._send(200, json.dumps(self._pl(req), ensure_ascii=False))
-            return self._send(200, json.dumps(self._lists(req), ensure_ascii=False))
-        if req.get("action", "").startswith("list_"):
-            return self._send(200, json.dumps(self._lists(req), ensure_ascii=False))
-        if req.get("action") == "tag":
-            key, tag = str(req.get("key") or ""), str(req.get("tag") or "")
-            if not key or tag not in ("inst", "nonja", "wrong"):
-                return self._send(400, '{"error":"bad tag"}')
-            tags = LIB.load_tags()
-            cur = set(tags.get(key, []))
-            cur.symmetric_difference_update({tag})
-            if cur:
-                tags[key] = sorted(cur)
-            else:
-                tags.pop(key, None)
-            LIB.save_tags(tags)
-            return self._send(200, json.dumps({"ok": True, "tags": tags.get(key, [])}, ensure_ascii=False))
-        if req.get("action") == "rematch":
-            return self._send(200, json.dumps(self._rematch(req.get("idx"), req.get("duration")), ensure_ascii=False))
-        if req.get("action") == "pick":
-            ok = self._pick(req.get("idx"), req.get("id"))
-            return self._send(200 if ok else 400, json.dumps({"ok": bool(ok)}))
-        if "edits" in req:                      # 批量（恢复本地修改）
-            out = []
-            for e in req["edits"]:
-                r = self._edit(e.get("idx", req.get("idx")), int(e.get("line", -1)),
-                               int(e.get("start", -1)), str(e.get("reading") or ""))
-                if r:
-                    out.append(r)
-            return self._send(200, json.dumps({"edits": out}, ensure_ascii=False))
-        r = self._edit(req.get("idx"), int(req.get("line", -1)),
-                       int(req.get("start", -1)), str(req.get("reading") or ""))
-        if not r:
-            return self._send(400, '{"error":"bad"}')
-        return self._send(200, json.dumps(r, ensure_ascii=False))
 
     # ── 路由表 ────────────────────────────────────────
     GET = {

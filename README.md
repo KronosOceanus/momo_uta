@@ -20,6 +20,7 @@
 **全部文档的索引：**[`docs/README.md`](docs/README.md)
 
 ```text
+docs/architecture.md  架构与边界（改代码前看）
 docs/eval.md      评测集、跑分、基线、指标定义
 docs/testing.md   82 条测试怎么跑、覆盖什么
 docs/player.md    播放器（功能、交互、接口）
