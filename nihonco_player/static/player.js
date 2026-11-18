@@ -710,6 +710,8 @@ function renderSide(){
       if(t!==null && t!==undefined) au.currentTime=Math.max(0, t+OFFSET);
       let row=-1;
       for(let i=0;i<EROWS.length;i++){ if(EROWS[i].t!==null && EROWS[i].t<=t) row=i; }
+      CUR=n;                       // 右侧高亮停在点的那一行
+      paint2(n);
       if(row>=0){
         ESEL=row; SEL.clear(); LRC_CUR=row; LRC_MANUAL=row;
         document.querySelectorAll('.lerow').forEach(x=>x.classList.remove('cur'));
@@ -837,7 +839,10 @@ document.getElementById('t-rm').onclick=e=>{MODE='rm';e.target.classList.add('on
 document.getElementById('t-ky').onclick=e=>{MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=LINES[CUR];renderSide();};
 document.getElementById('rem').onclick=async()=>{
   if(!S || BUSY) return;
-  if(LRCEDIT){ LRCEDIT=false; syncModes(); }     // 重新匹配前先退出 LRC 编辑
+  if(LRCEDIT){                                   // 重新匹配前退出 LRC 编辑，并恢复普通歌词面板
+    LRCEDIT=false; syncModes();
+    if(S) load(S.idx);
+  }
   document.querySelectorAll('.menu').forEach(m=>m.remove());
   busy('匹配中…'); lock(this, true);
   let d;
