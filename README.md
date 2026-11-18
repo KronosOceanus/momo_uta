@@ -1,6 +1,6 @@
 # 日语标注服务设计
 
-> **定位**：一个独立进程的日语标注服务。输入任意日文，输出三层标注——
+> **定位**：日语标注引擎（现在以桌面播放器为唯一前端）。输入任意日文，输出三层标注——
 > **振假名（ruby）/ 罗马音（romaji）/ 键盘键位（ime keys）**，并利用上下文消歧。
 > 任何客户端（桌面应用、脚本、其他机器）通过 HTTP 或 stdio 调用。
 >
@@ -17,15 +17,19 @@
 本文不再重复，避免两处数字漂移。
 ```
 
+**这份文档讲的是引擎**（标注怎么算、为什么这么算）。
+播放器与打轴工具见 [`docs/player.md`](docs/player.md)、[`docs/lrc-editor.md`](docs/lrc-editor.md)。
+
 **全部文档的索引：**[`docs/README.md`](docs/README.md)
 
 ```text
 docs/architecture.md  架构与边界（改代码前看）
-docs/eval.md      评测集、跑分、基线、指标定义
-docs/testing.md   82 条测试怎么跑、覆盖什么
-docs/player.md    播放器（功能、交互、接口）
-docs/NOTES.md     开发笔记（决策与失败记录）
-TODO.md           待做清单
+docs/eval.md          评测集、跑分、基线、指标定义
+docs/testing.md       93 条测试怎么跑、覆盖什么
+docs/player.md        播放器（功能、交互、接口）
+docs/lrc-editor.md    LRC 编辑器（打轴）
+docs/NOTES.md         开发笔记（决策与失败记录，历史累积）
+TODO.md               待做清单
 ```
 
 ```bash
@@ -71,17 +75,20 @@ nihonco_yomi/          标注引擎（纯计算：不联网、不开服务、不
   paths.py  thresholds.py  config.py
   serve.py             标注测试页（8765，可选）
 
-nihonco_player/        播放器（服务 + 前端，只依赖 nihonco_yomi）
-  server.py            路由表 + 业务
-  lyrics.py            门面：lyrics_text / lyrics_cache / lyrics_fetch
-  lrcio.py             .lrc 读写、备份、恢复、JSON 歌词兼容
-  waveform.py          ffmpeg → 峰值 → 缓存
-  library.py           扫目录 / 缓存 / 导入索引
-  importing.py         导入（目录 / 音频+lrc / 纯音频 / 纯 lrc）
-  playlists.py         歌单（uid 集合 + 文件锁）
-  edits.py  song_meta.py   手改读音 / 整体偏移
-  web.py  static/      页面与前端资源
+nihonco_player/        播放器（只依赖 nihonco_yomi）
+  core/                数据与规则（无 HTTP）
+    library / playlists / lyrics_text / lyrics_cache / lyrics_fetch / lyrics
+    lrcio（.lrc 读写与 JSON 歌词兼容） / waveform / importing
+    edits（手改读音） / song_meta（整体偏移）
+  service/             业务编排
+    song.py（载荷、改读音、重新匹配、选候选）
+    playlist.py（歌单动作、导入、打标）
+    lrc.py（加载/保存/备份/恢复/导入）
+  http/                路由、静态文件、音频流、起服务
+  static/              player.html / player.css / 10-app.js / 20-editor.js / 30-playback.js
+  server.py            16 行兼容壳（内部已拆到 core/service/http）
 nihonco_player_app/    桌面窗口壳（pywebview）：唯一入口
+scripts/               架构与前端检查（check_arch.py / check_js.py）
 
 tools/                 离线批处理（评测、建表、语料、抓歌词）
 config/ data/ eval/ demo/ docs/ tests/
@@ -114,7 +121,7 @@ config/ data/ eval/ demo/ docs/ tests/
 | 设计项 | 状态 | 现状 |
 |---|---|---|
 | ① 振假名层 | ✅ 已实现 | Sudachi + 4 张表 + 规则链；分数见 [`docs/eval.md`](docs/eval.md) |
-| ② 罗马音层 | ✅ 已实现 | `tools/romaji.py`；完全逐字转写（`きょう→kyou`、`コーヒー→ko-hi-`），助詞按 POS 判 |
+| ② 罗马音层 | ✅ 已实现 | `nihonco_yomi/romaji.py`；完全逐字转写（`きょう→kyou`、`コーヒー→ko-hi-`），助詞按 POS 判 |
 | ③ 键位层 | ✅ 已实现 | 同一张表、不同写法（ん n'、ー -、を wo） |
 | 置信度分级 | ✅ 已实现 | A / AB / B / C + K；按语料统计定档（见 §3.1） |
 | 六大置信度信号（§3.2） | ❌ 未采用 | 改用"语料读音分布"定 A/AB/B；六信号里只有 S2（表命中）和 S4（频次）间接在用 |
@@ -122,12 +129,12 @@ config/ data/ eval/ demo/ docs/ tests/
 | 固有名詞（D2） | ⚠️ 改为标 B | 实测专名读音 73.8% 正确，弃权等于白扔；改标淡色 |
 | stdio 入口（D4） | ✅ 已实现 | `annotate.py --stdio` |
 | 本地页面（`serve.py`） | ✅ 已实现 | 127.0.0.1:8765，输入日文出三层；候选可点、改动存本地 |
-| 正式 HTTP 服务 | ❌ 未实现 | 无并发模型、无缓存层、无部署单元（见 §5.4） |
+| 正式 HTTP 服务 | ✅ 已实现（单机） | 桌面 app 内置：127.0.0.1 随机端口，ThreadingHTTPServer + Range；无多用户/部署单元（见 §5.4） |
 | 发布门禁 99.5%（§2.4） | ❌ 未达标 | 当前实测见 [`docs/eval.md`](docs/eval.md) |
 | 回归门禁 | ❌ 已移除 | 2026-11 删除，只看指标 |
 | 对外接口 | ✅ 已实现 | `nihonco_yomi/` 包：`Annotator().annotate(text, overrides)`，0.16ms/句 |
 | 候选选择（B 档） | ✅ 已实现 | 有候选点列表、无候选输假名；正文改单处、面板改全部 |
-| 本地保存 | ✅ 已实现 | localStorage，键按原文哈希；`overrides` 回传给服务端重算罗马音/键位 |
+| 本地保存 | ✅ 已实现 | 播放器存服务端 `data/curated/readings.json`；引擎测试页存 localStorage；两种情况都把 `overrides` 回传重算罗马音/键位 |
 | 评测集（§2） | ✅ 已实现 | 散文 742 条 / 歌词开发 1312 + 留出 858 + 泛化 1139 / 手工 41 条 |
 | 语料层（§2.1/§6.3） | ⚠️ 部分 | NDL 青空文庫コーパス（155 万词形）用于分档；Uta-Net 语料只给 `ceiling` |
 
@@ -161,7 +168,7 @@ config/ data/ eval/ demo/ docs/ tests/
   D2 固有名詞标 B 档（淡色），不弃权——弃权等于白扔 73.8% 的正确率
   D3 歌曲级缓存放 v2
   D4/D5 独立进程，部署在服务器或本机，不做手机端
-        （stdio + 本地页面已实现；正式 HTTP 服务未做）
+        （stdio + 本地页面已实现；单机 HTTP 服务由桌面 app 内置）
 ```
 
 首要原则：**正确性 > 精度 > 覆盖率**。泛化优先于跑分——评测集涨点但只在
@@ -926,7 +933,7 @@ heteronym 3614 · candidates 15892 · stats 1294 · glossary 5
 
 ## 7. 罗马音与键盘输入层（**已实现**）
 
-同一份假名，两种用途，**两套规则，不能混用**（实现在 `tools/romaji.py`）。
+同一份假名，两种用途，**两套规则，不能混用**（实现在 `nihonco_yomi/romaji.py`）。
 
 | 用途 | は（助詞） | を | へ | 長音 | っ | ん（元音前） |
 |---|---|---|---|---|---|---|
@@ -1096,7 +1103,7 @@ K  toukyou de ko-hi- wo nonda
 [✓] B 级淡标                      有 B 档（专名/数字/多音），演示页淡色
 [✓] 点词查候选                    演示页悬停看候选、点击可切换（session 内生效）
 [ ] 自由编辑振假名                 未实现（设计见 §4.3）
-[✓] 罗马音 / 键位                 tools/romaji.py，两层共用一张表
+[✓] 罗马音 / 键位                 nihonco_yomi/romaji.py，两层共用一张表
 
 工程
 [✓] 分析器不可用 → 整段不标        get_tagger() 失败时退化为全 C
@@ -1104,7 +1111,7 @@ K  toukyou de ko-hi- wo nonda
 [✓] 缓存带版本                     LLM 缓存按 (行, 位置, 词, 候选) 哈希
 
 服务
-[~] 三入口同源                    stdio + 本地页面（`serve.py`）同源；正式 HTTP 服务未做
+[✓] 三入口同源                    stdio + 本地页面（`serve.py`）+ 桌面 app 共用同一引擎
 [✗] 503 + retry-after             无 HTTP
 [✗] 单段超时返回 C                无超时机制（实测 0.4ms/行）
 [✓] LLM 不可用 → 回落             `--llm` 默认关，缺缓存即不覆盖
