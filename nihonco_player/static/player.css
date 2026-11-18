@@ -223,3 +223,5 @@ body.lrcedit #lrcrow2,body.lrcedit #lrcrow3{display:flex}
 .lrcrow .right{margin-left:auto}
 .lrcrow #wavefollow{margin-left:auto}
 #lrcrow3 .off{margin-left:0}
+
+.savehint:empty{display:none}
