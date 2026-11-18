@@ -38,6 +38,29 @@ make render                                      # 生成 demo 页
 
 ---
 
+## 从零开始（新机器）
+
+```bash
+git clone git@github.com:KronosOceanus/nihonco_uta.git
+cd nihonco_uta
+python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+
+# 引擎需要两张表才能跑（体积大，不在仓库里）
+make build-tables     # JMdict → data/tables/
+make build-stats      # 语料 → data/corpus/
+
+cp .env.example .env  # 需要 LLM 消歧时填 key（默认不用）
+
+make test             # 93 条
+make app              # 桌面窗口
+```
+
+```text
+仓库里不含：data/sources（原始下载）、data/corpus（统计）、data/tables（词典抽取）、
+            data/cache（歌词缓存）、music_test（测试用媒体）
+→ 都能用上面的 make 目标重建；没有表和语料时引擎仍能跑，但精度会明显下降
+```
+
 ## 目录结构
 
 ```text
