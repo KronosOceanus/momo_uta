@@ -39,6 +39,17 @@
   </div>
   <label style="color:var(--dim);font-size:12px;justify-self:end;white-space:nowrap">速度 <input id="rate" type="range" min="__SMIN__" max="__SMAX__" step="__SSTEP__" value="1" style="width:80px;vertical-align:middle"><span id="rv">1.00×</span></label>
  </div>
- <audio id="au" controls></audio>
+ <div class="transport">
+  <button id="back10" class="tb" title="后退 10 秒">⟲10</button>
+  <button id="play2" class="tb big" title="播放 / 暂停">▶</button>
+  <button id="fwd10" class="tb" title="前进 10 秒">10⟳</button>
+  <span class="tm" id="tcur">0:00</span>
+  <div class="seek" id="seek"><div class="fill" id="fill"></div>
+    <div class="ticks" id="ticks"></div><div class="thumb" id="thumb"></div></div>
+  <span class="tm" id="tdur">0:00</span>
+  <span class="vol"><button id="mute" class="tb" title="静音">🔊</button>
+    <input id="volume" type="range" min="0" max="1" step="0.05" value="1"></span>
+ </div>
+ <audio id="au" preload="metadata"></audio>
 </main>
 <script src="/static/player.js"></script></body></html>
