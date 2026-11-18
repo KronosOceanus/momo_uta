@@ -2,7 +2,7 @@
 
 | 文档 | 内容 | 什么时候看 |
 |---|---|---|
-| [`../README.md`](../README.md) | **标注引擎设计**：三支柱、四档判定、契约、架构、表清单 | 想理解引擎"为什么这么设计" |
+| [`../yomi.md`](../yomi.md) | **引擎设计**（yomi）：三支柱、四档判定、契约、表清单 | 想理解引擎"为什么这么设计" |
 | [`architecture.md`](architecture.md) | **架构**：三层边界、依赖规则、数据流、扩展点、迁移计划 | 改代码前先看这里 |
 | [`player.md`](player.md) | **播放器现状**：歌单、播放、偏移、界面结构、接口、数据文件 | 改播放器 / 想知道某个按钮怎么工作 |
 | [`lrc-editor.md`](lrc-editor.md) | **LRC 编辑器现状**：界面、打轴、波形、保存/导入、键盘 | 做打轴功能时 |
@@ -14,7 +14,7 @@
 ## 阅读顺序建议
 
 ```text
-第一次接触     README「一页摘要」→ docs/eval.md
+第一次接触     yomi「一页摘要」→ docs/eval.md
 要动手改       docs/testing.md → player.md（或 lrc-editor.md）→ NOTES 相关小节
 要判断可行性   docs/NOTES.md（失败过的思路都带数字，避免重复试错）
 ```
@@ -22,7 +22,7 @@
 ## 一句话分工
 
 ```text
-README    引擎设计
+yomi      引擎设计
 player    播放器现状
 lrc-editor 打轴工具
 eval      评测与基线
