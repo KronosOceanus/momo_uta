@@ -188,3 +188,6 @@ body.lrcedit #lrcbar{display:grid}
 
 .lerow.picked{background:#1b232d}
 .lerow.picked .no{color:#7fbfa6}
+
+.lerow.cur{background:#152a22;box-shadow:inset 2px 0 0 var(--a)}
+.lerow.cur .no{color:var(--a)}

@@ -738,9 +738,27 @@ au.onloadedmetadata=()=>{
     document.getElementById('ttl').textContent += `　⚠ 歌词只覆盖到 ${Math.round(last/au.duration*100)}%`;
   }
 };
+function lrcCurRow(t){
+  let n=-1;
+  for(let i=0;i<EROWS.length;i++){ const tt=EROWS[i].t; if(tt!==null && tt+OFFSET<=t) n=i; }
+  return n;
+}
+function lrcFollow(){
+  if(!LRCEDIT || !EROWS.length) return;
+  const i=lrcCurRow(au.currentTime);
+  if(i<0 || i===LRC_CUR) return;
+  LRC_CUR=i;
+  document.querySelectorAll('.lerow').forEach(el=>
+    el.classList.toggle('cur', +el.dataset.i===i));
+  const row=document.querySelector(`.lerow[data-i="${i}"]`);
+  if(row && !SEL.size) row.scrollIntoView({block:'center', behavior:'smooth'});
+}
+let LRC_CUR=-1;
+
 au.ontimeupdate=()=>{
   // 正在看别的歌时，不要让它的歌词跟着当前音频滚动
   if(!S || String(PLAYING) !== String(S.idx)) return;
+  if(LRCEDIT){ lrcFollow(); return; }
   const t=au.currentTime; const prev=CUR; let n=-1;
   for(let i=0;i<LINES.length;i++){ if(LINES[i].t<=t) n=i; else break; }
   paint(n);
@@ -760,12 +778,31 @@ playBtn.onclick=()=>{
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>au.addEventListener(ev, syncPlayBtn));
 au.addEventListener('play', syncPlayBtn); au.addEventListener('pause', syncPlayBtn);
 document.getElementById('rate').oninput=e=>{au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
-document.getElementById('prev').onclick=()=>{const k=navIdx(CUR); seek(NAV[Math.max(0,k-1)]);};
-document.getElementById('next').onclick=()=>{const k=navIdx(CUR); seek(NAV[Math.min(NAV.length-1,k+1)]);};
+function lrcJump(dir){
+  const rows=EROWS.map((r,i)=>({i, t:r.t})).filter(x=>x.t!==null)
+                  .sort((a,b)=>a.t-b.t);
+  if(!rows.length) return;
+  const cur=lrcCurRow(au.currentTime);
+  let target;
+  if(dir<0){
+    const before=rows.filter(x=>x.t+OFFSET < au.currentTime-0.05);
+    target=(before[before.length-1]||rows[0]);
+  }else{
+    target=rows.find(x=>x.t+OFFSET > au.currentTime+0.05) || rows[rows.length-1];
+  }
+  au.currentTime=Math.max(0, target.t+OFFSET);
+  ESEL=target.i; paintSelection();
+  document.querySelector(`.lerow[data-i="${target.i}"]`)?.scrollIntoView({block:'center'});
+}
+document.getElementById('prev').onclick=()=>{ if(LRCEDIT) return lrcJump(-1);
+  const k=navIdx(CUR); seek(NAV[Math.max(0,k-1)]);};
+document.getElementById('next').onclick=()=>{ if(LRCEDIT) return lrcJump(1);
+  const k=navIdx(CUR); seek(NAV[Math.min(NAV.length-1,k+1)]);};
 document.getElementById('t-rm').onclick=e=>{MODE='rm';e.target.classList.add('on');document.getElementById('t-ky').classList.remove('on');const l=LINES[CUR];renderSide();};
 document.getElementById('t-ky').onclick=e=>{MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=LINES[CUR];renderSide();};
 document.getElementById('rem').onclick=async()=>{
   if(!S || BUSY) return;
+  if(LRCEDIT){ LRCEDIT=false; syncModes(); }     // 重新匹配前先退出 LRC 编辑
   document.querySelectorAll('.menu').forEach(m=>m.remove());
   busy('匹配中…'); lock(this, true);
   let d;
