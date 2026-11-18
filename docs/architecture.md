@@ -69,12 +69,9 @@ nihonco_player/
   static/
     player.html
     player.css
-    app.js             启动、全局状态、模式切换、键盘
-    playlists.js       歌单树、导入入口、拖拽
-    playback.js        统一时间语义、自绘播放条
-    wave.js            波形（峰值、缩放、跟随）
-    editor.js          LRC 表格（对齐、增删、粘贴、保存联动）
-    kana.js            振假名编辑（改读音、候选）
+    10-app.js          状态、工具、歌单、载入单曲、右侧面板
+    20-editor.js       LRC 表格（对齐、增删、粘贴、保存联动）
+    30-playback.js     统一时间语义、自绘播放条、波形跟随、键盘
   web.py              页面装配（注入配置）
 
 nihonco_player_app/
@@ -162,21 +159,23 @@ nihonco_player_app/
 ## 7. 现状与目标的差距（迁移步骤）
 
 ```text
-第 1 步  后端拆分（低风险）
-  现在：server.py 一个文件含路由 + 业务 + 注音装配 + 音频流（约 500 行）
-  目标：http/routes.py + service/{song,playlist,importing,lrc}.py
-  验收：93 条测试 + 界面冒烟通过；所有接口 200
+第 1 步  后端拆分 —— ✅ 已完成
+  core/    library playlists lyrics* lrcio waveform importing edits song_meta
+  service/ song.py playlist.py lrc.py
+  http/    routes.py static.py server.py
+  server.py 只剩 16 行兼容壳（app 壳与测试继续 from nihonco_player import server）
 
-第 2 步  前端拆分（中风险）
-  现在：static/player.js 一个文件 1111 行
-  目标：app/playlists/playback/wave/editor/kana 六个模块（ES module）
-  验收：冒烟测试 + 手动点一遍（播放 / 编辑 / 波形 / 保存）
-  注意：历史事故都出在这一步（删函数、漏声明、重复绑定），
-        所以一块一块挪，每挪完跑一次冒烟
+第 2 步  前端拆分 —— ✅ 已完成（按加载顺序切文件，共享全局作用域）
+  static/10-app.js      365 行  状态、工具、歌单、载入单曲、右侧面板
+  static/20-editor.js   509 行  LRC 表格（对齐、增删、粘贴、保存）
+  static/30-playback.js 244 行  时间语义、播放条、波形跟随、键盘
+  为什么不是 ES module：全局状态（S/LINES/EROWS/OFFSET…）被三个文件直接读写，
+  拆成 module 需要把上千处引用改成容器对象，风险大于收益。
+  以后要做，建议一次只改一个文件、每步跑冒烟。
 
-第 3 步  约束固化
-  新增 scripts/check_arch.py：扫描 import，违反第 2 节规则即失败
-  加进 make test
+第 3 步  约束固化 —— ✅ 已完成
+  scripts/check_arch.py 扫描 import，违反第 2 节规则即失败
+  已接进 make test（先跑 arch 再跑单元测试）
 ```
 
 ## 8. 明确不做

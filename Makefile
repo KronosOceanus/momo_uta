@@ -47,8 +47,11 @@ app:
 api:
 	@$(PY) -c "import nihonco_yomi; print(nihonco_yomi.Annotator().annotate('今日は雨が降る')['romaji']['text'])"
 
-test:
+test: arch
 	$(PY) -m unittest discover -s tests
+
+arch:
+	$(PY) scripts/check_arch.py
 
 build-tables:
 	$(PY) tools/build_tables.py

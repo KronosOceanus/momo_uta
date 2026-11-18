@@ -18,8 +18,15 @@ make app        # 唯一入口：随机端口起服务 + 原生窗口
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `server.py` | 572 | HTTP 路由表 + 业务（歌单/歌词/波形/注音装配） |
-| `static/player.js` | 1111 | 全部前端逻辑：列表、播放、编辑、波形 |
+| `http/routes.py` | 159 | 路由表 + handler（只转发） |
+| `http/static.py` | 44 | 静态文件与音频流（Range） |
+| `http/server.py` | 22 | 起服务 |
+| `service/song.py` | 220 | 载荷装配、改读音、重新匹配、选候选 |
+| `service/playlist.py` | 101 | 歌单动作、导入、打标 |
+| `service/lrc.py` | 45 | LRC 加载/保存/备份/恢复/导入 |
+| `static/10-app.js` | 365 | 状态、工具、歌单、载入单曲、右侧面板 |
+| `static/20-editor.js` | 509 | LRC 编辑表格 |
+| `static/30-playback.js` | 244 | 时间语义、播放条、波形跟随、键盘 |
 | `static/player.css` | 227 | 深色主题样式 |
 | `static/player.html` | 59 | 页面骨架 |
 | `playlists.py` | 184 | 歌单（uid 集合 + 文件锁） |
