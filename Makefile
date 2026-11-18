@@ -1,14 +1,15 @@
 # Nihongo_Acc · 常用命令
 PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
-.PHONY: help test config-check app \
+.PHONY: help test test-python arch arch-python config-check app \
         build-tables build-resource build-holdout build-prose build-lyrics \
         eval-dummy eval eval-real eval-kanji eval-gen eval-test eval-llm \
         ceiling stats tables-check build-stats audit gold-audit audit-patches \
         prefetch-llm render clean-cache all serve api
 
 help:
-	@echo "make test            # 单元测试（93 条）"
+	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
+	@echo "make test-python     # Python 架构检查与测试"
 	@echo "make app             # 桌面应用（唯一入口）"
 	@echo "make serve           # 标注测试页 http://127.0.0.1:8765"
 	@echo "make api             # 命令行跑一次接口，验证可用"
@@ -47,12 +48,17 @@ app:
 api:
 	@$(PY) -c "import nihonco_yomi; print(nihonco_yomi.Annotator().annotate('今日は雨が降る')['romaji']['text'])"
 
-test: arch
+test: arch test-python
+	node --test tests/lrc_editor.test.cjs
+
+test-python: arch-python
 	$(PY) -m unittest discover -s tests
 
-arch:
-	$(PY) scripts/check_arch.py
+arch: arch-python
 	$(PY) scripts/check_js.py
+
+arch-python:
+	$(PY) scripts/check_arch.py
 
 build-tables:
 	$(PY) tools/build_tables.py
