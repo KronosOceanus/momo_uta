@@ -75,7 +75,7 @@ def import_to_list(req) -> dict:
         p = Path(str(f))
         artist, title = LIB.LY.split_name(p.stem)
         LIB.save_import(str(p), title, artist)
-    LIB.refresh()
+    library_n = LIB.refresh()
     uids = [FP.fingerprint(f) for f in res["added"]]
     added_n = PL.add(lid, uids)
 
@@ -83,7 +83,7 @@ def import_to_list(req) -> dict:
     uids_set = set(uids)
     pending_n = sum(1 for k, v in CACHE.items()
                     if v["uid"] in uids_set and not v.get("has_lyric", True))
-    res.update({"ok": True, "library": len(lib), "imported": added_n,
+    res.update({"ok": True, "library": library_n, "imported": added_n,
                 "pending_count": pending_n,
                 "already": max(0, len(uids) - added_n)})
     res["lists"] = PL.build(cached_items())

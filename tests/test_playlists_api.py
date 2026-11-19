@@ -96,3 +96,39 @@ class TestPlaylistsApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestImportToList(unittest.TestCase):
+    def test_import_returns_library_count(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import fingerprint as FP
+        from nihonco_player.core import importing as IMP
+        from nihonco_player.core import library as LIB
+        from nihonco_player.core.library import CACHE
+        from nihonco_player.service import playlist as SVC
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            CACHE.clear()
+            CACHE["0"] = {"key": "k", "uid": "fp1", "file": str(audio),
+                          "stem": audio.stem, "orig": "曲", "title": "曲",
+                          "artist": "歌手", "has_lyric": False, "group": ""}
+            old = PL.FILE
+            PL.set_file(root / "playlists.json")
+            try:
+                with patch.object(IMP, "import_paths",
+                                  return_value={"added": [str(audio)], "pending": [],
+                                                "overwritten": 0, "unpaired": 0}), \
+                     patch.object(LIB, "save_import"), \
+                     patch.object(LIB, "refresh", return_value=1), \
+                     patch.object(FP, "fingerprint", return_value="fp1"):
+                    res = SVC.import_to_list({"list": "default", "paths": [str(audio)]})
+            finally:
+                PL.set_file(old)
+            self.assertTrue(res["ok"])
+            self.assertEqual(res["library"], 1)
+            self.assertEqual(res["imported"], 1)
