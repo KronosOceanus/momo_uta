@@ -173,58 +173,14 @@ async function loadWave(force){
     drawWave();
   }catch(e){ document.getElementById('wavehint').textContent='波形加载失败'; }
 }
-function reportJS(kind, data){
-  fetch('/api/debug',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({kind, data:JSON.stringify(data)})}).catch(()=>{});
-}
 (function waveLoop(){
-  let last=0, prevTs=0, lastPost=0, buf=[];
+  let last=0;
   function tick(ts){
-    if(WAVE && LRCEDIT && !au.paused && !window.__wavePaused && ts-last>=32){
-      const t0=performance.now();
-      drawWave();
-      const ms=performance.now()-t0;
-      if(ms>15) reportJS('slow',{fn:'drawWave', ms:Math.round(ms), t:Math.round(au.currentTime*100)/100, cur:CUR});
-      last=ts;
-    }
-    if(prevTs){
-      const dt=ts-prevTs;
-      if(!au.paused && au.currentTime>0){
-        if(Math.abs(au.currentTime-window.__lastCT)<1e-6) window.__stall=(window.__stall||0)+1;
-        else if(window.__stall){ 
-          if(window.__stall>=4) reportJS('clock',{frames:window.__stall,
-            t:Math.round(au.currentTime*100)/100, cur:CUR});
-          window.__stall=0;
-        }
-        window.__lastCT=au.currentTime;
-      }
-      if(dt>40 && au.currentTime>0 && document.visibilityState==='visible'){          // 长帧：记下当时上下文
-        buf.push({dt:Math.round(dt), t:Math.round(au.currentTime*100)/100,
-                  cur:typeof CUR==='number'?CUR:-1, wave:!!WAVE,
-                  playing:!au.paused, lrc:!!LRCEDIT,
-                  scroll:Math.round(lyr.scrollTop)});
-        if(buf.length>40) buf.shift();
-        if(ts-lastPost>1500){
-          lastPost=ts;
-          fetch('/api/debug',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({kind:'jank', data:JSON.stringify(buf.slice(-6))})}).catch(()=>{});
-        }
-      }
-    }
-    prevTs=ts;
+    if(WAVE && LRCEDIT && !au.paused && ts-last>=32){ drawWave(); last=ts; }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 })();
-// 初次播放的起点也记一下（播放器 readyState / buffering 情况）
-au.addEventListener('playing', ()=>{
-  if(!au._seenPlaying || au._seenPlaying!==au.src){
-    au._seenPlaying=au.src;
-    fetch('/api/debug',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({kind:'playstart', data:JSON.stringify({t:Math.round(au.currentTime*100)/100,
-        ready:au.readyState, dur:Math.round((au.duration||0)*100)/100})})}).catch(()=>{});
-  }
-});
 document.getElementById('wavefollow').onclick=e=>{
   FOLLOW=!FOLLOW;
   e.target.textContent='跟随：'+(FOLLOW?'开':'关');
@@ -495,12 +451,7 @@ document.getElementById('list').addEventListener('contextmenu', e=>{
 });
 document.addEventListener('click', closeCtx);
 document.addEventListener('keydown', e=>{
-  if(e.shiftKey && (e.key==='W'||e.key==='w')){
-    window.__wavePaused=!window.__wavePaused;
-    done('波形动画：'+(window.__wavePaused?'已暂停（只测音频/高亮）':'已恢复'));
-    if(!window.__wavePaused) drawWave();
-    return;
-  } if(e.key==='Escape') closeCtx(); });
+  if(e.key==='Escape') closeCtx(); });
 
 // 一次事件委托，避免重复绑定
 document.getElementById('list').addEventListener('click', async e=>{
