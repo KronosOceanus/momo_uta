@@ -23,13 +23,44 @@ function idxAt(t){
 function navItems(){
   return viewLines().map((l,i)=>({i, t:lineT(l)})).filter(x=>x.t!==null && !isMetaLine(viewLines()[x.i]));
 }
+// ── 精确定位：旧声音立刻停 → 定位 → 能出声了再继续播 ──
+function onceEvent(name, ms){
+  return new Promise(res=>{
+    let done=false;
+    const fin=()=>{ if(done) return; done=true; au.removeEventListener(name, fin); res(); };
+    au.addEventListener(name, fin); setTimeout(fin, ms);
+  });
+}
+function audioReady(){
+  if(au.readyState>=1 && isFinite(au.duration)) return Promise.resolve();
+  return onceEvent('loadedmetadata', 900);
+}
+let SEEK_SEQ=0, SEEK_WAS_PLAYING=false;
+async function seekPrecise(t){
+  t=Math.max(0, t);
+  if(SEEK_SEQ===0) SEEK_WAS_PLAYING=!au.paused;   // 连点时以第一次的状态为准
+  const seq=++SEEK_SEQ;
+  if(SEEK_WAS_PLAYING) au.pause();         // 画面与旧声音都在此停下
+  await audioReady();
+  if(seq!==SEEK_SEQ) return;
+  const seeked=onceEvent('seeked', 900);
+  au.currentTime=t;
+  paintTransport();
+  await seeked;
+  if(seq!==SEEK_SEQ) return;
+  if(au.readyState<3) await onceEvent('canplay', 900);
+  if(seq!==SEEK_SEQ) return;
+  if(SEEK_WAS_PLAYING) await au.play().catch(()=>{});
+  paintTransport();
+  SEEK_SEQ=0;                              // 这一轮结束，下一次重新取播放状态
+}
+
 function seekIdx(i, keepPlaying){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  const wasPlaying = keepPlaying!==false && !au.paused;
   if(PLAYING!==S.idx) commitAudio();
-  au.currentTime = Math.max(0, lineT(l));
-  if(wasPlaying) au.play().catch(()=>{});
+  const t=Math.max(0, lineT(l));
+  seekPrecise(t);                              // 是否续播由 seekPrecise 自己判断
   highlight(i);
   if(loop && !isMetaLine(viewLines()[i])) LOOP_ROW=i;
   if(LRCEDIT){ ESEL=i; SEL.clear(); paintSelection(); }
@@ -152,8 +183,8 @@ function seekToClientX(x){
   document.addEventListener('mousemove', e=>{ if(dragging) seekToClientX(e.clientX); });
   document.addEventListener('mouseup', ()=>{ dragging=false; });
   document.getElementById('play2').onclick=()=>{ if(au.paused) au.play().catch(()=>{}); else au.pause(); };
-  document.getElementById('back10').onclick=()=>{ au.currentTime=Math.max(0, au.currentTime-10); paintTransport(); };
-  document.getElementById('fwd10').onclick=()=>{ au.currentTime=Math.min(au.duration||0, au.currentTime+10); paintTransport(); };
+  document.getElementById('back10').onclick=()=>{ seekPrecise(Math.max(0, au.currentTime-10)); };
+  document.getElementById('fwd10').onclick=()=>{ seekPrecise(Math.min(au.duration||0, au.currentTime+10)); };
   document.getElementById('volume').oninput=e=>{ au.volume=+e.target.value; au.muted=au.volume===0; paintTransport(); };
   document.getElementById('mute').onclick=()=>{ au.muted=!au.muted; paintTransport(); };
   ['timeupdate','loadedmetadata','durationchange','play','pause','volumechange'].forEach(ev=>
