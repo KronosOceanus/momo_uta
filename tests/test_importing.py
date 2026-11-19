@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import importing, lrcio, lyrics_cache
+from nihonco_player.core import importing, lrc_doc as DOC, lrc_files as LRF, lyrics_cache
 
 
 class TestImportPreferNhlrc(unittest.TestCase):
@@ -19,15 +19,15 @@ class TestImportPreferNhlrc(unittest.TestCase):
             body = "[00:05.00]新歌词\n[00:10.00]第二句\n[00:15.00]第三句\n"
             ann = {0: [["新", "あら", "A"], ["歌词", None, None]]}
             (root / "歌手 - 曲.nhlrc").write_text(
-                lrcio.render_nhlrc(
+                DOC.render_nhlrc(
                     [{"t": 5.0, "text": "新歌词"}, {"t": 10.0, "text": "第二句"},
                      {"t": 15.0, "text": "第三句"}], [], ann),
                 encoding="utf-8")
             with patch.object(lyrics_cache, "CACHE", root / "cache"), \
-                 patch.object(lrcio.LY, "audio_duration", return_value=60):
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 res = importing.import_paths([str(audio)])
                 self.assertEqual(len(res["added"]), 1)
-                doc = lrcio.load(audio)            # 只读缓存，没有本地 .lrc/.nhlrc 冲突
+                doc = LRF.load(audio)            # 只读缓存，没有本地 .lrc/.nhlrc 冲突
                 self.assertEqual([r["text"] for r in doc["lines"]][0], "新歌词")
                 # 导入 nhlrc 时标注一并进缓存（不丢读音）
                 self.assertEqual(doc["annotations"],
@@ -37,13 +37,13 @@ class TestImportPreferNhlrc(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
-            text = lrcio.render_nhlrc([{"t": 1.0, "text": "君"}], [],
+            text = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
                                        {0: [["君", "きみ", "A"]]})
-            with patch.object(lrcio.LY, "audio_duration", return_value=60), \
-                 patch.object(lrcio.LY, "write_local_lrc"):
-                res = lrcio.import_text(audio, text)
+            with patch.object(LRF.LY, "audio_duration", return_value=60), \
+                 patch.object(LRF.LY, "write_local_lrc"):
+                res = LRF.import_text(audio, text)
             self.assertTrue(res["ok"])
-            raw = lrcio.nhlrc_path(audio).read_text(encoding="utf-8")
+            raw = LRF.nhlrc_path(audio).read_text(encoding="utf-8")
             self.assertNotIn("#NHLRC", raw)
             self.assertIn("[00:01.00]君", raw)
 

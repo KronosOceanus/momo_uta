@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import library, lrcio, lyrics_cache
+from nihonco_player.core import lrc_files as lrcio, library, lyrics_cache
 
 
 class TestLrcDrafts(unittest.TestCase):

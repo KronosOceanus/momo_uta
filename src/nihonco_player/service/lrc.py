@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 
 from ..core import library as LIB
-from ..core import lrcio as LRC
+from ..core import lrc_doc as DOC
+from ..core import lrc_files as LRC
 from ..core.library import CACHE
 from .song import annotate_line_with_notes, segs_of
 
@@ -29,8 +30,8 @@ def lrc_action(req):
         if not lines:
             lines = doc["lines"]
         ann = doc.get("annotations") or {}
-        return {"ok": True, "nhlrc": LRC.render_nhlrc(lines, doc["metadata"], ann),
-                "lrc": LRC.render_body(lines, doc["metadata"])}
+        return {"ok": True, "nhlrc": DOC.render_nhlrc(lines, doc["metadata"], ann),
+                "lrc": DOC.render_body(lines, doc["metadata"])}
     if act == "import_lrc":
         text = str(req.get("text") or "")
         if not text.strip():

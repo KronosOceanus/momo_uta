@@ -12,7 +12,7 @@ from pathlib import Path
 from nihonco_yomi.config import LB
 
 from . import library as LIB
-from . import lrcio as LRC
+from . import lrc_doc as DOC
 from . import lyrics as LY
 
 AUDIO_EXT = set(LB["extensions"])
@@ -30,17 +30,17 @@ def _pick(cands: list[Path]) -> Path | None:
 
 def _body(path: Path) -> str:
     text = path.read_text(encoding="utf-8", errors="ignore")
-    return LRC._split_nhlrc(text)[0] if path.suffix.lower() == ".nhlrc" else text
+    return DOC._split_nhlrc(text)[0] if path.suffix.lower() == ".nhlrc" else text
 
 
 def _annotations(path: Path, body: str) -> dict | None:
     if path.suffix.lower() != ".nhlrc":
         return None
-    _b, tail = LRC._split_nhlrc(path.read_text(encoding="utf-8", errors="ignore"))
+    _b, tail = DOC._split_nhlrc(path.read_text(encoding="utf-8", errors="ignore"))
     if not tail:
         return None
-    lines, _m = LRC._parse_document(body)
-    return LRC.annotations_for(lines, tail) or None
+    lines, _m = DOC._parse_document(body)
+    return DOC.annotations_for(lines, tail) or None
 JUNK = re.compile(r"[\s._\-]*[\(（\[【]\s*(?:\d+|mqms\d*|tv\s*size|short\s*ver\.?|"
                   r"ショートサイズ)\s*[\)）\]】]$", re.I)
 

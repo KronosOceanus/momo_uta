@@ -11,7 +11,7 @@ import threading
 
 from ..core import edits as ED
 from ..core import library as LIB
-from ..core import lrcio as LRC
+from ..core import lrc_files as LRC
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
