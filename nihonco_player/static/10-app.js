@@ -29,11 +29,17 @@ function viewStart(){
 // ── 缩放 / 跳转 / 数值输入 ──────────────────────
 const SPAN_LO=2, SPAN_HI=10;
 function spanText(v){ return (Math.round(v*10)/10).toString().replace(/\.0$/,'')+'s'; }
+function updateWaveHint(){
+  const h=document.getElementById('wavehint');
+  if(!h) return;
+  h.textContent = WAVE ? `波形 ${fmt(WAVE.duration)} · 窗口 ${spanText(VIEW.span)}` : '';
+}
 function syncWaveLabels(){
   const z=document.getElementById('zoomval'); if(z) z.textContent=spanText(VIEW.span);
   const b=document.getElementById('jumpback'), f=document.getElementById('jumpfwd');
   if(b) b.textContent='◀ '+spanText(VIEW.span);
   if(f) f.textContent=spanText(VIEW.span)+' ▶';
+  updateWaveHint();
 }
 function syncFollow(){
   const b=document.getElementById('wavefollow');
@@ -124,7 +130,7 @@ async function loadWave(){
     const d=await api('/api/wave/'+S.idx);
     if(d.error){ document.getElementById('wavehint').textContent='无法生成波形：'+d.error; return; }
     WAVE=d;
-    document.getElementById('wavehint').textContent=`波形 ${fmt(d.duration)} · 窗口 ${VIEW.span}s · 滚轮 2–10s`;
+    updateWaveHint();
     drawWave();
   }catch(e){ document.getElementById('wavehint').textContent='波形加载失败'; }
 }
