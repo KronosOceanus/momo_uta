@@ -83,13 +83,38 @@ async function loadWave(){
   }catch(e){ document.getElementById('wavehint').textContent='波形加载失败'; }
 }
 (function waveLoop(){
-  let last=0;
+  let last=0, prevTs=0, lastPost=0, buf=[];
   function tick(ts){
     if(WAVE && LRCEDIT && !au.paused && ts-last>=16){ drawWave(); last=ts; }   // ~60fps
+    if(prevTs){
+      const dt=ts-prevTs;
+      if(dt>40 && au.currentTime>0){          // 长帧：记下当时上下文
+        buf.push({dt:Math.round(dt), t:Math.round(au.currentTime*100)/100,
+                  cur:typeof CUR==='number'?CUR:-1, wave:!!WAVE,
+                  playing:!au.paused, lrc:!!LRCEDIT,
+                  scroll:Math.round(lyr.scrollTop)});
+        if(buf.length>40) buf.shift();
+        if(ts-lastPost>1500){
+          lastPost=ts;
+          fetch('/api/debug',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({kind:'jank', data:JSON.stringify(buf.slice(-6))})}).catch(()=>{});
+        }
+      }
+    }
+    prevTs=ts;
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 })();
+// 初次播放的起点也记一下（播放器 readyState / buffering 情况）
+au.addEventListener('playing', ()=>{
+  if(!au._seenPlaying || au._seenPlaying!==au.src){
+    au._seenPlaying=au.src;
+    fetch('/api/debug',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kind:'playstart', data:JSON.stringify({t:Math.round(au.currentTime*100)/100,
+        ready:au.readyState, dur:Math.round((au.duration||0)*100)/100})})}).catch(()=>{});
+  }
+});
 document.getElementById('wavefollow').onclick=e=>{
   FOLLOW=!FOLLOW;
   e.target.textContent='跟随：'+(FOLLOW?'开':'关');

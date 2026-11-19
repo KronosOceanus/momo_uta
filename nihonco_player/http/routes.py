@@ -32,6 +32,7 @@ class H(BaseHTTPRequestHandler):
         "/api/tag": "_post_tag",
         "/api/import/one": "_post_import",
         "/api/lrc": "_post_lrc",
+        "/api/debug": "_post_debug",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -156,3 +157,15 @@ class H(BaseHTTPRequestHandler):
 
     def _post_lrc(self, req):
         return self._json(SVC_LRC.lrc_action(req))
+
+    def _post_debug(self, req):
+        """前端诊断数据 → data/cache/app.log（只用于排查卡顿，可随时删除）"""
+        import time
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent.parent
+        log = root / "data" / "cache" / "app.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with log.open("a", encoding="utf-8") as fh:
+            fh.write(f"[js] {time.strftime('%H:%M:%S')} "
+                     f"{req.get('kind','')} {req.get('data','')}\n")
+        return self._json({"ok": True})
