@@ -24,6 +24,7 @@ class TestImportPreferNhlrc(unittest.TestCase):
                      {"t": 15.0, "text": "第三句"}], [], ann),
                 encoding="utf-8")
             with patch.object(lyrics_cache, "CACHE", root / "cache"), \
+                 patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
                 res = importing.import_paths([str(audio)])
                 self.assertEqual(len(res["added"]), 1)
@@ -39,11 +40,12 @@ class TestImportPreferNhlrc(unittest.TestCase):
             audio.touch()
             text = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
                                        {0: [["君", "きみ", "A"]]})
-            with patch.object(LRF.LY, "audio_duration", return_value=60), \
+            with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LRF.LY, "write_local_lrc"):
                 res = LRF.import_text(audio, text)
-            self.assertTrue(res["ok"])
-            raw = LRF.nhlrc_path(audio).read_text(encoding="utf-8")
+                self.assertTrue(res["ok"])
+                raw = LRF.store_path(LRF.uid_of(audio)).read_text(encoding="utf-8")
             self.assertNotIn("#NHLRC", raw)
             self.assertIn("[00:01.00]君", raw)
 

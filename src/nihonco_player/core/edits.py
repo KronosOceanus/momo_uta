@@ -59,6 +59,15 @@ def put(key: str, line: int, start: int, reading: str) -> None:
         _save(d)
 
 
+def pop(key: str) -> dict:
+    """取出并删除一首歌的条目（迁移用）。"""
+    with _locked():
+        d = load()
+        got = d.pop(key, {})
+        _save(d)
+        return got
+
+
 def clear(key: str) -> None:
     with _locked():
         d = load()

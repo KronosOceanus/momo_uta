@@ -19,6 +19,7 @@ class TestLrcDrafts(unittest.TestCase):
             audio = root / "歌手 - テスト.mp3"
             audio.touch()
             with patch.object(lyrics_cache, "CACHE", root / "cache"), \
+                 patch.object(lrcio, "LYRICS", Path(tmp) / "lyrics"), \
                  patch.object(lrcio.LY, "audio_duration", return_value=60), \
                  patch.object(library, "load_imports", return_value=[]):
                 self.assertTrue(lrcio.save(audio, rows)["ok"])
@@ -49,19 +50,22 @@ class TestLrcDrafts(unittest.TestCase):
                              ["[Chorus]", "あの日", "[Note: keep singing]"])
             self.assertEqual([tag["before"] for tag in draft["metadata"]], [0, 1])
             draft["lines"][1]["text"] = "次の日"
-            with patch.object(lrcio.LY, "audio_duration", return_value=60), \
+            with patch.object(lrcio, "LYRICS", Path(tmp) / "lyrics"), \
+                 patch.object(lrcio.LY, "audio_duration", return_value=60), \
                  patch.object(lrcio.LY, "write_local_lrc") as cache_write:
                 self.assertTrue(lrcio.save(audio, draft["lines"])["ok"])
-            doc = lrcio.load(audio)
-            self.assertEqual([r["text"] for r in doc["lines"]],
-                             ["[Chorus]", "次の日", "[Note: keep singing]"])
-            self.assertEqual(lrcio.nhlrc_path(audio).is_file(), True)
-            self.assertEqual(lrcio.backup_path(audio).read_text(encoding="utf-8"), raw)
-            self.assertEqual(cache_write.call_args.args[2], doc["text"])
+                doc = lrcio.load(audio)
+                self.assertEqual([r["text"] for r in doc["lines"]],
+                                 ["[Chorus]", "次の日", "[Note: keep singing]"])
+                self.assertTrue(lrcio.store_path(lrcio.uid_of(audio)).is_file())
+                self.assertEqual(lrcio.backup_path(audio, lrcio.uid_of(audio))
+                                 .read_text(encoding="utf-8"), raw)
+                self.assertEqual(cache_write.call_args.args[2], doc["text"])
 
     def test_first_save_carries_metadata_from_cache(self):
         raw = "[ar:歌手]\n[00:05.00]あの日\n"
         with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(lrcio, "LYRICS", Path(tmp) / "lyrics"), \
              patch.object(lrcio.LY, "_cached", return_value=True), \
              patch.object(lrcio.LY, "get_lrc", return_value={"lrc": raw}), \
              patch.object(lrcio.LY, "audio_duration", return_value=60), \
@@ -72,5 +76,5 @@ class TestLrcDrafts(unittest.TestCase):
             self.assertTrue(lrcio.save(audio, draft["lines"])["ok"])
             doc = lrcio.load(audio)
             self.assertEqual([r["text"] for r in doc["lines"]], ["あの日"])
-            self.assertEqual(lrcio.nhlrc_path(audio).is_file(), True)
+            self.assertTrue(lrcio.store_path(lrcio.uid_of(audio)).is_file())
             self.assertFalse((Path(tmp) / "歌手 - 曲.lrc").exists())

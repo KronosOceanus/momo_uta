@@ -338,7 +338,6 @@ async function load(i, autoplay, nextEditMode){
     lyr.innerHTML=NH.LINES.map((l,n)=>`<div class="ln" data-n="${n}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}</div>`).join('');
     document.querySelectorAll('.ln').forEach(el=>el.onclick=()=>NH.seek(+el.dataset.n));
     NH.renderSide();
-    NH.restoreEdits();
     NH.OFFSET = d.offset || 0;
     document.getElementById('offval').textContent = NH.OFFSET.toFixed(2)+'s';
     NH.syncModes();

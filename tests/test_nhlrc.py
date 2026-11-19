@@ -39,17 +39,18 @@ class TestNhlrc(unittest.TestCase):
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
             ann = {0: [["君", "きみ", "A"], ["の名前", "のなまえ", "B"]]}
-            with patch.object(LRF.LY, "audio_duration", return_value=60), \
+            with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LRF.LY, "write_local_lrc"):
                 res = LRF.save(audio, rows(), ann)
-            self.assertTrue(res["ok"])
-            p = LRF.nhlrc_path(audio)
-            self.assertTrue(p.is_file())
-            raw = p.read_text(encoding="utf-8")
-            self.assertTrue(raw.startswith("[00:05.00]君の名前"))
-            self.assertIn("#NHLRC 1", raw)
-            doc = LRF.load(audio)
-            self.assertEqual(doc["annotations"], ann)
+                self.assertTrue(res["ok"])
+                p = LRF.store_path(LRF.uid_of(audio))
+                self.assertTrue(p.is_file())
+                raw = p.read_text(encoding="utf-8")
+                self.assertTrue(raw.startswith("[00:05.00]君の名前"))
+                self.assertIn("#NHLRC 1", raw)
+                doc = LRF.load(audio)
+                self.assertEqual(doc["annotations"], ann)
             self.assertEqual(DOC.render_body(rows(), []), "[00:05.00]君の名前\n[00:09.00]呼んでくれた\n")
 
     def test_legacy_lrc_still_loads_without_annotations(self):
@@ -68,14 +69,16 @@ class TestNhlrc(unittest.TestCase):
             audio.touch()
             legacy = "[00:05.00]君の名前\n"
             LRF.lrc_path(audio).write_text(legacy, encoding="utf-8")
-            with patch.object(LRF.LY, "audio_duration", return_value=60), \
+            with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LRF.LY, "write_local_lrc"):
                 LRF.save(audio, rows())
-                self.assertEqual(LRF.backup_path(audio).read_text(encoding="utf-8"), legacy)
-                p = LRF.nhlrc_path(audio)
+                uid = LRF.uid_of(audio)
+                self.assertEqual(LRF.backup_path(audio, uid).read_text(encoding="utf-8"), legacy)
+                p = LRF.store_path(uid)
                 before = p.read_text(encoding="utf-8")
                 LRF.save(audio, rows())
-                self.assertEqual(LRF.backup_path(audio).read_text(encoding="utf-8"), legacy)
+                self.assertEqual(LRF.backup_path(audio, uid).read_text(encoding="utf-8"), legacy)
                 self.assertTrue(before.startswith("[00:05.00]君の名前"))
 
 

@@ -16,6 +16,7 @@ TABLES = DATA / "tables"        # 词典机械抽取（可重建）
 CURATED = DATA / "curated"      # 人工维护（不可重建，要备份）
 CORPUS = DATA / "corpus"        # 语料统计（可重建）
 CACHE = DATA / "cache"          # 运行期缓存（随时可删）
+LYRICS = DATA / "lyrics"        # 歌词标注（nhlrc，用户资产，进 git）
 
 
 # 评测

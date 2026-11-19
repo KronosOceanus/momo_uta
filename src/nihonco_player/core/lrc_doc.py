@@ -121,6 +121,35 @@ def parse(text: str) -> list[dict]:
     return _parse_document(text)[0]
 
 
+def align_annotations(lines: list[dict],
+                      annotations: dict[int, list]) -> dict[int, list]:
+    """把旧标注按内容对齐到新行序（插入/删除/移动后仍然跟着行走）。
+
+    位置优先（没动过的行最精确），再按文本先进先出；拼接不成立的一律不用。
+    """
+    entries = [(i, seg) for i, seg in sorted((annotations or {}).items()) if seg]
+    texts = {i: "".join(x[0] for x in seg) for i, seg in entries}
+    used: set[int] = set()
+    out: dict[int, list] = {}
+
+    for i, seg in entries:                       # 第一轮：位置 + 内容都一致
+        if i < len(lines) and texts[i] == (lines[i].get("text") or ""):
+            out[i] = seg
+            used.add(i)
+
+    remaining = [(i, seg) for i, seg in entries if i not in used]
+    for i, ln in enumerate(lines):               # 第二轮：按内容找（FIFO）
+        if i in out:
+            continue
+        want = ln.get("text") or ""
+        for k, (j, seg) in enumerate(remaining):
+            if texts[j] == want:
+                out[i] = seg
+                remaining.pop(k)
+                break
+    return out
+
+
 def parse_timed(text: str) -> list[dict]:
     """只要"打了时间戳且有文本"的行，按时间排序（缓存/匹配用）。"""
     out = []

@@ -5,8 +5,10 @@
 import sys
 import threading
 import time
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -17,6 +19,7 @@ except Exception:                     # pragma: no cover
     HAVE_WEBVIEW = False
 
 from nihonco_player.core import library as LIB
+from nihonco_player.core import lrc_files as LRF
 from nihonco_player.core.library import CACHE
 from nihonco_player.http.server import make_server
 
@@ -25,6 +28,9 @@ from nihonco_player.http.server import make_server
 class TestUiSmoke(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._lyr_tmp = tempfile.TemporaryDirectory()
+        cls._lyr_patch = patch.object(LRF, "LYRICS", Path(cls._lyr_tmp.name) / "lyrics")
+        cls._lyr_patch.start()
         lib = LIB.scan_library()
         CACHE.clear()
         CACHE.update({str(i): x for i, x in enumerate(lib)})
@@ -40,6 +46,8 @@ class TestUiSmoke(unittest.TestCase):
             cls.srv.shutdown()
         except Exception:
             pass
+        cls._lyr_patch.stop()
+        cls._lyr_tmp.cleanup()
 
     def _run_window(self, actions):
         """开窗口 → 等页面就绪 → 依次执行 actions(window) → 关闭。"""

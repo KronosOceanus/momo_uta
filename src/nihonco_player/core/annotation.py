@@ -58,7 +58,8 @@ def _stored_overrides(clean: str, segs: list, stored: list) -> dict | None:
 
 def annotate_line_with_notes(text: str, extra_start: int | None = None,
                              extra_reading: str | None = None,
-                             stored: list | None = None) -> dict:
+                             stored: list | None = None,
+                             extras: list[tuple[int, str]] | None = None) -> dict:
     """标一行：先处理行内注音 笑顔(かお)，再叠加用户改的那一处 / 文件里的标注。
 
     text 必须是"清洗前"的原文（含括号写法），这样调用方拿到的 start
@@ -76,6 +77,10 @@ def annotate_line_with_notes(text: str, extra_start: int | None = None,
         seg = next((x for x in segs if x["start"] == extra_start), None)
         if seg:
             ov[f"o:0-{seg['word']}"] = extra_reading
+    for start, kana in (extras or ()):
+        seg = next((x for x in segs if x["start"] == start), None)
+        if seg:
+            ov[f"o:0-{seg['word']}"] = kana
     if stored:
         got = _stored_overrides(clean, segs, stored)
         if got is not None:
@@ -101,6 +106,49 @@ def annotations_from_lines(lines: list[dict]) -> dict[int, list]:
         except Exception as e:
             diag.log("annotate", f"行 {i} 注音失败：{e}")
     return out
+
+
+def offset_exists(text: str, start: int) -> bool:
+    """行内 start 处是否存在一个有读音的片段（readings 迁移用）。"""
+    clean, _ = strip_paren_ruby(text)
+    for seg in AN.annotate(clean)["lines"][0]["segments"]:
+        if seg.get("start") == start and seg.get("ruby"):
+            return True
+    return False
+
+
+def fold_readings(key: str, lines: list[dict],
+                  annotations: dict[int, list]) -> tuple[dict[int, list], int, int]:
+    """把 readings.json 里的手改读音并进 annotate；返回 (annotations, 采用, 丢弃)。
+
+    不清 readings（清理由调用方在落盘成功后做）。
+    """
+    from . import edits as ED
+    entries = ED.for_song(key)
+    used = dropped = 0
+    by_line: dict[int, list[tuple[int, str]]] = {}
+    for k, reading in entries.items():
+        try:
+            line_s, start_s = k.split(":")
+            by_line.setdefault(int(line_s), []).append((int(start_s), str(reading)))
+        except (ValueError, AttributeError):
+            dropped += 1
+    for line, pairs in by_line.items():
+        if not (0 <= line < len(lines)) or not (lines[line].get("text") or "").strip():
+            dropped += len(pairs)
+            continue
+        text = lines[line]["text"]
+        base = annotations.get(line)
+        for start, reading in pairs:
+            if not offset_exists(text, start):
+                dropped += 1
+                continue
+            r = annotate_line_with_notes(text, stored=base, extras=[(start, reading)])
+            base = segs_of(r)
+            used += 1
+        if base:
+            annotations[line] = base
+    return annotations, used, dropped
 
 
 def line_fields(text: str, stored: list | None = None) -> dict:

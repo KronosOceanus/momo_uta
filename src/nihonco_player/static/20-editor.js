@@ -547,18 +547,6 @@ function applyEdit(d){
           if(d.kyH) NH.LINES[d.line].kyH = d.kyH; }
   renderSide();
 }
-async function restoreEdits(){
-  const store = (NH.S && NH.S.edits) || {};
-  const edits = Object.entries(store)
-    .map(([k,v])=>{const [l,st]=k.split(':');return {idx:NH.S.idx,line:+l,start:+st,reading:v};})
-    .filter(e=>!isNaN(e.line)&&!isNaN(e.start));
-  if(!edits.length) return;
-  const r = await fetch('/api/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({idx:NH.S.idx, edits})});
-  if(!r.ok) return;
-  const d = await r.json();
-  (d.edits||[]).forEach(applyEdit);
-}
 
 
 
@@ -597,5 +585,5 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, restoreEdits, renderSide, syncSideToTime, paint2});
+Object.assign(NH, {setLrcLocked, snapshot, markDirty, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
 })();

@@ -26,7 +26,6 @@ class H(BaseHTTPRequestHandler):
         "/api/pl": "_post_pl",
         "/api/playlist": "_post_pl",
         "/api/line": "_post_line",
-        "/api/apply": "_post_apply",
         "/api/rematch": "_post_rematch",
         "/api/pick": "_post_pick",
         "/api/tag": "_post_tag",
@@ -75,7 +74,6 @@ class H(BaseHTTPRequestHandler):
         "/api/pl": ("action",),
         "/api/playlist": ("action",),
         "/api/line": ("idx", "line", "start", "reading"),
-        "/api/apply": ("idx",),
         "/api/rematch": ("idx",),
         "/api/pick": ("idx", "id"),
         "/api/tag": ("action",),
@@ -191,9 +189,6 @@ class H(BaseHTTPRequestHandler):
 
     def _post_line(self, req):
         return self._json(SVC_SONG.edit_line_action(req))
-
-    def _post_apply(self, req):
-        return self._json(SVC_SONG.apply_edits(req))
 
     def _post_rematch(self, req):
         return self._json(SVC_SONG.rematch(req.get("idx"), req.get("duration")))

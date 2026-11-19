@@ -7,11 +7,13 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from nihonco_player.core import edits as ED      # noqa: E402
 from nihonco_player.core import library as LIB       # noqa: E402
 from nihonco_player.core import lyrics as LY         # noqa: E402
+from nihonco_player.core import lrc_files as LRF     # noqa: E402
 from nihonco_player.core.library import CACHE        # noqa: E402
 from nihonco_player.http.server import make_server   # noqa: E402
 
@@ -32,6 +34,9 @@ CACHE_ITEM = {
 class TestPlayerHttp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._lyr_tmp = tempfile.TemporaryDirectory()
+        cls._lyr_patch = patch.object(LRF, "LYRICS", Path(cls._lyr_tmp.name) / "lyrics")
+        cls._lyr_patch.start()
         CACHE.clear()
         CACHE["0"] = CACHE_ITEM
         # 让 song_payload 拿到固定歌词，不走网络
@@ -49,6 +54,8 @@ class TestPlayerHttp(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls._lyr_patch.stop()
+        cls._lyr_tmp.cleanup()
         LY.get_lrc = cls._orig_get
         ED.set_file(cls._orig_readings)
         cls.tmp.cleanup()

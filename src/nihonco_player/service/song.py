@@ -16,9 +16,9 @@ from ..core import diag
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
-                               annotate_line_with_notes, line_fields,
-                               ruby_html, segs_of, strip_paren_ruby,
-                               words_html_of)
+                               annotate_line_with_notes, fold_readings,
+                               line_fields, ruby_html, segs_of,
+                               strip_paren_ruby, words_html_of)
 from ..core.library import CACHE
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
@@ -36,8 +36,8 @@ def song_payload(idx: int) -> dict:
         return {"idx": str(idx), "key": item["key"], "title": item["title"],
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
                 "audio": f"/audio/{idx}"}
-    edits = ED.for_song(item["key"])
-    doc = LRC.load(item["file"])
+    key = item["key"]
+    doc = LRC.load(item["file"], item.get("uid"))
     lines = doc["lines"]
     if not any((ln.get("text") or "").strip() for ln in lines):
         return {"idx": str(idx), "key": item["key"], "title": item["title"],
@@ -54,44 +54,54 @@ def song_payload(idx: int) -> dict:
             changed = True
         ln.update(fields)
         ln["raw"] = ln["text"]
-    if changed and any((ln.get("text") or "").strip() for ln in lines):
+    legacy = ED.for_song(key)
+    if any((ln.get("text") or "").strip() for ln in lines) and \
+            (changed or doc.get("kind") != "nhlrc" or legacy):
         try:
             ann = {i: segs_of(annotate_line_with_notes(ln["text"], stored=stored.get(i)))
                    for i, ln in enumerate(lines) if (ln.get("text") or "").strip()}
-            if doc.get("kind") in ("lrc", "nhlrc"):
-                LRC.save(item["file"], lines, ann)          # 有本地歌词文件 → 写 .nhlrc
-            else:
-                LY.write_local_lrc(title, artist, doc["text"], annotations=ann,
-                                   duration=LY.audio_duration(item["file"]),
-                                   name=title, by=artist)   # 纯缓存 → 标注存缓存
+            ann, used, dropped = fold_readings(key, lines, ann)
+            LRC.save(item["file"], lines, ann, item.get("uid"))
+            if legacy:
+                ED.pop(key)
+                diag.log("lyrics", f"{key}: 迁移手改读音 {used} 处，丢弃 {dropped} 处")
         except Exception as e:
             diag.log("nhlrc", f"自动落盘失败：{e}")
-    return {"idx": idx, "key": item["key"], "title": item["title"], "artist": item["artist"],
-            "lines": lines, "edits": edits, "nhlrc": True,
+    return {"idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
+            "lines": lines, "nhlrc": True,
         "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),
         "audio": f"/audio/{idx}",
 }
 
 
 def edit_line(idx, li, start, reading):
-    """改一处的读音：返回该行的新 HTML 与罗马音。"""
+    """改一处的读音：重算该行、立即写回 nhlrc，返回新 HTML 与罗马音。"""
     item = CACHE.get(str(idx))
     if not item or not reading:
         return None
-    artist, title = LY.split_name(item["stem"])
-    lines = LY.parse_lrc((LY.get_lrc(title, artist) or {}).get("lrc") or "")
-    if not (0 <= li < len(lines)):
-        return None
-    text = lines[li].text if hasattr(lines[li], "text") else lines[li]["text"]
-    clean, _ = strip_paren_ruby(text)
-    base = AN.annotate(clean)
-    seg = next((x for x in base["lines"][0]["segments"] if x["start"] == start), None)
-    if not seg:
-        return None
-    r = annotate_line_with_notes(text, extra_start=start, extra_reading=reading)
+    with LRC.LOCK:
+        doc = LRC.load(item["file"], item.get("uid"))
+        lines = doc["lines"]
+        if not (0 <= li < len(lines)) or not (lines[li].get("text") or "").strip():
+            return None
+        text = lines[li]["text"]
+        clean, _ = strip_paren_ruby(text)
+        base = AN.annotate(clean)
+        seg = next((x for x in base["lines"][0]["segments"] if x["start"] == start), None)
+        if not seg:
+            return None
+        ann = dict(doc.get("annotations") or {})
+        ann, _used, _dropped = fold_readings(item["key"], lines, ann)   # 顺带迁移旧手改
+        r = annotate_line_with_notes(text, stored=ann.get(li),
+                                     extra_start=start, extra_reading=reading)
+        ann[li] = segs_of(r)
+        LRC.save(item["file"], lines, ann, item.get("uid"))
+        if ED.for_song(item["key"]):
+            ED.pop(item["key"])
     return {"line": li, "ruby": ruby_html(r), "rm": r.get("romaji", {}).get("text", ""),
             "ky": r.get("keys", {}).get("text", ""),
             "rmH": words_html_of(r, "romaji"), "kyH": words_html_of(r, "keys")}
+
 
 def rematch(idx, duration):
     """重新匹配：候选**完全来自网络**，不拿本地缓存当候选。
@@ -188,25 +198,11 @@ def lazy_match(item: dict) -> None:
 
 # ── HTTP 用得着的两个封装 ─────────────────────────────
 def edit_line_action(req) -> dict:
-    """改一处读音（HTTP 用）：成功返回新行，失败返回 {"error"}。"""
-    item = CACHE.get(str(req.get("idx")))
+    """改一处读音（HTTP 用）：改完立即写盘；失败返回 {"error"}。"""
     line = int(req.get("line", -1))
     start = int(req.get("start", -1))
     reading = str(req.get("reading") or "")
     r = edit_line(req.get("idx"), line, start, reading)
     if not r:
-        return {"error": "bad"}
-    if item:
-        ED.put(item["key"], line, start, reading)
+        return {"error": "读音保存失败"}
     return r
-
-
-def apply_edits(req) -> dict:
-    """批量恢复读音（打开一首歌时用）。"""
-    out = []
-    for e in req.get("edits", []):
-        r = edit_line(e.get("idx", req.get("idx")), int(e.get("line", -1)),
-                      int(e.get("start", -1)), str(e.get("reading") or ""))
-        if r:
-            out.append(r)
-    return {"edits": out}
