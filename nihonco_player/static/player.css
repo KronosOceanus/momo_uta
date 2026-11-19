@@ -172,6 +172,7 @@ body.lrcedit #lrcbar{display:flex}
 .hdr .modes button.on{border-color:var(--a);color:var(--a);background:#20323d}
 .hdr .modes button:disabled{opacity:.4;cursor:not-allowed}
 .hdr .chip{font-size:11px;color:#c8843f;border:1px solid #3a2f22;border-radius:6px;
+  white-space:nowrap;flex:0 0 auto;
   padding:2px 7px;cursor:pointer;margin-left:8px}
 #fakbar,#lrcbar{display:none;padding-top:5px;padding-bottom:5px}
 body.fak #fakbar{display:flex}
