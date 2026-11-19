@@ -7,6 +7,7 @@ function commitAudio(){
   if(!S) return;
   PLAYING = S.idx; markPlaying();
   au.src = S.audio;
+  au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
   document.getElementById('ttl').textContent = '▶ ' + S.title + (S.artist?' · '+S.artist:'');
   syncPlayBtn();
 }

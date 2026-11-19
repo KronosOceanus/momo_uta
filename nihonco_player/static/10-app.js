@@ -4,7 +4,7 @@
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
 let S=null, LINES=[], NAV=[], CUR=-1, loop=false, ids=[], MODE='rm', PLAYING=null, EDITMODE=false;
-const au=document.getElementById('au'), lyr=document.getElementById('lyr');
+const lyr=document.getElementById('lyr');
 let LIB=[], PLS=[], DRAG=null;
 
 // ── 波形与整体偏移 ────────────────────────────────
@@ -205,12 +205,15 @@ async function load(i, autoplay, nextEditMode){
     LRCEDIT=false;
     syncModes();
   }
-  if(d.pending){                               // 没有歌词 → 懒匹配
-    S=d; LINES=[]; CUR=-1;
+  if(d.pending){                               // 没有歌词 → 先能播，再后台匹配
+    S=d; LINES=[]; CUR=-1; NAV=[];
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
     lyr.innerHTML='<div class="lm">匹配歌词中…</div>';
     busy('匹配歌词中…');
     document.getElementById('rmcol').innerHTML='';
+    commitAudio();                             // 没有歌词也要能播放
+    au.playbackRate=+document.getElementById('rate').value;
+    if(autoplay) au.play().catch(()=>{});
     try{
       await api('/api/pl',{action:'match',idx:d.idx});
       for(let k=0;k<40 && request===LOAD_REQUEST;k++){
@@ -224,9 +227,9 @@ async function load(i, autoplay, nextEditMode){
       if(request!==LOAD_REQUEST) return false;
     }
     if(request!==LOAD_REQUEST) return false;
-    lyr.innerHTML='<div class="lm">没匹配到歌词</div>';
-    done('这首歌没匹配到歌词');
-    return false;
+    lyr.innerHTML='<div class="lm">没匹配到歌词（仍可播放）</div>';
+    done('这首歌没匹配到歌词，仍可播放');
+    return true;
   }
   {
     S=d; LINES=d.lines; CUR=-1;
