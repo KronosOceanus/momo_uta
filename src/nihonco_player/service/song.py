@@ -173,9 +173,7 @@ def pick(idx, song_id) -> dict:
         return {"ok": False, "error": "这个候选没有可用歌词"}
     LY.write_local_lrc(title, artist, lrc,
                        duration=LY.audio_duration(item["file"]), name=title, by=artist)
-    lib = LIB.scan_library()
-    CACHE.clear()
-    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    LIB.refresh(item["uid"])
     idx2 = next((k for k, v in CACHE.items() if v["file"] == item["file"]), str(idx))
     d = song_payload(int(idx2))
     return {"ok": True, "idx": idx2, "lines": len(d.get("lines") or [])}
@@ -184,9 +182,7 @@ def lazy_match(item: dict) -> None:
     """按需抓歌词：MB 规范化 + 时长门槛那条流程。"""
     artist, title = LY.split_name(item["stem"])
     LY.get_lrc(title, artist, duration=LY.audio_duration(item["file"]), force=True)
-    lib = LIB.scan_library()
-    CACHE.clear()
-    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    LIB.refresh(item.get("uid"))
 
 
 # ── HTTP 用得着的两个封装 ─────────────────────────────

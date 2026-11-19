@@ -72,9 +72,7 @@ def import_to_list(req) -> dict:
         p = Path(str(f))
         artist, title = LIB.LY.split_name(p.stem)
         LIB.save_import(str(p), title, artist)
-    lib = LIB.scan_library()
-    CACHE.clear()
-    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    LIB.refresh()
     uids = [hashlib.md5(str(Path(str(f))).encode()).hexdigest()[:12] for f in res["added"]]
     added_n = PL.add(lid, uids)
 

@@ -21,8 +21,7 @@ def lrc_action(req):
     if act == "restore":
         res = LRC.restore_backup(item["file"])
         if res.get("ok"):
-            lib = LIB.scan_library()
-            CACHE.clear(); CACHE.update({str(i): x for i, x in enumerate(lib)})
+            LIB.refresh(item.get("uid"))
         return res
     if act == "export":
         lines = req.get("lines")
@@ -37,8 +36,7 @@ def lrc_action(req):
         if not text.strip():
             return {"ok": False, "error": "文件是空的"}
         res = LRC.import_text(item["file"], text)
-        lib = LIB.scan_library()
-        CACHE.clear(); CACHE.update({str(i): x for i, x in enumerate(lib)})
+        LIB.refresh(item.get("uid"))
         return res
     if act == "save":
         lines = req.get("lines") or []
@@ -60,10 +58,7 @@ def lrc_action(req):
                 except Exception:
                     pass
         res = LRC.save(item["file"], lines, ann)
-        lib = LIB.scan_library()
-        CACHE.clear()
-        CACHE.update({str(i): x for i, x in enumerate(lib)})
-        res["library"] = len(lib)
+        res["library"] = LIB.refresh(item.get("uid"))
         return res
     return {"ok": False, "error": "未知动作"}
 

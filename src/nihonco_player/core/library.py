@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import threading
 import json
 from pathlib import Path
 
@@ -51,6 +52,29 @@ def save_import(audio: str, title: str, artist: str) -> None:
     rows.append({"audio": audio, "title": title, "artist": artist})
     IMPORTS.parent.mkdir(parents=True, exist_ok=True)
     IMPORTS.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+_LOCK = threading.RLock()
+
+
+def refresh(uid: str | None = None) -> int:
+    """重建 CACHE。
+
+    uid 在索引里 → 只重算这一条（不扫全库、不改其它条目的序号）；
+    uid 不在索引里（新导入的歌）→ 全量重建。
+    """
+    with _LOCK:
+        if uid is not None:
+            for k, v in list(CACHE.items()):
+                if str(v.get("uid")) == str(uid):
+                    e = _entry(Path(v["file"]), v.get("group", ""))
+                    if e:
+                        CACHE[k] = e
+                    return len(CACHE)
+        lib = scan_library()
+        CACHE.clear()
+        CACHE.update({str(i): x for i, x in enumerate(lib)})
+        return len(CACHE)
 
 
 def _entry(p: Path, group: str) -> dict | None:

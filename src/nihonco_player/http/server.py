@@ -14,9 +14,7 @@ def make_server(port: int = 0) -> ThreadingHTTPServer:
 
 
 def main() -> None:
-    lib = LIB.scan_library()
-    CACHE.clear()
-    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    n = LIB.refresh()
     srv = make_server(8766)
-    print(f"{len(lib)} 首有歌词 → http://127.0.0.1:{srv.server_address[1]}")
+    print(f"{n} 首有歌词 → http://127.0.0.1:{srv.server_address[1]}")
     srv.serve_forever()
