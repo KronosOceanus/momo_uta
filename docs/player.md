@@ -1,7 +1,8 @@
 # 歌词练习播放器（桌面应用）
 
 > 代码在 `nihonco_player/`（服务 + 前端）与 `nihonco_player_app/`（窗口壳）。
-> 这份文档描述**当前已实现的行为**；LRC 打轴部分见 [`lrc-editor.md`](lrc-editor.md)。
+> 这份文档描述**当前已实现的行为**；逐功能流程图见 [`features.md`](features.md)，
+> LRC 打轴部分见 [`lrc-editor.md`](lrc-editor.md)。
 
 ## 1. 怎么启动
 
@@ -25,9 +26,10 @@ make app        # 唯一入口：随机端口起服务 + 原生窗口
 | `service/song.py` | 220 | 载荷装配、改读音、重新匹配、选候选 |
 | `service/playlist.py` | 101 | 歌单动作、导入、打标 |
 | `service/lrc.py` | 45 | LRC 加载/保存/备份/恢复/导入 |
-| `static/10-app.js` | 365 | 状态、工具、歌单、载入单曲、右侧面板 |
-| `static/20-editor.js` | 509 | LRC 编辑表格 |
-| `static/30-playback.js` | 244 | 时间语义、播放条、波形跟随、键盘 |
+| `static/05-audio.js` | 113 | WebAudio 播放引擎（整首解码、切 source 定位） |
+| `static/10-app.js` | 473 | 状态、歌单、载入单曲、波形、右侧面板 |
+| `static/20-editor.js` | 589 | LRC 编辑表格与保存 |
+| `static/30-playback.js` | 289 | 时间语义、播放条、跳转、键盘 |
 | `static/player.css` | 227 | 深色主题样式 |
 | `static/player.html` | 59 | 页面骨架 |
 | `playlists.py` | 184 | 歌单（uid 集合 + 文件锁） |
