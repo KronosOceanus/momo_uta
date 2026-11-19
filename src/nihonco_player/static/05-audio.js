@@ -1,3 +1,7 @@
+/* 命名空间模块：唯一全局是 window.NH */
+(function(){
+'use strict';
+const NH = window.NH || (window.NH = {});
 // WebAudio 播放引擎：整首解码进内存，seek = 换一个 AudioBufferSourceNode
 // 目的：跳转采样级精确、无解码器 flush（<audio> 做不到）
 class AudioEngine {
@@ -117,3 +121,6 @@ class AudioEngine {
   }
 }
 const au = new AudioEngine();
+
+Object.assign(NH, {AudioEngine, au});
+})();

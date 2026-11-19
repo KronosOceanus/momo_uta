@@ -1,20 +1,24 @@
+/* 命名空间模块：唯一全局是 window.NH */
+(function(){
+'use strict';
+const NH = window.NH || (window.NH = {});
 // 播放器 · 统一播放层与播放条
 function markPlaying(){
   document.querySelectorAll('.it').forEach(x=>{
-    x.dataset.playing = (String(x.dataset.i)===String(PLAYING)) ? '1' : ''; });
+    x.dataset.playing = (String(x.dataset.i)===String(NH.PLAYING)) ? '1' : ''; });
 }
 function commitAudio(){
-  if(!S) return;
-  PLAYING = S.idx; markPlaying();
-  au.src = S.audio || ('/audio/'+S.idx);
-  au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
-  document.getElementById('ttl').textContent = '▶ ' + S.title + (S.artist?' · '+S.artist:'');
+  if(!NH.S) return;
+  NH.PLAYING = NH.S.idx; markPlaying();
+  NH.au.src = NH.S.audio || ('/audio/'+NH.S.idx);
+  NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
+  document.getElementById('ttl').textContent = '▶ ' + NH.S.title + (NH.S.artist?' · '+NH.S.artist:'');
   syncPlayBtn();
 }
 // ── 统一播放层：普通视图与编辑表格共用同一套时间语义 ──
 const META_RE=/^(作词|作曲|编曲|制作|演唱|歌\s*[:：]|Lyrics|Composer|Arranger|Producer)/;
-function viewLines(){ return LRCEDIT ? EROWS : LINES; }
-function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+OFFSET : null; }
+function viewLines(){ return NH.LRCEDIT ? NH.EROWS : NH.LINES; }
+function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+NH.OFFSET : null; }
 function isMetaLine(l){ return !l || l.meta || META_RE.test((l.text||'').trim()); }
 function idxAt(t){
   const ls=viewLines(); let n=-1;
@@ -28,50 +32,50 @@ function navItems(){
 function onceEvent(name, ms){
   return new Promise(res=>{
     let done=false;
-    const fin=()=>{ if(done) return; done=true; au.removeEventListener(name, fin); res(); };
-    au.addEventListener(name, fin); setTimeout(fin, ms);
+    const fin=()=>{ if(done) return; done=true; NH.au.removeEventListener(name, fin); res(); };
+    NH.au.addEventListener(name, fin); setTimeout(fin, ms);
   });
 }
 function audioReady(){
-  if(au.readyState>=1 && isFinite(au.duration)) return Promise.resolve();
+  if(NH.au.readyState>=1 && isFinite(NH.au.duration)) return Promise.resolve();
   return onceEvent('loadedmetadata', 900);
 }
-let SEEK_SEQ=0, SEEK_WAS_PLAYING=false;
+NH.SEEK_SEQ = 0; NH.SEEK_WAS_PLAYING = false;
 async function seekPrecise(t){
   t=Math.max(0, t);
-  if(SEEK_SEQ===0) SEEK_WAS_PLAYING=!au.paused;   // 连点时以第一次的状态为准
-  const seq=++SEEK_SEQ;
-  if(SEEK_WAS_PLAYING) au.pause();         // 画面与旧声音都在此停下
+  if(NH.SEEK_SEQ===0) NH.SEEK_WAS_PLAYING=!NH.au.paused;   // 连点时以第一次的状态为准
+  const seq=++NH.SEEK_SEQ;
+  if(NH.SEEK_WAS_PLAYING) NH.au.pause();         // 画面与旧声音都在此停下
   await audioReady();
-  if(seq!==SEEK_SEQ) return;
+  if(seq!==NH.SEEK_SEQ) return;
   const seeked=onceEvent('seeked', 900);
-  au.currentTime=t;
+  NH.au.currentTime=t;
   paintTransport();
   await seeked;
-  if(seq!==SEEK_SEQ) return;
-  if(au.readyState<3) await onceEvent('canplay', 900);
-  if(seq!==SEEK_SEQ) return;
-  if(SEEK_WAS_PLAYING) await au.play().catch(()=>{});
+  if(seq!==NH.SEEK_SEQ) return;
+  if(NH.au.readyState<3) await onceEvent('canplay', 900);
+  if(seq!==NH.SEEK_SEQ) return;
+  if(NH.SEEK_WAS_PLAYING) await NH.au.play().catch(()=>{});
   paintTransport();
-  SEEK_SEQ=0;                              // 这一轮结束，下一次重新取播放状态
+  NH.SEEK_SEQ=0;                              // 这一轮结束，下一次重新取播放状态
 }
 
 function seekIdx(i, keepPlaying){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  if(PLAYING!==S.idx) commitAudio();
+  if(NH.PLAYING!==NH.S.idx) commitAudio();
   const t=Math.max(0, lineT(l));
   seekPrecise(t);                              // 是否续播由 seekPrecise 自己判断
   highlight(i);
-  if(loop && !isMetaLine(viewLines()[i])) LOOP_ROW=i;
-  if(LRCEDIT){ ESEL=i; SEL.clear(); paintSelection(); }
+  if(NH.loop && !isMetaLine(viewLines()[i])) NH.LOOP_ROW=i;
+  if(NH.LRCEDIT){ NH.ESEL=i; NH.SEL.clear(); NH.paintSelection(); }
 }
 function nextIdx(dir){
   const items=navItems(); if(!items.length) return null;
-  const i=idxAt(au.currentTime);
+  const i=idxAt(NH.au.currentTime);
   let at=items.findIndex(x=>x.i===i);
   if(at<0){                       // 不在任何行上：按时间找最近位置
-    const t=au.currentTime;
+    const t=NH.au.currentTime;
     at = dir>0 ? items.findIndex(x=>x.t> t) : items.length-1;
     if(at<0) at = dir>0 ? items.length-1 : 0;
   }
@@ -81,17 +85,17 @@ function nextIdx(dir){
 }
 function rowForTime(t){
   let n=-1;
-  for(let i=0;i<EROWS.length;i++){ const tt=EROWS[i].t; if(tt!==null && tt<=t) n=i; }
+  for(let i=0;i<NH.EROWS.length;i++){ const tt=NH.EROWS[i].t; if(tt!==null && tt<=t) n=i; }
   return n<0?0:n;
 }
 function highlight(i){
   const ls=viewLines(); const l=ls[i];
-  CUR=i;
-  if(LRCEDIT){
+  NH.CUR=i;
+  if(NH.LRCEDIT){
     document.querySelectorAll('.lerow').forEach(el=>
       el.classList.toggle('cur', +el.dataset.i===i));
     // 播放中不自动滚动表格：换行时滚动正是"画面顿一下"的可疑来源
-    if(!SEL.size && au.paused)
+    if(!NH.SEL.size && NH.au.paused)
       document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'nearest'});
   }else{
     document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
@@ -99,46 +103,46 @@ function highlight(i){
   }
   // 播放时 rAF 循环已在画波形，这里不再重复画
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间
-  if(LRCEDIT){
+  if(NH.LRCEDIT){
     // 右侧罗马音在编辑模式下隐藏，不需要联动
   }else{
-    paint2(i);          // 右侧只跟随"当前行"；meta 区间两边都不亮
+    NH.paint2(i);          // 右侧只跟随"当前行"；meta 区间两边都不亮
   }
 }
 function seek(n){ seekIdx(n, true); }
 function paint(n){
-  if(n===CUR) return;
+  if(n===NH.CUR) return;
   highlight(n);
 }
-au.onloadedmetadata=()=>{
-  if(!LINES.length) return;
-  const last=LINES[LINES.length-1].t;
-  if(au.duration && last>0 && last/au.duration<0.7){
-    document.getElementById('ttl').textContent += `　⚠ 歌词只覆盖到 ${Math.round(last/au.duration*100)}%`;
+NH.au.onloadedmetadata=()=>{
+  if(!NH.LINES.length) return;
+  const last=NH.LINES[NH.LINES.length-1].t;
+  if(NH.au.duration && last>0 && last/NH.au.duration<0.7){
+    document.getElementById('ttl').textContent += `　⚠ 歌词只覆盖到 ${Math.round(last/NH.au.duration*100)}%`;
   }
 };
-let LRC_CUR=-1;
-let LOOP_ROW=-1;
+NH.LRC_CUR = -1;
+NH.LOOP_ROW = -1;
 
-au.ontimeupdate=()=>{
-  if(!S || String(PLAYING) !== String(S.idx)) return;
-  const t=au.currentTime;
+NH.au.ontimeupdate=()=>{
+  if(!NH.S || String(NH.PLAYING) !== String(NH.S.idx)) return;
+  const t=NH.au.currentTime;
   const i=idxAt(t);
   if(i>=0){
     // 只在"索引变了"或"DOM 上确实没亮"时重绘（后者修 UI 被重建后不重画的问题）
-    const el=LRCEDIT ? document.querySelector(`.lerow[data-i="${i}"]`)
+    const el=NH.LRCEDIT ? document.querySelector(`.lerow[data-i="${i}"]`)
                      : document.querySelectorAll('.ln')[i];
-    const lit=LRCEDIT ? (el && el.classList.contains('cur'))
+    const lit=NH.LRCEDIT ? (el && el.classList.contains('cur'))
                       : (el && el.classList.contains('on'));
-    if(i!==CUR || !lit) highlight(i);
+    if(i!==NH.CUR || !lit) highlight(i);
   }
-  if(loop && LOOP_ROW>=0){              // 单句循环：锚定开启时的那一行
+  if(NH.loop && NH.LOOP_ROW>=0){              // 单句循环：锚定开启时的那一行
     const items=navItems();
-    const at=items.findIndex(x=>x.i===LOOP_ROW);
+    const at=items.findIndex(x=>x.i===NH.LOOP_ROW);
     if(at>=0){
       const start=items[at].t;
       const end=(at+1<items.length)? items[at+1].t : start+8;
-      if(t>=end){ au.currentTime=start; highlight(LOOP_ROW); }
+      if(t>=end){ NH.au.currentTime=start; highlight(NH.LOOP_ROW); }
     }
   }
 };
@@ -150,21 +154,21 @@ function fmtTime(t){
   return `${m}:${String(s).padStart(2,'0')}`;
 }
 function paintTransport(){
-  const dur=isFinite(au.duration)?au.duration:0;
-  const cur=au.currentTime||0;
+  const dur=isFinite(NH.au.duration)?NH.au.duration:0;
+  const cur=NH.au.currentTime||0;
   document.getElementById('tcur').textContent=fmtTime(cur);
   document.getElementById('tdur').textContent=fmtTime(dur);
   const pct=dur?Math.min(100, cur/dur*100):0;
   document.getElementById('fill').style.width=pct+'%';
   document.getElementById('thumb').style.left=pct+'%';
-  document.getElementById('play2').textContent = au.paused ? '▶' : '⏸';
-  document.getElementById('mute').textContent = au.muted||au.volume===0 ? '🔇' : '🔊';
+  document.getElementById('play2').textContent = NH.au.paused ? '▶' : '⏸';
+  document.getElementById('mute').textContent = NH.au.muted||NH.au.volume===0 ? '🔇' : '🔊';
 }
 function paintTicks(){
   const box=document.getElementById('ticks'); box.innerHTML='';
-  const dur=isFinite(au.duration)?au.duration:0; if(!dur) return;
+  const dur=isFinite(NH.au.duration)?NH.au.duration:0; if(!dur) return;
   const frag=document.createDocumentFragment();
-  (LINES||[]).forEach(l=>{
+  (NH.LINES||[]).forEach(l=>{
     if(!l || l.t==null) return;
     const i=document.createElement('i');
     i.style.left=(l.t/dur*100)+'%';
@@ -175,8 +179,8 @@ function paintTicks(){
 function seekToClientX(x){
   const r=document.getElementById('seek').getBoundingClientRect();
   const ratio=Math.max(0,Math.min(1,(x-r.left)/r.width));
-  const dur=isFinite(au.duration)?au.duration:0;
-  if(dur) au.currentTime=ratio*dur;
+  const dur=isFinite(NH.au.duration)?NH.au.duration:0;
+  if(dur) NH.au.currentTime=ratio*dur;
   paintTransport();
 }
 (function bindTransport(){
@@ -185,13 +189,13 @@ function seekToClientX(x){
   seek.addEventListener('mousedown', e=>{ dragging=true; seekToClientX(e.clientX); });
   document.addEventListener('mousemove', e=>{ if(dragging) seekToClientX(e.clientX); });
   document.addEventListener('mouseup', ()=>{ dragging=false; });
-  document.getElementById('play2').onclick=()=>{ if(au.paused) au.play().catch(()=>{}); else au.pause(); };
-  document.getElementById('back10').onclick=()=>{ seekPrecise(Math.max(0, au.currentTime-10)); };
-  document.getElementById('fwd10').onclick=()=>{ seekPrecise(Math.min(au.duration||0, au.currentTime+10)); };
-  document.getElementById('volume').oninput=e=>{ au.volume=+e.target.value; au.muted=au.volume===0; paintTransport(); };
-  document.getElementById('mute').onclick=()=>{ au.muted=!au.muted; paintTransport(); };
+  document.getElementById('play2').onclick=()=>{ if(NH.au.paused) NH.au.play().catch(()=>{}); else NH.au.pause(); };
+  document.getElementById('back10').onclick=()=>{ seekPrecise(Math.max(0, NH.au.currentTime-10)); };
+  document.getElementById('fwd10').onclick=()=>{ seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
+  document.getElementById('volume').oninput=e=>{ NH.au.volume=+e.target.value; NH.au.muted=NH.au.volume===0; paintTransport(); };
+  document.getElementById('mute').onclick=()=>{ NH.au.muted=!NH.au.muted; paintTransport(); };
   ['timeupdate','loadedmetadata','durationchange','play','pause','volumechange'].forEach(ev=>
-    au.addEventListener(ev, ()=>{ paintTransport(); if(ev==='loadedmetadata') paintTicks(); }));
+    NH.au.addEventListener(ev, ()=>{ paintTransport(); if(ev==='loadedmetadata') paintTicks(); }));
 })();
 
 const PL=(window.__CFG&&window.__CFG.player)||{};
@@ -205,37 +209,37 @@ const PL=(window.__CFG&&window.__CFG.player)||{};
   el.value=v; if(typeof el.dispatchEvent==='function') el.dispatchEvent(new Event('input'));
 })();
 const playBtn=document.getElementById('play');
-function syncPlayBtn(){ playBtn.textContent = au.paused ? '播放' : '暂停'; }
-document.getElementById('start').onclick=()=>{ if(!S) return; commitAudio(); au.play().catch(()=>{}); };
+function syncPlayBtn(){ playBtn.textContent = NH.au.paused ? '播放' : '暂停'; }
+document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); NH.au.play().catch(()=>{}); };
 playBtn.onclick=()=>{
-  if(S && PLAYING!==S.idx){ commitAudio(); au.play().catch(()=>{}); return; }
-  if(au.paused){ au.play().catch(()=>{}); } else { au.pause(); }
+  if(NH.S && NH.PLAYING!==NH.S.idx){ commitAudio(); NH.au.play().catch(()=>{}); return; }
+  if(NH.au.paused){ NH.au.play().catch(()=>{}); } else { NH.au.pause(); }
 };
-['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>au.addEventListener(ev, syncPlayBtn));
-['pause','seeked','loadedmetadata'].forEach(ev=>au.addEventListener(ev, ()=>{ if(typeof WAVE!=='undefined' && WAVE && LRCEDIT) drawWave(); }));
-au.addEventListener('play', syncPlayBtn); au.addEventListener('pause', syncPlayBtn);
-document.getElementById('rate').oninput=e=>{au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
+['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>NH.au.addEventListener(ev, syncPlayBtn));
+['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.LRCEDIT) NH.drawWave(); }));
+NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
+document.getElementById('rate').oninput=e=>{NH.au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
 document.getElementById('prev').onclick=()=>{ const n=nextIdx(-1); if(n!==null) seekIdx(n,true); };
 document.getElementById('next').onclick=()=>{ const n=nextIdx(1);  if(n!==null) seekIdx(n,true); };
-document.getElementById('t-rm').onclick=e=>{MODE='rm';e.target.classList.add('on');document.getElementById('t-ky').classList.remove('on');const l=LINES[CUR];renderSide();};
-document.getElementById('t-ky').onclick=e=>{MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=LINES[CUR];renderSide();};
+document.getElementById('t-rm').onclick=e=>{NH.MODE='rm';e.target.classList.add('on');document.getElementById('t-ky').classList.remove('on');const l=NH.LINES[NH.CUR];NH.renderSide();};
+document.getElementById('t-ky').onclick=e=>{NH.MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=NH.LINES[NH.CUR];NH.renderSide();};
 document.getElementById('rem').onclick=async()=>{
-  if(!S || BUSY) return;
-  if(LRCEDIT && !await load(S.idx, false, false)) return;
-  const song=S;
+  if(!NH.S || NH.BUSY) return;
+  if(NH.LRCEDIT && !await NH.load(NH.S.idx, false, false)) return;
+  const song=NH.S;
   document.querySelectorAll('.menu').forEach(m=>m.remove());
-  busy('匹配中…'); lock(this, true);
+  NH.busy('匹配中…'); NH.lock(this, true);
   let d;
   try{
     const r = await fetch('/api/rematch',{method:'POST',headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({action:'rematch', idx:song.idx, duration:(au.duration||0)})});
+      body: JSON.stringify({action:'rematch', idx:song.idx, duration:(NH.au.duration||0)})});
     d = await r.json();
   }catch(err){
-    done('匹配失败：'+err.message); lock(null,false); return;
+    NH.done('匹配失败：'+err.message); NH.lock(null,false); return;
   }
-  if(S!==song || LRCEDIT){ lock(null,false); return; }
-  if(!d.candidates || !d.candidates.length){ done('没找到候选，可以试试手动导入 lrc'); lock(null,false); return; }
-  done(`找到 ${d.candidates.length} 个候选`); lock(null,false);
+  if(NH.S!==song || NH.LRCEDIT){ NH.lock(null,false); return; }
+  if(!d.candidates || !d.candidates.length){ NH.done('没找到候选，可以试试手动导入 lrc'); NH.lock(null,false); return; }
+  NH.done(`找到 ${d.candidates.length} 个候选`); NH.lock(null,false);
   const box=document.createElement('div'); box.className='menu'; box.style.maxWidth='520px';
   box.innerHTML='<div style="font-size:12px;color:#878c95;padding:4px 8px">选一个（分数越高越可能是同一版）· 候选来自网络，不读本地缓存</div>';
   d.candidates.forEach(c=>{
@@ -245,24 +249,24 @@ document.getElementById('rem').onclick=async()=>{
     const localTag = c.local_edit ? ' · <span style="color:#c8843f">本地已修改</span>' : '';
     b.innerHTML=`${c.current?'● ':''}${c.name} · ${c.artist} · ${mm}:${ss} ${delta} · ${c.score}${localTag}`;
     if(!c.id){                       // 没有 id 的条目不可切换
-      b.onclick=ev=>{ev.stopPropagation(); done('当前用的就是这条');};
+      b.onclick=ev=>{ev.stopPropagation(); NH.done('当前用的就是这条');};
       b.style.opacity='.6';
     }else b.onclick=async ev=>{ev.stopPropagation();
-      if(S!==song || LRCEDIT){ box.remove(); return; }
+      if(NH.S!==song || NH.LRCEDIT){ box.remove(); return; }
       if(c.local_edit && c.current &&
          !confirm('这条歌词你本地改过。用网上的原版覆盖吗？（覆盖前会备份，可用「恢复最初」找回）')) return;
       box.remove();
-      busy('换歌词中…');
+      NH.busy('换歌词中…');
       try{
         const r=await fetch('/api/pick',{method:'POST',headers:{'Content-Type':'application/json'},
           body: JSON.stringify({action:'pick', idx:song.idx, id:c.id})});
         const d=await r.json();
-        if(!r.ok || !d.ok){ done(d.error||'换歌词失败'); return; }
-        if(S!==song || LRCEDIT) return;
-        await load(d.idx || song.idx);        // 重新拉这一首（已换新歌词）
-        loadLib();
-        done(`已换成 ${c.name}（${d.lines} 行歌词）`);
-      }catch(err){ done('换歌词失败：'+err.message); }
+        if(!r.ok || !d.ok){ NH.done(d.error||'换歌词失败'); return; }
+        if(NH.S!==song || NH.LRCEDIT) return;
+        await NH.load(d.idx || song.idx);        // 重新拉这一首（已换新歌词）
+        NH.loadLib();
+        NH.done(`已换成 ${c.name}（${d.lines} 行歌词）`);
+      }catch(err){ NH.done('换歌词失败：'+err.message); }
     };
     box.appendChild(b);
   });
@@ -275,18 +279,21 @@ document.getElementById('rem').onclick=async()=>{
   if(top+bh>window.innerHeight-12) top=Math.max(12, r0.top-bh-6);   // 放不下就往上开
   box.style.left=left+'px'; box.style.top=top+'px';
 };
-document.getElementById('loop').onclick=e=>{loop=!loop;e.target.classList.toggle('on',loop);
-  if(loop){
+document.getElementById('loop').onclick=e=>{NH.loop=!NH.loop;e.target.classList.toggle('on',NH.loop);
+  if(NH.loop){
     const items=navItems();
-    const cur=idxAt(au.currentTime);
+    const cur=idxAt(NH.au.currentTime);
     const hit=items.find(x=>x.i>=cur) || items[0];
-    LOOP_ROW = hit? hit.i : -1;
+    NH.LOOP_ROW = hit? hit.i : -1;
   }
-  e.target.textContent = loop ? '单句循环：开' : '单句循环';};
+  e.target.textContent = NH.loop ? '单句循环：开' : '单句循环';};
 
 document.onkeydown=e=>{
   if(e.target.tagName==='INPUT' || e.isComposing || e.keyCode===229) return;
-  if(e.code==='Space'){e.preventDefault();au.paused?au.play():au.pause();}
+  if(e.code==='Space'){e.preventDefault();NH.au.paused?NH.au.play():NH.au.pause();}
   if(e.code==='ArrowLeft')document.getElementById('prev').click();
   if(e.code==='ArrowRight')document.getElementById('next').click();
 };
+
+Object.assign(NH, {markPlaying, commitAudio, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, playBtn, syncPlayBtn});
+})();

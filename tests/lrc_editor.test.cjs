@@ -54,6 +54,11 @@ function player() {
   });
   const run = code => vm.runInContext(code, context);
   for (const script of scripts) run(script);
+  // 前端已收进 window.NH；测试通过访问器继续用短名字读写同一份状态
+  run(`for (const k of Object.keys(window.NH)) {
+    Object.defineProperty(globalThis, k, {
+      get: () => window.NH[k], set: v => { window.NH[k] = v; }, configurable: true });
+  }`);
   run(`done=msg=>messages.push(msg); loadWave=()=>{};
        S={idx:'0'}; LRCEDIT=true; EROWS=[{t:1,text:'original'}];`);
   const edit = text => run(`EROWS[0].text=${JSON.stringify(text)}; markDirty()`);
