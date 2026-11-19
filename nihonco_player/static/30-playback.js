@@ -89,12 +89,14 @@ function highlight(i){
   if(LRCEDIT){
     document.querySelectorAll('.lerow').forEach(el=>
       el.classList.toggle('cur', +el.dataset.i===i));
-    if(!SEL.size) document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'nearest'});
+    // 播放中不自动滚动表格：换行时滚动正是"画面顿一下"的可疑来源
+    if(!SEL.size && au.paused)
+      document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'nearest'});
   }else{
     document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
     document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'nearest'});
   }
-  if(typeof WAVE!=='undefined' && WAVE && LRCEDIT) drawWave();
+  // 播放时 rAF 循环已在画波形，这里不再重复画
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间
   if(LRCEDIT){
     // 右侧罗马音在编辑模式下隐藏，不需要联动
