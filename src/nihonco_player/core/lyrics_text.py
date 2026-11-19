@@ -55,18 +55,9 @@ def kind(s: str) -> str:
 
 
 def parse_lrc(text: str) -> list[dict]:
-    """只做最朴素的事：解析 [mm:ss.xx] + 文本，按时间排序。"""
-    out = []
-    for raw in (text or "").splitlines():
-        m = LRC.match(raw.strip())
-        if not m:
-            continue
-        t = int(m.group(1)) * 60 + float(m.group(2))
-        body = m.group(3).strip()
-        if body:
-            out.append({"t": round(t, 2), "text": body})
-    out.sort(key=lambda x: x["t"])
-    return out
+    """解析 [mm:ss.xx] + 文本，按时间排序（实现在 lrc_doc.parse_timed）。"""
+    from .lrc_doc import parse_timed
+    return parse_timed(text)
 PUNCT = re.compile(r"[\s\-–—~〜!！?？\.。、,，()（）\[\]【】「」『』:：/／'\"’”·・]")
 
 

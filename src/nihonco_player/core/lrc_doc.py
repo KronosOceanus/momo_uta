@@ -109,6 +109,21 @@ def parse(text: str) -> list[dict]:
     return _parse_document(text)[0]
 
 
+def parse_timed(text: str) -> list[dict]:
+    """只要"打了时间戳且有文本"的行，按时间排序（缓存/匹配用）。"""
+    out = []
+    for raw in (text or "").splitlines():
+        m = LINE.match(raw.strip())
+        if not m:
+            continue
+        t = int(m.group(1)) * 60 + float(m.group(2))
+        body = m.group(3).strip()
+        if body:
+            out.append({"t": round(t, 2), "text": body})
+    out.sort(key=lambda x: x["t"])
+    return out
+
+
 def _parse_document(text: str) -> tuple[list[dict], list[dict]]:
     out, metadata = [], []
     for i, raw in enumerate((text or "").splitlines()):
