@@ -60,7 +60,7 @@ body.fak .ew:hover rt{color:var(--a)}
 .flash{box-shadow:0 0 0 2px rgba(200,132,63,.9)!important;border-radius:6px;
   display:inline-block;padding:.55em .12em .12em;margin:-.55em 0 -.12em}
 .kin{background:#0f1318;border:1px solid #2b313a;color:var(--fg);border-radius:6px;padding:2px 8px;font-size:12px;width:7em;font-family:inherit}
-.ln{padding:7px 10px;border-radius:8px;font-size:20px;line-height:1.9;cursor:pointer;color:#9aa0a8;transition:background .12s}
+.ln{padding:7px 10px;border-radius:8px;font-size:20px;line-height:1.9;cursor:pointer;color:#9aa0a8}
 .ln:hover{background:#171c23}
 .ln.on{background:#182430;color:var(--fg)}
 .ln.on .big{color:var(--fg)}
