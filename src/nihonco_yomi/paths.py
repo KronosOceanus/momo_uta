@@ -17,6 +17,7 @@ CURATED = DATA / "curated"      # 人工维护（不可重建，要备份）
 CORPUS = DATA / "corpus"        # 语料统计（可重建）
 CACHE = DATA / "cache"          # 运行期缓存（随时可删）
 LYRICS = DATA / "lyrics"        # 歌词标注（nhlrc，用户资产，进 git）
+VOCALS = DATA / "vocals"        # 人声分离结果（可重算但很贵，单独存放）
 
 
 # 评测

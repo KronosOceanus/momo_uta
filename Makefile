@@ -5,7 +5,7 @@ PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
         build-tables build-resource build-holdout build-prose build-lyrics \
         eval-dummy eval eval-real eval-kanji eval-gen eval-test eval-llm \
         ceiling stats tables-check build-stats audit gold-audit audit-patches \
-        render clean-cache all serve api
+        render clean-cache clean-vocals all serve api
 
 help:
 	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
@@ -121,7 +121,11 @@ render:
 	$(PY) -m tools.eval.render --songs アイドル 怪物
 
 clean-cache:
-	rm -rf data/cache/lyrics data/cache/wave data/cache/vocals
-	@echo "已清理：歌词缓存 / 波形 / 人声（data/cache/app.log 保留）"
+	rm -rf data/cache/lyrics data/cache/wave
+	@echo "已清理：歌词缓存 / 波形（data/cache/app.log 保留；人声用 make clean-vocals）"
+
+clean-vocals:
+	rm -rf data/vocals
+	@echo "已清理：data/vocals（下次点歌会重新分离）"
 
 all: test build-prose build-lyrics eval-dummy

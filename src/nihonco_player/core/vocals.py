@@ -22,9 +22,8 @@ from pathlib import Path
 from queue import Queue
 
 from nihonco_yomi.config import VC
-from nihonco_yomi.paths import CACHE
+from nihonco_yomi.paths import VOCALS
 
-VOCALS = CACHE / "vocals"
 MODEL = VC["model"]
 MIN_RATIO = VC["ratio_min"]          # 有唱帧占比超过它 → 认为有人声
 FRAME = VC["frame_sec"]              # VAD 帧长（秒）
