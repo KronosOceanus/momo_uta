@@ -267,6 +267,7 @@ function saveOpen(){
 let LOAD_REQUEST=0;
 async function load(i, autoplay, nextEditMode){
   if(LRC_REPLACING) return false;
+  clearToast();                                   // 换歌前不留下上一首的提示
   const request=++LOAD_REQUEST;
   const editing=LRCEDIT;
   let d;
@@ -352,12 +353,37 @@ async function load(i, autoplay, nextEditMode){
 }
 function navIdx(n){ const k=NAV.indexOf(n); return k<0?0:k; }
 
-function toast(msg, ms=(UI.toast_ms||4200)){
+let TOAST_T=null, TOAST_Q=[], TOAST_BUSY=false, TOAST_SHOWN=false;
+function _toastEl(){
   let t=document.getElementById('toast');
   if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
-  t.textContent=msg; t.classList.add('on');
-  clearTimeout(t._h);
-  if(ms>0) t._h=setTimeout(()=>t.classList.remove('on'), ms);
+  return t;
+}
+function _showToast(msg, ms){
+  const t=_toastEl();
+  t.textContent=msg; t.classList.add('on'); TOAST_SHOWN=true;
+  clearTimeout(TOAST_T);
+  TOAST_BUSY = ms===0;
+  if(ms>0) TOAST_T=setTimeout(()=>{
+    t.classList.remove('on'); TOAST_SHOWN=false; TOAST_BUSY=false; _nextToast();
+  }, ms);
+}
+function _nextToast(){
+  if(TOAST_BUSY || !TOAST_Q.length) return;
+  const [msg, ms]=TOAST_Q.shift();
+  _showToast(msg, ms);
+}
+function toast(msg, ms=(UI.toast_ms||4200)){
+  if(ms===0){ TOAST_Q=[]; _showToast(msg, 0); return; }   // busy：清队列、立即显示
+  if(TOAST_BUSY){ _showToast(msg, ms); return; }          // 用结果替换"进行中"
+  if(!TOAST_SHOWN){ _showToast(msg, ms); return; }
+  if(TOAST_Q.length>=2) TOAST_Q.shift();                  // 最多排两条
+  TOAST_Q.push([msg, ms]);
+}
+function clearToast(){
+  TOAST_Q=[]; clearTimeout(TOAST_T); TOAST_BUSY=false; TOAST_SHOWN=false;
+  const t=document.getElementById('toast');
+  if(t) t.classList.remove('on');
 }
 let BUSY=false;
 function lock(btn, on){
@@ -377,7 +403,16 @@ function done(msg){ toast(msg, UI.toast_ms||4200); }
 async function api(path, body){
   const r=await fetch(path, body?{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)}:undefined);
-  if(!r.ok) throw new Error((await r.text())||('HTTP '+r.status));
+  if(!r.ok){
+    let msg='HTTP '+r.status;
+    try{
+      const d=await r.clone().json();
+      msg=d.error||d.detail||d.message||msg;
+    }catch(e){
+      try{ const t=await r.text(); if(t) msg=t.length>200?t.slice(0,200):t; }catch(e2){}
+    }
+    throw new Error(msg);
+  }
   return r.json();
 }
 

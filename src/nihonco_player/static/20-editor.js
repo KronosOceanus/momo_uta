@@ -54,7 +54,6 @@ async function saveLrc(silent, force){
       if(EDIT_REVISION===revision){
         EDIRTY=false;
         if(h){ h.textContent=`已保存 ${new Date().toLocaleTimeString().slice(0,8)}`; h.className='savehint ok'; }
-        if(!silent) done(`已保存 ${r.lines} 行${r.backed_up?'（已备份原文件）':''}`);
       }
       return true;
     }catch(e){
@@ -110,6 +109,7 @@ async function openLrcEditor(entering=false){
   if(S!==song || request!==LOAD_REQUEST || opening!==LRC_OPEN_REQUEST || (!entering && !LRCEDIT)) return;
   if(!d.ok) throw new Error(d.error||'无法读取歌词');
   if(entering){
+    clearToast();
     LRCEDIT=true;
     EDITMODE=false;
     syncModes();
@@ -312,7 +312,7 @@ function delRows(){
 }
 function selectAll(){
   SEL.clear(); for(let i=0;i<EROWS.length;i++) SEL.add(i);
-  renderLrcTable(); done(`已选中 ${EROWS.length} 行`);
+  renderLrcTable();
 }
 function bindMark(i){
   if(MARK===null){ done('先在波形上点一个位置'); return; }
