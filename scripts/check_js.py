@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""前端三文件的完整性检查：
+"""前端脚本的完整性检查：
 
 1. 每个文件单独语法检查（node --check）
-2. 三个文件按加载顺序拼起来再检查一次
-   → 这一步能抓到"跨文件重复的顶层 let/const/function"，
-     也就是历史上最容易犯的那类错（重复定义、漏声明）
+2. 四个文件按加载顺序拼起来再检查一次（抓跨文件重复定义/漏声明）
+3. 命名空间检查：每个脚本必须是 IIFE，且只通过 window.NH 暴露东西
 """
 from __future__ import annotations
 
@@ -30,6 +29,18 @@ def node_check(code: str, label: str) -> bool:
     return True
 
 
+def check_namespace(name: str, src: str) -> bool:
+    """每个脚本都要是 (function(){ ... })(); 且通过 window.NH 导出。"""
+    body = src.lstrip()
+    if "(function(){" not in body[:200]:
+        print(f"✗ {name}: 没有包成 IIFE（顶层会漏成全局）")
+        return False
+    if "const NH = window.NH" not in src:
+        print(f"✗ {name}: 没有取 window.NH")
+        return False
+    return True
+
+
 def main() -> int:
     ok = True
     for name in ORDER:
@@ -38,7 +49,9 @@ def main() -> int:
             print(f"✗ 缺少 {name}")
             ok = False
             continue
-        ok &= node_check(p.read_text(encoding="utf-8"), name)
+        src = p.read_text(encoding="utf-8")
+        ok &= check_namespace(name, src)
+        ok &= node_check(src, name)
     joined = "\n".join((STATIC / n).read_text(encoding="utf-8") for n in ORDER
                        if (STATIC / n).is_file())
     ok &= node_check(joined, "三个文件合并后（检查跨文件重复定义）")
