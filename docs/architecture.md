@@ -324,7 +324,6 @@ playlists_action(req)：
   edit_clear（清空标注，恢复默认）
   import（导入音频/歌词，走 import_to_list）
 
-tag_action(req)：inst / nonja / wrong 标签切换
 ```
 
 ```text
@@ -360,7 +359,6 @@ POST
   /api/line               改一处读音
   /api/rematch            重新匹配候选
   /api/pick               选中候选
-  /api/tag                打标
   /api/import/one         导入
   /api/lrc                LRC 编辑模式
   /api/vocals             人声分离 ensure
@@ -468,7 +466,7 @@ data/
 │   ├── fingerprints.json 路径→指纹索引
 │   └── app.log
 ├── curated/           人工/运行维护的数据       进 git
-│   ├── playlists.json、song_meta.json、song_tags.json
+│   ├── playlists.json、song_meta.json
 │   ├── imports.json（导入的音频路径）
 │   ├── lyrics_exclude.json、counters.json、glossary_lyrics.json
 │   └── *.lock         文件锁                   不进 git

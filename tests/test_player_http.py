@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player.core import library as LIB       # noqa: E402
 from nihonco_player.core import lyrics as LY         # noqa: E402
 from nihonco_player.core import lrc_files as LRF     # noqa: E402
 from nihonco_player.core.library import CACHE        # noqa: E402
@@ -42,8 +41,6 @@ class TestPlayerHttp(unittest.TestCase):
         cls._orig_get = LY.get_lrc
         LY.get_lrc = lambda *a, **k: {"lrc": FAKE_LRC, "tlyric": "", "name": "テスト曲",
                                         "artist": "テスト", "lang": "ja"}
-        cls.tmp = tempfile.TemporaryDirectory()
-        LIB.TAGS = Path(cls.tmp.name) / "tags.json"
         cls.srv = make_server(0)
         cls.port = cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
@@ -54,7 +51,6 @@ class TestPlayerHttp(unittest.TestCase):
         cls._lyr_patch.stop()
         cls._lyr_tmp.cleanup()
         LY.get_lrc = cls._orig_get
-        cls.tmp.cleanup()
 
     def url(self, path):
         return f"http://127.0.0.1:{self.port}{path}"
@@ -98,12 +94,6 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertEqual(d["line"], li)
         self.assertIn("<rt>か</rt>", d["ruby"])
         self.assertIn("ka", d["rm"])
-
-    def test_tag_roundtrip(self):
-        d = json.loads(self.post("/api/tag", {"action": "tag", "key": "k1", "tag": "inst"}).read())
-        self.assertEqual(d["tags"], ["inst"])
-        d2 = json.loads(self.post("/api/tag", {"action": "tag", "key": "k1", "tag": "inst"}).read())
-        self.assertEqual(d2["tags"], [])
 
     def test_bad_json(self):
         req = urllib.request.Request(self.url("/api/line"), data=b"{oops",

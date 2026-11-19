@@ -1,4 +1,4 @@
-"""歌曲库：扫描、缓存命中、标签隐藏。"""
+"""歌曲库：扫描、缓存命中。"""
 import json
 import sys
 import tempfile
@@ -19,12 +19,9 @@ class TestLibrary(unittest.TestCase):
         self.cache = Path(self.tmp.name) / "cache"
         self.cache.mkdir()
         LIB.LY.set_cache_dir(self.cache)
-        self._tags = LIB.TAGS
-        LIB.TAGS = self.dir / "tags.json"
 
     def tearDown(self):
         LIB.LY.set_cache_dir(Path.home() / "Documents" / "nihonco_uta" / "data" / "cache" / "lyrics")
-        LIB.TAGS = self._tags
         self.tmp.cleanup()
 
     def _write_hit(self, title, artist, lrc="[00:01.00]あ\n[00:02.00]い\n[00:03.00]う"):
@@ -53,13 +50,6 @@ class TestLibrary(unittest.TestCase):
         rows = [r for r in LIB.scan_library(self.dir) if r["stem"].endswith("曲A")]
         self.assertTrue(rows)
         self.assertFalse(rows[0]["has_lyric"])
-
-    def test_tags_roundtrip(self):
-        LIB.save_tags({"abc": ["inst"]})
-        self.assertEqual(LIB.load_tags(), {"abc": ["inst"]})
-
-    def test_hidden_tags_constant(self):
-        self.assertEqual(LIB.HIDDEN_TAGS, {"inst", "nonja"})
 
 
 if __name__ == "__main__":

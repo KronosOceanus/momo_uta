@@ -6,7 +6,6 @@ import json
 import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
-from ..core import library as LIB
 from ..core import lyrics as LY
 from ..core.library import CACHE
 from ..web import PAGE
@@ -28,7 +27,6 @@ class H(BaseHTTPRequestHandler):
         "/api/line": "_post_line",
         "/api/rematch": "_post_rematch",
         "/api/pick": "_post_pick",
-        "/api/tag": "_post_tag",
         "/api/import/one": "_post_import",
         "/api/lrc": "_post_lrc",
         "/api/vocals": "_post_vocals",
@@ -76,7 +74,6 @@ class H(BaseHTTPRequestHandler):
         "/api/line": ("idx", "line", "start", "reading"),
         "/api/rematch": ("idx",),
         "/api/pick": ("idx", "id"),
-        "/api/tag": ("action",),
         "/api/import/one": ("paths",),
         "/api/lrc": ("idx",),
         "/api/vocals": ("idx",),
@@ -104,11 +101,8 @@ class H(BaseHTTPRequestHandler):
         return self._json({"lists": lists, "open": SVC_PL.playlists_open()})
 
     def _get_library(self):
-        tags = LIB.load_tags()
-        # 不再隐藏任何歌：标签只作为展示信息
         rows = [{"idx": k, "title": v["title"], "orig": v.get("orig") or v["title"],
-                 "artist": v["artist"], "key": v["key"], "group": v.get("group", ""),
-                 "tags": tags.get(v["key"], [])}
+                 "artist": v["artist"], "key": v["key"], "group": v.get("group", "")}
                 for k, v in CACHE.items()]
         return self._json(rows)
 
@@ -182,10 +176,6 @@ class H(BaseHTTPRequestHandler):
 
     def _post_import(self, req):
         return self._json(SVC_PL.import_to_list(req))
-
-    def _post_tag(self, req):
-        r = SVC_PL.tag_action(req)
-        return self._json(r, 200 if r.get("ok") else 400)
 
     def _post_line(self, req):
         return self._json(SVC_SONG.edit_line_action(req))

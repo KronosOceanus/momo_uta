@@ -15,23 +15,7 @@ from . import lyrics as LY
 
 MUSIC = Path.home() / "Music" / "网易云音乐"
 IMPORTS = ROOT / "data" / "curated" / "imports.json"     # 导入的音频路径（不在 music_dirs 里也能列）
-TAGS = ROOT / "data" / "curated" / "song_tags.json"
-
 CACHE: dict = {}          # idx(str) -> 歌曲条目，启动时由 scan_library 填充
-HIDDEN_TAGS = {"inst", "nonja"}
-
-
-def load_tags() -> dict:
-    try:
-        return json.loads(TAGS.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def save_tags(d: dict) -> None:
-    TAGS.parent.mkdir(parents=True, exist_ok=True)
-    TAGS.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")     # 翻译覆盖率低于此值 → 整首不显示译文
-
 
 def music_dirs() -> list[Path]:
     from nihonco_yomi.config import PL

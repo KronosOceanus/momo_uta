@@ -96,22 +96,6 @@ def import_to_list(req) -> dict:
 
 # ── 路由表 ────────────────────────────────────────
 
-def tag_action(req):
-    key, tag = str(req.get("key") or ""), str(req.get("tag") or "")
-    if not key or tag not in ("inst", "nonja", "wrong"):
-        return {"ok": False, "error": "bad tag"}
-    tags = LIB.load_tags()
-    cur = set(tags.get(key, []))
-    cur.symmetric_difference_update({tag})
-    if cur:
-        tags[key] = sorted(cur)
-    else:
-        tags.pop(key, None)
-    LIB.save_tags(tags)
-    return {"ok": True, "tags": tags.get(key, [])}
-
-
-
 def playlists_open() -> list[str]:
     """当前展开的歌单 id（记录在 playlists.json 的 open 字段）。"""
     return PL.load().get("open", [])
