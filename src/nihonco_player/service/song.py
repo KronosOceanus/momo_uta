@@ -14,6 +14,7 @@ from nihonco_yomi.render import segments_html, words_html
 
 from ..core import edits as ED
 from ..core import library as LIB
+from ..core import lrcio as LRC
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.library import CACHE
@@ -46,8 +47,25 @@ def strip_paren_ruby(text: str) -> tuple[str, dict]:
 
 
 
+def _stored_overrides(clean: str, segs: list, stored: list) -> dict | None:
+    """把文件里的 [base,ruby,lv] 对齐到引擎片段；对不上返回 None（标注已过期）。"""
+    ov, pos = {}, 0
+    for item in stored:
+        base, ruby = item[0], (item[1] if len(item) > 1 else None)
+        if not base:
+            return None
+        seg = next((x for x in segs if x.get("start") == pos), None)
+        if not seg or seg.get("base") != base:
+            return None
+        if ruby and ruby != (seg.get("ruby") or ""):
+            ov[f"o:0-{seg['word']}"] = ruby
+        pos += len(base)
+    return ov if pos == len(clean) else None
+
+
 def annotate_line_with_notes(text: str, extra_start: int | None = None,
-                             extra_reading: str | None = None) -> dict:
+                             extra_reading: str | None = None,
+                             stored: list | None = None) -> dict:
     """标一行：先处理行内注音 笑顔(かお)，再叠加用户改的那一处。
 
     text 必须是"清洗前"的原文（含括号写法），这样调用方拿到的 start
@@ -65,7 +83,31 @@ def annotate_line_with_notes(text: str, extra_start: int | None = None,
         seg = next((x for x in segs if x["start"] == extra_start), None)
         if seg:
             ov[f"o:0-{seg['word']}"] = extra_reading
+    if stored:
+        got = _stored_overrides(clean, segs, stored)
+        if got is not None:
+            ov.update({k: v for k, v in got.items() if v})
     return AN.annotate(clean, ov) if ov else base
+
+
+def segs_of(result) -> list:
+    """引擎结果 → 文件里存的紧凑形式 [[base, ruby, level], …]"""
+    return [[seg["base"], seg.get("ruby"), seg.get("level")]
+            for seg in result["lines"][0]["segments"]]
+
+
+def annotations_from_lines(lines: list[dict]) -> dict[int, list]:
+    """按当前行内容重新注音，生成 nhlrc 的标注表。"""
+    out: dict[int, list] = {}
+    for i, ln in enumerate(lines):
+        text = (ln.get("text") or "").strip()
+        if not text:
+            continue
+        try:
+            out[i] = segs_of(annotate_line_with_notes(text))
+        except Exception:
+            pass
+    return out
 
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
@@ -84,20 +126,37 @@ def song_payload(idx: int) -> dict:
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
                 "audio": f"/audio/{idx}"}
     edits = ED.for_song(item["key"])
-    lines = LY.parse_lrc(hit.get("lrc", ""))
+    doc = LRC.load(item["file"])
+    lines = doc["lines"]
+    stored = doc.get("annotations") or {}
+    changed = False
     for li, ln in enumerate(lines):
         if not ln["text"]:
             ln["ruby"], ln["rm"], ln["ky"] = "", "", ""
             continue
-        r = annotate_line_with_notes(ln["text"])
+        r = annotate_line_with_notes(ln["text"], stored=stored.get(li))
+        if li not in stored:
+            changed = True
         ln["ruby"] = _ruby(r)
         ln["raw"] = ln["text"]
         ln["rm"] = r.get("romaji", {}).get("text", "")
         ln["ky"] = r.get("keys", {}).get("text", "")
         ln["rmH"] = _words(r, "romaji")
         ln["kyH"] = _words(r, "keys")
+    if changed and lines:
+        try:
+            ann = {i: segs_of(annotate_line_with_notes(ln["text"], stored=stored.get(i)))
+                   for i, ln in enumerate(lines) if (ln.get("text") or "").strip()}
+            if doc.get("kind") in ("lrc", "nhlrc"):
+                LRC.save(item["file"], lines, ann)          # 有本地歌词文件 → 写 .nhlrc
+            else:
+                LY.write_local_lrc(title, artist, doc["text"], annotations=ann,
+                                   duration=LY.audio_duration(item["file"]),
+                                   name=title, by=artist)   # 纯缓存 → 标注存缓存
+        except Exception:
+            pass
     return {"idx": idx, "key": item["key"], "title": item["title"], "artist": item["artist"],
-            "lines": lines, "edits": edits,
+            "lines": lines, "edits": edits, "nhlrc": True,
         "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),
         "audio": f"/audio/{idx}",
 }

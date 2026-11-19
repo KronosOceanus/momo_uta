@@ -71,25 +71,26 @@ def main() -> None:
             r = webview.windows[0].create_file_dialog(FileDialog.FOLDER)
             return r[0] if r else ""
 
-        def save_text(self, default_name: str, text: str):
-            """弹出保存对话框，把文本写到用户选的位置。"""
+        def save_text(self, default_name: str, text: str, alt_text: str = ""):
+            """保存文本；.lrc 扩展名写 alt_text（纯 LRC），其余写 text（.nhlrc）。"""
             try:
                 r = webview.windows[0].create_file_dialog(
                     FileDialog.SAVE, save_filename=default_name)
                 if not r:
                     return ""
                 path = r if isinstance(r, str) else r[0]
-                Path(path).write_text(text, encoding="utf-8")
+                body = alt_text if (alt_text and path.lower().endswith(".lrc")) else text
+                Path(path).write_text(body, encoding="utf-8")
                 return path
             except Exception as e:
                 return ""
 
         def pick_lrc_text(self):
-            """选一个 .lrc，返回 {"name","text"}；取消返回空。"""
+            """选一个 .lrc / .nhlrc，返回 {"name","text"}；取消返回空。"""
             try:
                 r = webview.windows[0].create_file_dialog(
                     FileDialog.OPEN, allow_multiple=False,
-                    file_types=("LRC 歌词 (*.lrc)", "全部文件 (*.*)"))
+                    file_types=("歌词 (*.lrc;*.nhlrc)", "全部文件 (*.*)"))
                 if not r:
                     return {}
                 path = r if isinstance(r, str) else r[0]

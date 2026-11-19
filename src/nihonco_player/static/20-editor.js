@@ -337,10 +337,12 @@ document.getElementById('lrcdel').onclick=()=>{ if(LRCEDIT && !LRC_LOCKED) delRo
 document.getElementById('lrcselall').onclick=()=>{ if(LRCEDIT) selectAll(); };
 document.getElementById('lrcsaveas').onclick=async()=>{
   if(!LRCEDIT) return;
-  const name=(S&&S.title?S.title:'lyrics')+'.lrc';
-  const text=lrcText();
+  const name=(S&&S.title?S.title:'lyrics')+'.nhlrc';
   if(window.pywebview && window.pywebview.api && window.pywebview.api.save_text){
-    const p=await window.pywebview.api.save_text(name, text);
+    let ex={ok:false};
+    try{ ex=await api('/api/lrc',{action:'export', idx:S.idx, lines:lrcPayload()}); }catch(e){}
+    if(!ex.ok){ done('导出失败：'+(ex.error||'未知错误')); return; }
+    const p=await window.pywebview.api.save_text(name, ex.nhlrc, ex.lrc);
     done(p ? '已另存为 '+p.split('/').pop() : '已取消');
   }else done('当前环境不支持另存为');
 };

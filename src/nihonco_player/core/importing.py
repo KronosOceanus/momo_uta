@@ -12,10 +12,35 @@ from pathlib import Path
 from nihonco_yomi.config import LB
 
 from . import library as LIB
+from . import lrcio as LRC
 from . import lyrics as LY
 
 AUDIO_EXT = set(LB["extensions"])
 PAIR_LRC = bool(LB["auto_pair_lrc"])
+LYRIC_EXT = {".lrc", ".nhlrc"}
+
+
+def _pick(cands: list[Path]) -> Path | None:
+    """同一首歌有多个歌词文件时：nhlrc 优先，其次较新的。"""
+    if not cands:
+        return None
+    return sorted(cands, key=lambda p: (p.suffix.lower() == ".nhlrc",
+                                        p.stat().st_mtime))[-1]
+
+
+def _body(path: Path) -> str:
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    return LRC._split_nhlrc(text)[0] if path.suffix.lower() == ".nhlrc" else text
+
+
+def _annotations(path: Path, body: str) -> dict | None:
+    if path.suffix.lower() != ".nhlrc":
+        return None
+    _b, tail = LRC._split_nhlrc(path.read_text(encoding="utf-8", errors="ignore"))
+    if not tail:
+        return None
+    lines, _m = LRC._parse_document(body)
+    return LRC.annotations_for(lines, tail) or None
 JUNK = re.compile(r"[\s._\-]*[\(（\[【]\s*(?:\d+|mqms\d*|tv\s*size|short\s*ver\.?|"
                   r"ショートサイズ)\s*[\)）\]】]$", re.I)
 
@@ -36,7 +61,7 @@ def _pair(audios: list[Path], lrcs: list[Path], root: Path | None = None) -> dic
     for a in audios:
         key = _stem_key(a.stem)
         cand = by_stem.get(key) or []
-        if not cand:                       # 退化：同目录下唯一一个 lrc
+        if not cand:                       # 退化：同目录下唯一一个歌词文件
             same_dir = [p for p in lrcs if p.parent == a.parent]
             cand = same_dir if len(same_dir) == 1 else []
         rel = (a.relative_to(root) if root and a.is_relative_to(root) else a.name)
@@ -48,8 +73,8 @@ def _pair(audios: list[Path], lrcs: list[Path], root: Path | None = None) -> dic
                           "duration": round(LY.audio_duration(a), 1),
                           "lines": 0, "status": "需联网匹配"})
             continue
-        lrc = sorted(cand, key=lambda p: p.stat().st_mtime)[-1]
-        text = lrc.read_text(encoding="utf-8", errors="ignore")
+        lrc = _pick(cand)
+        text = _body(lrc)
         lines = LY.content_lines(text)
         artist, title = LY.split_name(a.stem)
         items.append({
@@ -82,12 +107,12 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
             files.append(p)
 
     audios = [p for p in files if p.suffix.lower() in AUDIO_EXT]
-    lrcs = [p for p in files if p.suffix.lower() == ".lrc"]
+    lrcs = [p for p in files if p.suffix.lower() in LYRIC_EXT]
     for d in dirs:                                  # ① 目录递归
         for p in sorted(d.rglob("*")):
             if p.suffix.lower() in AUDIO_EXT:
                 audios.append(p)
-            elif p.suffix.lower() == ".lrc":
+            elif p.suffix.lower() in LYRIC_EXT:
                 lrcs.append(p)
 
     by_key: dict[str, list[Path]] = {}
@@ -100,9 +125,10 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
     for a in audios:                                # ② 音频 + lrc 配对
         key = _stem_key(a.stem)
         cand = [p for p in by_key.get(key, []) if p not in used_lrc] if PAIR_LRC else []
-        if not cand:                                # 音频自己所在目录里找同名 lrc
-            cand = [p for p in a.parent.glob("*.lrc")
-                    if p not in used_lrc and _stem_key(p.stem) == key]
+        if not cand:                                # 音频自己所在目录里找同名歌词
+            cand = [p for p in a.parent.glob("*")
+                    if p.suffix.lower() in LYRIC_EXT and p not in used_lrc
+                    and _stem_key(p.stem) == key]
         if not cand:                                # 再退：同目录唯一 lrc
             same = [p for p in lrcs if p.parent == a.parent and p not in used_lrc]
             cand = same if len(same) == 1 else []
@@ -110,15 +136,16 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
             pending.append(str(a))                  # ③ 只给音频 → 也进歌单，懒匹配
             added.append(str(a))
             continue
-        lrc = sorted(cand, key=lambda p: p.stat().st_mtime)[-1]
+        lrc = _pick(cand)
         used_lrc.add(lrc)
         artist, title = LY.split_name(a.stem)
-        text = lrc.read_text(encoding="utf-8", errors="ignore")
+        text = _body(lrc)
         if LY.content_lines(text) < 3:
             pending.append(str(a))
             added.append(str(a))
             continue
-        LY.write_local_lrc(title, artist, text,
+        ann = _annotations(lrc, text)
+        LY.write_local_lrc(title, artist, text, annotations=ann,
                            duration=LY.audio_duration(a), name=title, by=artist)
         added.append(str(a))
 
@@ -135,13 +162,13 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
             unpaired += 1
             continue
         artist, title = LY.split_name(target.stem)
-        text = lrc.read_text(encoding="utf-8", errors="ignore")
+        text = _body(lrc)
         if LY.content_lines(text) < 3:
             unpaired += 1
             continue
         had = LY._cached(title, artist) and LY.content_lines(
             (LY.get_lrc(title, artist, use_cache=True) or {}).get("lrc") or "") >= 3
-        LY.write_local_lrc(title, artist, text,           # A：覆盖已有歌词
+        LY.write_local_lrc(title, artist, text, annotations=_annotations(lrc, text),
                            duration=LY.audio_duration(target), name=title, by=artist)
         used_lrc.add(lrc)
         if had:

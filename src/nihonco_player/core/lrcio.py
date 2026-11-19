@@ -5,12 +5,17 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
 from pathlib import Path
 
 from . import lyrics as LY
+
+NHLRC_MARK = "#NHLRC"
+NHLRC_VERSION = 1
+GEN = "nihonco 0.1"
 
 LINE = re.compile(r"^\[(\d+):(\d+(?:\.\d+)?)(?:-\d+)?\](.*)$")
 METADATA = re.compile(
@@ -23,23 +28,115 @@ def lrc_path(audio: str | Path) -> Path:
     return Path(audio).with_suffix(".lrc")
 
 
+def nhlrc_path(audio: str | Path) -> Path:
+    return Path(audio).with_suffix(".nhlrc")
+
+
 def exists(audio: str | Path) -> bool:
-    return lrc_path(audio).is_file()
+    return nhlrc_path(audio).is_file() or lrc_path(audio).is_file()
+
+
+def _hash8(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
+
+
+def _split_nhlrc(text: str) -> tuple[str, dict | None]:
+    """拆成（LRC 正文，尾部结构）；没有标记就是纯 LRC。"""
+    lines = (text or "").splitlines()
+    for i, line in enumerate(lines):
+        if line.strip().startswith(NHLRC_MARK):
+            body = "\n".join(lines[:i]).rstrip() + "\n"
+            try:
+                tail = json.loads("\n".join(lines[i + 1:]) or "{}")
+            except Exception:
+                return body, None
+            return body, tail if isinstance(tail, dict) else None
+    return text, None
+
+
+def _seg_list(raw) -> list[list]:
+    """容忍两种写法：["君","きみ","A"] 或 {"b":"君","r":"きみ","lv":"A"}"""
+    out = []
+    for item in raw or ():
+        if isinstance(item, dict):
+            out.append([item.get("b", ""), item.get("r"), item.get("lv")])
+        elif isinstance(item, (list, tuple)) and item:
+            out.append([item[0], (item[1] if len(item) > 1 else None),
+                        (item[2] if len(item) > 2 else None)])
+    return out
+
+
+def annotations_for(lines: list[dict], tail: dict | None) -> dict[int, list]:
+    """校验尾部标注：行号存在、哈希一致、拼起来等于正文 → 才认。"""
+    if not tail or not tail.get("lines"):
+        return {}
+    ok: dict[int, list] = {}
+    for ent in tail["lines"]:
+        try:
+            i = int(ent.get("i"))
+        except (TypeError, ValueError):
+            continue
+        if not (0 <= i < len(lines)):
+            continue
+        text = lines[i].get("text") or ""
+        if ent.get("h") and ent["h"] != _hash8(text):
+            continue
+        seg = _seg_list(ent.get("seg"))
+        if not seg or "".join(x[0] for x in seg) != text:
+            continue
+        ok[i] = seg
+    return ok
+
+
+def render_body(lines: list[dict], metadata: list[dict] | None = None) -> str:
+    return render(lines, metadata)
+
+
+def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
+                 annotations: dict[int, list] | None = None) -> str:
+    body = render(lines, metadata)
+    entries = []
+    for i, seg in sorted((annotations or {}).items()):
+        if 0 <= i < len(lines) and seg:
+            entries.append({"i": i, "h": _hash8(lines[i].get("text") or ""),
+                            "seg": seg})
+    if not entries:
+        return body
+    tail = {"v": NHLRC_VERSION, "gen": GEN, "body": _hash8(body), "lines": entries}
+    return body + "\n" + NHLRC_MARK + f" {NHLRC_VERSION}\n" + \
+        json.dumps(tail, ensure_ascii=False, indent=1) + "\n"
 
 
 def load(audio: str | Path) -> dict:
-    """优先读 .lrc 文件；没有就退回歌词缓存（网易云那套），方便首次导出成文件。"""
+    """优先 .nhlrc，其次 .lrc，最后歌词缓存。"""
     audio = Path(audio)
-    p = lrc_path(audio)
-    exists = p.is_file()
-    if exists:
-        text = p.read_text(encoding="utf-8", errors="ignore")
+    np_ = nhlrc_path(audio)
+    lp = lrc_path(audio)
+    from_cache = False
+    if np_.is_file():
+        full = np_.read_text(encoding="utf-8", errors="ignore")
+        body, tail = _split_nhlrc(full)
+        path, kind = np_, "nhlrc"
+    elif lp.is_file():
+        full = lp.read_text(encoding="utf-8", errors="ignore")
+        body, tail = full, None
+        path, kind = lp, "lrc"
     else:
         artist, title = LY.split_name(audio.stem)
-        text = (LY.get_lrc(title, artist) or {}).get("lrc") or ""
-    lines, metadata = _parse_document(text)
-    return {"ok": True, "exists": exists, "from_cache": not exists and bool(text),
-            "path": str(p), "text": text, "lines": lines, "metadata": metadata}
+        hit = LY.get_lrc(title, artist) or {}
+        full = hit.get("lrc") or ""
+        cached_ann = hit.get("nhlrc_annotations") or {}
+        tail = {"lines": [{"i": int(i), "seg": seg} for i, seg in cached_ann.items()]} \
+            if cached_ann else None
+        body = full
+        path, kind = np_, "cache"
+        from_cache = bool(full)
+    lines, metadata = _parse_document(body)
+    annotations = annotations_for(lines, tail)
+    return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
+            "path": str(path), "kind": kind, "text": body, "lines": lines,
+            "metadata": metadata, "annotations": annotations,
+            "nhlrc": kind == "nhlrc"}
 
 
 def parse(text: str) -> list[dict]:
@@ -94,12 +191,17 @@ def render(lines: list[dict], metadata: list[dict] | None = None) -> str:
 
 
 def backup_path(audio: str | Path) -> Path:
-    return Path(audio).with_suffix(".lrc.bak")
+    return Path(audio).with_suffix(".nhlrc.bak")
+
+
+def backup_candidates(audio: str | Path) -> list[Path]:
+    a = Path(audio)
+    return [a.with_suffix(".nhlrc.bak"), a.with_suffix(".lrc.bak")]
 
 
 def backup_status(audio: str | Path) -> dict:
-    b = backup_path(audio)
-    if not b.is_file():
+    b = next((x for x in backup_candidates(audio) if x.is_file()), None)
+    if not b:
         return {"exists": False}
     text = b.read_text(encoding="utf-8", errors="ignore")
     return {"exists": True, "path": str(b), "lines": len(parse(text)),
@@ -109,58 +211,64 @@ def backup_status(audio: str | Path) -> dict:
 def restore_backup(audio: str | Path) -> dict:
     """把 .lrc.bak 覆盖回 .lrc（恢复最初版本），并同步歌词缓存。"""
     audio = Path(audio)
-    b = backup_path(audio)
-    if not b.is_file():
+    b = next((x for x in backup_candidates(audio) if x.is_file()), None)
+    if not b:
         return {"ok": False, "error": "没有备份文件"}
-    p = lrc_path(audio)
+    p = nhlrc_path(audio)
     shutil.copy2(b, p)
     artist, title = LY.split_name(audio.stem)
-    LY.write_local_lrc(title, artist, p.read_text(encoding="utf-8"),
+    body, _ = _split_nhlrc(p.read_text(encoding="utf-8", errors="ignore"))
+    LY.write_local_lrc(title, artist, body,
                        duration=LY.audio_duration(audio), name=title, by=artist)
     return {"ok": True, "path": str(p), "lines": len(parse(p.read_text(encoding="utf-8")))}
 
 
 def import_text(audio: str | Path, text: str) -> dict:
-    """用外部 .lrc 文本直接覆盖当前歌词（首次覆盖前备份）。"""
+    """用外部 .lrc 文本覆盖当前歌词：写成 .nhlrc 正文（首次覆盖前备份）。"""
     audio = Path(audio)
-    p = lrc_path(audio)
+    p = nhlrc_path(audio)
     p.parent.mkdir(parents=True, exist_ok=True)
     backed = False
-    if p.is_file():
-        bak = p.with_suffix(".lrc.bak")
-        if not bak.exists():
-            shutil.copy2(p, bak)
-            backed = True
-    if not text.endswith("\n"):
-        text += "\n"
-    p.write_text(text, encoding="utf-8")
+    bak = backup_path(audio)
+    src = nhlrc_path(audio) if nhlrc_path(audio).is_file() else lrc_path(audio)
+    if src.is_file() and not bak.exists():
+        shutil.copy2(src, bak)
+        backed = True
+    body, _tail = _split_nhlrc(text)          # 选到 .nhlrc 时只取正文
+    body = body if body.endswith("\n") else body + "\n"
+    p.write_text(body, encoding="utf-8")
     artist, title = LY.split_name(audio.stem)
-    LY.write_local_lrc(title, artist, text,
+    LY.write_local_lrc(title, artist, body,
                        duration=LY.audio_duration(audio), name=title, by=artist)
-    return {"ok": True, "path": str(p), "lines": len(parse(text)), "backed_up": backed}
+    return {"ok": True, "path": str(p), "lines": len(parse(body)), "backed_up": backed}
 
 
-def save(audio: str | Path, lines: list[dict]) -> dict:
-    """写回 .lrc（首次备份成 .lrc.bak），并同步歌词缓存。"""
+def save(audio: str | Path, lines: list[dict],
+         annotations: dict[int, list] | None = None) -> dict:
+    """写 .nhlrc（正文 + 尾部标注；首次备份成 .nhlrc.bak），并同步歌词缓存。"""
     audio = Path(audio)
-    p = lrc_path(audio)
+    p = nhlrc_path(audio)
     p.parent.mkdir(parents=True, exist_ok=True)
 
     artist, title = LY.split_name(audio.stem)
     original = ""
     backed = False
-    if p.is_file():
-        original = p.read_text(encoding="utf-8", errors="ignore")
+    src = p if p.is_file() else lrc_path(audio)
+    if src.is_file():
+        original = src.read_text(encoding="utf-8", errors="ignore")
         bak = backup_path(audio)
         if not bak.exists():
-            shutil.copy2(p, bak)
+            shutil.copy2(src, bak)
             backed = True
     elif LY._cached(title, artist):
         original = (LY.get_lrc(title, artist) or {}).get("lrc") or ""
 
-    _, metadata = _parse_document(original)
-    text = render(lines, metadata)
+    body, _tail = _split_nhlrc(original)
+    _, metadata = _parse_document(body)
+    if annotations is None:
+        annotations = annotations_for(lines, _tail)
+    text = render_nhlrc(lines, metadata, annotations)
     p.write_text(text, encoding="utf-8")
-    LY.write_local_lrc(title, artist, text,
+    LY.write_local_lrc(title, artist, render_body(lines, metadata),
                        duration=LY.audio_duration(audio), name=title, by=artist)
     return {"ok": True, "path": str(p), "lines": len(lines), "backed_up": backed}
