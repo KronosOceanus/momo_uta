@@ -12,6 +12,7 @@ import threading
 from ..core import edits as ED
 from ..core import library as LIB
 from ..core import lrc_files as LRC
+from ..core import diag
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
@@ -63,8 +64,8 @@ def song_payload(idx: int) -> dict:
                 LY.write_local_lrc(title, artist, doc["text"], annotations=ann,
                                    duration=LY.audio_duration(item["file"]),
                                    name=title, by=artist)   # 纯缓存 → 标注存缓存
-        except Exception:
-            pass
+        except Exception as e:
+            diag.log("nhlrc", f"自动落盘失败：{e}")
     return {"idx": idx, "key": item["key"], "title": item["title"], "artist": item["artist"],
             "lines": lines, "edits": edits, "nhlrc": True,
         "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),

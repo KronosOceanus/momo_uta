@@ -6,6 +6,7 @@ import json
 
 from ..core import library as LIB
 from ..core import lrc_doc as DOC
+from ..core import diag
 from ..core import lrc_files as LRC
 from ..core.library import CACHE
 from .song import annotate_line_with_notes, segs_of
@@ -56,8 +57,8 @@ def lrc_action(req):
             else:
                 try:
                     ann[i] = segs_of(annotate_line_with_notes(text))
-                except Exception:
-                    pass
+                except Exception as e:
+                    diag.log("annotate", f"保存时第 {i} 行注音失败：{e}")
         res = LRC.save(item["file"], lines, ann)
         res["library"] = LIB.refresh(item.get("uid"))
         return res

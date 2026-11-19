@@ -70,15 +70,35 @@ class H(BaseHTTPRequestHandler):
         fn = self.GET.get(p)
         return getattr(self, fn)() if fn else self._send(404, "not found")
 
+    # 每个写接口的必填字段（缺失直接 400，不让 service 里 KeyError/None 兜底）
+    REQUIRED = {
+        "/api/pl": ("action",),
+        "/api/playlist": ("action",),
+        "/api/line": ("idx", "line", "start", "reading"),
+        "/api/apply": ("idx",),
+        "/api/rematch": ("idx",),
+        "/api/pick": ("idx", "id"),
+        "/api/tag": ("action",),
+        "/api/import/one": ("paths",),
+        "/api/lrc": ("idx",),
+        "/api/vocals": ("idx",),
+    }
+
     def do_POST(self):
         p = urllib.parse.urlparse(self.path).path
         length = int(self.headers.get("Content-Length") or 0)
         try:
             req = json.loads(self.rfile.read(length) or b"{}")
         except Exception:
-            return self._send(400, '{"error":"bad json"}')
+            return self._json({"ok": False, "error": "请求不是合法 JSON"}, 400)
         fn = self.POST.get(p)
-        return getattr(self, fn)(req) if fn else self._send(404, "not found")
+        if not fn:
+            return self._send(404, "not found")
+        missing = [k for k in self.REQUIRED.get(p, ())
+                   if req.get(k) in (None, "", [], {})]
+        if missing:
+            return self._json({"ok": False, "error": "缺少参数：" + "/".join(missing)}, 400)
+        return getattr(self, fn)(req)
 
     # ── GET ──────────────────────────────────────────
     def _get_playlists(self):

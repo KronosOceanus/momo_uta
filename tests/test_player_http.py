@@ -4,6 +4,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -59,6 +60,15 @@ class TestPlayerHttp(unittest.TestCase):
         req = urllib.request.Request(self.url(path), data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
         return urllib.request.urlopen(req)
+
+    def test_missing_params_returns_400(self):
+        req = urllib.request.Request(self.url("/api/line"), data=b"{}",
+                                     headers={"Content-Type": "application/json"})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 400)
+        body = json.loads(cm.exception.read())
+        self.assertIn("缺少参数", body["error"])
 
     def test_page(self):
         html = urllib.request.urlopen(self.url("/")).read().decode()

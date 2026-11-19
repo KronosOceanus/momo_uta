@@ -11,6 +11,8 @@ import re
 import nihonco_yomi
 from nihonco_yomi.render import segments_html, words_html
 
+from . import diag
+
 AN = nihonco_yomi.Annotator()
 
 RUBY_PAREN = re.compile(r"([\u4e00-\u9fff]+)[（(]([ぁ-んー]+)[）)]")
@@ -96,8 +98,8 @@ def annotations_from_lines(lines: list[dict]) -> dict[int, list]:
             continue
         try:
             out[i] = segs_of(annotate_line_with_notes(text))
-        except Exception:
-            pass
+        except Exception as e:
+            diag.log("annotate", f"行 {i} 注音失败：{e}")
     return out
 
 
