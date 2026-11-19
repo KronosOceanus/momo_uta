@@ -241,32 +241,21 @@ body = sha1(整篇正文)[:8]
 
 ```text
 文件优先级：
-  1) data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc     正式位置（只认指纹后缀）
-  2) 音频旁边同名 .nhlrc                          旧位置（读到后自动迁移）
-  3) 音频旁边同名 .lrc                            旧歌词（只有正文）
-  4) 歌词缓存                                      没有本地文件时
-
-旧位置迁移：
-  · 音频旁有 .nhlrc、data/lyrics 没有 → 复制进新目录（按指纹命名）
-  · 复制成功后删除音频旁的旧文件（避免两份真相）
-  · 音频旁只有 .lrc → 正文照常读；第一次注音/保存时写入新目录
-
-不再读取：data/lyrics 里按旧版"路径哈希"命名的 nhlrc
-  （文件名后缀不是当前音频的指纹 → 视为别人的文件）
+  1) data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc（只认指纹后缀）
+  2) 歌词缓存（抓取结果，带 nhlrc_annotations 字段）
+  3) 都没有 → 没有歌词（触发懒匹配）
 ```
 
 ```text
 特殊情况：
-  · 新目录的 .nhlrc 正文为空（0 行文本）而 .lrc 有内容 → 回退读 .lrc
-    （防止误存出空壳文件把有内容的歌词盖住）
-  · 正文为空且没有 .lrc → 没有歌词（触发懒匹配）
+  · .nhlrc 正文为空（0 行文本）→ 视为没有歌词
 ```
 
 ```text
 标注来源：
-  · 新目录 / 旧位置的 .nhlrc → 按 §4 校验 + 对齐
-  · 只有 .lrc → 没有标注（打开后自动注音，再落盘）
-  · 只有缓存 → 缓存里的 nhlrc_annotations 字段（同样的三元组结构）
+  · .nhlrc → 按 §4 校验 + 对齐
+  · 歌词缓存 → nhlrc_annotations 字段（同样的三元组结构）
+  · 都没有 → 打开后自动注音，再落盘
 ```
 
 ### 5.2 保存
@@ -287,9 +276,9 @@ body = sha1(整篇正文)[:8]
 ```text
 保护：
   · 没有非空歌词行 → 拒绝保存（不写空文件）
-  · 首次写之前，把现有的 nhlrc 或 .lrc 备份成 data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc.bak
+  · 首次写之前，把现有的 nhlrc 备份成同名 .nhlrc.bak
     （之后再保存不会覆盖 .bak）
-  · "恢复最初"用 .nhlrc.bak；没有它时兼容读旧的 .lrc.bak
+  · "恢复最初"用 .nhlrc.bak
 ```
 
 ### 5.3 自动落盘
@@ -315,7 +304,7 @@ body = sha1(整篇正文)[:8]
 用途 = 导入 nhlrc 时保留读音，不必重新注音
 ```
 
-### 5.5 手改读音（不再有 readings.json）
+### 5.5 手改读音
 
 ```text
 用户在界面上点候选或手输读音
@@ -328,28 +317,7 @@ body = sha1(整篇正文)[:8]
 ```text
 所以：
   · 手改读音就是该行 seg 的一部分，nhlrc 是唯一真相
-  · 不再写 data/curated/readings.json
-  · 打开时也不再"重放"手改——文件里已经有了
-```
-
-### 5.6 旧数据迁移（readings.json → nhlrc）
-
-```text
-旧结构：{"<song key>": {"行号:起点": "读音"}}
-
-迁移时机：该歌第一次需要写 nhlrc 时（打开/保存/改读音）
-步骤：
-  ① 对每条 (行号, 起点, 读音)：
-       行号有效、起点处存在有读音的片段 → 套进该行 seg
-       对不上 → 丢弃并记 app.log
-  ② 写 nhlrc
-  ③ 成功后从 readings.json 删掉该歌这一节（flock 内）
-```
-
-```text
-兼容窗口：
-  · 还没写过 nhlrc 的歌：打开时仍按旧逻辑重放，保证读音不丢
-  · 一旦写过 nhlrc：走新逻辑，不再重放
+  · 打开时直接读文件，没有额外的"重放"步骤
 ```
 
 ## 6. 导入 / 导出
@@ -443,7 +411,6 @@ body = sha1(整篇正文)[:8]
   · 文件名较长
   · 重新压制 / 剪辑 / 转码 → 指纹变 → 视为另一段音频（重新注音）
   · 重新打标签（改 ID3/封面）→ 文件大小和采样位置可能变 → 指纹可能变
-  · 旧版本按路径哈希命名的歌词文件不再被读取（不迁移、不兜底）
 ```
 
 ```text
@@ -608,8 +575,7 @@ data/
 |---|---|---|
 | 音频身份 | `nihonco_player.core.fingerprint` | `fingerprint`、索引缓存 `data/cache/fingerprints.json` |
 | 格式定义/序列化 | `nihonco_player.core.lrc_doc` | `render`、`render_nhlrc`、`_split_nhlrc`、`annotations_for`、`align_annotations`、`_hash8` |
-| 文件读写/备份 | `nihonco_player.core.lrc_files` | `store_path`、`load`、`save`、`import_text`、`restore_backup`、旧文件迁移 |
-| 手改读音迁移 | `nihonco_player.core.annotation` | `fold_readings`（readings → seg） |
+| 文件读写/备份 | `nihonco_player.core.lrc_files` | `store_path`、`load`、`save`、`import_text`、`restore_backup` |
 | 标注生成 | `nihonco_player.core.annotation` | 行文本 → `seg`（`segs_of` / `annotate_line_with_notes`） |
 | 保存编排 | `nihonco_player.service.lrc` | 沿用旧标注、重新注音、导出两种文本 |
 | 自动落盘 | `nihonco_player.service.song` | `song_payload` 里首次注音后写盘/写缓存 |
