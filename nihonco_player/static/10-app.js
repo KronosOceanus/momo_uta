@@ -187,23 +187,17 @@ document.getElementById('wavefollow').onclick=e=>{
   if(!FOLLOW){ DRAWN=DRAWN||viewStart(); }   // 关掉时冻结当前窗口
 };
 cv.addEventListener('contextmenu', e=>e.preventDefault());
-cv.addEventListener('mousedown', e=>{
-  if(e.button!==2 || !WAVE) return;              // 右键拖动 = 左右移动窗口
+// 双指滑动（触控板）/ 滚轮：左右平移窗口（竖向滑动也当横向用）
+cv.addEventListener('wheel', e=>{
+  if(!WAVE) return;
   e.preventDefault();
+  const d=e.deltaX || e.deltaY;
+  if(!d) return;
   const v=viewStart(), w=cv.getBoundingClientRect().width || 1;
-  const x0=e.clientX, base=v.start, span=v.span;
-  if(FOLLOW){ FOLLOW=false; syncFollow(); }      // 拖动时自动关闭跟随
-  const move=ev=>{
-    PAN_START=clampStart(base - (ev.clientX-x0)/w*span, span);
-    drawWave();
-  };
-  const up=()=>{
-    document.removeEventListener('mousemove', move);
-    document.removeEventListener('mouseup', up);
-  };
-  document.addEventListener('mousemove', move);
-  document.addEventListener('mouseup', up);
-});
+  if(FOLLOW){ FOLLOW=false; syncFollow(); }      // 手动平移 → 关闭跟随
+  PAN_START=clampStart(v.start + d*v.span/w, v.span);
+  drawWave();
+}, {passive:false});
 cv.addEventListener('click', e=>{
   if(!WAVE || e.button===2) return;
   const r=cv.getBoundingClientRect();
@@ -225,6 +219,9 @@ document.getElementById('zoomval').onclick=()=>{
   inlineEdit(document.getElementById('zoomval'), VIEW.span,
     {min:SPAN_LO, max:SPAN_HI, fmt:v=>String(v), apply:v=>setWaveSpan(v)});
 };
+document.querySelectorAll('#wavebar [data-seek]').forEach(b=>b.onclick=()=>{
+  seekPrecise(Math.max(0, Math.min(au.duration||0, au.currentTime + parseFloat(b.dataset.seek))));
+});
 document.getElementById('jumpback').onclick=()=>{
   seekPrecise(Math.max(0, au.currentTime - VIEW.span));
 };

@@ -226,10 +226,13 @@ body.lrcedit #lrcrow2,body.lrcedit #lrcrow3{display:flex}
 /* 振假名工具行：全部重置靠右 */
 #fakbar{justify-content:flex-end}
 /* 波形下方的缩放 / 跳转行 */
-#wavebar{display:none;padding-top:5px;padding-bottom:5px}
-body.lrcedit #wavebar{display:flex}
-#wavebar .left,#wavebar .right{display:flex;align-items:center;gap:6px}
-#wavebar .right{margin-left:auto}
+#wavebar{display:none;padding-top:5px;padding-bottom:5px;
+  grid-template-columns:1fr auto 1fr;align-items:center}
+body.lrcedit #wavebar{display:grid}
+#wavebar .left,#wavebar .mid,#wavebar .right{display:flex;align-items:center;gap:6px}
+#wavebar .left{justify-self:start}
+#wavebar .mid{justify-self:center}
+#wavebar .right{justify-self:end}
 #wavebar b{min-width:3.2em;text-align:center;color:#cfd3d8;font-weight:400}
 #zoomval{cursor:text;color:#cfd3d8;font-weight:400;min-width:3.2em;text-align:center}
 #offval{cursor:text;color:#cfd3d8;font-weight:400}
