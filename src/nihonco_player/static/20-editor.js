@@ -343,8 +343,8 @@ document.getElementById('lrcsaveas').onclick=async()=>{
     try{ ex=await api('/api/lrc',{action:'export', idx:S.idx, lines:lrcPayload()}); }catch(e){}
     if(!ex.ok){ done('导出失败：'+(ex.error||'未知错误')); return; }
     const p=await window.pywebview.api.save_text(name, ex.nhlrc, ex.lrc);
-    done(p ? '已另存为 '+p.split('/').pop() : '已取消');
-  }else done('当前环境不支持另存为');
+    done(p ? '已导出 '+p.split('/').pop() : '已取消');
+  }else done('当前环境不支持导出');
 };
 async function replaceLrc(req, pending, success){
   LRC_REPLACING=true;
