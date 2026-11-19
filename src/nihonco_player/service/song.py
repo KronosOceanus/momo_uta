@@ -9,106 +9,16 @@ import json
 import re
 import threading
 
-import nihonco_yomi
-from nihonco_yomi.render import segments_html, words_html
-
 from ..core import edits as ED
 from ..core import library as LIB
 from ..core import lrcio as LRC
 from ..core import lyrics as LY
 from ..core import song_meta as META
+from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
+                               annotate_line_with_notes, line_fields,
+                               ruby_html, segs_of, strip_paren_ruby,
+                               words_html_of)
 from ..core.library import CACHE
-
-AN = nihonco_yomi.Annotator()
-# ── 注音装配（原 ruby.py）──────────────────────────────
-RUBY_PAREN = re.compile(r"([\u4e00-\u9fff]+)[（(]([ぁ-んー]+)[）)]")
-
-
-def _ruby(result) -> str:
-    return segments_html(result["lines"][0]["segments"], candidates=True, editable_ab=True)
-
-
-def _words(result, key: str = "romaji") -> str:
-    return words_html(result["lines"][0]["segments"], key)
-
-
-def strip_paren_ruby(text: str) -> tuple[str, dict]:
-    """LRC 里常写成 笑顔(かお)——括号里是实际唱的読み。
-    去掉括号，把它记成 override（按"去掉后"的字面位置换算）。"""
-    notes = {}
-    clean = text
-    while True:
-        m = RUBY_PAREN.search(clean)
-        if not m:
-            break
-        notes[m.start()] = m.group(2)
-        clean = clean[:m.start()] + m.group(1) + clean[m.end():]
-    return clean, notes
-
-
-
-def _stored_overrides(clean: str, segs: list, stored: list) -> dict | None:
-    """把文件里的 [base,ruby,lv] 对齐到引擎片段；对不上返回 None（标注已过期）。"""
-    ov, pos = {}, 0
-    for item in stored:
-        base, ruby = item[0], (item[1] if len(item) > 1 else None)
-        if not base:
-            return None
-        seg = next((x for x in segs if x.get("start") == pos), None)
-        if not seg or seg.get("base") != base:
-            return None
-        if ruby and ruby != (seg.get("ruby") or ""):
-            ov[f"o:0-{seg['word']}"] = ruby
-        pos += len(base)
-    return ov if pos == len(clean) else None
-
-
-def annotate_line_with_notes(text: str, extra_start: int | None = None,
-                             extra_reading: str | None = None,
-                             stored: list | None = None) -> dict:
-    """标一行：先处理行内注音 笑顔(かお)，再叠加用户改的那一处。
-
-    text 必须是"清洗前"的原文（含括号写法），这样调用方拿到的 start
-    与渲染出来的偏移一致。
-    """
-    clean, notes = strip_paren_ruby(text)
-    base = AN.annotate(clean)
-    segs = base["lines"][0]["segments"]
-    ov = {}
-    for start, kana in notes.items():
-        seg = next((x for x in segs if x["start"] == start), None)
-        if seg:
-            ov[f"o:0-{seg['word']}"] = kana
-    if extra_start is not None and extra_reading:
-        seg = next((x for x in segs if x["start"] == extra_start), None)
-        if seg:
-            ov[f"o:0-{seg['word']}"] = extra_reading
-    if stored:
-        got = _stored_overrides(clean, segs, stored)
-        if got is not None:
-            ov.update({k: v for k, v in got.items() if v})
-    return AN.annotate(clean, ov) if ov else base
-
-
-def segs_of(result) -> list:
-    """引擎结果 → 文件里存的紧凑形式 [[base, ruby, level], …]"""
-    return [[seg["base"], seg.get("ruby"), seg.get("level")]
-            for seg in result["lines"][0]["segments"]]
-
-
-def annotations_from_lines(lines: list[dict]) -> dict[int, list]:
-    """按当前行内容重新注音，生成 nhlrc 的标注表。"""
-    out: dict[int, list] = {}
-    for i, ln in enumerate(lines):
-        text = (ln.get("text") or "").strip()
-        if not text:
-            continue
-        try:
-            out[i] = segs_of(annotate_line_with_notes(text))
-        except Exception:
-            pass
-    return out
-
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
 HAN_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -138,15 +48,11 @@ def song_payload(idx: int) -> dict:
         if not ln["text"]:
             ln["ruby"], ln["rm"], ln["ky"] = "", "", ""
             continue
-        r = annotate_line_with_notes(ln["text"], stored=stored.get(li))
+        fields = line_fields(ln["text"], stored.get(li))
         if li not in stored:
             changed = True
-        ln["ruby"] = _ruby(r)
+        ln.update(fields)
         ln["raw"] = ln["text"]
-        ln["rm"] = r.get("romaji", {}).get("text", "")
-        ln["ky"] = r.get("keys", {}).get("text", "")
-        ln["rmH"] = _words(r, "romaji")
-        ln["kyH"] = _words(r, "keys")
     if changed and any((ln.get("text") or "").strip() for ln in lines):
         try:
             ann = {i: segs_of(annotate_line_with_notes(ln["text"], stored=stored.get(i)))
@@ -182,9 +88,9 @@ def edit_line(idx, li, start, reading):
     if not seg:
         return None
     r = annotate_line_with_notes(text, extra_start=start, extra_reading=reading)
-    return {"line": li, "ruby": _ruby(r), "rm": r.get("romaji", {}).get("text", ""),
+    return {"line": li, "ruby": ruby_html(r), "rm": r.get("romaji", {}).get("text", ""),
             "ky": r.get("keys", {}).get("text", ""),
-            "rmH": _words(r, "romaji"), "kyH": _words(r, "keys")}
+            "rmH": words_html_of(r, "romaji"), "kyH": words_html_of(r, "keys")}
 
 def rematch(idx, duration):
     """重新匹配：候选**完全来自网络**，不拿本地缓存当候选。
