@@ -106,6 +106,7 @@ nihonco_player/
     lyrics.py          门面（对外只暴露这一层）
     lrcio.py           .lrc 读写、备份、恢复、JSON 歌词兼容
     waveform.py        ffmpeg → 峰值 → 缓存
+    vocals.py          demucs 人声分离（队列、缓存、VAD）
     importing.py       导入的四种输入
     edits.py           手改读音
     song_meta.py       每首歌的 offset

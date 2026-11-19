@@ -184,6 +184,29 @@ make app
 切换期间：锁定编辑（inert）+ 先保存再切；保存失败留在原地
 ```
 
+## 9.5 人声分离
+
+```text
+点开一首歌
+  → 前端 POST /api/vocals {idx}（幂等）
+  → 服务端查 data/cache/vocals/<uid>/meta.json
+       ├─ 有：直接返回 done
+       └─ 无：进队列（单线程串行），立即返回 queued
+  → 前端每 1.5 秒轮询状态：
+       queued → running → done / failed
+  → done 后：
+       · 顶栏显示「有人声」或「纯音乐」
+       · 若在 LRC 模式 → 重新拉波形（src=vocals）
+       · 若是没有歌词的歌 → 有人声才继续匹配歌词
+```
+
+```text
+分离过程（后台）：demucs --two-stems=vocals → vocals.wav
+                   → ffmpeg 转 16k 单声道
+                   → 20ms RMS 统计（ratio / floor / threshold）
+                   → 写 meta.json
+```
+
 ## 10. 导入音频
 
 ```text

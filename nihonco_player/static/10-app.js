@@ -32,7 +32,8 @@ function spanText(v){ return (Math.round(v*10)/10).toString().replace(/\.0$/,'')
 function updateWaveHint(){
   const h=document.getElementById('wavehint');
   if(!h) return;
-  h.textContent = WAVE ? `波形 ${fmt(WAVE.duration)} · 窗口 ${spanText(VIEW.span)}` : '';
+  const src = WAVE && WAVE.source==='vocals' ? '人声波形' : '原曲波形';
+  h.textContent = WAVE ? `${src} ${fmt(WAVE.duration)} · 窗口 ${spanText(VIEW.span)}` : '';
 }
 function syncWaveLabels(){
   const z=document.getElementById('zoomval'); if(z) z.textContent=spanText(VIEW.span);
@@ -123,11 +124,49 @@ function drawWave(){
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
-async function loadWave(){
+let VSTAT=null, VPOLL=0;
+function paintVStatus(){
+  const el=document.getElementById('vchip'); if(!el) return;
+  if(!VSTAT || VSTAT.state==='none'){ el.hidden=true; return; }
+  el.hidden=false;
+  if(VSTAT.state==='done'){
+    el.textContent = VSTAT.has_vocals ? '有人声' : '纯音乐';
+    el.classList.toggle('vdone', true);
+    el.classList.toggle('vinst', !VSTAT.has_vocals);
+  }else if(VSTAT.state==='failed'){
+    el.textContent='人声分离失败';
+  }else{
+    el.textContent = VSTAT.state==='queued' ? '人声分离：排队' : '人声分离中…';
+  }
+}
+async function ensureVocals(idx){
+  try{ await api('/api/vocals',{action:'ensure', idx}); }catch(e){ return null; }
+  return pollVocals(idx);
+}
+async function pollVocals(idx){
+  const seq=++VPOLL;
+  for(let k=0;k<400;k++){
+    if(seq!==VPOLL || !S || String(S.idx)!==String(idx)) return null;
+    let st=null;
+    try{ st=await api('/api/vocals/'+idx); }catch(e){ return null; }
+    VSTAT=st; paintVStatus();
+    if(st.state==='done'){
+      if(LRCEDIT) loadWave(true);          // 分离完成 → 换成人声波形
+      return st;
+    }
+    if(st.state==='failed') return st;
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  return null;
+}
+
+async function loadWave(force){
   if(!S) return;
+  if(!force && WAVE) return;
   WAVE=null;
   try{
-    const d=await api('/api/wave/'+S.idx);
+    const src=(VSTAT && VSTAT.state==='done' && VSTAT.has_vocals) ? '?src=vocals' : '';
+    const d=await api('/api/wave/'+S.idx+src);
     if(d.error){ document.getElementById('wavehint').textContent='无法生成波形：'+d.error; return; }
     WAVE=d;
     updateWaveHint();
@@ -298,6 +337,14 @@ async function load(i, autoplay, nextEditMode){
     commitAudio();                             // 没有歌词也要能播放
     au.playbackRate=+document.getElementById('rate').value;
     if(autoplay) au.play().catch(()=>{});
+    lyr.innerHTML='<div class="lm">分离人声，确认是否有人声…</div>';
+    const v=await ensureVocals(d.idx);
+    if(request!==LOAD_REQUEST) return false;
+    if(v && v.state==='done' && v.has_vocals===false){
+      lyr.innerHTML='<div class="lm">纯音乐（无人声），不匹配歌词</div>';
+      done('这首是纯音乐，跳过歌词匹配');
+      return true;
+    }
     try{
       await api('/api/pl',{action:'match',idx:d.idx});
       for(let k=0;k<40 && request===LOAD_REQUEST;k++){
@@ -336,6 +383,9 @@ async function load(i, autoplay, nextEditMode){
     if(autoplay){ commitAudio(); au.play().catch(()=>{}); }
     au.playbackRate=+document.getElementById('rate').value;
   }
+  VSTAT=null; paintVStatus();
+  if(!LRCEDIT) WAVE=null;
+  ensureVocals(d.idx);
   return true;
 }
 function navIdx(n){ const k=NAV.indexOf(n); return k<0?0:k; }

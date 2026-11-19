@@ -81,6 +81,26 @@ user     自建歌单：能改名、能删、能清空
 meta 行（作词/作曲/编曲/演唱…）不参与打点与跳句，但仍显示
 ```
 
+## 4.5 人声分离
+
+```text
+触发   点开任意一首歌 → 后台排队跑 demucs（两轨：vocals / no_vocals）
+       串行执行；切歌不取消上一首，继续跑完
+缓存   data/cache/vocals/<uid>/vocals.wav（16k 单声道）+ meta.json
+       4 分钟歌约 8MB；全部保留
+状态   顶栏 chip：人声分离中… / 有人声 / 纯音乐 / 人声分离失败
+用途   ① LRC 模式波形优先用人声轨（没有则回退原曲）
+       ② 没有歌词的歌：先确认有人声，再决定是否匹配歌词；
+          判为纯音乐则跳过匹配，仍可播放
+判定   20ms 一帧 RMS，10 分位做噪声底，超阈值帧占比 > 5% 算有人声
+```
+
+```text
+依赖：demucs（pip install demucs，torch 约 1GB+）
+     首次运行从 HuggingFace 拉模型；国内直连会卡住，
+     代码里默认 HF_ENDPOINT=https://hf-mirror.com（可用环境变量覆盖）
+```
+
 ## 5. 整体偏移
 
 ```text
@@ -130,6 +150,7 @@ LRC 编辑模式    见 lrc-editor.md：波形、时间轴、保存、导入
 | `data/curated/imports.json` | 导入过的音频路径 |
 | `data/cache/lyrics/` | 歌词缓存 |
 | `data/cache/wave/` | 波形峰值缓存 |
+| `data/cache/vocals/` | 人声轨（16k 单声道）与 meta |
 
 ```text
 playlists / song_meta / readings / edits 的写入都加了 fcntl 文件锁

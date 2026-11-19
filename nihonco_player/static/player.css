@@ -238,3 +238,7 @@ body.lrcedit #wavebar{display:grid}
 #offval{cursor:text;color:#cfd3d8;font-weight:400}
 .numin{width:4.2em;background:#0f1318;color:#e6e4e1;border:1px solid var(--a);
   border-radius:4px;font-family:inherit;font-size:12px;padding:1px 3px;text-align:center}
+
+/* 人声分离状态 chip */
+#vchip.vdone{border-color:#2f4a3d;color:#7fbfa6}
+#vchip.vinst{border-color:#3a4450;color:#8a9099}

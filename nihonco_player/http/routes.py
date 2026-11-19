@@ -32,6 +32,7 @@ class H(BaseHTTPRequestHandler):
         "/api/tag": "_post_tag",
         "/api/import/one": "_post_import",
         "/api/lrc": "_post_lrc",
+        "/api/vocals": "_post_vocals",
         "/api/debug": "_post_debug",
     }
 
@@ -65,6 +66,8 @@ class H(BaseHTTPRequestHandler):
             return self._get_audio(p[len("/audio/"):])
         if p.startswith("/api/wave/"):
             return self._get_wave(p[len("/api/wave/"):])
+        if p.startswith("/api/vocals/"):
+            return self._get_vocals(p[len("/api/vocals/"):])
         fn = self.GET.get(p)
         return getattr(self, fn)() if fn else self._send(404, "not found")
 
@@ -100,10 +103,35 @@ class H(BaseHTTPRequestHandler):
 
     def _get_wave(self, idx):
         from ..core import waveform as WAVE
+        from ..core import vocals as VOC
+        q = urllib.parse.urlparse(self.path).query
+        want = urllib.parse.parse_qs(q).get("src", ["mix"])[0]
         item = CACHE.get(str(idx))
         if not item:
             return self._json({"error": "no such song"}, 404)
-        return self._json(WAVE.peaks(item["file"], "vocals" if item.get("vocals") else "mix"))
+        if want == "vocals":
+            _, wav, _ = VOC.paths(item["uid"])
+            if wav.is_file():
+                out = WAVE.peaks(str(wav), "vocals")
+                out["source"] = "vocals"
+                return self._json(out)
+        out = WAVE.peaks(item["file"], "mix")
+        out["source"] = "mix"
+        return self._json(out)
+
+    def _get_vocals(self, idx):
+        from ..core import vocals as VOC
+        item = CACHE.get(str(idx))
+        if not item:
+            return self._json({"error": "no such song"}, 404)
+        return self._json(VOC.status(item["uid"]))
+
+    def _post_vocals(self, req):
+        from ..core import vocals as VOC
+        item = CACHE.get(str(req.get("idx")))
+        if not item:
+            return self._json({"ok": False, "error": "no such song"}, 404)
+        return self._json(VOC.ensure(item["uid"], item["file"]))
 
     def _get_audio(self, idx):
         item = CACHE.get(str(idx))
