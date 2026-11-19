@@ -9,10 +9,13 @@ import json
 import re
 from pathlib import Path
 
+from nihonco_yomi.config import LB
+
 from . import library as LIB
 from . import lyrics as LY
 
-AUDIO_EXT = {".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"}
+AUDIO_EXT = set(LB["extensions"])
+PAIR_LRC = bool(LB["auto_pair_lrc"])
 JUNK = re.compile(r"[\s._\-]*[\(（\[【]\s*(?:\d+|mqms\d*|tv\s*size|short\s*ver\.?|"
                   r"ショートサイズ)\s*[\)）\]】]$", re.I)
 
@@ -96,7 +99,7 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
 
     for a in audios:                                # ② 音频 + lrc 配对
         key = _stem_key(a.stem)
-        cand = [p for p in by_key.get(key, []) if p not in used_lrc]
+        cand = [p for p in by_key.get(key, []) if p not in used_lrc] if PAIR_LRC else []
         if not cand:                                # 音频自己所在目录里找同名 lrc
             cand = [p for p in a.parent.glob("*.lrc")
                     if p not in used_lrc and _stem_key(p.stem) == key]

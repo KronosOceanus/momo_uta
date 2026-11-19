@@ -194,6 +194,16 @@ function seekToClientX(x){
     au.addEventListener(ev, ()=>{ paintTransport(); if(ev==='loadedmetadata') paintTicks(); }));
 })();
 
+const PL=(window.__CFG&&window.__CFG.player)||{};
+(function initRate(){
+  const el=document.getElementById('rate');
+  if(!el) return;
+  el.min=PL.speed_min ?? 0.5;
+  el.max=PL.speed_max ?? 1.25;
+  el.step=0.05;
+  const v=Math.min(+el.max, Math.max(+el.min, +el.value||1));
+  el.value=v; if(typeof el.dispatchEvent==='function') el.dispatchEvent(new Event('input'));
+})();
 const playBtn=document.getElementById('play');
 function syncPlayBtn(){ playBtn.textContent = au.paused ? '播放' : '暂停'; }
 document.getElementById('start').onclick=()=>{ if(!S) return; commitAudio(); au.play().catch(()=>{}); };

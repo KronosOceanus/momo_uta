@@ -21,13 +21,14 @@ import wave
 from pathlib import Path
 from queue import Queue
 
+from nihonco_yomi.config import VC
 from nihonco_yomi.paths import CACHE
 
 VOCALS = CACHE / "vocals"
-MODEL = "htdemucs"
-MIN_RATIO = 0.05          # 有唱帧占比超过它 → 认为有人声
-FRAME = 0.02              # VAD 帧长（秒）
-SAMPLE_RATE = 16000
+MODEL = VC["model"]
+MIN_RATIO = VC["ratio_min"]          # 有唱帧占比超过它 → 认为有人声
+FRAME = VC["frame_sec"]              # VAD 帧长（秒）
+SAMPLE_RATE = VC["sample_rate"]
 
 _queue: Queue = Queue()
 _states: dict[str, dict] = {}
@@ -115,7 +116,7 @@ def _separate(uid: str, audio: str) -> dict:
     cmd = [sys.executable, "-m", "demucs", "--two-stems=vocals",
            "-n", MODEL, "-o", str(tmp), audio]
     env = dict(os.environ)
-    env.setdefault("HF_ENDPOINT", "https://hf-mirror.com")   # 国内直连 HF 会卡住
+    env.setdefault("HF_ENDPOINT", VC["hf_endpoint"])   # 国内直连 HF 会卡住
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout or "demucs 失败")[-400:])
@@ -160,7 +161,7 @@ def analyze(wav_path: Path) -> dict:
         return {"duration": 0.0, "ratio": 0.0, "floor": 0.0, "threshold": 0.0}
     ordered = sorted(rms)
     floor = ordered[int(len(ordered) * 0.1)]
-    threshold = max(floor * 3, 200.0)              # 200/32768 ≈ -44dBFS
+    threshold = max(floor * VC["floor_mult"], float(VC["abs_threshold"]))
     ratio = sum(1 for x in rms if x > threshold) / len(rms)
     return {"duration": round(len(arr) / sr, 2), "ratio": round(ratio, 3),
             "floor": round(floor, 1), "threshold": round(threshold, 1)}

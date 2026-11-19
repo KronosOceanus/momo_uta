@@ -19,7 +19,19 @@ _FALLBACK = {
                "weights": {"title": 40, "artist": 20, "duration": 40},
                "delta_tiers": [3, 10, 30]},
     "player": {"coverage_warn": 0.7, "merge_same_ts": 0.05,
-               "speed_min": 0.5, "speed_max": 1.25},
+               "speed_min": 0.5, "speed_max": 1.25, "music_dirs": [],
+               "ui": {"wave_span": 5, "wave_span_min": 2, "wave_span_max": 10,
+                      "wave_height": 120, "autosave_ms": 1500, "undo_steps": 50,
+                      "toast_ms": 4200, "follow_default": True}},
+    "waveform": {"rate": 8000, "step": 0.02},
+    "vocals": {"model": "htdemucs", "auto_start": True,
+               "hf_endpoint": "https://hf-mirror.com", "sample_rate": 16000,
+               "frame_sec": 0.02, "ratio_min": 0.05, "abs_threshold": 200,
+               "floor_mult": 3},
+    "library": {"extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"],
+                "auto_pair_lrc": True},
+    "app": {"window_width": 1280, "window_height": 820, "window_min": [960, 600],
+            "log_max_bytes": 2097152},
 }
 
 
@@ -42,8 +54,13 @@ def _merge(base: dict, over: dict) -> dict:
 
 CFG = _merge(_merge(_FALLBACK, _load(DEFAULTS)), _load(LOCAL))
 
-LY = CFG["lyrics"]
-PL = CFG["player"]
+LY = CFG["lyrics"]           # 歌词匹配
+PL = CFG["player"]           # 播放器通用
+PUI = PL["ui"]               # 前端界面行为
+WV = CFG["waveform"]         # 波形峰值
+VC = CFG["vocals"]           # 人声分离
+LB = CFG["library"]          # 曲库扫描/导入
+APP = CFG["app"]             # 桌面壳/日志
 
 
 def show() -> str:

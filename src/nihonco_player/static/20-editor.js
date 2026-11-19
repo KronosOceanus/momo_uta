@@ -19,7 +19,7 @@ function setLrcLocked(locked){
 }
 
 function snapshot(){
-  UNDO.push(JSON.stringify(EROWS)); if(UNDO.length>50) UNDO.shift();
+  UNDO.push(JSON.stringify(EROWS)); if(UNDO.length>(UI.undo_steps||50)) UNDO.shift();
   REDO=[]; markDirty();
 }
 
@@ -30,7 +30,7 @@ function markDirty(){
   const h=document.getElementById('savehint');
   if(h){ h.textContent='未保存…'; h.className='savehint dirty'; }
   clearTimeout(SAVE_T);
-  SAVE_T=setTimeout(()=>saveLrc(true), 1500);     // 停止编辑 1.5 秒后自动保存
+  SAVE_T=setTimeout(()=>saveLrc(true), UI.autosave_ms||1500);   // 停止编辑后自动保存
 }
 function lrcPayload(){
   return EROWS.map(x=>({t:x.t, text:x.text}));

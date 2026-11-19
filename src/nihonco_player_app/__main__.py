@@ -13,6 +13,8 @@ from pathlib import Path
 import webview
 from webview import FileDialog
 
+from nihonco_yomi.config import APP
+
 from nihonco_player.core import library as LIB
 from nihonco_player.core.library import CACHE
 from nihonco_player.http.server import make_server
@@ -103,7 +105,8 @@ def main() -> None:
 
     webview.create_window(
         "にほんご歌练习", f"http://127.0.0.1:{port}/",
-        width=1280, height=820, min_size=(960, 600), js_api=Api(),
+        width=APP["window_width"], height=APP["window_height"],
+        min_size=tuple(APP["window_min"]), js_api=Api(),
     )
     webview.start()
 

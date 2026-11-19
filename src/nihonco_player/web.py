@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nihonco_yomi.config import PL as PCFG
+import json
+
+from nihonco_yomi.config import CFG
 
 STATIC = Path(__file__).parent / "static"
 
 
 def page() -> str:
     html = (STATIC / "player.html").read_text(encoding="utf-8")
-    return (html.replace("__SMIN__", f'{PCFG["speed_min"]}')
-                .replace("__SMAX__", f'{PCFG["speed_max"]}')
-                .replace("__SSTEP__", "0.05"))
+    cfg = json.dumps(CFG, ensure_ascii=False).replace("</", "<\\/")
+    inject = f'<script>window.__CFG = {cfg};</script>\n'
+    return html.replace("<head>", "<head>\n" + inject, 1)
 
 
 PAGE = page()

@@ -8,9 +8,14 @@ const lyr=document.getElementById('lyr');
 let LIB=[], PLS=[], DRAG=null;
 
 // ── 波形与整体偏移 ────────────────────────────────
-let WAVE=null, VIEW={span:5}, OFFSET=0, FOLLOW=true, DRAWN=null;
+const CFG=(window.__CFG)||{};
+const UI=(CFG.player&&CFG.player.ui)||{};
+const VC=(CFG.vocals)||{};
+let WAVE=null, VIEW={span:UI.wave_span||5}, OFFSET=0,
+    FOLLOW=UI.follow_default!==false, DRAWN=null;
 const cv=document.getElementById('wave'), cx=cv.getContext('2d');
-const SPAN_MIN=2, SPAN_MAX=10, OFFSET_LEAD=0;      // 秒
+if(cv.style) cv.style.height=(UI.wave_height||120)+'px';
+const SPAN_MIN=UI.wave_span_min||2, SPAN_MAX=UI.wave_span_max||10;   // 秒
 
 let PAN_START=0;
 function clampStart(st, span){
@@ -27,7 +32,7 @@ function viewStart(){
 }
 
 // ── 缩放 / 跳转 / 数值输入 ──────────────────────
-const SPAN_LO=2, SPAN_HI=10;
+const SPAN_LO=SPAN_MIN, SPAN_HI=SPAN_MAX;
 function spanText(v){ return (Math.round(v*10)/10).toString().replace(/\.0$/,'')+'s'; }
 function updateWaveHint(){
   const h=document.getElementById('wavehint');
@@ -80,7 +85,7 @@ function fitCanvas(){
   // 用缓存宽度：避免每帧 getBoundingClientRect 触发同步布局（换行时最容易卡一下）
   if(!CV_W) measureCanvas();
   const dpr=1;                                            // 波形是细线，1x 足够，合成压力最小
-  const w=Math.max(1,Math.round(CV_W*dpr)), h=Math.max(1,Math.round(120*dpr));
+  const w=Math.max(1,Math.round(CV_W*dpr)), h=Math.max(1,Math.round((UI.wave_height||120)*dpr));
   if(w!==CANVAS_W || h!==CANVAS_H){
     cv.width=w; cv.height=h; CANVAS_W=w; CANVAS_H=h;
     cx.setTransform(dpr,0,0,dpr,0,0);
@@ -88,7 +93,8 @@ function fitCanvas(){
   return CV_W;
 }
 function drawWave(){
-  const w=fitCanvas(), h=120;
+  const h=UI.wave_height||120;
+  const w=fitCanvas();
   cx.clearRect(0,0,w,h);                 // 透明底：少写一层全画布填充
   if(!WAVE || !WAVE.peaks){ return; }
   const {start, span}=viewStart();
@@ -294,7 +300,7 @@ async function load(i, autoplay, nextEditMode){
     au.playbackRate=+document.getElementById('rate').value;
     if(autoplay) au.play().catch(()=>{});
     lyr.innerHTML='<div class="lm">分离人声，确认是否有人声…</div>';
-    const v=await ensureVocals(d.idx);
+    const v=(VC.auto_start===false) ? null : await ensureVocals(d.idx);
     if(request!==LOAD_REQUEST) return false;
     if(v && v.state==='done' && v.has_vocals===false){
       lyr.innerHTML='<div class="lm">纯音乐（无人声），不匹配歌词</div>';
@@ -341,12 +347,12 @@ async function load(i, autoplay, nextEditMode){
   }
   VSTAT=null; paintVStatus();
   if(!LRCEDIT) WAVE=null;
-  ensureVocals(d.idx);
+  if(VC.auto_start!==false) ensureVocals(d.idx);
   return true;
 }
 function navIdx(n){ const k=NAV.indexOf(n); return k<0?0:k; }
 
-function toast(msg, ms=4200){
+function toast(msg, ms=(UI.toast_ms||4200)){
   let t=document.getElementById('toast');
   if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
   t.textContent=msg; t.classList.add('on');
@@ -366,7 +372,7 @@ function lock(btn, on){
 // 进行中：常驻，等 done() 或新的 toast() 覆盖
 function busy(msg){ toast(msg, 0); }
 // 一次性结果：几秒后自动消失
-function done(msg){ toast(msg, 4200); }
+function done(msg){ toast(msg, UI.toast_ms||4200); }
 
 async function api(path, body){
   const r=await fetch(path, body?{method:'POST',headers:{'Content-Type':'application/json'},

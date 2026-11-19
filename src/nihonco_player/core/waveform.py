@@ -10,11 +10,12 @@ import json
 import subprocess
 from pathlib import Path
 
+from nihonco_yomi.config import WV
 from nihonco_yomi.paths import CACHE
 
 WAVE_DIR = CACHE / "wave"
-STEP = 0.02          # 每 20ms 一对 min/max
-RATE = 8000          # 解码采样率（够画波形，解码也快）
+STEP = WV["step"]    # 峰值步长（秒）
+RATE = WV["rate"]    # 解码采样率
 
 
 def _key(path: str) -> str:
@@ -22,7 +23,8 @@ def _key(path: str) -> str:
 
 
 def cache_path(audio: str, source: str = "mix") -> Path:
-    return WAVE_DIR / f"{_key(audio)}.{source}.json"
+    # 把 rate/step 并进键：改了参数旧缓存自动失效
+    return WAVE_DIR / f"{_key(audio)}.{source}.{RATE}.{STEP}.json"
 
 
 def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:

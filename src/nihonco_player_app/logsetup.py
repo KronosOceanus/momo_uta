@@ -12,7 +12,9 @@ import time
 import traceback
 from pathlib import Path
 
-MAX_BYTES = 2 * 1024 * 1024
+from nihonco_yomi.config import APP
+
+MAX_BYTES = int(APP["log_max_bytes"])
 
 
 class _Tee(io.TextIOBase):

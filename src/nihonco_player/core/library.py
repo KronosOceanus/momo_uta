@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from nihonco_yomi.config import LB
 from nihonco_yomi.paths import ROOT
 
 from . import lyrics as LY
@@ -81,7 +82,7 @@ def scan_library(folder: Path | None = None) -> list[dict]:
     seen: set[str] = set()
 
     def add(p: Path, group: str) -> None:
-        if p.suffix.lower() not in (".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"):
+        if p.suffix.lower() not in tuple(LB["extensions"]):
             return
         e = _entry(p, group)
         if e and e["file"] not in seen:

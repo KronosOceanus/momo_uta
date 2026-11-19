@@ -1,6 +1,8 @@
 {
-  "_note": "运行参数（B 类）。改了重启生效。A 类设计常量在 nihonco_yomi/thresholds.py，改完必须重跑 eval。",
+  "_note": "运行参数（B 类）。改了重启生效。A 类设计常量在 nihonco_yomi/thresholds.py，改完必须重跑 eval。本文件为仓库默认值；本机覆盖写在 data/config.json（同结构、深层合并）。",
+
   "lyrics": {
+    "_note": "歌词匹配与打分。影响「自动挑哪一条歌词」，不影响注音。",
     "mb_max_delta": 3.0,
     "fallback_max_delta": 30.0,
     "min_content_lines": 3,
@@ -8,24 +10,64 @@
     "kana_ratio_min": 0.1,
     "lang_min_chars": 20,
     "weights": {
+      "_note": "候选打分权重：标题 / 歌手 / 时长（三者按此比例相加）",
       "title": 40,
       "artist": 20,
       "duration": 40
     },
-    "delta_tiers": [
-      3,
-      10,
-      30
-    ]
+    "delta_tiers": [3, 10, 30]
   },
+
   "player": {
+    "_note": "播放器通用参数。",
     "coverage_warn": 0.7,
     "merge_same_ts": 0.05,
     "speed_min": 0.5,
     "speed_max": 1.25,
-    "show_hidden": false,
-    "music_dirs": [
-      "~/Music/网易云音乐"
-    ]
+    "music_dirs": ["~/Music/网易云音乐"],
+
+    "ui": {
+      "_note": "界面行为。前端通过 window.__CFG 读取，改完刷新页面即可。",
+      "wave_span": 5,
+      "wave_span_min": 2,
+      "wave_span_max": 10,
+      "wave_height": 120,
+      "autosave_ms": 1500,
+      "undo_steps": 50,
+      "toast_ms": 4200,
+      "follow_default": true
+    }
+  },
+
+  "waveform": {
+    "_note": "波形峰值生成。rate/step 会进入缓存键，改了旧缓存自动失效重建。",
+    "rate": 8000,
+    "step": 0.02
+  },
+
+  "vocals": {
+    "_note": "人声分离（demucs）。auto_start=点歌就分离；ratio_min 等是判定有没有人声的阈值。",
+    "model": "htdemucs",
+    "auto_start": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "sample_rate": 16000,
+    "frame_sec": 0.02,
+    "ratio_min": 0.05,
+    "abs_threshold": 200,
+    "floor_mult": 3
+  },
+
+  "library": {
+    "_note": "曲库扫描与导入。",
+    "extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"],
+    "auto_pair_lrc": true
+  },
+
+  "app": {
+    "_note": "桌面壳与日志。",
+    "window_width": 1280,
+    "window_height": 820,
+    "window_min": [960, 600],
+    "log_max_bytes": 2097152
   }
 }
