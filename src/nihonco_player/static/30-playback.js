@@ -109,7 +109,7 @@ function highlight(i){
   if(LRCEDIT){
     // 右侧罗马音在编辑模式下隐藏，不需要联动
   }else{
-    syncSideToTime(lineT(l)===null? au.currentTime : lineT(l));
+    paint2(i);          // 右侧只跟随"当前行"；meta 区间两边都不亮
   }
 }
 function seek(n){ seekIdx(n, true); }
