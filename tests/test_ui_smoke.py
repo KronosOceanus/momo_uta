@@ -20,6 +20,7 @@ except Exception:                     # pragma: no cover
 
 from nihonco_player.core import library as LIB
 from nihonco_player.core import lrc_files as LRF
+from nihonco_player.core import vocals as VOC
 from nihonco_player.core.library import CACHE
 from nihonco_player.http.server import make_server
 
@@ -31,6 +32,8 @@ class TestUiSmoke(unittest.TestCase):
         cls._lyr_tmp = tempfile.TemporaryDirectory()
         cls._lyr_patch = patch.object(LRF, "LYRICS", Path(cls._lyr_tmp.name) / "lyrics")
         cls._lyr_patch.start()
+        cls._voc_patch = patch.object(VOC, "VOCALS", Path(cls._lyr_tmp.name) / "vocals")
+        cls._voc_patch.start()
         lib = LIB.scan_library()
         CACHE.clear()
         CACHE.update({str(i): x for i, x in enumerate(lib)})
@@ -47,6 +50,7 @@ class TestUiSmoke(unittest.TestCase):
         except Exception:
             pass
         cls._lyr_patch.stop()
+        cls._voc_patch.stop()
         cls._lyr_tmp.cleanup()
 
     def _run_window(self, actions):
