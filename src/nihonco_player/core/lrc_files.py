@@ -6,7 +6,8 @@ import shutil
 from pathlib import Path
 
 from . import lyrics as LY
-from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _parse_document,  # noqa: F401
+from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
+                      _parse_document,
                       _split_nhlrc, annotations_for, parse,
                       render, render_body, render_nhlrc)
 
@@ -51,7 +52,9 @@ def load(audio: str | Path) -> dict:
         path, kind = np_, "cache"
         from_cache = bool(full)
     lines, metadata = _parse_document(body)
-    annotations = annotations_for(lines, tail)
+    # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
+    strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
+    annotations = annotations_for(lines, tail, strict=strict)
     return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
             "path": str(path), "kind": kind, "text": body, "lines": lines,
             "metadata": metadata, "annotations": annotations,

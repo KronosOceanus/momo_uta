@@ -36,3 +36,31 @@ class TestLrcDoc(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTailFormat(unittest.TestCase):
+    def test_one_entry_per_line(self):
+        rows = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
+        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]],
+                                         1: [["花", "はな", "A"]]})
+        tail_lines = [ln for ln in text.splitlines() if '"i":' in ln]
+        self.assertEqual(len(tail_lines), 2)
+        self.assertEqual(sum(1 for ln in text.splitlines() if ln.strip().startswith("{")) >= 2, True)
+
+    def test_body_hash_fast_path_skips_line_hash(self):
+        rows = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
+        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]],
+                                         1: [["花", "はな", "A"]]})
+        body, tail = D._split_nhlrc(text)
+        for ent in tail["lines"]:
+            ent["h"] = "deadbeef"                 # 行哈希故意写错
+        self.assertEqual(len(D.annotations_for(D.parse(body), tail, strict=True)), 0)
+        self.assertEqual(len(D.annotations_for(D.parse(body), tail, strict=False)), 2)
+
+    def test_body_mismatch_falls_back_to_line_hash(self):
+        rows = [{"t": 1.0, "text": "君"}]
+        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]})
+        body, tail = D._split_nhlrc(text)
+        tail["body"] = "00000000"
+        tail["lines"][0]["h"] = "00000000"
+        self.assertEqual(D.annotations_for(D.parse(body), tail, strict=True), {})

@@ -59,8 +59,12 @@ def _seg_list(raw) -> list[list]:
     return out
 
 
-def annotations_for(lines: list[dict], tail: dict | None) -> dict[int, list]:
-    """校验尾部标注：行号存在、哈希一致、拼起来等于正文 → 才认。"""
+def annotations_for(lines: list[dict], tail: dict | None,
+                    strict: bool = True) -> dict[int, list]:
+    """校验尾部标注：行号存在、哈希一致、拼起来等于正文 → 才认。
+
+    strict=False 时跳过逐行哈希比对（正文整体哈希已验证，见 lrc_files.load）。
+    """
     if not tail or not tail.get("lines"):
         return {}
     ok: dict[int, list] = {}
@@ -72,7 +76,7 @@ def annotations_for(lines: list[dict], tail: dict | None) -> dict[int, list]:
         if not (0 <= i < len(lines)):
             continue
         text = lines[i].get("text") or ""
-        if ent.get("h") and ent["h"] != _hash8(text):
+        if strict and ent.get("h") and ent["h"] != _hash8(text):
             continue
         seg = _seg_list(ent.get("seg"))
         if not seg or "".join(x[0] for x in seg) != text:
@@ -95,9 +99,17 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
                             "seg": seg})
     if not entries:
         return body
-    tail = {"v": NHLRC_VERSION, "gen": GEN, "body": _hash8(body), "lines": entries}
-    return body + "\n" + NHLRC_MARK + f" {NHLRC_VERSION}\n" + \
-        json.dumps(tail, ensure_ascii=False, indent=1) + "\n"
+    # 尾部一行一条：体积小、diff 可读、每行都能单独定位
+    rows = []
+    for ent in entries:
+        seg = json.dumps(ent["seg"], ensure_ascii=False, separators=(",", ":"))
+        rows.append(f'  {{"i": {ent["i"]}, "h": "{ent["h"]}", "seg": {seg}}}')
+    tail = ('{\n'
+            f' "v": {NHLRC_VERSION},\n'
+            f' "gen": "{GEN}",\n'
+            f' "body": "{_hash8(body)}",\n'
+            ' "lines": [\n' + ",\n".join(rows) + '\n ]\n}')
+    return body + "\n" + NHLRC_MARK + f" {NHLRC_VERSION}\n" + tail + "\n"
 
 
 def parse(text: str) -> list[dict]:
