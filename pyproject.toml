@@ -7,6 +7,21 @@ name = "nihonco-uta"
 version = "0.1.0"
 description = "日语歌词标注与练习工具"
 requires-python = ">=3.11"
+dependencies = [
+    "SudachiPy==0.7.0",
+    "sudachidict_core==20261015",
+    "mutagen==1.48.1",
+    "musicbrainzngs==0.7.1",
+    "pywebview==6.2.1",
+    "pyobjc-core==13.0; sys_platform == 'darwin'",
+    "pyobjc-framework-Cocoa==13.0; sys_platform == 'darwin'",
+]
+
+[project.optional-dependencies]
+vocals = ["demucs>=4.1"]
+
+[project.scripts]
+nihonco-uta = "nihonco_player_app.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
