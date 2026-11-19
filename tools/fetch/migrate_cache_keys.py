@@ -10,11 +10,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from nihonco_player.core import lyrics as LY
+from nihonco_player.core.lyrics_cache import CACHE
 
 
 def main() -> None:
     moved = kept = 0
-    for p in list(LY.CACHE.glob("*.json")):
+    for p in list(CACHE.glob("*.json")):
         try:
             d = json.loads(p.read_text(encoding="utf-8"))
         except Exception:
