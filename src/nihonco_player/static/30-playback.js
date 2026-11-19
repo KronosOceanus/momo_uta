@@ -97,7 +97,7 @@ function highlight(i){
       document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'nearest'});
   }else{
     document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
-    document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'nearest'});
+    document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'center'});
   }
   // 播放时 rAF 循环已在画波形，这里不再重复画
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间

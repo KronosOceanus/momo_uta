@@ -580,10 +580,10 @@ function syncSideToTime(t){
   CUR=n;
   document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on', i===n && !LINES[i].meta));
   const el=document.querySelectorAll('.ln2')[n];
-  if(el) el.scrollIntoView({block:'center', behavior:'smooth'});
+  if(el) el.scrollIntoView({block:'center'});
 }
 function paint2(n){
   document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on',i===n&&!LINES[i].meta));
   const el2=document.querySelectorAll('.ln2')[n];
-  if(el2)el2.scrollIntoView({block:'center',behavior:'smooth'});
+  if(el2)el2.scrollIntoView({block:'center'});
 }
