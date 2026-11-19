@@ -25,7 +25,7 @@ function measureCanvas(){ CV_W=cv.getBoundingClientRect().width; }
 function fitCanvas(){
   // 用缓存宽度：避免每帧 getBoundingClientRect 触发同步布局（换行时最容易卡一下）
   if(!CV_W) measureCanvas();
-  const dpr=Math.min(window.devicePixelRatio||1, 1.5);   // 上限 1.5x，别让画布太大
+  const dpr=1;                                            // 波形是细线，1x 足够，合成压力最小
   const w=Math.max(1,Math.round(CV_W*dpr)), h=Math.max(1,Math.round(120*dpr));
   if(w!==CANVAS_W || h!==CANVAS_H){
     cv.width=w; cv.height=h; CANVAS_W=w; CANVAS_H=h;
@@ -35,8 +35,7 @@ function fitCanvas(){
 }
 function drawWave(){
   const w=fitCanvas(), h=120;
-  cx.clearRect(0,0,w,h);
-  cx.fillStyle='#12161b'; cx.fillRect(0,0,w,h);
+  cx.clearRect(0,0,w,h);                 // 透明底：少写一层全画布填充
   if(!WAVE || !WAVE.peaks){ return; }
   const {start, span}=viewStart();
   DRAWN={start, span};
