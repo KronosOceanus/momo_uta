@@ -41,6 +41,9 @@ function player() {
     document, window: {addEventListener() {}}, requestAnimationFrame() {},
     setTimeout() {}, clearTimeout() {}, messages: [],
     fetch(path, options) {
+      // 播放引擎的预载请求不参与断言（测试环境没有 AudioContext）
+      if (path.startsWith('/audio/')) return Promise.resolve({ok: false, status: 404,
+        arrayBuffer: async () => new ArrayBuffer(0)});
       if (path === '/api/pl' && !options) return Promise.resolve({ok: true, json: async () => []});
       calls.push({path, body: options ? JSON.parse(options.body) : undefined});
       const pending = deferred();
