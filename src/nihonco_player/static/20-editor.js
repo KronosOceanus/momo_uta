@@ -583,7 +583,10 @@ function syncSideToTime(t){
   if(el) el.scrollIntoView({block:'center'});
 }
 function paint2(n){
-  document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on',i===n&&!LINES[i].meta));
+  // 与左侧同一判定：按文本判断 meta，而不是看 payload 里的 meta 字段
+  const meta = !LINES[n] || isMetaLine(LINES[n]);
+  document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on', i===n && !meta));
+  if(meta) return;
   const el2=document.querySelectorAll('.ln2')[n];
   if(el2)el2.scrollIntoView({block:'center'});
 }
