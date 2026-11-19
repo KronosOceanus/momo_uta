@@ -35,6 +35,12 @@ function syncWaveLabels(){
   if(b) b.textContent='◀ '+spanText(VIEW.span);
   if(f) f.textContent=spanText(VIEW.span)+' ▶';
 }
+function syncFollow(){
+  const b=document.getElementById('wavefollow');
+  if(!b) return;
+  b.textContent='跟随：'+(FOLLOW?'开':'关');
+  b.classList.toggle('on', FOLLOW);
+}
 function setWaveSpan(v){
   VIEW.span=Math.max(SPAN_LO, Math.min(SPAN_HI, +v||VIEW.span));
   if(!FOLLOW) PAN_START=clampStart(PAN_START, VIEW.span);

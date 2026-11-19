@@ -231,7 +231,7 @@ body.lrcedit #wavebar{display:flex}
 #wavebar .left,#wavebar .right{display:flex;align-items:center;gap:6px}
 #wavebar .right{margin-left:auto}
 #wavebar b{min-width:3.2em;text-align:center;color:#cfd3d8;font-weight:400}
-#zoomval{cursor:text;border-bottom:1px dashed #3a4450}
-#offval{cursor:text}
+#zoomval{cursor:text;color:#cfd3d8;font-weight:400;min-width:3.2em;text-align:center}
+#offval{cursor:text;color:#cfd3d8;font-weight:400}
 .numin{width:4.2em;background:#0f1318;color:#e6e4e1;border:1px solid var(--a);
   border-radius:4px;font-family:inherit;font-size:12px;padding:1px 3px;text-align:center}
