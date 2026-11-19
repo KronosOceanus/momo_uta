@@ -2,10 +2,10 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import evalkit
-from common import normalize
+import tools.eval.evalkit as evalkit        # noqa: E402
+from tools.common import normalize           # noqa: E402
 
 
 class TestNormalize(unittest.TestCase):

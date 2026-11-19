@@ -16,8 +16,8 @@ import html
 import json
 from pathlib import Path
 
-from common import run_all, segments_of
-from common import DEMO_OUT, DEMO_SRC, GOLD, ROOT
+from tools.common import run_all, segments_of
+from tools.common import DEMO_OUT, DEMO_SRC, GOLD, ROOT
 
 CSS = """
 :root{--bg:#0f1115;--fg:#e9e7e4;--dim:#878c95;--a:#63c6a3;--c:#c8843f;--line:#20242b;}

@@ -5,7 +5,7 @@ PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
         build-tables build-resource build-holdout build-prose build-lyrics \
         eval-dummy eval eval-real eval-kanji eval-gen eval-test eval-llm \
         ceiling stats tables-check build-stats audit gold-audit audit-patches \
-        prefetch-llm render clean-cache all serve api
+        render clean-cache all serve api
 
 help:
 	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
@@ -32,7 +32,6 @@ help:
 	@echo "make audit           # 溢出抽检"
 	@echo "make audit-patches   # 人工补丁赚亏"
 	@echo ""
-	@echo "make prefetch-llm    # 预取 LLM 消歧缓存"
 	@echo "make eval-llm        # 带 LLM 的评测（默认不参与门禁）"
 	@echo "make render          # 重新生成 demo 页"
 
@@ -61,67 +60,65 @@ arch-python:
 	$(PY) scripts/check_arch.py
 
 build-tables:
-	$(PY) tools/build_tables.py
+	$(PY) -m tools.build.build_tables
 
 build-resource:
-	$(PY) tools/fetch_jpop.py --resource --songs 25
+	$(PY) -m tools.fetch.fetch_jpop --resource --songs 25
 
 build-holdout:
-	$(PY) tools/fetch_jpop.py --holdout
+	$(PY) -m tools.fetch.fetch_jpop --holdout
 
 build-prose:
-	$(PY) tools/build_gold.py --works 40
+	$(PY) -m tools.build.build_gold --works 40
 
 build-lyrics:
-	$(PY) tools/fetch_jpop.py --top 30
+	$(PY) -m tools.fetch.fetch_jpop --top 30
 
 eval-dummy:
-	$(PY) tools/evalkit.py run --dummy --lyrics
+	$(PY) -m tools.eval.evalkit run --dummy --lyrics
 
 eval:
-	$(PY) tools/evalkit.py run --annotator "$(CMD)" --lyrics
+	$(PY) -m tools.eval.evalkit run --annotator "$(CMD)" --lyrics
 
 eval-real:
-	$(PY) tools/evalkit.py run --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --lyrics
+	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --lyrics
 
 eval-kanji:
-	$(PY) tools/evalkit.py run --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --lyrics --exclude-latin
+	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --lyrics --exclude-latin
 
 eval-gen:
-	$(PY) tools/evalkit.py run --gold eval/gold/lyrics_gen.jsonl --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --exclude-latin
+	$(PY) -m tools.eval.evalkit run --gold eval/gold/lyrics_gen.jsonl --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --exclude-latin
 
 eval-test:
-	$(PY) tools/evalkit.py run --gold eval/gold/lyrics_test.jsonl --annotator "$(PY) -m nihonco_yomi.annotate --stdio"
+	$(PY) -m tools.eval.evalkit run --gold eval/gold/lyrics_test.jsonl --annotator "$(PY) -m nihonco_yomi.annotate --stdio"
 
 eval-llm:
-	$(PY) tools/evalkit.py run --annotator "$(PY) -m nihonco_yomi.annotate --stdio --llm --llm-min-conf 0.95" --lyrics
+	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m nihonco_yomi.annotate --stdio --llm --llm-min-conf 0.95" --lyrics
 
 ceiling:
-	$(PY) tools/evalkit.py ceiling
+	$(PY) -m tools.eval.evalkit ceiling
 
 stats:
-	$(PY) tools/evalkit.py stats
+	$(PY) -m tools.eval.evalkit stats
 
 tables-check:
 	$(PY) -m nihonco_yomi.annotate --check-tables
 
 build-stats:
-	$(PY) tools/build_corpus_stats.py
+	$(PY) -m tools.build.build_corpus_stats
 
 audit:
-	$(PY) tools/evalkit.py audit
+	$(PY) -m tools.eval.evalkit audit
 
 gold-audit:
-	$(PY) tools/evalkit.py gold-audit
+	$(PY) -m tools.eval.evalkit gold-audit
 
 audit-patches:
-	$(PY) tools/evalkit.py patches
+	$(PY) -m tools.eval.evalkit patches
 
-prefetch-llm:
-	$(PY) tools/llm.py prefetch
 
 render:
-	$(PY) tools/render.py --songs アイドル 怪物
+	$(PY) -m tools.eval.render --songs アイドル 怪物
 
 clean-cache:
 	rm -rf data/cache

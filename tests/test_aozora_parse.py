@@ -2,9 +2,10 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from aozora_parse import parse, check, kata_to_hira, _ruby_tags_to_notation  # noqa: E402
+from tools.build.aozora_parse import (       # noqa: E402
+    parse, check, kata_to_hira, _ruby_tags_to_notation)
 
 
 class TestKana(unittest.TestCase):

@@ -19,7 +19,7 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from common import (CORPUS, CURATED, GOLD, REPORTS, ROOT, TABLES, Annotator,
+from tools.common import (CORPUS, CURATED, GOLD, REPORTS, ROOT, TABLES, Annotator,
                     load_gold, normalize, run_all, segments_of)
 from nihonco_yomi.kana import kata_to_hira
 
@@ -289,7 +289,7 @@ def cmd_ceiling(argv=None) -> None:
         return ""
 
     gold = load_gold([GOLD / "gold.jsonl", GOLD / "lyrics.jsonl"])
-    from common import run_all, segments_of
+    from tools.common import run_all, segments_of
     responses = run_all([r["text"] for r in gold])
 
     st = {"gold": 0, "correct": 0, "wrong": 0, "miss": 0,
@@ -396,7 +396,7 @@ def cmd_stats(argv=None) -> None:
     a = ap.parse_args(argv or [])
 
     gold = load_gold([Path(x) for x in a.gold])
-    from common import DEFAULT_CMD
+    from tools.common import DEFAULT_CMD
     ann = Annotator(a.annotator or DEFAULT_CMD)
     annotate = ann.annotate
     resp = [annotate(r["text"]) for r in gold]
@@ -461,7 +461,7 @@ def cmd_audit(argv=None) -> None:
     gold = load_gold([GOLD / "gold.jsonl", GOLD / "lyrics.jsonl"])
     gold = [r for r in gold if (r.get("domain") or "prose") == a.domain]
 
-    from common import run_all, segments_of
+    from tools.common import run_all, segments_of
     responses = run_all([r["text"] for r in gold])
 
     pool = []

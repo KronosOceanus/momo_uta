@@ -24,7 +24,7 @@ from pathlib import Path
 
 from nihonco_yomi.kana import kata_to_hira
 
-from common import SOURCES, TABLES as OUT
+from tools.common import SOURCES, TABLES as OUT
 CACHE = SOURCES / "jmdict"
 
 KANJI = re.compile(r"[\u4e00-\u9fff\u3005\u3006]")

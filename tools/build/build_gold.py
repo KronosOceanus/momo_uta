@@ -28,13 +28,13 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from aozora_parse import parse, check          # noqa: E402
-from rules import label_line                   # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.build.aozora_parse import parse, check          # noqa: E402
+from tools.eval.rules import label_line                   # noqa: E402
 
-from common import GOLD, REPORTS, SOURCES
+from tools.common import GOLD, REPORTS, SOURCES
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 CACHE = SOURCES / "aozora"
 INDEX = SOURCES / "index" / "list_person_all_extended_utf8.csv"
 

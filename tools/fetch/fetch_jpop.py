@@ -26,13 +26,13 @@ import time
 import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from rules import label_line                     # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.eval.rules import label_line                     # noqa: E402
 from nihonco_yomi.kana import kata_to_hira
 
-from common import CORPUS, GOLD, REPORTS, SOURCES
+from tools.common import CORPUS, GOLD, REPORTS, SOURCES
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 CACHE = SOURCES / "lyrics"
 RANKING = "https://utaten.com/ranking/anime/"
 

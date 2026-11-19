@@ -8,8 +8,8 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from nihonco_player import lyrics as LY
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from nihonco_player.core import lyrics as LY
 
 
 def main() -> None:
