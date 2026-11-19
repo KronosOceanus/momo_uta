@@ -45,7 +45,7 @@ class TestImportPreferNhlrc(unittest.TestCase):
                  patch.object(LRF.LY, "write_local_lrc"):
                 res = LRF.import_text(audio, text)
                 self.assertTrue(res["ok"])
-                raw = LRF.store_path(LRF.uid_of(audio)).read_text(encoding="utf-8")
+                raw = LRF.store_path(audio).read_text(encoding="utf-8")
             self.assertNotIn("#NHLRC", raw)
             self.assertIn("[00:01.00]君", raw)
 

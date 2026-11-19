@@ -17,19 +17,19 @@ def lrc_action(req):
     if not item:
         return {"ok": False, "error": "没有这首歌"}
     act = req.get("action") or "load"
-    uid = item.get("uid")
+    uid, title, artist = item.get("uid"), item["title"], item.get("artist", "")
     if act == "load":
-        return LRC.load(item["file"], uid)
+        return LRC.load(item["file"], uid, title, artist)
     if act == "backup":
-        return LRC.backup_status(item["file"], uid)
+        return LRC.backup_status(item["file"], uid, title, artist)
     if act == "restore":
-        res = LRC.restore_backup(item["file"], uid)
+        res = LRC.restore_backup(item["file"], uid, title, artist)
         if res.get("ok"):
             LIB.refresh(item.get("uid"))
         return res
     if act == "export":
         lines = req.get("lines")
-        doc = LRC.load(item["file"], uid)
+        doc = LRC.load(item["file"], uid, title, artist)
         if not lines:
             lines = doc["lines"]
         ann = doc.get("annotations") or {}
@@ -40,7 +40,7 @@ def lrc_action(req):
         text = str(req.get("text") or "")
         if not text.strip():
             return {"ok": False, "error": "文件是空的"}
-        res = LRC.import_text(item["file"], text, uid)
+        res = LRC.import_text(item["file"], text, uid, title, artist)
         if LRC.exists(item["file"], uid) and item.get("key"):
             ED.pop(item["key"])            # 旧手改对应的是旧正文，覆盖后作废
         LIB.refresh(uid)
@@ -49,7 +49,7 @@ def lrc_action(req):
         lines = req.get("lines") or []
         if not lines or not any((ln.get("text") or "").strip() for ln in lines):
             return {"ok": False, "error": "没有歌词行"}
-        doc = LRC.load(item["file"], uid)
+        doc = LRC.load(item["file"], uid, title, artist)
         old = DOC.align_annotations(lines, doc.get("annotations") or {})
         ann = {}
         for i, ln in enumerate(lines):
@@ -66,7 +66,7 @@ def lrc_action(req):
                     diag.log("annotate", f"保存时第 {i} 行注音失败：{e}")
         legacy = ED.for_song(item["key"])
         ann, used, dropped = fold_readings(item["key"], lines, ann)
-        res = LRC.save(item["file"], lines, ann, uid)
+        res = LRC.save(item["file"], lines, ann, uid, title, artist)
         if legacy:
             ED.pop(item["key"])
             diag.log("lyrics", f"{item['key']}: 保存时迁移手改 {used} 处，丢弃 {dropped} 处")

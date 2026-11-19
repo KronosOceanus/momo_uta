@@ -37,7 +37,7 @@ def song_payload(idx: int) -> dict:
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
                 "audio": f"/audio/{idx}"}
     key = item["key"]
-    doc = LRC.load(item["file"], item.get("uid"))
+    doc = LRC.load(item["file"], item.get("uid"), item["title"], item.get("artist", ""))
     lines = doc["lines"]
     if not any((ln.get("text") or "").strip() for ln in lines):
         return {"idx": str(idx), "key": item["key"], "title": item["title"],
@@ -61,7 +61,7 @@ def song_payload(idx: int) -> dict:
             ann = {i: segs_of(annotate_line_with_notes(ln["text"], stored=stored.get(i)))
                    for i, ln in enumerate(lines) if (ln.get("text") or "").strip()}
             ann, used, dropped = fold_readings(key, lines, ann)
-            LRC.save(item["file"], lines, ann, item.get("uid"))
+            LRC.save(item["file"], lines, ann, item.get("uid"), item["title"], item.get("artist", ""))
             if legacy:
                 ED.pop(key)
                 diag.log("lyrics", f"{key}: 迁移手改读音 {used} 处，丢弃 {dropped} 处")
@@ -80,7 +80,7 @@ def edit_line(idx, li, start, reading):
     if not item or not reading:
         return None
     with LRC.LOCK:
-        doc = LRC.load(item["file"], item.get("uid"))
+        doc = LRC.load(item["file"], item.get("uid"), item["title"], item.get("artist", ""))
         lines = doc["lines"]
         if not (0 <= li < len(lines)) or not (lines[li].get("text") or "").strip():
             return None
@@ -95,7 +95,7 @@ def edit_line(idx, li, start, reading):
         r = annotate_line_with_notes(text, stored=ann.get(li),
                                      extra_start=start, extra_reading=reading)
         ann[li] = segs_of(r)
-        LRC.save(item["file"], lines, ann, item.get("uid"))
+        LRC.save(item["file"], lines, ann, item.get("uid"), item["title"], item.get("artist", ""))
         if ED.for_song(item["key"]):
             ED.pop(item["key"])
     return {"line": li, "ruby": ruby_html(r), "rm": r.get("romaji", {}).get("text", ""),

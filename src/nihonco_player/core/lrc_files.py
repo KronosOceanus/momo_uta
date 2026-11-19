@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import threading
 from pathlib import Path
@@ -38,24 +39,68 @@ def nhlrc_path(audio: str | Path) -> Path:
     return Path(audio).with_suffix(".nhlrc")
 
 
-def store_path(uid: str) -> Path:
-    return LYRICS / f"{uid}.nhlrc"
+BAD_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+MAX_NAME_BYTES = 120
 
 
-def store_backup(uid: str) -> Path:
-    return LYRICS / f"{uid}.nhlrc.bak"
+def _safe_name(text: str) -> str:
+    s = BAD_CHARS.sub("_", text or "")
+    s = re.sub(r"\s+", " ", s).strip().strip(".")
+    return s
+
+
+def _truncate_bytes(text: str, limit: int) -> str:
+    while text and len(text.encode("utf-8")) > limit:
+        text = text[:-1]
+    return text.rstrip(" .")
+
+
+def _find(uid: str, suffix: str) -> Path | None:
+    """按 uid 找已有文件（名字前缀可读，uid 在后）；兼容旧的纯 uid 名字。"""
+    for p in LYRICS.glob(f"*.{uid}{suffix}"):
+        return p
+    legacy = LYRICS / f"{uid}{suffix}"
+    return legacy if legacy.is_file() else None
+
+
+def store_name(title: str, artist: str, uid: str) -> str:
+    parts = [x.strip() for x in (title, artist) if x and x.strip()]
+    base = _safe_name(" - ".join(parts)) or "untitled"
+    return f"{_truncate_bytes(base, MAX_NAME_BYTES)}.{uid}.nhlrc"
+
+
+def store_path(audio: str | Path, uid: str | None = None,
+               title: str | None = None, artist: str | None = None) -> Path:
+    u = uid or uid_of(audio)
+    found = _find(u, ".nhlrc")
+    if found:
+        return found
+    if title is None or artist is None:
+        a_artist, a_title = LY.split_name(Path(audio).stem)
+        title = title if title is not None else a_title
+        artist = artist if artist is not None else a_artist
+    return LYRICS / store_name(title or "", artist or "", u)
+
+
+def store_backup(audio: str | Path, uid: str | None = None,
+                 title: str | None = None, artist: str | None = None) -> Path:
+    u = uid or uid_of(audio)
+    found = _find(u, ".nhlrc.bak")
+    if found:
+        return found
+    return store_path(audio, u, title, artist).with_suffix(".nhlrc.bak")
 
 
 def exists(audio: str | Path, uid: str | None = None) -> bool:
     u = uid or uid_of(audio)
-    return (store_path(u).is_file() or nhlrc_path(audio).is_file()
+    return (store_path(audio, u).is_file() or nhlrc_path(audio).is_file()
             or lrc_path(audio).is_file())
 
 
 def _migrate_legacy(uid: str, audio: Path) -> Path | None:
     """音频旁有旧 .nhlrc → 复制进 data/lyrics 并删除旧文件。"""
     legacy = nhlrc_path(audio)
-    target = store_path(uid)
+    target = store_path(audio, uid)
     if not legacy.is_file() or target.is_file():
         return target if target.is_file() else None
     try:
@@ -69,11 +114,12 @@ def _migrate_legacy(uid: str, audio: Path) -> Path | None:
         return None
 
 
-def load(audio: str | Path, uid: str | None = None) -> dict:
-    """优先 data/lyrics/<uid>.nhlrc，其次旧 .nhlrc，再次 .lrc，最后歌词缓存。"""
+def load(audio: str | Path, uid: str | None = None,
+         title: str | None = None, artist: str | None = None) -> dict:
+    """优先 data/lyrics 下的 nhlrc，其次旧 .nhlrc，再次 .lrc，最后歌词缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
-    sp = store_path(u)
+    sp = store_path(audio, u, title, artist)
     lp = lrc_path(audio)
     from_cache = False
     tail = None
@@ -119,18 +165,22 @@ def load(audio: str | Path, uid: str | None = None) -> dict:
             "nhlrc": kind == "nhlrc"}
 
 
-def backup_path(audio: str | Path, uid: str | None = None) -> Path:
-    return store_backup(uid or uid_of(audio))
+def backup_path(audio: str | Path, uid: str | None = None,
+                title: str | None = None, artist: str | None = None) -> Path:
+    return store_backup(audio, uid or uid_of(audio), title, artist)
 
 
-def backup_candidates(audio: str | Path, uid: str | None = None) -> list[Path]:
+def backup_candidates(audio: str | Path, uid: str | None = None,
+                      title: str | None = None, artist: str | None = None) -> list[Path]:
     u = uid or uid_of(audio)
     a = Path(audio)
-    return [store_backup(u), a.with_suffix(".nhlrc.bak"), a.with_suffix(".lrc.bak")]
+    return [store_backup(a, u, title, artist),
+            a.with_suffix(".nhlrc.bak"), a.with_suffix(".lrc.bak")]
 
 
-def backup_status(audio: str | Path, uid: str | None = None) -> dict:
-    b = next((x for x in backup_candidates(audio, uid) if x.is_file()), None)
+def backup_status(audio: str | Path, uid: str | None = None,
+                  title: str | None = None, artist: str | None = None) -> dict:
+    b = next((x for x in backup_candidates(audio, uid, title, artist) if x.is_file()), None)
     if not b:
         return {"exists": False}
     text = b.read_text(encoding="utf-8", errors="ignore")
@@ -138,14 +188,15 @@ def backup_status(audio: str | Path, uid: str | None = None) -> dict:
             "mtime": b.stat().st_mtime, "size": b.stat().st_size}
 
 
-def restore_backup(audio: str | Path, uid: str | None = None) -> dict:
+def restore_backup(audio: str | Path, uid: str | None = None,
+                   title: str | None = None, artist: str | None = None) -> dict:
     """把备份覆盖回 data/lyrics/<uid>.nhlrc（恢复最初版本），并同步歌词缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
-    b = next((x for x in backup_candidates(audio, u) if x.is_file()), None)
+    b = next((x for x in backup_candidates(audio, u, title, artist) if x.is_file()), None)
     if not b:
         return {"ok": False, "error": "没有备份文件"}
-    sp = store_path(u)
+    sp = store_path(audio, u, title, artist)
     sp.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(b, sp)
     artist, title = LY.split_name(audio.stem)
@@ -155,14 +206,15 @@ def restore_backup(audio: str | Path, uid: str | None = None) -> dict:
     return {"ok": True, "path": str(sp), "lines": len(parse(sp.read_text(encoding="utf-8")))}
 
 
-def import_text(audio: str | Path, text: str, uid: str | None = None) -> dict:
+def import_text(audio: str | Path, text: str, uid: str | None = None,
+                title: str | None = None, artist: str | None = None) -> dict:
     """用外部歌词文本覆盖当前歌词：写 data/lyrics/<uid>.nhlrc 的正文。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
-    sp = store_path(u)
+    sp = store_path(audio, u, title, artist)
     sp.parent.mkdir(parents=True, exist_ok=True)
     backed = False
-    bak = store_backup(u)
+    bak = store_backup(audio, u, title, artist)
     src = sp if sp.is_file() else (nhlrc_path(audio) if nhlrc_path(audio).is_file()
                                    else lrc_path(audio))
     if src.is_file() and not bak.exists():
@@ -179,11 +231,12 @@ def import_text(audio: str | Path, text: str, uid: str | None = None) -> dict:
 
 def save(audio: str | Path, lines: list[dict],
          annotations: dict[int, list] | None = None,
-         uid: str | None = None) -> dict:
+         uid: str | None = None,
+         title: str | None = None, artist: str | None = None) -> dict:
     """写 data/lyrics/<uid>.nhlrc（正文 + 尾部），首次备份成 .nhlrc.bak。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
-    sp = store_path(u)
+    sp = store_path(audio, u, title, artist)
     sp.parent.mkdir(parents=True, exist_ok=True)
 
     artist, title = LY.split_name(audio.stem)
@@ -193,7 +246,7 @@ def save(audio: str | Path, lines: list[dict],
                                    else lrc_path(audio))
     if src.is_file():
         original = src.read_text(encoding="utf-8", errors="ignore")
-        bak = store_backup(u)
+        bak = store_backup(audio, u, title, artist)
         if not bak.exists():
             shutil.copy2(src, bak)
             backed = True

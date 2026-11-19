@@ -236,7 +236,7 @@ body = sha1(整篇正文)[:8]
 
 ```text
 文件优先级：
-  1) data/lyrics/<uid>.nhlrc          正式位置
+  1) data/lyrics/<歌名> - <歌手>.<uid>.nhlrc          正式位置
   2) 音频旁边同名 .nhlrc              旧位置（读到后自动迁移）
   3) 音频旁边同名 .lrc                旧歌词（只有正文）
   4) 歌词缓存                          没有本地文件时
@@ -273,13 +273,13 @@ body = sha1(整篇正文)[:8]
        没对齐到的行 / 改了字的行 → 重新注音
   ④ 生成正文：行 + 元数据按原位置插回
   ⑤ 生成尾部：render_nhlrc(行, 元数据, 标注)
-  ⑥ 写 data/lyrics/<uid>.nhlrc（覆盖）
+  ⑥ 写 data/lyrics/<歌名> - <歌手>.<uid>.nhlrc（覆盖）
 ```
 
 ```text
 保护：
   · 没有非空歌词行 → 拒绝保存（不写空文件）
-  · 首次写之前，把现有的 nhlrc 或 .lrc 备份成 data/lyrics/<uid>.nhlrc.bak
+  · 首次写之前，把现有的 nhlrc 或 .lrc 备份成 data/lyrics/<歌名> - <歌手>.<uid>.nhlrc.bak
     （之后再保存不会覆盖 .bak）
   · "恢复最初"用 .nhlrc.bak；没有它时兼容读旧的 .lrc.bak
 ```
@@ -289,7 +289,7 @@ body = sha1(整篇正文)[:8]
 ```text
 所有歌：
   打开时如果发现没有标注文件（或标注缺行）→ 注音后自动写
-  data/lyrics/<uid>.nhlrc
+  data/lyrics/<歌名> - <歌手>.<uid>.nhlrc
 
 不再往音乐目录写任何文件；纯缓存歌曲也一样写进 data/lyrics/。
 ```
@@ -313,7 +313,7 @@ body = sha1(整篇正文)[:8]
 用户在界面上点候选或手输读音
   → /api/line
   → 后端：读文件 → 对齐 → 重算这一行（带这次 override）
-  → 立即写回 data/lyrics/<uid>.nhlrc（正文不变，尾部更新）
+  → 立即写回 data/lyrics/<歌名> - <歌手>.<uid>.nhlrc（正文不变，尾部更新）
   → 返回新的 ruby / 罗马音 / 键位
 ```
 
@@ -388,17 +388,38 @@ body = sha1(整篇正文)[:8]
 ### 6.4 文件命名与位置
 
 ```text
-正式位置：data/lyrics/<uid>.nhlrc
+正式位置：data/lyrics/<歌名> - <歌手>.<uid>.nhlrc
 uid = md5(音频绝对路径)[:12]（和歌单、人声缓存同一个 uid）
+```
 
+```text
+命名规则：
+  · 前缀 = "歌名 - 歌手"；没有歌手就只写歌名；都空 → untitled
+  · 非法字符 / \ : * ? " < > | 和控制字符 → 替换成 _
+  · 连续空白压成一个空格；去掉首尾空格和点
+  · 前缀按 UTF-8 截断到 120 字节以内（uid 永远保留）
+例：
+  Love Forever - 清水翔太,加藤ミリヤ.766afe81d2df.nhlrc
+  untitled.766afe81d2df.nhlrc
+```
+
+```text
+查找：按 "<uid>.nhlrc" / "<uid>.nhlrc.bak" 的后缀匹配，
+不依赖前缀，所以：
+  · 歌名/歌手变了也能找到旧文件（前缀只是给人看的）
+  · 兼容早期只有 uid 的文件名（xxx.nhlrc 仍能读）
+```
+
+```text
 好处：
-  · 不往音乐目录写文件
-  · 同名不同目录的歌不会互相覆盖
+  · Finder / git 里一眼能认出来
+  · 同名不同目录的歌不会互相覆盖（uid 兜底）
   · 整个目录可以直接备份 / 打包
 
 代价：
+  · 文件名较长
   · 音频移动或改名 → uid 变 → 旧标注成为孤儿（同歌单行为）
-  · 旧位置的 .nhlrc 会在第一次读取时自动迁移并删除
+  · 旧位置（音频旁）的 .nhlrc 会在第一次读取时自动迁移并删除
 ```
 
 ```text
@@ -483,7 +504,7 @@ uid = md5(音频绝对路径)[:12]（和歌单、人声缓存同一个 uid）
    │
    └─ render_nhlrc(lines, metadata, 标注) ────► 正文 + 尾部
                                                 │
-                  备份（首次）data/lyrics/<uid>.nhlrc.bak
+                  备份（首次）data/lyrics/<歌名> - <歌手>.<uid>.nhlrc.bak
                                                 │
                                               写盘
 ```

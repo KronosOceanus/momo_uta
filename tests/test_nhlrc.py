@@ -44,7 +44,7 @@ class TestNhlrc(unittest.TestCase):
                  patch.object(LRF.LY, "write_local_lrc"):
                 res = LRF.save(audio, rows(), ann)
                 self.assertTrue(res["ok"])
-                p = LRF.store_path(LRF.uid_of(audio))
+                p = LRF.store_path(audio)
                 self.assertTrue(p.is_file())
                 raw = p.read_text(encoding="utf-8")
                 self.assertTrue(raw.startswith("[00:05.00]君の名前"))
@@ -75,7 +75,7 @@ class TestNhlrc(unittest.TestCase):
                 LRF.save(audio, rows())
                 uid = LRF.uid_of(audio)
                 self.assertEqual(LRF.backup_path(audio, uid).read_text(encoding="utf-8"), legacy)
-                p = LRF.store_path(uid)
+                p = LRF.store_path(audio, uid)
                 before = p.read_text(encoding="utf-8")
                 LRF.save(audio, rows())
                 self.assertEqual(LRF.backup_path(audio, uid).read_text(encoding="utf-8"), legacy)

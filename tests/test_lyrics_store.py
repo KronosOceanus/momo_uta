@@ -30,7 +30,7 @@ class TestStoreLocation(unittest.TestCase):
                  patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LRF.LY, "write_local_lrc"):
                 LRF.save(audio, rows(), ann)
-                self.assertTrue(LRF.store_path(LRF.uid_of(audio)).is_file())
+                self.assertTrue(LRF.store_path(audio).is_file())
                 self.assertFalse(LRF.nhlrc_path(audio).exists())
                 doc = LRF.load(audio)
             self.assertEqual(doc["kind"], "nhlrc")
@@ -48,9 +48,42 @@ class TestStoreLocation(unittest.TestCase):
                  patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LRF.LY, "write_local_lrc"):
                 doc = LRF.load(audio)
-                self.assertTrue(LRF.store_path(LRF.uid_of(audio)).is_file())
+                self.assertTrue(LRF.store_path(audio).is_file())
                 self.assertFalse(LRF.nhlrc_path(audio).exists())
             self.assertEqual(doc["annotations"], ann)
+
+
+class TestNaming(unittest.TestCase):
+    def test_readable_name(self):
+        n = LRF.store_name("Love Forever", "清水翔太", "766afe81d2df")
+        self.assertEqual(n, "Love Forever - 清水翔太.766afe81d2df.nhlrc")
+
+    def test_sanitize_and_fallback(self):
+        self.assertEqual(LRF.store_name("A/B: C?", "X*Y", "abc123def456"),
+                         "A_B_ C_ - X_Y.abc123def456.nhlrc")
+        self.assertEqual(LRF.store_name("", "", "abc123def456"),
+                         "untitled.abc123def456.nhlrc")
+
+    def test_truncate_keeps_uid(self):
+        n = LRF.store_name("あ" * 200, "A", "abc123def456")
+        self.assertTrue(n.endswith(".abc123def456.nhlrc"))
+        self.assertLessEqual(len(n.encode("utf-8")), 140)
+
+    def test_find_by_uid_suffix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            uid = LRF.uid_of(audio)
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                (root / "lyrics").mkdir()
+                f = root / "lyrics" / f"别的名字.{uid}.nhlrc"
+                f.write_text("", encoding="utf-8")
+                self.assertEqual(LRF.store_path(audio, uid), f)
+                old = root / "lyrics" / f"{uid}.nhlrc"
+                f.unlink()
+                old.write_text("", encoding="utf-8")
+                self.assertEqual(LRF.store_path(audio, uid), old)
 
 
 class TestAlign(unittest.TestCase):
@@ -104,7 +137,7 @@ class TestManualReadingFolded(unittest.TestCase):
                 res = SONG.edit_line_action({"idx": "0", "line": 0,
                                              "start": 0, "reading": "きみだ"})
                 self.assertIn("きみだ", res["ruby"])
-                raw = LRF.store_path(LRF.uid_of(audio)).read_text(encoding="utf-8")
+                raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertIn("きみだ", raw)
                 self.assertEqual(ED.for_song("k1"), {})   # 不再写 readings
                 doc = LRF.load(audio)
@@ -120,7 +153,7 @@ class TestManualReadingFolded(unittest.TestCase):
                 ED.put("k1", 0, 0, "きみだ")
                 SONG.song_payload(0)
                 self.assertEqual(ED.for_song("k1"), {})
-                raw = LRF.store_path(LRF.uid_of(audio)).read_text(encoding="utf-8")
+                raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertIn("きみだ", raw)
 
 

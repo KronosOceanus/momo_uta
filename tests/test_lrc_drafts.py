@@ -57,7 +57,7 @@ class TestLrcDrafts(unittest.TestCase):
                 doc = lrcio.load(audio)
                 self.assertEqual([r["text"] for r in doc["lines"]],
                                  ["[Chorus]", "次の日", "[Note: keep singing]"])
-                self.assertTrue(lrcio.store_path(lrcio.uid_of(audio)).is_file())
+                self.assertTrue(lrcio.store_path(audio).is_file())
                 self.assertEqual(lrcio.backup_path(audio, lrcio.uid_of(audio))
                                  .read_text(encoding="utf-8"), raw)
                 self.assertEqual(cache_write.call_args.args[2], doc["text"])
@@ -76,5 +76,5 @@ class TestLrcDrafts(unittest.TestCase):
             self.assertTrue(lrcio.save(audio, draft["lines"])["ok"])
             doc = lrcio.load(audio)
             self.assertEqual([r["text"] for r in doc["lines"]], ["あの日"])
-            self.assertTrue(lrcio.store_path(lrcio.uid_of(audio)).is_file())
+            self.assertTrue(lrcio.store_path(audio).is_file())
             self.assertFalse((Path(tmp) / "歌手 - 曲.lrc").exists())
