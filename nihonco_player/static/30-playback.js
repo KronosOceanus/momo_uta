@@ -43,29 +43,43 @@ function fadeGain(v, ms){
   GAIN.gain.setValueAtTime(GAIN.gain.value, t);
   GAIN.gain.linearRampToValueAtTime(v, t+ms/1000);
 }
-function seekAudio(t, opts){
+function audioReady(){
+  if(au.readyState>=1 && isFinite(au.duration)) return Promise.resolve();
+  return new Promise(res=>{
+    let fired=false;
+    const on=()=>{ if(fired) return; fired=true;
+      au.removeEventListener('loadedmetadata', on);
+      au.removeEventListener('durationchange', on); res(); };
+    au.addEventListener('loadedmetadata', on);
+    au.addEventListener('durationchange', on);
+    setTimeout(on, 1200);                      // 兜底：别无限等
+  });
+}
+async function seekAudio(t, opts){
   t=Math.max(0, t);
+  const wasPlaying = !au.paused;
   audioGraph();
   if(AC && AC.state==='suspended') AC.resume().catch(()=>{});
-  if(!GAIN || (opts && opts.fade===false)){ au.currentTime=t; return Promise.resolve(); }
-  fadeGain(0, 12);
-  const done=new Promise(res=>{
+  fadeGain(0, 4);                              // 旧音频立刻静音（不留残响）
+  await audioReady();                          // 时长没就绪时 seek 会被丢掉（会从头播）
+  const seeked=new Promise(res=>{
     let fired=false;
     const on=()=>{ if(fired) return; fired=true; au.removeEventListener('seeked', on); res(); };
     au.addEventListener('seeked', on);
-    setTimeout(on, 160);
+    setTimeout(on, 300);
   });
   au.currentTime=t;
-  return done.then(()=>fadeGain(1, 28));
+  await seeked;
+  if(wasPlaying) au.play().catch(()=>{});       // 新位置就绪后才继续播
+  paintTransport();                             // 进度条/时间立刻对齐
+  fadeGain(1, 20);
 }
 
-function seekIdx(i, keepPlaying){
+async function seekIdx(i, keepPlaying){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  const wasPlaying = keepPlaying!==false && !au.paused;
   if(PLAYING!==S.idx) commitAudio();
-  seekAudio(Math.max(0, lineT(l)));
-  if(wasPlaying) au.play().catch(()=>{});
+  await seekAudio(Math.max(0, lineT(l)));      // 定位生效后再继续播
   highlight(i);
   if(loop && !isMetaLine(viewLines()[i])) LOOP_ROW=i;
   if(LRCEDIT){ ESEL=i; SEL.clear(); paintSelection(); }
