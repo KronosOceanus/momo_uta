@@ -100,7 +100,7 @@ cv.addEventListener('click', e=>{
   const ratio=Math.max(0, Math.min(1,(e.clientX-r.left)/r.width));
   const v=DRAWN || viewStart();                 // 所见即所得
   const t=Math.round((v.start + ratio*v.span)*100)/100;
-  seekAudio(t);
+  au.currentTime=t;
   MARK=Math.round(t*100)/100;
   drawWave();
   const el=document.getElementById('mark');
