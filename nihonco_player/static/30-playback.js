@@ -23,12 +23,48 @@ function idxAt(t){
 function navItems(){
   return viewLines().map((l,i)=>({i, t:lineT(l)})).filter(x=>x.t!==null && !isMetaLine(viewLines()[x.i]));
 }
+// ── 跳转时遮住 WebKit 的断点：gain 12ms 淡出 → seek → 28ms 淡入 ──
+let AC=null, GAIN=null, WEBAUDIO=true;
+function audioGraph(){
+  if(AC || !WEBAUDIO) return;
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx){ WEBAUDIO=false; return; }
+    AC=new Ctx();
+    const src=AC.createMediaElementSource(au);
+    GAIN=AC.createGain();
+    src.connect(GAIN); GAIN.connect(AC.destination);
+  }catch(e){ WEBAUDIO=false; AC=null; GAIN=null; }
+}
+function fadeGain(v, ms){
+  if(!GAIN || !AC) return;
+  const t=AC.currentTime;
+  GAIN.gain.cancelScheduledValues(t);
+  GAIN.gain.setValueAtTime(GAIN.gain.value, t);
+  GAIN.gain.linearRampToValueAtTime(v, t+ms/1000);
+}
+function seekAudio(t, opts){
+  t=Math.max(0, t);
+  audioGraph();
+  if(AC && AC.state==='suspended') AC.resume().catch(()=>{});
+  if(!GAIN || (opts && opts.fade===false)){ au.currentTime=t; return Promise.resolve(); }
+  fadeGain(0, 12);
+  const done=new Promise(res=>{
+    let fired=false;
+    const on=()=>{ if(fired) return; fired=true; au.removeEventListener('seeked', on); res(); };
+    au.addEventListener('seeked', on);
+    setTimeout(on, 160);
+  });
+  au.currentTime=t;
+  return done.then(()=>fadeGain(1, 28));
+}
+
 function seekIdx(i, keepPlaying){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
   const wasPlaying = keepPlaying!==false && !au.paused;
   if(PLAYING!==S.idx) commitAudio();
-  au.currentTime = Math.max(0, lineT(l));
+  seekAudio(Math.max(0, lineT(l)));
   if(wasPlaying) au.play().catch(()=>{});
   highlight(i);
   if(loop && !isMetaLine(viewLines()[i])) LOOP_ROW=i;
@@ -148,12 +184,17 @@ function seekToClientX(x){
 (function bindTransport(){
   const seek=document.getElementById('seek');
   let dragging=false;
-  seek.addEventListener('mousedown', e=>{ dragging=true; seekToClientX(e.clientX); });
+  seek.addEventListener('mousedown', e=>{
+    dragging=true;
+    audioGraph(); if(AC && AC.state==='suspended') AC.resume().catch(()=>{});
+    fadeGain(0, 10);
+    seekToClientX(e.clientX);
+  });
   document.addEventListener('mousemove', e=>{ if(dragging) seekToClientX(e.clientX); });
-  document.addEventListener('mouseup', ()=>{ dragging=false; });
+  document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; fadeGain(1, 28); } });
   document.getElementById('play2').onclick=()=>{ if(au.paused) au.play().catch(()=>{}); else au.pause(); };
-  document.getElementById('back10').onclick=()=>{ au.currentTime=Math.max(0, au.currentTime-10); paintTransport(); };
-  document.getElementById('fwd10').onclick=()=>{ au.currentTime=Math.min(au.duration||0, au.currentTime+10); paintTransport(); };
+  document.getElementById('back10').onclick=()=>{ seekAudio(Math.max(0, au.currentTime-10)); paintTransport(); };
+  document.getElementById('fwd10').onclick=()=>{ seekAudio(Math.min(au.duration||0, au.currentTime+10)); paintTransport(); };
   document.getElementById('volume').oninput=e=>{ au.volume=+e.target.value; au.muted=au.volume===0; paintTransport(); };
   document.getElementById('mute').onclick=()=>{ au.muted=!au.muted; paintTransport(); };
   ['timeupdate','loadedmetadata','durationchange','play','pause','volumechange'].forEach(ev=>
@@ -162,8 +203,9 @@ function seekToClientX(x){
 
 const playBtn=document.getElementById('play');
 function syncPlayBtn(){ playBtn.textContent = au.paused ? '播放' : '暂停'; }
-document.getElementById('start').onclick=()=>{ if(!S) return; commitAudio(); au.play().catch(()=>{}); };
+document.getElementById('start').onclick=()=>{ if(!S) return; audioGraph(); if(AC && AC.state==='suspended') AC.resume().catch(()=>{}); commitAudio(); au.play().catch(()=>{}); };
 playBtn.onclick=()=>{
+  audioGraph(); if(AC && AC.state==='suspended') AC.resume().catch(()=>{});
   if(S && PLAYING!==S.idx){ commitAudio(); au.play().catch(()=>{}); return; }
   if(au.paused){ au.play().catch(()=>{}); } else { au.pause(); }
 };
