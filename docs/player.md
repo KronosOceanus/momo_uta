@@ -1,187 +1,490 @@
-# 歌词练习播放器（桌面应用）
+# 播放器：音频、波形与交互
 
-> 代码在 `nihonco_player/`（服务 + 前端）与 `nihonco_player_app/`（窗口壳）。
-> 这份文档描述**当前已实现的行为**；逐功能流程图见 [`features.md`](features.md)，
-> LRC 打轴部分见 [`lrc-editor.md`](lrc-editor.md)。
+> 读者：要改播放、跳转、波形、滚动、人声分离的人。
+> 定位：讲清"点开一首歌到出声、到高亮、到波形"这条链路。
+> 自成一体：不依赖其它文档；只引函数/类名，不写行号。
 
-## 1. 怎么启动
+## 0. 三十秒版本
 
-```bash
-make app        # 唯一入口：随机端口起服务 + 原生窗口
+```text
+点歌
+  → 后端返回 {idx, title, lines[], audio, offset, pending?}
+  → 前端 NH.S = 数据，渲染歌词/右侧面板
+  → NH.commitAudio()：把 /audio/<idx> 交给 AudioEngine
+  → AudioEngine：fetch 整个文件 → decodeAudioData → 得到一个 AudioBuffer
+  → 播放 = 新建 AudioBufferSourceNode，从 _offset 处 start
+  → 跳转 = 停掉旧 source → 新建 source，从新位置 start（采样级精确）
+
+时间推进：requestAnimationFrame 里每 ~50ms 发一次 timeupdate（约 20Hz）
+  → idxAt(t) 找到当前行 → 左右两栏高亮 → 波形播放头
 ```
 
 ```text
-没有浏览器模式：页面与静态资源由 app 内置服务提供
-依赖：pywebview（窗口）、ffmpeg（波形）、mutagen（时长）
-日志：data/cache/app.log（stdout/stderr 同时写一份，含 traceback；超过 2MB 轮转）
+几个关键事实：
+  · 整首歌解码进内存（4 分钟立体声约 80MB），不是流式播放
+  · 跳转没有解码器 flush 问题，代价是每次都要重建 source
+  · 波形由后端用 ffmpeg 预先算好峰值，前端只画
+  · LRC 编辑模式下才显示波形
 ```
 
-## 2. 模块
+## 1. 总览与状态
 
-| 文件 | 行数 | 职责 |
-|---|---|---|
-| `http/routes.py` | 159 | 路由表 + handler（只转发） |
-| `http/static.py` | 44 | 静态文件与音频流（Range） |
-| `http/server.py` | 22 | 起服务 |
-| `service/song.py` | 220 | 载荷装配、改读音、重新匹配、选候选 |
-| `service/playlist.py` | 101 | 歌单动作、导入、打标 |
-| `service/lrc.py` | 45 | LRC 加载/保存/备份/恢复/导入 |
-| `static/05-audio.js` | 113 | WebAudio 播放引擎（整首解码、切 source 定位） |
-| `static/10-app.js` | 473 | 状态、歌单、载入单曲、波形、右侧面板 |
-| `static/20-editor.js` | 589 | LRC 编辑表格与保存 |
-| `static/30-playback.js` | 289 | 时间语义、播放条、跳转、键盘 |
-| `static/player.css` | 227 | 深色主题样式 |
-| `static/player.html` | 59 | 页面骨架 |
-| `playlists.py` | 184 | 歌单（uid 集合 + 文件锁） |
-| `library.py` | 100 | 扫目录、读缓存、导入索引 |
-| `importing.py` | 150 | 导入：目录递归 / 音频+lrc / 纯音频 / 纯 lrc |
-| `lyrics*.py` | 498 | 歌词：文本解析 / 缓存 / 抓取匹配（三层 + 门面） |
-| `lrcio.py` | 146 | `.lrc` 读写、备份、恢复、JSON 歌词格式兼容 |
-| `waveform.py` | 76 | ffmpeg 解码 → 20ms 峰值 → 缓存 |
-| `edits.py` | 66 | 手改读音（按歌存储） |
-| `song_meta.py` | 54 | 每首歌的 offset |
-| `web.py` | 19 | 页面装配（注入配置） |
-| `nihonco_player_app/__main__.py` | 104 | 窗口 + 原生对话框（选目录/文件/lrc/另存为） |
-
-## 3. 歌单
+### 1.1 前端状态（`window.NH`）
 
 ```text
-default  「默认歌单」：锁定 —— 不能删、不能改名，可以清空、可以导入
-user     自建歌单：能改名、能删、能清空
+S            当前歌曲的载荷（idx/title/artist/lines/audio/offset/pending）
+LINES        歌词行（每行 t/text/ruby/rm/ky…）
+NAV          每行的下标（跳转时再用 navItems() 过滤 meta 行）
+CUR          当前高亮行
+PLAYING      正在播放的歌曲 idx（用于切歌判断）
+MODE         右侧面板显示 rm（罗马音）还是 ky（键位）
+EDITMODE     是否在"点读音"编辑态
+LRCEDIT      是否在 LRC 打轴模式（与普通模式互斥）
+WAVE         波形峰值数据 {duration, step, peaks, source}
+VIEW         {span} 波形窗口宽度（秒）
+FOLLOW       波形是否跟随播放头
+PAN_START    手动平移后的窗口起点
+OFFSET       整体偏移（秒，只影响歌词时间，不改音频）
+VSTAT        人声分离状态（none/queued/running/done/failed）
 ```
 
+### 1.2 数据流
+
 ```text
-一个歌单 = 一串 uid（md5(音频绝对路径)）
-同一首歌可以同时出现在多个歌单
-歌单内条目可拖到别的歌单（移动）、可拖拽排序？—— 当前只有"移出/移入"，行内排序未做
+GET /api/song/<idx>
+   │  载荷由 service.song.song_payload 组装
+   ▼
+load(i, autoplay)
+   ├─ 有歌词：渲染 #lyr、右侧面板、offset、commitAudio
+   └─ 无歌词：先 commitAudio 能播，再走"人声判定 → 懒匹配"（§6/§7）
+   ▼
+commitAudio()
+   ├─ PLAYING = S.idx
+   ├─ au.src = S.audio || "/audio/"+S.idx
+   └─ au.preload()（整首解码，异步）
+   ▼
+播放：au.play() 等预载完成 → 新建 source → start
 ```
 
-```text
-顶部    [＋ 新建歌单]
-每行    ▾ 名称  数量        ← 右键弹出菜单：导入音乐 / 重命名 / 清空歌单 / 删除歌单
-条目    单击载入 / 双击播放 / 悬停 ✕ 从歌单移除 / 右侧 ♪ 语 ✗ 打标
-标签    ♪=inst 语=非日文 ✗=标错，只作标记，**不再隐藏歌曲**
-搜索    跨歌单过滤，命中时自动展开
-```
+## 2. 音频引擎
 
-## 4. 播放
+### 2.1 结构
 
 ```text
-自绘播放条    ⟲10  ▶/⏸  10⟳   已播 ▬▬●▬▬ 总长   🔊 音量
-              进度条上叠"每句一个刻度点"
-播放语义（两种模式共用一套）
-  生效时间 = 行时间 + 整体偏移
-  当前行 = 最后一个"生效时间 ≤ 播放时间"的非 meta 行
-  点击行 / 右侧罗马音   → 跳到该行时间（在播就继续播）
-  上一句 / 下一句       → 在非 meta 行序列里前后移动
-  单句循环              → 锚定开循环时所在行，跨下一行起点就回跳
+class AudioEngine
+  _ctx      AudioContext（首次用时创建）
+  _gain     GainNode（音量/静音）
+  _buf      解码后的 AudioBuffer（整首）
+  _src      当前 AudioBufferSourceNode
+  _offset   当前逻辑播放位置（秒）
+  _started  source 启动时的 ctx.currentTime
+  _rate     播放速率
+  _playing  是否正在播
+  _dur      时长
+  _ready    readyState（0 未载入 / 4 可播）
 ```
 
 ```text
-meta 行（作词/作曲/编曲/演唱…）不参与打点与跳句，但仍显示
+时间换算：
+  currentTime = _offset + (ctx.currentTime - _started) * _rate   （播放中）
+  currentTime = _offset                                          （暂停/停止）
 ```
 
-## 4.5 人声分离
+### 2.2 预载与解码
 
 ```text
-触发   点开任意一首歌 → 后台排队跑 demucs（两轨：vocals / no_vocals）
-       串行执行；切歌不取消上一首，继续跑完
-缓存   data/cache/vocals/<uid>/vocals.wav（16k 单声道）+ meta.json
-       4 分钟歌约 8MB；全部保留
-状态   顶栏 chip：人声分离中… / 有人声 / 纯音乐 / 人声分离失败
-用途   ① LRC 模式波形优先用人声轨（没有则回退原曲）
-       ② 没有歌词的歌：先确认有人声，再决定是否匹配歌词；
-          判为纯音乐则跳过匹配，仍可播放
-判定   20ms 一帧 RMS，10 分位做噪声底，超阈值帧占比 > 5% 算有人声
+preload()
+  ① fetch(audio URL) → arrayBuffer
+  ② ctx.decodeAudioData(arrayBuffer) → _buf
+  ③ _dur = _buf.duration；_ready = 4
+  ④ 依次发 loadedmetadata / durationchange / canplay
+  ⑤ 失败：_ready=0、_load=null、发 error，并把异常抛给调用方
 ```
 
 ```text
-依赖：demucs（pip install demucs，torch 约 1GB+）
-     首次运行从 HuggingFace 拉模型；国内直连会卡住，
-     代码里默认 HF_ENDPOINT=https://hf-mirror.com（可用环境变量覆盖）
+为什么整首解码：
+  浏览器 <audio> 跳转会有解码器 flush/重缓冲，做不到"跳哪是哪"；
+  AudioBufferSourceNode 从任意 offset start，天然采样级精确。
+
+代价：
+  · 内存：4 分钟 44.1kHz 立体声 float32 ≈ 80MB
+  · 首次播放要等整个文件下载并解码完
+  · 切歌时 src setter 会丢掉旧 _buf，交给 GC
 ```
 
-## 5. 整体偏移
+### 2.3 播放 / 暂停 / 定位
 
 ```text
-位置    LRC 工具行第三行左侧：[−0.5][−0.1] 0.00s [+0.1][+0.5]
-作用    只平移播放对齐，不改文件
-存储    data/curated/song_meta.json（每首歌一个值）
-提示    偏移 ≠ 0 时头部显示「偏移 +0.30s」，点一下清零
-```
+play()
+  · 没解码就先 await preload()
+  · _startSrc()：新建 source，buffer=_buf，rate=_rate，
+    start(0, min(_offset, dur-0.001))
+  · 发 play / playing，启动 20Hz 的 timeupdate 循环
 
-## 6. 界面结构
+pause()
+  · _offset = currentTime；_stop()；发 pause
+
+seek(t)
+  · 夹到 [0, duration]
+  · 如果正在播：_stop() → _offset=t → _startSrc()
+  · 如果暂停：只改 _offset
+  · 发 seeked
+```
 
 ```text
-第 1 行  【开始】歌名                          振假名编辑模式 / LRC 编辑模式
-第 2 行  【全选】【加行】【删行】   【保存】【另存为】【导入LRC文件】【恢复最初】
-第 3 行  整体偏移 …                                                     跟随：开
-第 4 行  波形（仅 LRC 模式）
-主区     左：歌词 / 编辑表格        右：罗马音 or 键位（LRC 模式隐藏）
-底部     上一句 / 播放 / 下一句 / 单句循环 / 重新匹配歌词 / 速度
-         自绘播放条
+_stop()：解除 onended、stop()、disconnect()、_src=null、_playing=false
 ```
 
-## 7. 两种编辑模式（互斥）
+### 2.4 前端封装的"精确定位"
 
 ```text
-振假名编辑模式  点词语改读音（A/AB/B/C 四档，B 有候选）
-LRC 编辑模式    见 lrc-editor.md：波形、时间轴、保存、导入
-切歌时两个模式都自动关闭
+seekPrecise(t)：
+  ① 以第一次调用时的播放状态为准（连点时不被中间态干扰）
+  ② 若原来在播 → 先 pause（旧声音立刻停，画面不掉队）
+  ③ 等音频就绪（audioReady：readyState≥1 或等 loadedmetadata，最多 900ms）
+  ④ au.currentTime = t（触发 seek：重建 source）
+  ⑤ 等 seeked（最多 900ms），必要时等 canplay
+  ⑥ 原来在播 → 恢复 play
+  ⑦ 用 SEEK_SEQ 丢弃过期的连续请求（只执行最后一次）
 ```
-
-## 8. 歌词来源
 
 ```text
-抓取    网易云（主）→ MusicBrainz 规范化 → lrclib（兜底）
-缓存    data/cache/lyrics/<md5(歌名|歌手)>.json（命中不联网）
-本地    .lrc 文件（有就优先，LRC 编辑器保存后也写它）
-懒匹配  没有歌词的歌点开时才抓，右侧显示「匹配歌词中…」
+为什么"先停再跳"：
+  旧 source 会一直出声，等新位置就绪再切会听到两段声音；
+  先 pause 保证听到的是"停一下 → 从新位置继续"。
 ```
 
-## 9. 数据文件
+### 2.5 变速 / 音量 / 循环
 
-| 文件 | 内容 |
+```text
+变速（playbackRate setter）
+  播放中改速率：先把"已播到哪里"结算进 _offset，
+  再改 _rate，并同步给当前 source.playbackRate
+  → 位置不跳变
+
+音量 / 静音
+  GainNode.gain = muted ? 0 : volume（0..1）
+
+单句循环
+  不是在引擎里做的，而是在 timeupdate 里：
+  开启时记住 LOOP_ROW；当前时间 ≥ 下一行起点（或本行+8s）→ 跳回本行起点
+```
+
+### 2.6 事件
+
+```text
+对外发：play / playing / pause / seeked / ended /
+        timeupdate / loadedmetadata / durationchange / canplay / error
+
+前端订阅：
+  播放条：timeupdate / loadedmetadata / durationchange / play / pause /
+          volumechange → 重画进度条、刻度
+  波形：pause / seeked / loadedmetadata 且处于 LRC 模式 → 重画
+  歌单：PLAYING 变化 → 列表标记 ▶
+```
+
+## 3. 波形
+
+### 3.1 峰值：后端生成
+
+```text
+waveform.peaks(audio, source)
+  ① 缓存 data/cache/wave/<md5(路径)>.<source>.<rate>.<step>.json
+  ② 未命中：ffmpeg -i <audio> -ac 1 -ar <rate> -f s16le -
+  ③ 每 step 秒取一次 min/max，归一化到 [-1,1]
+  ④ 返回 {duration, step, peaks:[[min,max],...]}
+
+默认（config/waveform）：
+  rate = 8000   Hz
+  step = 0.02   秒（20ms 一个桶）
+```
+
+```text
+缓存键带 rate/step：改参数旧缓存自动失效。
+source = "mix"（原曲）或 "vocals"（人声轨）。
+```
+
+### 3.2 视图模型
+
+```text
+VIEW.span        窗口宽度（秒），默认 5，范围 2–10
+FOLLOW           跟随：窗口以播放头为中心
+PAN_START        关闭跟随时，窗口的起点
+
+viewStart():
+  跟随：start = currentTime - span/2，夹到 [0, duration-span]
+  不跟：start = clampStart(PAN_START, span)
+
+clampStart(st, span)：把起点夹到 [0, max(0, duration-span)]
+```
+
+```text
+关掉跟随时：DRAWN = 当前看到的窗口（冻结），之后平移基于它。
+手动平移（滚轮/双指）自动把 FOLLOW 置为关。
+```
+
+### 3.3 绘制
+
+```text
+入口：drawWave()
+  · 只画三样东西：
+      绿色 min/max 竖线（波形）
+      暖橙色竖线（每一行的起点）
+      亮绿竖线（播放头）
+  · 画布高度 = ui.wave_height（默认 120），DPR=1
+  · 宽度缓存（measureCanvas），避免每帧触发布局
+
+刷新时机：
+  · LRC 模式 + 正在播：rAF 循环约 30fps
+  · 暂停时：seek / 缩放 / 平移 / 切歌 / 分离完成等显式调用
+```
+
+```text
+播放头位置 = (currentTime - start) / (span/宽度)
+行起点位置 = (行时间 + 整体偏移 - start) / (span/宽度)
+```
+
+### 3.4 交互
+
+```text
+滚轮/双指（canvas wheel）
+  取 deltaX || deltaY，换算成秒：d * span / 画布宽度
+  关闭跟随，PAN_START = clampStart(当前起点 + 偏移, span)
+  竖向滑动也当横向用
+
+缩放
+  缩小/放大按钮：span ±1（夹 2–10）
+  点击窗口值：inline 输入，回车应用、Esc 取消、非法值还原
+
+窗口内跳转
+  左/右按钮：±span（一屏）
+  ◀1s / ◀0.1s / 0.1s▶ / 1s▶：在窗口内微调
+
+点击波形
+  seekPrecise(点击处对应的时间)
+  并记 MARK（打轴用）
+
+左右成对：
+  跳转与微调都走 seekPrecise；波形立即重画
+```
+
+### 3.5 人声波形
+
+```text
+loadWave(force)：
+  src = （VSTAT.done 且 has_vocals）? "?src=vocals" : ""
+  GET /api/wave/<idx>?src=vocals
+    后端有人声轨 → 用人声轨算峰值，响应 source="vocals"
+    没有 → 回退原曲，source="mix"
+  提示文案：人声波形 / 原曲波形 + 时长 + 窗口
+```
+
+## 4. 时间语义与高亮
+
+### 4.1 行时间
+
+```text
+lineT(l) = l.t + OFFSET      （t 为 null 的行不可跳转）
+isMetaLine(l)：看文本（作词/作曲/编曲/制作/演唱/Lyrics…），不看字段
+
+idxAt(t)：最后一个 lineT ≤ t 的行（可能落在 meta 行上）
+NAV：全行下标；navItems() 过滤掉 meta 行，上一句/下一句只在过滤后的列表里走
+```
+
+### 4.2 高亮与滚动
+
+```text
+highlight(i)：
+  LRC 模式：
+    表格行加 .cur；播放中不自动滚动（打轴时滚动会晃）
+    暂停时且没有多选 → scrollIntoView(nearest)
+  普通模式：
+    左栏 .ln 加 .on（meta 行不加）
+    当前行 scrollIntoView(center)（即时，无动画）
+    右栏 paint2(i)：只高亮同一行；meta 行两边都不亮
+```
+
+```text
+ontimeupdate 里：
+  i = idxAt(currentTime)
+  只有 i 变化，或 DOM 上确实没亮时才重画（防止 UI 重建后丢高亮）
+```
+
+### 4.3 单句循环
+
+```text
+开启：LOOP_ROW = 当前行或之后第一句
+每个 timeupdate：
+  t ≥ 下一句起点（没有下一句则本行 +8s）→ currentTime = 本行起点
+```
+
+## 5. 歌词与右侧面板
+
+```text
+左栏：每行 <div class="ln" data-n="行号">序号 + l.ruby</div>
+      ruby 由后端用引擎片段生成（含候选标记、可点的 A/AB 段）
+右栏：罗马音 / 键位两页（MODE=rm/ky）
+      每行一个 .ln2，点行 = 跳到该行
+      高亮只跟随当前行（不是"最近的非 meta 行"）
+
+读音编辑（普通模式）：
+  点 B 档候选段（.bc），或编辑态下点可编辑段（.ew）
+  → 弹层 → 选候选或手输平假名
+  → POST /api/line → 后端重算该行、立即写 data/lyrics 的 nhlrc
+  → 用返回的 ruby/rm/ky 更新当前行
+```
+
+```text
+右上角两个 tab：罗马音 / 键位
+切换只改 MODE 并重渲染右栏，不影响音频与时间。
+```
+
+## 6. 人声分离
+
+### 6.1 触发
+
+```text
+打开任意一首歌（含 pending）→ 前端 POST /api/vocals {action:"ensure", idx}
+  配置 vocals.auto_start=false 时跳过
+前端随后每 1.5 秒 GET /api/vocals/<idx>，最多 400 次
+```
+
+### 6.2 后端流水线（串行队列）
+
+```text
+ensure(uid, audio)
+  · data/vocals/<指纹>/meta.json 已存在 → 返回 done
+  · 已在 queued/running → 直接返回状态（幂等）
+  · 否则入队，单线程 worker 依次跑
+
+一次分离：
+  ① demucs --two-stems=vocals -n htdemucs
+     （子进程；默认 HF_ENDPOINT 指镜像，避免国内卡死）
+  ② 取 vocals.wav → ffmpeg 转 16k 单声道
+  ③ 删临时目录
+  ④ VAD 统计 → meta.json
+```
+
+```text
+VAD：
+  按 frame_sec（20ms）算 RMS
+  floor = 10 分位 RMS
+  threshold = max(floor × floor_mult, abs_threshold)
+  ratio = 超过 threshold 的帧占比
+  has_vocals = ratio ≥ ratio_min（默认 0.05）
+```
+
+### 6.3 前端表现
+
+```text
+顶栏 chip：
+  排队 → 人声分离：排队
+  运行 → 人声分离中…
+  完成 → 有人声 / 纯音乐
+  失败 → 人声分离失败
+LRC 模式：分离完成后自动 loadWave(true) 换成人声波形
+无歌词歌曲：先等分离结果；判为纯音乐 → 跳过歌词匹配
+```
+
+## 7. 载入与自动匹配（pending）
+
+```text
+load(i)：
+  有歌词 → 直接渲染
+  没有歌词（pending）：
+    ① 清空歌词，显示"匹配歌词中…"
+    ② commitAudio（能播）；autoplay 则播
+    ③ 等人声分离（auto_start 开时）
+    ④ 纯音乐 → 不匹配，结束
+    ⑤ POST /api/pl {action:"match"} 触发抓取
+    ⑥ 每 1.5 秒 GET /api/song/i，最多 40 次（60 秒）
+       一旦不再 pending → 重新 load
+    ⑦ 超时 → "没匹配到歌词（仍可播放）"
+```
+
+```text
+并发保护：LOAD_REQUEST 自增；每次 await 后检查 request 是否还是最新，
+旧的载入流程不会覆盖新歌。
+```
+
+## 8. 提示与状态
+
+```text
+toast：
+  单元素，底部居中
+  busy(msg)=常驻；done(msg)=4.2 秒（可配）
+  同一时刻最多排队 2 条；busy 会被 done 立即替换
+  切歌、进入 LRC 模式时 clearToast()
+
+chip：
+  offchip   有偏移时显示（非 0）
+  vchip     人声状态（有人声 / 纯音乐 / 分离中 / 失败）
+savehint   LRC 保存状态（只在这里显示，不弹 toast）
+```
+
+## 9. 配置
+
+```text
+后端：config/defaults.json + data/config.json（本机覆盖，深层合并）
+前端：web.py 把整个 config 注入 window.__CFG
+
+用到的键：
+  player.speed_min / speed_max        播放速度范围（默认 0.5–1.25，步进 0.05）
+  player.ui.wave_span                 波形默认窗口（5）
+  player.ui.wave_span_min/max         缩放范围（2–10）
+  player.ui.wave_height               画布高度（120）
+  player.ui.toast_ms                  提示时长（4200）
+  player.ui.follow_default            初始是否跟随（true）
+  waveform.rate / step                峰值参数（8000 / 0.02）
+  vocals.*                            人声分离（模型、阈值、自动开关、镜像）
+```
+
+```text
+改 ui / waveform / vocals 的参数：刷新页面或重启 app 后生效。
+```
+
+## 10. 交互与快捷键
+
+```text
+空格         播放/暂停（输入框内不拦截）
+← / →        上一句 / 下一句
+播放条       点击或拖动定位；±10s 按钮
+速度滑块     0.5–1.25（步进 0.05）
+单句循环     记住当前行，播到下一行起点跳回
+重新匹配     候选只来自网络（网易云），选中后重写歌词并重新注音
+全部重置     清空该歌 nhlrc 尾部，再按引擎默认重新注音
+```
+
+## 11. 已知限制
+
+```text
+① 整首解码：内存占用大，首次播放要等下载 + 解码
+② 切歌会丢弃解码结果，来回切要重新解码
+③ seekPrecise 每次都停/起 source：连续快速拖动会有轻微断续
+④ 波形只在 LRC 模式播放时逐帧刷新；普通模式不显示波形
+⑤ 波形 1x DPR、标记只有行起点，不做节拍/逐字网格
+⑥ 单句循环的"本行结束"用下一行起点，最后一行固定 +8s
+⑦ 人声分离串行且较慢；切歌不取消正在跑的分离
+⑧ pending 匹配最多等 60 秒，超时后不再自动重试
+```
+
+## 12. 代码地图与测试
+
+| 职责 | 位置 |
 |---|---|
-| `data/curated/playlists.json` | 歌单、成员、列表顺序、展开状态 |
-| `data/curated/song_meta.json` | 每首歌的 offset |
-| `data/curated/readings.json` | 手改的振假名 |
-| `data/curated/song_tags.json` | ♪ 语 ✗ 标记 |
-| `data/curated/imports.json` | 导入过的音频路径 |
-| `data/cache/lyrics/` | 歌词缓存 |
-| `data/cache/wave/` | 波形峰值缓存 |
-| `data/cache/vocals/` | 人声轨（16k 单声道）与 meta |
+| 音频引擎 | `static/05-audio.js`（AudioEngine、au） |
+| 状态/载入/波形/人声/提示 | `static/10-app.js` |
+| 时间语义/播放条/高亮/循环/键盘/匹配入口 | `static/30-playback.js` |
+| 波形峰值 | `core/waveform.py` |
+| 人声分离 | `core/vocals.py` |
+| 载荷与匹配 | `service/song.py` |
+| 路由 | `http/routes.py` |
 
 ```text
-playlists / song_meta / readings / edits 的写入都加了 fcntl 文件锁
-```
-
-## 10. 接口
-
-```text
-GET  /                    页面
-GET  /static/*            css/js
-GET  /api/pl              歌单树 {lists, open}
-GET  /api/library         扁平歌曲列表（含 tags）
-GET  /api/song/<idx>      单曲（注音 + 罗马音 + edits + offset）
-GET  /audio/<idx>         音频（支持 Range）
-GET  /api/wave/<idx>      波形峰值
-POST /api/pl              歌单动作：list_create/rename/delete/clear/reorder,
-                          entry_move/remove/reorder, ui_offset, edit_clear, import
-POST /api/line            改一处读音（写 readings）
-POST /api/apply           批量恢复读音
-POST /api/rematch         重新匹配候选
-POST /api/pick            选定候选（写缓存）
-POST /api/tag             打标/取消
-POST /api/import/one      导入（扫描 + 落库 + 归入歌单）
-POST /api/lrc             load / save / backup / restore / import_lrc
-```
-
-## 11. 已知问题
-
-```text
-· 歌单改名、行内拖动排序没做界面入口
-· 波形用人声之前，只能看到原始混音波形（人声分离未接）
-· 打点只能"点波形 → 点 ↤"，没有键盘打点
-· 歌词覆盖不足整首时只给一个 ⚠ 提示，不阻断
+测试：
+  tests/test_player_http.py    接口层（载荷、改读音、保存）
+  tests/test_rematch.py        候选只来自网络、选中后替换
+  tests/test_vocals.py         VAD 统计与缓存路径
+  tests/test_ui_smoke.py       真窗口：歌单渲染、点歌出歌词
+  tests/lrc_editor.test.cjs    前端时间/保存/锁定逻辑
 ```
