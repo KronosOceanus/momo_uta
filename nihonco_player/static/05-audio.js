@@ -14,7 +14,13 @@ class AudioEngine {
     const h=this['on'+type]; if(typeof h==='function'){ try{ h(); }catch(e){} } }
 
   get src(){ return this._url; }
-  set src(u){ if(u!==this._url){ this._url=u; this._buf=null; this._ready=0; this._dur=0; this._offset=0; this._stop(); } }
+  set src(u){
+    if(u!==this._url){
+      this._url=u; this._buf=null; this._ready=0; this._dur=0; this._offset=0;
+      this._load=null;                 // 换歌必须重开预载，否则会拿到上一首的已解析 Promise
+      this._stop();
+    }
+  }
   get duration(){ return this._dur; }
   get readyState(){ return this._ready; }
   get paused(){ return !this._playing; }
