@@ -16,17 +16,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 RULES = {
-    "nihonco_yomi": ("nihonco_player", "nihonco_player_app"),
-    "nihonco_player/core": ("nihonco_player.service", "nihonco_player.http",
-                            "nihonco_player_app"),
-    "nihonco_player/service": ("nihonco_player.http", "nihonco_player_app"),
-    "nihonco_player/http": ("nihonco_player_app",),
+    "src/nihonco_yomi": ("nihonco_player", "nihonco_player_app"),
+    "src/nihonco_player/core": ("nihonco_player.service", "nihonco_player.http",
+                                "nihonco_player_app"),
+    "src/nihonco_player/service": ("nihonco_player.http", "nihonco_player_app"),
+    "src/nihonco_player/http": ("nihonco_player_app",),
 }
 
 
 def module_name(path: Path) -> str:
     rel = path.relative_to(ROOT).with_suffix("")
     parts = list(rel.parts)
+    if parts and parts[0] == "src":
+        parts = parts[1:]
     if parts[-1] == "__init__":
         parts.pop()
     return ".".join(parts)

@@ -14,8 +14,8 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-STATIC = ROOT / "nihonco_player" / "static"
-ORDER = ["10-app.js", "20-editor.js", "30-playback.js"]
+STATIC = ROOT / "src" / "nihonco_player" / "static"
+ORDER = ["05-audio.js", "10-app.js", "20-editor.js", "30-playback.js"]
 
 
 def node_check(code: str, label: str) -> bool:

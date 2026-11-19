@@ -190,7 +190,7 @@ class H(BaseHTTPRequestHandler):
         """前端诊断数据 → data/cache/app.log（只用于排查卡顿，可随时删除）"""
         import time
         from pathlib import Path
-        root = Path(__file__).resolve().parent.parent.parent
+        root = Path(__file__).resolve().parents[3]
         log = root / "data" / "cache" / "app.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         with log.open("a", encoding="utf-8") as fh:

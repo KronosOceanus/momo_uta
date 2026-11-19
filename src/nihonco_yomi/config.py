@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULTS = ROOT / "config" / "defaults.json"
 LOCAL = ROOT / "data" / "config.json"
 

@@ -38,7 +38,7 @@ class _Tee(io.TextIOBase):
 
 def setup() -> Path:
     """开始记录，返回日志路径。重复调用只会记录一次。"""
-    root = Path(__file__).resolve().parent.parent
+    root = Path(__file__).resolve().parents[2]
     logdir = root / "data" / "cache"
     logdir.mkdir(parents=True, exist_ok=True)
     log = logdir / "app.log"
