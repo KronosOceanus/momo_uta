@@ -43,16 +43,17 @@ class TestLrcDrafts(unittest.TestCase):
         raw = "\ufeff [ar:歌手][ti:曲] \n[Chorus]\n[offset:500]\n[00:05.00]あの日\n[Note: keep singing]\n"
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
-            lyrics = lrcio.lrc_path(audio)
-            lyrics.write_text(raw, encoding="utf-8")
-            draft = lrcio.load(audio)
-            self.assertEqual([row["text"] for row in draft["lines"]],
-                             ["[Chorus]", "あの日", "[Note: keep singing]"])
-            self.assertEqual([tag["before"] for tag in draft["metadata"]], [0, 1])
-            draft["lines"][1]["text"] = "次の日"
             with patch.object(lrcio, "LYRICS", Path(tmp) / "lyrics"), \
                  patch.object(lrcio.LY, "audio_duration", return_value=60), \
                  patch.object(lrcio.LY, "write_local_lrc") as cache_write:
+                store = lrcio.store_path(audio)
+                store.parent.mkdir(parents=True, exist_ok=True)
+                store.write_text(raw, encoding="utf-8")
+                draft = lrcio.load(audio)
+                self.assertEqual([row["text"] for row in draft["lines"]],
+                                 ["[Chorus]", "あの日", "[Note: keep singing]"])
+                self.assertEqual([tag["before"] for tag in draft["metadata"]], [0, 1])
+                draft["lines"][1]["text"] = "次の日"
                 self.assertTrue(lrcio.save(audio, draft["lines"])["ok"])
                 doc = lrcio.load(audio)
                 self.assertEqual([r["text"] for r in doc["lines"]],

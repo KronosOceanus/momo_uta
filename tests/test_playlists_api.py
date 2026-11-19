@@ -9,7 +9,6 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player.core import edits as ED        # noqa: E402
 from nihonco_player.core import playlists as PL   # noqa: E402
 from nihonco_player.core import library as LIB       # noqa: E402
 from nihonco_player.core.library import CACHE        # noqa: E402
@@ -29,8 +28,6 @@ class TestPlaylistsApi(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls._orig_file = PL.FILE
         PL.set_file(Path(cls.tmp.name) / "playlists.json")
-        cls._orig_readings = ED.FILE
-        ED.set_file(Path(cls.tmp.name) / "readings.json")
         CACHE.clear()
         CACHE.update({str(i): fake_item(f"u{i}", f"曲{i}") for i in range(3)})
         cls._orig_scan = LIB.scan_library
@@ -43,7 +40,6 @@ class TestPlaylistsApi(unittest.TestCase):
     def tearDownClass(cls):
         cls.srv.shutdown()
         PL.set_file(cls._orig_file)
-        ED.set_file(cls._orig_readings)
         LIB.scan_library = cls._orig_scan
         cls.tmp.cleanup()
 
@@ -100,32 +96,3 @@ class TestPlaylistsApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-class TestReadingEdits(unittest.TestCase):
-    """读音修改的持久化（服务端存 readings.json）。"""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory()
-        cls._orig = ED.FILE
-        ED.set_file(Path(cls.tmp.name) / "readings.json")
-
-    @classmethod
-    def tearDownClass(cls):
-        ED.set_file(cls._orig)
-        cls.tmp.cleanup()
-
-    def test_put_and_read(self):
-        ED.put("songkey", 3, 7, "とこ")
-        self.assertEqual(ED.for_song("songkey"), {"3:7": "とこ"})
-
-    def test_clear(self):
-        ED.put("songkey2", 1, 0, "あ")
-        ED.clear("songkey2")
-        self.assertEqual(ED.for_song("songkey2"), {})
-
-    def test_overwrite(self):
-        ED.put("songkey3", 1, 0, "あ")
-        ED.put("songkey3", 1, 0, "い")
-        self.assertEqual(ED.for_song("songkey3")["1:0"], "い")

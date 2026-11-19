@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 
 from ..core import importing as IMP
-from ..core import edits as ED
+from ..core import lrc_files as LRC
 from ..core import fingerprint as FP
 from ..core import library as LIB
 from ..core import song_meta as META
@@ -51,7 +51,10 @@ def playlists_action(req) -> dict:
     elif act == "edit_clear":
         item = CACHE.get(str(req.get("idx")))
         if item:
-            ED.clear(item["key"])
+            doc = LRC.load(item["file"], item.get("uid"),
+                           item["title"], item.get("artist", ""))
+            LRC.save(item["file"], doc["lines"], {}, item.get("uid"),
+                     item["title"], item.get("artist", ""))
     elif act == "import":
         return import_to_list(req)
     return {"ok": True, "lists": PL.build(cached_items())}

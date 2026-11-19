@@ -9,16 +9,14 @@ import json
 import re
 import threading
 
-from ..core import edits as ED
 from ..core import library as LIB
 from ..core import lrc_files as LRC
 from ..core import diag
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
-                               annotate_line_with_notes, fold_readings,
-                               line_fields, ruby_html, segs_of,
-                               strip_paren_ruby, words_html_of)
+                               annotate_line_with_notes, line_fields, ruby_html,
+                               segs_of, strip_paren_ruby, words_html_of)
 from ..core.library import CACHE
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
@@ -54,17 +52,12 @@ def song_payload(idx: int) -> dict:
             changed = True
         ln.update(fields)
         ln["raw"] = ln["text"]
-    legacy = ED.for_song(key)
     if any((ln.get("text") or "").strip() for ln in lines) and \
-            (changed or doc.get("kind") != "nhlrc" or legacy):
+            (changed or doc.get("kind") != "nhlrc"):
         try:
             ann = {i: segs_of(annotate_line_with_notes(ln["text"], stored=stored.get(i)))
                    for i, ln in enumerate(lines) if (ln.get("text") or "").strip()}
-            ann, used, dropped = fold_readings(key, lines, ann)
             LRC.save(item["file"], lines, ann, item.get("uid"), item["title"], item.get("artist", ""))
-            if legacy:
-                ED.pop(key)
-                diag.log("lyrics", f"{key}: 迁移手改读音 {used} 处，丢弃 {dropped} 处")
         except Exception as e:
             diag.log("nhlrc", f"自动落盘失败：{e}")
     return {"idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
@@ -91,13 +84,11 @@ def edit_line(idx, li, start, reading):
         if not seg:
             return None
         ann = dict(doc.get("annotations") or {})
-        ann, _used, _dropped = fold_readings(item["key"], lines, ann)   # 顺带迁移旧手改
         r = annotate_line_with_notes(text, stored=ann.get(li),
                                      extra_start=start, extra_reading=reading)
         ann[li] = segs_of(r)
-        LRC.save(item["file"], lines, ann, item.get("uid"), item["title"], item.get("artist", ""))
-        if ED.for_song(item["key"]):
-            ED.pop(item["key"])
+        LRC.save(item["file"], lines, ann, item.get("uid"),
+                 item["title"], item.get("artist", ""))
     return {"line": li, "ruby": ruby_html(r), "rm": r.get("romaji", {}).get("text", ""),
             "ky": r.get("keys", {}).get("text", ""),
             "rmH": words_html_of(r, "romaji"), "kyH": words_html_of(r, "keys")}

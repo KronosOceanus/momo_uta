@@ -5,7 +5,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import edits as ED
 from nihonco_player.core import lrc_doc as DOC
 from nihonco_player.core import lrc_files as LRF
 from nihonco_player.core import lyrics as LY
@@ -31,27 +30,9 @@ class TestStoreLocation(unittest.TestCase):
                  patch.object(LRF.LY, "write_local_lrc"):
                 LRF.save(audio, rows(), ann)
                 self.assertTrue(LRF.store_path(audio).is_file())
-                self.assertFalse(LRF.nhlrc_path(audio).exists())
                 doc = LRF.load(audio)
             self.assertEqual(doc["kind"], "nhlrc")
             self.assertEqual(doc["annotations"], ann)
-
-    def test_legacy_sidecar_is_migrated_and_removed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            audio = root / "歌手 - 曲.mp3"
-            audio.touch()
-            ann = {0: [["君", "きみ", "A"]]}
-            LRF.nhlrc_path(audio).write_text(
-                DOC.render_nhlrc([{"t": 5.0, "text": "君"}], [], ann), encoding="utf-8")
-            with patch.object(LRF, "LYRICS", root / "lyrics"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60), \
-                 patch.object(LRF.LY, "write_local_lrc"):
-                doc = LRF.load(audio)
-                self.assertTrue(LRF.store_path(audio).is_file())
-                self.assertFalse(LRF.nhlrc_path(audio).exists())
-            self.assertEqual(doc["annotations"], ann)
-
 
 class TestNaming(unittest.TestCase):
     def test_readable_name(self):
@@ -80,10 +61,6 @@ class TestNaming(unittest.TestCase):
                 f = root / "lyrics" / f"别的名字.{uid}.nhlrc"
                 f.write_text("", encoding="utf-8")
                 self.assertEqual(LRF.store_path(audio, uid), f)
-                old = root / "lyrics" / f"{uid}.nhlrc"
-                f.unlink()
-                old.write_text("", encoding="utf-8")
-                self.assertEqual(LRF.store_path(audio, uid), old)
 
 
 class TestAlign(unittest.TestCase):
@@ -112,49 +89,52 @@ class TestAlign(unittest.TestCase):
         self.assertEqual(out, {})
 
 
-class TestManualReadingFolded(unittest.TestCase):
-    def _env(self, tmp):
-        root = Path(tmp)
+class TestManualReading(unittest.TestCase):
+    def _env(self, root):
         audio = root / "歌手 - 曲.mp3"
         audio.touch()
-        (root / "歌手 - 曲.lrc").write_text(
-            "[00:05.00]君の名前\n[00:09.00]呼んでくれた\n[00:13.00]また会おう\n",
-            encoding="utf-8")
         CACHE.clear()
         CACHE["0"] = {"key": "k1", "uid": LRF.uid_of(audio), "file": str(audio),
                       "stem": audio.stem, "orig": "曲", "title": "曲",
                       "artist": "歌手", "has_lyric": True, "group": ""}
-        return root, audio
+        return audio
 
-    def test_edit_reading_writes_store_without_readings_json(self):
+    def test_edit_reading_writes_store(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root, audio = self._env(tmp)
+            root = Path(tmp)
+            audio = self._env(root)
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                ED.set_file(root / "readings.json")
-                SONG.song_payload(0)                       # 首次注音 → 落盘
+                LRF.save(audio, rows(), {})                # 先有正文
+                SONG.song_payload(0)                       # 自动注音并落盘
                 res = SONG.edit_line_action({"idx": "0", "line": 0,
                                              "start": 0, "reading": "きみだ"})
                 self.assertIn("きみだ", res["ruby"])
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertIn("きみだ", raw)
-                self.assertEqual(ED.for_song("k1"), {})   # 不再写 readings
                 doc = LRF.load(audio)
                 self.assertEqual("".join(x[0] for x in doc["annotations"][0]), "君の名前")
 
-    def test_old_readings_are_migrated_and_cleared(self):
+    def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root, audio = self._env(tmp)
+            root = Path(tmp)
+            audio = self._env(root)
+            from nihonco_player.core import playlists as PL
+            from nihonco_player.service import playlist as SVC_PL
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(PL, "FILE", root / "playlists.json"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                ED.set_file(root / "readings.json")
-                ED.put("k1", 0, 0, "きみだ")
+                LRF.save(audio, rows(), {})
                 SONG.song_payload(0)
-                self.assertEqual(ED.for_song("k1"), {})
+                SONG.edit_line_action({"idx": "0", "line": 0,
+                                       "start": 0, "reading": "きみだ"})
+                self.assertIn("きみだ", LRF.store_path(audio).read_text(encoding="utf-8"))
+                SVC_PL.playlists_action({"action": "edit_clear", "idx": "0"})
+                SONG.song_payload(0)                     # 重新注音并落盘
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
-                self.assertIn("きみだ", raw)
+                self.assertNotIn("きみだ", raw)
 
 
 class TestSaveAlignment(unittest.TestCase):
@@ -163,14 +143,12 @@ class TestSaveAlignment(unittest.TestCase):
             root = Path(tmp)
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
-            (root / "歌手 - 曲.lrc").write_text(
-                "[00:05.00]君の名前\n[00:09.00]呼んでくれた\n", encoding="utf-8")
             CACHE.clear()
             CACHE["0"] = {"key": "k2", "uid": LRF.uid_of(audio), "file": str(audio),
                           "stem": audio.stem, "orig": "曲", "title": "曲",
                           "artist": "歌手", "has_lyric": True, "group": ""}
             with patch.object(LRF, "LYRICS", root / "lyrics"),                  patch.object(LC, "CACHE", root / "cache"),                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                ED.set_file(root / "readings.json")
+                LRF.save(audio, rows()[:2], {})            # 先有正文
                 SONG.song_payload(0)
                 before = LRF.load(audio)["annotations"]
                 from nihonco_player.service import lrc as SVC

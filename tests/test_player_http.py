@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player.core import edits as ED      # noqa: E402
 from nihonco_player.core import library as LIB       # noqa: E402
 from nihonco_player.core import lyrics as LY         # noqa: E402
 from nihonco_player.core import lrc_files as LRF     # noqa: E402
@@ -45,8 +44,6 @@ class TestPlayerHttp(unittest.TestCase):
                                         "artist": "テスト", "lang": "ja"}
         cls.tmp = tempfile.TemporaryDirectory()
         LIB.TAGS = Path(cls.tmp.name) / "tags.json"
-        cls._orig_readings = ED.FILE
-        ED.set_file(Path(cls.tmp.name) / "readings.json")
         cls.srv = make_server(0)
         cls.port = cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
@@ -57,7 +54,6 @@ class TestPlayerHttp(unittest.TestCase):
         cls._lyr_patch.stop()
         cls._lyr_tmp.cleanup()
         LY.get_lrc = cls._orig_get
-        ED.set_file(cls._orig_readings)
         cls.tmp.cleanup()
 
     def url(self, path):

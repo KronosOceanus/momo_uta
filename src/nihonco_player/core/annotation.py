@@ -108,49 +108,6 @@ def annotations_from_lines(lines: list[dict]) -> dict[int, list]:
     return out
 
 
-def offset_exists(text: str, start: int) -> bool:
-    """行内 start 处是否存在一个有读音的片段（readings 迁移用）。"""
-    clean, _ = strip_paren_ruby(text)
-    for seg in AN.annotate(clean)["lines"][0]["segments"]:
-        if seg.get("start") == start and seg.get("ruby"):
-            return True
-    return False
-
-
-def fold_readings(key: str, lines: list[dict],
-                  annotations: dict[int, list]) -> tuple[dict[int, list], int, int]:
-    """把 readings.json 里的手改读音并进 annotate；返回 (annotations, 采用, 丢弃)。
-
-    不清 readings（清理由调用方在落盘成功后做）。
-    """
-    from . import edits as ED
-    entries = ED.for_song(key)
-    used = dropped = 0
-    by_line: dict[int, list[tuple[int, str]]] = {}
-    for k, reading in entries.items():
-        try:
-            line_s, start_s = k.split(":")
-            by_line.setdefault(int(line_s), []).append((int(start_s), str(reading)))
-        except (ValueError, AttributeError):
-            dropped += 1
-    for line, pairs in by_line.items():
-        if not (0 <= line < len(lines)) or not (lines[line].get("text") or "").strip():
-            dropped += len(pairs)
-            continue
-        text = lines[line]["text"]
-        base = annotations.get(line)
-        for start, reading in pairs:
-            if not offset_exists(text, start):
-                dropped += 1
-                continue
-            r = annotate_line_with_notes(text, stored=base, extras=[(start, reading)])
-            base = segs_of(r)
-            used += 1
-        if base:
-            annotations[line] = base
-    return annotations, used, dropped
-
-
 def line_fields(text: str, stored: list | None = None) -> dict:
     """一行文本 → 载荷字段（ruby HTML / 罗马音 / 键位 / 分行高亮）。"""
     r = annotate_line_with_notes(text, stored=stored)

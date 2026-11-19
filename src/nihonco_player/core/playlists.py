@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import contextlib
 import fcntl
-import hashlib
 import json
 import time
 from pathlib import Path
@@ -74,16 +73,6 @@ def build(lib: list[dict]) -> list[dict]:
     d = load()
     open_ids = d.get("open", [])
     by_uid = {it["uid"]: it for it in lib}
-    # 兼容：旧歌单成员存的是"路径哈希"uid，新 uid 是音频指纹。
-    # 这里做一次"读时别名"（不写盘、不迁移）：旧 uid 仍能显示成同一首歌。
-    legacy = {}
-    for it in lib:
-        try:
-            old = hashlib.md5(str(it.get("file", "")).encode()).hexdigest()[:12]
-        except Exception:
-            continue
-        if old != it["uid"]:
-            legacy.setdefault(old, it)
     # 默认歌单置顶，其余按 list_order（未列出的保持创建顺序）
     order = {lid: i for i, lid in enumerate(d["list_order"])}
     lists = sorted(d["lists"],
@@ -92,16 +81,12 @@ def build(lib: list[dict]) -> list[dict]:
     out = []
     for x in lists:
         uids = d["members"].get(x["id"], [])
-        items, seen, missing = [], set(), 0
+        items, missing = [], 0
         for u in uids:
-            it = by_uid.get(u) or legacy.get(u)
+            it = by_uid.get(u)
             if not it:
                 missing += 1
                 continue
-            key = it.get("uid")
-            if key in seen:                 # 新旧 uid 指向同一首 → 只显示一次
-                continue
-            seen.add(key)
             items.append(it)
         out.append({"id": x["id"], "name": x["name"], "items": items,
                     "missing": missing, "locked": x["id"] == DEFAULT_ID})

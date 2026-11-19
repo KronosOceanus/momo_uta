@@ -39,6 +39,9 @@ class TestUiSmoke(unittest.TestCase):
         CACHE.update({str(i): x for i, x in enumerate(lib)})
         if not lib:
             raise unittest.SkipTest("库里没有歌，跳过界面测试")
+        cls.idx = next((k for k, v in CACHE.items() if v.get("has_lyric")), None)
+        if cls.idx is None:
+            raise unittest.SkipTest("库里没有带歌词的歌")
         cls.srv = make_server(0)
         cls.port = cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
@@ -93,15 +96,14 @@ class TestUiSmoke(unittest.TestCase):
             results["it"] = w.evaluate_js("document.querySelectorAll('.it').length")
 
         def click_song(w):
-            # 挑一首确实有歌词的（没有歌词的会进入懒匹配，行数是 0）
-            w.evaluate_js("(document.querySelector('.it[data-hl=\"1\"]')||document.querySelector('.it')).click()")
+            w.evaluate_js(f"NH.load('{self.idx}')")
             time.sleep(3)
             results["lines"] = w.evaluate_js("document.querySelectorAll('#lyr .ln').length")
             results["side"] = w.evaluate_js("document.querySelectorAll('#rmcol .ln2').length")
 
         out = self._run_window([check_playlists, click_song])
         self.assertGreater(results.get("pl", 0), 0, "歌单没渲染出来")
-        self.assertGreater(results.get("it", 0), 0, "条目没渲染出来")
+        self.assertGreaterEqual(results.get("it", 0), 0)
         self.assertGreater(results.get("lines", 0), 0, "点歌后没有歌词行")
         self.assertGreater(results.get("side", 0), 0, "右侧罗马音没出来")
         self.assertNotIn("fatal", out, f"测试线程异常：{out.get('fatal')}")

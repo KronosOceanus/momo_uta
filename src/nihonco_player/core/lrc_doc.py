@@ -17,18 +17,6 @@ METADATA = re.compile(
 )
 
 
-def lrc_path(audio: str | Path) -> Path:
-    return Path(audio).with_suffix(".lrc")
-
-
-def nhlrc_path(audio: str | Path) -> Path:
-    return Path(audio).with_suffix(".nhlrc")
-
-
-def exists(audio: str | Path) -> bool:
-    return nhlrc_path(audio).is_file() or lrc_path(audio).is_file()
-
-
 def _hash8(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
 
@@ -123,7 +111,7 @@ def parse(text: str) -> list[dict]:
 
 def align_annotations(lines: list[dict],
                       annotations: dict[int, list]) -> dict[int, list]:
-    """把旧标注按内容对齐到新行序（插入/删除/移动后仍然跟着行走）。
+    """把已有标注按内容对齐到新行序（插入/删除/移动后仍然跟着行走）。
 
     位置优先（没动过的行最精确），再按文本先进先出；拼接不成立的一律不用。
     """

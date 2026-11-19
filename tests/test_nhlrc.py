@@ -53,33 +53,18 @@ class TestNhlrc(unittest.TestCase):
                 self.assertEqual(doc["annotations"], ann)
             self.assertEqual(DOC.render_body(rows(), []), "[00:05.00]君の名前\n[00:09.00]呼んでくれた\n")
 
-    def test_legacy_lrc_still_loads_without_annotations(self):
+    def test_backup_created_on_first_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
-            LRF.lrc_path(audio).write_text("[00:05.00]君の名前\n", encoding="utf-8")
-            doc = LRF.load(audio)
-            self.assertEqual(doc["kind"], "lrc")
-            self.assertEqual(doc["annotations"], {})
-            self.assertEqual([r["text"] for r in doc["lines"]], ["君の名前"])
-
-    def test_backup_created_once_from_original(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            audio = Path(tmp) / "歌手 - 曲.mp3"
-            audio.touch()
-            legacy = "[00:05.00]君の名前\n"
-            LRF.lrc_path(audio).write_text(legacy, encoding="utf-8")
             with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LRF.LY, "write_local_lrc"):
-                LRF.save(audio, rows())
+                LRF.save(audio, rows())                 # 第一次：没有旧文件
                 uid = LRF.uid_of(audio)
-                self.assertEqual(LRF.backup_path(audio, uid).read_text(encoding="utf-8"), legacy)
-                p = LRF.store_path(audio, uid)
-                before = p.read_text(encoding="utf-8")
-                LRF.save(audio, rows())
-                self.assertEqual(LRF.backup_path(audio, uid).read_text(encoding="utf-8"), legacy)
-                self.assertTrue(before.startswith("[00:05.00]君の名前"))
+                first = LRF.store_path(audio).read_text(encoding="utf-8")
+                LRF.save(audio, rows())                 # 第二次：备份第一次的内容
+                self.assertEqual(LRF.backup_path(audio, uid).read_text(encoding="utf-8"), first)
 
 
 if __name__ == "__main__":
