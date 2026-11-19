@@ -132,3 +132,29 @@ class TestImportToList(unittest.TestCase):
             self.assertTrue(res["ok"])
             self.assertEqual(res["library"], 1)
             self.assertEqual(res["imported"], 1)
+
+
+class TestMatchAction(unittest.TestCase):
+    def test_match_calls_lazy_match(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core.library import CACHE
+        from nihonco_player.service import playlist as SVC
+        from nihonco_player.service import song as SONG
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            CACHE.clear()
+            CACHE["0"] = {"key": "k", "uid": "fp1", "file": str(root / "a.mp3"),
+                          "stem": "歌手 - 曲", "orig": "曲", "title": "曲",
+                          "artist": "歌手", "has_lyric": False, "group": ""}
+            old = PL.FILE
+            PL.set_file(root / "playlists.json")
+            try:
+                with patch.object(SONG, "lazy_match") as lazy:
+                    res = SVC.playlists_action({"action": "match", "idx": "0"})
+            finally:
+                PL.set_file(old)
+            lazy.assert_called_once()
+            self.assertTrue(res["ok"])

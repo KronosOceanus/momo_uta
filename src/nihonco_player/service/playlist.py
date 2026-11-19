@@ -13,6 +13,7 @@ from ..core import library as LIB
 from ..core import song_meta as META
 from ..core import playlists as PL
 from ..core.library import CACHE
+from . import song as SONGS
 
 
 def cached_items() -> list[dict]:
@@ -55,6 +56,10 @@ def playlists_action(req) -> dict:
                            item["title"], item.get("artist", ""))
             LRC.save(item["file"], doc["lines"], {}, item.get("uid"),
                      item["title"], item.get("artist", ""))
+    elif act == "match":
+        item = CACHE.get(str(req.get("idx")))
+        if item:
+            SONGS.lazy_match(item)
     elif act == "import":
         return import_to_list(req)
     return {"ok": True, "lists": PL.build(cached_items())}
