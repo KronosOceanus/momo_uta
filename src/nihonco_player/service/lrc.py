@@ -42,7 +42,7 @@ def lrc_action(req):
         return res
     if act == "save":
         lines = req.get("lines") or []
-        if not lines:
+        if not lines or not any((ln.get("text") or "").strip() for ln in lines):
             return {"ok": False, "error": "没有歌词行"}
         doc = LRC.load(item["file"])
         old = doc.get("annotations") or {}

@@ -117,6 +117,10 @@ def load(audio: str | Path) -> dict:
         full = np_.read_text(encoding="utf-8", errors="ignore")
         body, tail = _split_nhlrc(full)
         path, kind = np_, "nhlrc"
+        if not any((ln.get("text") or "").strip()
+                   for ln in _parse_document(body)[0]) and lp.is_file():
+            body = lp.read_text(encoding="utf-8", errors="ignore")   # 空壳 nhlrc → 回退 lrc
+            path, kind, tail = lp, "lrc", None
     elif lp.is_file():
         full = lp.read_text(encoding="utf-8", errors="ignore")
         body, tail = full, None

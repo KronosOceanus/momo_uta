@@ -143,7 +143,7 @@ def song_payload(idx: int) -> dict:
         ln["ky"] = r.get("keys", {}).get("text", "")
         ln["rmH"] = _words(r, "romaji")
         ln["kyH"] = _words(r, "keys")
-    if changed and lines:
+    if changed and any((ln.get("text") or "").strip() for ln in lines):
         try:
             ann = {i: segs_of(annotate_line_with_notes(ln["text"], stored=stored.get(i)))
                    for i, ln in enumerate(lines) if (ln.get("text") or "").strip()}
