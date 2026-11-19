@@ -17,7 +17,8 @@ except Exception:                     # pragma: no cover
     HAVE_WEBVIEW = False
 
 from nihonco_player.core import library as LIB
-from nihonco_player import server as SRV
+from nihonco_player.core.library import CACHE
+from nihonco_player.http.server import make_server
 
 
 @unittest.skipUnless(HAVE_WEBVIEW, "没有 pywebview")
@@ -25,11 +26,11 @@ class TestUiSmoke(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         lib = LIB.scan_library()
-        SRV.CACHE.clear()
-        SRV.CACHE.update({str(i): x for i, x in enumerate(lib)})
+        CACHE.clear()
+        CACHE.update({str(i): x for i, x in enumerate(lib)})
         if not lib:
             raise unittest.SkipTest("库里没有歌，跳过界面测试")
-        cls.srv = SRV.make_server(0)
+        cls.srv = make_server(0)
         cls.port = cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 

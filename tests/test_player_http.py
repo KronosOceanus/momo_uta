@@ -9,7 +9,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from nihonco_player.core import edits as ED      # noqa: E402
-from nihonco_player import server as S  # noqa: E402
+from nihonco_player.core import library as LIB       # noqa: E402
+from nihonco_player.core import lyrics as LY         # noqa: E402
+from nihonco_player.core.library import CACHE        # noqa: E402
+from nihonco_player.http.server import make_server   # noqa: E402
 
 FAKE_LRC = "\n".join([
     "[00:00.00]作词 : X",
@@ -28,24 +31,24 @@ CACHE_ITEM = {
 class TestPlayerHttp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        S.CACHE.clear()
-        S.CACHE["0"] = CACHE_ITEM
+        CACHE.clear()
+        CACHE["0"] = CACHE_ITEM
         # 让 song_payload 拿到固定歌词，不走网络
-        cls._orig_get = S.LY.get_lrc
-        S.LY.get_lrc = lambda *a, **k: {"lrc": FAKE_LRC, "tlyric": "", "name": "テスト曲",
+        cls._orig_get = LY.get_lrc
+        LY.get_lrc = lambda *a, **k: {"lrc": FAKE_LRC, "tlyric": "", "name": "テスト曲",
                                         "artist": "テスト", "lang": "ja"}
         cls.tmp = tempfile.TemporaryDirectory()
-        S.LIB.TAGS = Path(cls.tmp.name) / "tags.json"
+        LIB.TAGS = Path(cls.tmp.name) / "tags.json"
         cls._orig_readings = ED.FILE
         ED.set_file(Path(cls.tmp.name) / "readings.json")
-        cls.srv = S.make_server(0)
+        cls.srv = make_server(0)
         cls.port = cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
-        S.LY.get_lrc = cls._orig_get
+        LY.get_lrc = cls._orig_get
         ED.set_file(cls._orig_readings)
         cls.tmp.cleanup()
 

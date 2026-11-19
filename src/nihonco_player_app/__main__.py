@@ -14,7 +14,8 @@ import webview
 from webview import FileDialog
 
 from nihonco_player.core import library as LIB
-from nihonco_player import server as SRV
+from nihonco_player.core.library import CACHE
+from nihonco_player.http.server import make_server
 
 from . import logsetup
 
@@ -24,9 +25,9 @@ def main() -> None:
     sys.excepthook = logsetup.log_exception
     print(f"日志：{log_path}")
     lib = LIB.scan_library()
-    SRV.CACHE.update({str(i): x for i, x in enumerate(lib)})
+    CACHE.update({str(i): x for i, x in enumerate(lib)})
 
-    srv = SRV.make_server(0)                     # 随机端口，不占 8766
+    srv = make_server(0)                     # 随机端口，不占 8766
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
 

@@ -11,7 +11,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from nihonco_player.core import edits as ED        # noqa: E402
 from nihonco_player.core import playlists as PL   # noqa: E402
-from nihonco_player import server as S       # noqa: E402
+from nihonco_player.core import library as LIB       # noqa: E402
+from nihonco_player.core.library import CACHE        # noqa: E402
+from nihonco_player.http.server import make_server   # noqa: E402
 
 FAKE = {"key": "k1", "uid": "u1", "file": "/tmp/a.mp3", "stem": "X - A", "orig": "A",
         "title": "A", "artist": "X", "group": "", "has_lyric": True}
@@ -29,11 +31,11 @@ class TestPlaylistsApi(unittest.TestCase):
         PL.set_file(Path(cls.tmp.name) / "playlists.json")
         cls._orig_readings = ED.FILE
         ED.set_file(Path(cls.tmp.name) / "readings.json")
-        S.CACHE.clear()
-        S.CACHE.update({str(i): fake_item(f"u{i}", f"曲{i}") for i in range(3)})
-        cls._orig_scan = S.LIB.scan_library
-        S.LIB.scan_library = lambda *a, **k: list(S.CACHE.values())
-        cls.srv = S.make_server(0)
+        CACHE.clear()
+        CACHE.update({str(i): fake_item(f"u{i}", f"曲{i}") for i in range(3)})
+        cls._orig_scan = LIB.scan_library
+        LIB.scan_library = lambda *a, **k: list(CACHE.values())
+        cls.srv = make_server(0)
         cls.port = cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 
@@ -42,7 +44,7 @@ class TestPlaylistsApi(unittest.TestCase):
         cls.srv.shutdown()
         PL.set_file(cls._orig_file)
         ED.set_file(cls._orig_readings)
-        S.LIB.scan_library = cls._orig_scan
+        LIB.scan_library = cls._orig_scan
         cls.tmp.cleanup()
 
     def post(self, body):
