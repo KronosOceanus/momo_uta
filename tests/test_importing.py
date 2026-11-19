@@ -34,7 +34,7 @@ class TestImportPreferNhlrc(unittest.TestCase):
                 self.assertEqual(doc["annotations"],
                                  {0: [["新", "あら", "A"], ["歌词", None, None]]})
 
-    def test_import_text_strips_nhlrc_tail(self):
+    def test_import_text_keeps_nhlrc_readings(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
@@ -46,8 +46,10 @@ class TestImportPreferNhlrc(unittest.TestCase):
                 res = LRF.import_text(audio, text)
                 self.assertTrue(res["ok"])
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
-            self.assertNotIn("#NHLRC", raw)
+                doc = LRF.load(audio)
+            self.assertIn("#NHLRC", raw)                 # 读音一起导入
             self.assertIn("[00:01.00]君", raw)
+            self.assertEqual(doc["annotations"], {0: [["君", "きみ", "A"]]})
 
 
 if __name__ == "__main__":

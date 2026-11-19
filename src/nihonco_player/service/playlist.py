@@ -2,13 +2,13 @@
 """歌单 / 导入 / 打标 业务。只依赖 core。"""
 from __future__ import annotations
 
-import hashlib
 import json
 import threading
 from pathlib import Path
 
 from ..core import importing as IMP
 from ..core import edits as ED
+from ..core import fingerprint as FP
 from ..core import library as LIB
 from ..core import song_meta as META
 from ..core import playlists as PL
@@ -73,7 +73,7 @@ def import_to_list(req) -> dict:
         artist, title = LIB.LY.split_name(p.stem)
         LIB.save_import(str(p), title, artist)
     LIB.refresh()
-    uids = [hashlib.md5(str(Path(str(f))).encode()).hexdigest()[:12] for f in res["added"]]
+    uids = [FP.fingerprint(f) for f in res["added"]]
     added_n = PL.add(lid, uids)
 
     # "待匹配" = 真正进了歌单、但当前还没有歌词的那些

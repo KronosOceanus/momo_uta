@@ -10,6 +10,7 @@ from pathlib import Path
 from nihonco_yomi.config import LB
 from nihonco_yomi.paths import ROOT
 
+from . import fingerprint as FP
 from . import lyrics as LY
 
 MUSIC = Path.home() / "Music" / "网易云音乐"
@@ -89,12 +90,12 @@ def _entry(p: Path, group: str) -> dict | None:
     if not hit or (hit.get("source") != "local-lrc" and LY.content_lines(hit.get("lrc") or "") < 3):
         # 网络匹配要有足够的歌词行。本地草稿可以尚未打点，不应再次匹配。
         return {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
-                "uid": hashlib.md5(str(p).encode()).hexdigest()[:12],
+                "uid": FP.fingerprint(p),
                 "file": str(p), "stem": stem, "orig": title, "group": group,
                 "title": title, "artist": artist, "source": "", "lang": "unknown",
                 "has_lyric": False, "suspect": False}
     return {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
-            "uid": hashlib.md5(str(p).encode()).hexdigest()[:12],
+            "uid": FP.fingerprint(p),
             "has_lyric": True,
             "file": str(p), "stem": stem, "orig": title, "group": group,
             "title": hit.get("name") or title,
@@ -124,4 +125,5 @@ def scan_library(folder: Path | None = None) -> list[dict]:
         if p.exists():
             add(p, "导入")
 
+    FP.flush()
     return out

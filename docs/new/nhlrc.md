@@ -364,9 +364,17 @@ body = sha1(整篇正文)[:8]
 
 ```text
 接受 .lrc / .nhlrc。
-  · 只取正文，标注清空（旧读音不沿用）
+  · .lrc：取正文（没有读音可带）
+  · .nhlrc：正文 + 读音一起导入（尾部 seg 按行原样保留）
+  · 身份不沿用：一律写到当前音频的指纹文件名下（相当于新建）
   · 覆盖前备份当前 .nhlrc
-  · 首次覆盖不产生空文件（文件空 → 报错）
+  · 文件空 → 报错
+```
+
+```text
+也就是说：不管这份歌词原本属于哪段音频，
+导入到当前歌之后，它就是"当前音频的标注"；
+来源信息不写进文件（不需要，也不参与查找）。
 ```
 
 ### 6.3 导出（LRC 工具栏「导出」）
@@ -388,8 +396,16 @@ body = sha1(整篇正文)[:8]
 ### 6.4 文件命名与位置
 
 ```text
-正式位置：data/lyrics/<歌名> - <歌手>.<uid>.nhlrc
-uid = md5(音频绝对路径)[:12]（和歌单、人声缓存同一个 uid）
+正式位置：data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc
+
+指纹（身份，和路径无关）：
+  sha1(
+      时长（0.1 秒精度）
+    + 文件大小
+    + 文件 25% / 50% / 75% 处各 32KB 的哈希
+  )[:12]
+
+缓存：data/cache/fingerprints.json（按"路径 + size + mtime"失效，可随时删）
 ```
 
 ```text
@@ -412,14 +428,16 @@ uid = md5(音频绝对路径)[:12]（和歌单、人声缓存同一个 uid）
 
 ```text
 好处：
-  · Finder / git 里一眼能认出来
-  · 同名不同目录的歌不会互相覆盖（uid 兜底）
-  · 整个目录可以直接备份 / 打包
+  · 移动 / 改名 / 换目录 / 换机器：字节不变 → 指纹不变 → 标注还在
+  · 同一段音频的两份拷贝：指纹相同 → 共享同一份标注
+  · 同名不同目录的歌不会互相覆盖
+  · 整个 data/lyrics 可以直接备份 / 打包
 
-代价：
+代价与限制：
   · 文件名较长
-  · 音频移动或改名 → uid 变 → 旧标注成为孤儿（同歌单行为）
-  · 旧位置（音频旁）的 .nhlrc 会在第一次读取时自动迁移并删除
+  · 重新压制 / 剪辑 / 转码 → 指纹变 → 视为另一段音频（重新注音）
+  · 重新打标签（改 ID3/封面）→ 文件大小和采样位置可能变 → 指纹可能变
+  · 旧版本按路径哈希命名的歌词文件不再被读取（不迁移、不兜底）
 ```
 
 ```text
@@ -552,6 +570,7 @@ uid = md5(音频绝对路径)[:12]（和歌单、人声缓存同一个 uid）
 
 | 职责 | 位置 | 说明 |
 |---|---|---|
+| 音频身份 | `nihonco_player.core.fingerprint` | `fingerprint`、索引缓存 `data/cache/fingerprints.json` |
 | 格式定义/序列化 | `nihonco_player.core.lrc_doc` | `render`、`render_nhlrc`、`_split_nhlrc`、`annotations_for`、`align_annotations`、`_hash8` |
 | 文件读写/备份 | `nihonco_player.core.lrc_files` | `store_path`、`load`、`save`、`import_text`、`restore_backup`、旧文件迁移 |
 | 手改读音迁移 | `nihonco_player.core.annotation` | `fold_readings`（readings → seg） |

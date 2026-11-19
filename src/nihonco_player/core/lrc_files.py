@@ -15,6 +15,7 @@ from pathlib import Path
 from nihonco_yomi.paths import LYRICS
 
 from . import diag
+from . import fingerprint as FP
 from . import lyrics as LY
 from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
                       _parse_document, _split_nhlrc, annotations_for, parse,
@@ -25,8 +26,8 @@ LOCK = threading.RLock()
 
 
 def uid_of(audio: str | Path) -> str:
-    """和 library 里一致的 uid：绝对路径的 md5 前 12 位。"""
-    return hashlib.md5(str(Path(audio)).encode()).hexdigest()[:12]
+    """和 library 里一致的 uid：音频指纹（读不了文件时退回路径哈希）。"""
+    return FP.fingerprint(audio)
 
 
 def lrc_path(audio: str | Path) -> Path:
@@ -220,13 +221,19 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
     if src.is_file() and not bak.exists():
         shutil.copy2(src, bak)
         backed = True
-    body, _tail = _split_nhlrc(text)          # 选到 .nhlrc 时只取正文
+    body, tail = _split_nhlrc(text)
     body = body if body.endswith("\n") else body + "\n"
-    sp.write_text(body, encoding="utf-8")
+    lines, metadata = _parse_document(body)
+    # 导入别人的 nhlrc：正文 + 读音一起搬（读音按行内容对齐），
+    # 身份由当前音频的指纹决定，文件里不存来源信息
+    annotations = annotations_for(lines, tail) if tail else {}
+    out = render_nhlrc(lines, metadata, annotations) if annotations else body
+    sp.write_text(out, encoding="utf-8")
     artist, title = LY.split_name(audio.stem)
     LY.write_local_lrc(title, artist, body,
                        duration=LY.audio_duration(audio), name=title, by=artist)
-    return {"ok": True, "path": str(sp), "lines": len(parse(body)), "backed_up": backed}
+    return {"ok": True, "path": str(sp), "lines": len(lines),
+            "annotated": len(annotations), "backed_up": backed}
 
 
 def save(audio: str | Path, lines: list[dict],
