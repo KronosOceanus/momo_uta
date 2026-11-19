@@ -27,7 +27,10 @@ main{flex:1;display:flex;flex-direction:column;min-width:0}
 .btns{justify-self:center;display:flex;gap:8px;flex-wrap:wrap}
 .bar2 button{background:#1b2129;border:1px solid #2b313a;color:#cfd3d8;border-radius:7px;padding:5px 11px;font-size:13px;cursor:pointer;font-family:inherit}
 .bar2 button:hover{border-color:var(--a);color:var(--a)}
-.hdr{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #20242b;min-width:0}
+.hdr{position:relative;display:flex;align-items:center;gap:12px;padding:12px 16px;
+  border-bottom:1px solid #20242b;min-width:0}
+.hdr .legend{position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;
+  font-size:11px;color:#6d737c;white-space:nowrap}
 #start{white-space:nowrap;flex:0 0 auto}
 .hdr button{background:#1b2129;border:1px solid #2b313a;color:#cfd3d8;border-radius:7px;padding:5px 11px;font-size:13px;cursor:pointer;font-family:inherit}
 .hdr button:hover{border-color:var(--a);color:var(--a)}
@@ -215,7 +218,20 @@ body.lrcedit #lrcrow2,body.lrcedit #lrcrow3{display:flex}
 .lrcrow{justify-content:space-between}
 .lrcrow .left,.lrcrow .right{display:flex;align-items:center;gap:6px}
 .lrcrow .right{margin-left:auto}
-.lrcrow #wavefollow{margin-left:auto}
+#lrcrow3 #wavefollow{margin-left:0}
 #lrcrow3 .off{margin-left:0}
 
 .savehint:empty{display:none}
+
+/* 振假名工具行：全部重置靠右 */
+#fakbar{justify-content:flex-end}
+/* 波形下方的缩放 / 跳转行 */
+#wavebar{display:none;padding-top:5px;padding-bottom:5px}
+body.lrcedit #wavebar{display:flex}
+#wavebar .left,#wavebar .right{display:flex;align-items:center;gap:6px}
+#wavebar .right{margin-left:auto}
+#wavebar b{min-width:3.2em;text-align:center;color:#cfd3d8;font-weight:400}
+#zoomval{cursor:text;border-bottom:1px dashed #3a4450}
+#offval{cursor:text}
+.numin{width:4.2em;background:#0f1318;color:#e6e4e1;border:1px solid var(--a);
+  border-radius:4px;font-family:inherit;font-size:12px;padding:1px 3px;text-align:center}

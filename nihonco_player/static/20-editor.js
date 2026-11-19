@@ -122,7 +122,7 @@ async function openLrcEditor(entering=false){
   UNDO=[]; REDO=[];
   document.getElementById('savehint').textContent='';
   renderLrcTable();
-  if(entering){ measureCanvas(); if(!WAVE) loadWave(); }
+  if(entering){ measureCanvas(); syncWaveLabels(); syncFollow(); if(!WAVE) loadWave(); }
 }
 
 function rowHtml(r,i){

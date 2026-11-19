@@ -8,7 +8,9 @@ import threading
 from pathlib import Path
 
 from ..core import importing as IMP
+from ..core import edits as ED
 from ..core import library as LIB
+from ..core import song_meta as META
 from ..core import playlists as PL
 from ..core.library import CACHE
 

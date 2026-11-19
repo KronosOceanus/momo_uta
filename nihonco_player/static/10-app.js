@@ -12,13 +12,54 @@ let WAVE=null, VIEW={span:5}, OFFSET=0, FOLLOW=true, DRAWN=null;
 const cv=document.getElementById('wave'), cx=cv.getContext('2d');
 const SPAN_MIN=2, SPAN_MAX=10, OFFSET_LEAD=0;      // 秒
 
+let PAN_START=0;
+function clampStart(st, span){
+  const dur=(WAVE && WAVE.duration) || 0;
+  return Math.max(0, Math.min(Math.max(0, dur-span), st));
+}
 function viewStart(){
   const dur=(WAVE && WAVE.duration) || 0;
   const span=Math.min(VIEW.span, dur||VIEW.span);
-  if(!FOLLOW && DRAWN){ return {start:DRAWN.start, span:Math.min(span, DRAWN.span)}; }
+  if(!FOLLOW) return {start:clampStart(PAN_START, span), span};
   let s0=(au.currentTime||0) - span/2;
   s0=Math.max(0, Math.min((dur||0)-span, s0));
   return {start:s0, span};
+}
+
+// ── 缩放 / 跳转 / 数值输入 ──────────────────────
+const SPAN_LO=2, SPAN_HI=10;
+function spanText(v){ return (Math.round(v*10)/10).toString().replace(/\.0$/,'')+'s'; }
+function syncWaveLabels(){
+  const z=document.getElementById('zoomval'); if(z) z.textContent=spanText(VIEW.span);
+  const b=document.getElementById('jumpback'), f=document.getElementById('jumpfwd');
+  if(b) b.textContent='◀ '+spanText(VIEW.span);
+  if(f) f.textContent=spanText(VIEW.span)+' ▶';
+}
+function setWaveSpan(v){
+  VIEW.span=Math.max(SPAN_LO, Math.min(SPAN_HI, +v||VIEW.span));
+  if(!FOLLOW) PAN_START=clampStart(PAN_START, VIEW.span);
+  syncWaveLabels();
+  if(typeof drawWave==='function') drawWave();
+}
+function inlineEdit(el, cur, opts){
+  if(!el || el.querySelector('input')) return;
+  const old=el.textContent;
+  const inp=document.createElement('input');
+  inp.className='numin'; inp.value=opts.fmt(cur);
+  el.textContent=''; el.appendChild(inp); inp.focus(); inp.select();
+  let closed=false;
+  const close=commit=>{
+    if(closed) return; closed=true;
+    const v=parseFloat(inp.value);
+    el.textContent=old;
+    if(commit && isFinite(v)) opts.apply(Math.max(opts.min, Math.min(opts.max, v)));
+  };
+  inp.addEventListener('keydown',e=>{
+    e.stopPropagation();
+    if(e.key==='Enter'){ e.preventDefault(); close(true); }
+    else if(e.key==='Escape'){ close(false); }
+  });
+  inp.addEventListener('blur',()=>close(false));
 }
 let CANVAS_W=0, CANVAS_H=0, CV_W=0;
 function measureCanvas(){ CV_W=cv.getBoundingClientRect().width; }
@@ -139,8 +180,26 @@ document.getElementById('wavefollow').onclick=e=>{
   e.target.classList.toggle('on', FOLLOW);
   if(!FOLLOW){ DRAWN=DRAWN||viewStart(); }   // 关掉时冻结当前窗口
 };
+cv.addEventListener('contextmenu', e=>e.preventDefault());
+cv.addEventListener('mousedown', e=>{
+  if(e.button!==2 || !WAVE) return;              // 右键拖动 = 左右移动窗口
+  e.preventDefault();
+  const v=viewStart(), w=cv.getBoundingClientRect().width || 1;
+  const x0=e.clientX, base=v.start, span=v.span;
+  if(FOLLOW){ FOLLOW=false; syncFollow(); }      // 拖动时自动关闭跟随
+  const move=ev=>{
+    PAN_START=clampStart(base - (ev.clientX-x0)/w*span, span);
+    drawWave();
+  };
+  const up=()=>{
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+});
 cv.addEventListener('click', e=>{
-  if(!WAVE) return;
+  if(!WAVE || e.button===2) return;
   const r=cv.getBoundingClientRect();
   const ratio=Math.max(0, Math.min(1,(e.clientX-r.left)/r.width));
   const v=DRAWN || viewStart();                 // 所见即所得
@@ -152,16 +211,20 @@ cv.addEventListener('click', e=>{
   el.textContent='标记：'+lrcFmt(MARK); el.classList.add('set');
   drawWave();
 });
-cv.addEventListener('wheel', e=>{
-  if(!WAVE) return;
-  e.preventDefault();
-  VIEW.span=Math.min(SPAN_MAX, Math.max(SPAN_MIN, VIEW.span*(e.deltaY>0?1.25:0.8)));
-  document.getElementById('wavehint').textContent=
-    `波形 ${fmt(WAVE.duration)} · 窗口 ${VIEW.span.toFixed(1)}s · 滚轮 2–10s`;
-  drawWave();
-}, {passive:false});
 window.addEventListener('resize', ()=>{ measureCanvas(); drawWave(); });
 
+document.getElementById('zoomout').onclick=()=>setWaveSpan(VIEW.span-1);
+document.getElementById('zoomin').onclick=()=>setWaveSpan(VIEW.span+1);
+document.getElementById('zoomval').onclick=()=>{
+  inlineEdit(document.getElementById('zoomval'), VIEW.span,
+    {min:SPAN_LO, max:SPAN_HI, fmt:v=>String(v), apply:v=>setWaveSpan(v)});
+};
+document.getElementById('jumpback').onclick=()=>{
+  seekPrecise(Math.max(0, au.currentTime - VIEW.span));
+};
+document.getElementById('jumpfwd').onclick=()=>{
+  seekPrecise(Math.min(au.duration||0, au.currentTime + VIEW.span));
+};
 document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   if(!S) return;
   OFFSET=Math.round((OFFSET+parseFloat(b.dataset.off))*100)/100;
@@ -172,6 +235,18 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   if(i>=0) highlight(i);
   await api('/api/pl',{action:'ui_offset', idx:S.idx, offset:OFFSET});
 });
+document.getElementById('offval').onclick=()=>{
+  if(!LRCEDIT || LRC_LOCKED) return;
+  const el=document.getElementById('offval');
+  inlineEdit(el, OFFSET, {min:-10, max:10, fmt:v=>v.toFixed(2), apply:async v=>{
+    OFFSET=Math.round(v*100)/100;
+    if(S) S.offset=OFFSET;
+    el.textContent=OFFSET.toFixed(2)+'s';
+    syncModes(); drawWave();
+    const i=idxAt(au.currentTime); if(i>=0) highlight(i);
+    if(S) await api('/api/pl',{action:'ui_offset', idx:S.idx, offset:OFFSET});
+  }});
+};
 
 let OPEN=new Set();
 function saveOpen(){

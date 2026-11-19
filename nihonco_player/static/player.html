@@ -5,12 +5,12 @@
   <div id="list"></div></aside>
 <main>
  <div class="hdr"><button id="start">开始</button><span id="vtitle">—</span>
+  <span class="legend" id="legend">A <span style="color:#7fbfa6">●</span> AB <span style="color:#c8843f">●</span> B <span style="color:#6d737c">●</span> C <span style="opacity:.5">●</span></span>
   <span class="chip" id="offchip" hidden></span>
   <span class="modes">
    <button id="edit">振假名编辑模式：关</button><button id="lrcedit">LRC 编辑模式：关</button>
   </span></div>
- <div class="bar" id="fakbar" hidden><button id="resetall">全部重置</button>
-  <span class="legend">A <span style="color:#7fbfa6">●</span> AB <span style="color:#c8843f">●</span> B <span style="color:#6d737c">●</span> C <span style="opacity:.5">●</span></span></div>
+ <div class="bar" id="fakbar" hidden><button id="resetall">全部重置</button></div>
  <div class="bar lrcrow" id="lrcrow2" hidden>
   <span class="left"><button id="lrcselall" title="选中所有行（⌘A）">全选</button>
    <button id="lrcadd" title="在选中行下面加一行">加行</button>
@@ -21,15 +21,21 @@
    <button id="lrcreset" title="把最早那次保存前的版本恢复回来">恢复最初</button></span>
  </div>
  <div class="bar lrcrow" id="lrcrow3" hidden>
-  <span class="left off"><span class="oflab">整体偏移</span>
+  <button id="wavefollow" class="left" title="波形是否跟着播放滚动">跟随：开</button>
+  <span class="right off"><span class="oflab">整体偏移</span>
    <button data-off="-0.5">−0.5s</button><button data-off="-0.1">−0.1s</button>
-   <b id="offval">0.00s</b>
+   <b id="offval" title="点击输入偏移">0.00s</b>
    <button data-off="0.1">+0.1s</button><button data-off="0.5">+0.5s</button></span>
-  <button id="wavefollow" class="right" title="波形是否跟着播放滚动">跟随：开</button>
  </div>
  <div class="wavewrap" id="wavewrap">
   <canvas id="wave" height="120"></canvas>
-  <div class="wavehint" id="wavehint">点波形定位；滚轮缩放</div>
+  <div class="wavehint" id="wavehint">点波形定位；右键拖动移动窗口</div>
+ </div>
+ <div class="bar wavebar" id="wavebar" hidden>
+  <span class="left zgrp"><button id="zoomout" title="窗口 −1 秒">缩小</button>
+   <button id="zoomin" title="窗口 +1 秒">放大</button>
+   <b id="zoomval" title="点击输入窗口秒数">5s</b></span>
+  <span class="right jgrp"><button id="jumpback">◀ 5s</button><button id="jumpfwd">5s ▶</button></span>
  </div>
  <div class="split">
   <div class="lyr" id="lyr"></div>
