@@ -128,6 +128,10 @@ def song_payload(idx: int) -> dict:
     edits = ED.for_song(item["key"])
     doc = LRC.load(item["file"])
     lines = doc["lines"]
+    if not any((ln.get("text") or "").strip() for ln in lines):
+        return {"idx": str(idx), "key": item["key"], "title": item["title"],
+                "artist": item.get("artist", ""), "pending": True, "lines": [],
+                "audio": f"/audio/{idx}"}
     stored = doc.get("annotations") or {}
     changed = False
     for li, ln in enumerate(lines):

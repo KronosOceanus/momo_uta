@@ -60,6 +60,8 @@ def _entry(p: Path, group: str) -> dict | None:
     artist, title = LY.split_name(stem)
     has = LY._cached(title, artist)
     hit = LY.get_lrc(title, artist, use_cache=True) if has else None
+    if hit and hit.get("source") == "local-lrc" and not (hit.get("lrc") or "").strip():
+        hit = None                            # 空文件（比如误存的空壳）当作没有歌词
     if not hit or (hit.get("source") != "local-lrc" and LY.content_lines(hit.get("lrc") or "") < 3):
         # 网络匹配要有足够的歌词行。本地草稿可以尚未打点，不应再次匹配。
         return {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
