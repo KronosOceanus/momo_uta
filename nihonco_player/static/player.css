@@ -243,3 +243,9 @@ body.lrcedit #wavebar{display:grid}
 /* 人声分离状态 chip */
 #vchip.vdone{border-color:#2f4a3d;color:#7fbfa6}
 #vchip.vinst{border-color:#3a4450;color:#8a9099}
+
+/* 防止任何标签在窄窗口下竖排 */
+button{white-space:nowrap}
+.legend,.savehint,.oflab,.wavehint,.tm,#offval,#zoomval,.plh .pln,.plh .plc,.lm{white-space:nowrap}
+.plh .pln{overflow:hidden;text-overflow:ellipsis}
+.menu button{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
