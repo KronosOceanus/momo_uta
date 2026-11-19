@@ -736,7 +736,7 @@ def main() -> None:
                     help="要生成哪些层，逗号分隔：ruby,romaji,keys")
     ap.add_argument("--oov-mode", choices=["abstain", "mark"], default="abstain",
                     help="OOV 处理：abstain 弃权（默认）/ mark 标成 B")
-    ap.add_argument("--disable", default="", help="诊断用：逗号分隔关掉 glossary/jukujikun/heteronym/stats/counters")
+    ap.add_argument("--disable", default="", help="诊断用：逗号分隔关掉 glossary/heteronym/counters")
     ap.add_argument("--emit", choices=["A", "AB", "B"], default="B",
                     help="政策层：只输出到这一档（A 最保守，B 全出）")
     a = ap.parse_args()
