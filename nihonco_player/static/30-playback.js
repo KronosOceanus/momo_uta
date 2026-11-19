@@ -89,10 +89,10 @@ function highlight(i){
   if(LRCEDIT){
     document.querySelectorAll('.lerow').forEach(el=>
       el.classList.toggle('cur', +el.dataset.i===i));
-    if(!SEL.size) document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'center',behavior:'smooth'});
+    if(!SEL.size) document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'nearest'});
   }else{
     document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
-    document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'center',behavior:'smooth'});
+    document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'nearest'});
   }
   if(typeof WAVE!=='undefined' && WAVE && LRCEDIT) drawWave();
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间

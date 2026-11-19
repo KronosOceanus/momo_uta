@@ -20,16 +20,18 @@ function viewStart(){
   s0=Math.max(0, Math.min((dur||0)-span, s0));
   return {start:s0, span};
 }
-let CANVAS_W=0, CANVAS_H=0;
+let CANVAS_W=0, CANVAS_H=0, CV_W=0;
+function measureCanvas(){ CV_W=cv.getBoundingClientRect().width; }
 function fitCanvas(){
-  const r=cv.getBoundingClientRect();
+  // 用缓存宽度：避免每帧 getBoundingClientRect 触发同步布局（换行时最容易卡一下）
+  if(!CV_W) measureCanvas();
   const dpr=window.devicePixelRatio||1;
-  const w=Math.max(1,Math.round(r.width*dpr)), h=Math.max(1,Math.round(r.height*dpr));
-  if(w!==CANVAS_W || h!==CANVAS_H){        // 只在尺寸变化时重设，避免每帧重建缓冲
+  const w=Math.max(1,Math.round(CV_W*dpr)), h=Math.max(1,Math.round(120*dpr));
+  if(w!==CANVAS_W || h!==CANVAS_H){
     cv.width=w; cv.height=h; CANVAS_W=w; CANVAS_H=h;
     cx.setTransform(dpr,0,0,dpr,0,0);
   }
-  return r.width;
+  return CV_W;
 }
 function drawWave(){
   const w=fitCanvas(), h=120;
@@ -115,7 +117,7 @@ cv.addEventListener('wheel', e=>{
     `波形 ${fmt(WAVE.duration)} · 窗口 ${VIEW.span.toFixed(1)}s · 滚轮 2–10s`;
   drawWave();
 }, {passive:false});
-window.addEventListener('resize', ()=>drawWave());
+window.addEventListener('resize', ()=>{ measureCanvas(); drawWave(); });
 
 document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   if(!S) return;
