@@ -25,7 +25,7 @@ function measureCanvas(){ CV_W=cv.getBoundingClientRect().width; }
 function fitCanvas(){
   // 用缓存宽度：避免每帧 getBoundingClientRect 触发同步布局（换行时最容易卡一下）
   if(!CV_W) measureCanvas();
-  const dpr=window.devicePixelRatio||1;
+  const dpr=Math.min(window.devicePixelRatio||1, 1.5);   // 上限 1.5x，别让画布太大
   const w=Math.max(1,Math.round(CV_W*dpr)), h=Math.max(1,Math.round(120*dpr));
   if(w!==CANVAS_W || h!==CANVAS_H){
     cv.width=w; cv.height=h; CANVAS_W=w; CANVAS_H=h;
@@ -89,7 +89,7 @@ function reportJS(kind, data){
 (function waveLoop(){
   let last=0, prevTs=0, lastPost=0, buf=[];
   function tick(ts){
-    if(WAVE && LRCEDIT && !au.paused && ts-last>=16){
+    if(WAVE && LRCEDIT && !au.paused && ts-last>=32){
       const t0=performance.now();
       drawWave();
       const ms=performance.now()-t0;
@@ -98,7 +98,7 @@ function reportJS(kind, data){
     }
     if(prevTs){
       const dt=ts-prevTs;
-      if(dt>40 && au.currentTime>0){          // 长帧：记下当时上下文
+      if(dt>40 && au.currentTime>0 && document.visibilityState==='visible'){          // 长帧：记下当时上下文
         buf.push({dt:Math.round(dt), t:Math.round(au.currentTime*100)/100,
                   cur:typeof CUR==='number'?CUR:-1, wave:!!WAVE,
                   playing:!au.paused, lrc:!!LRCEDIT,
