@@ -246,15 +246,12 @@ document.getElementById('rem').onclick=async()=>{
     const b=document.createElement('button');
     const mm=Math.floor(c.duration/60), ss=String(Math.round(c.duration%60)).padStart(2,'0');
     const delta=(c.delta===null||c.delta===undefined)?'' : (c.delta>=0?'+':'')+c.delta+'s';
-    const localTag = c.local_edit ? ' · <span style="color:#c8843f">本地已修改</span>' : '';
-    b.innerHTML=`${c.current?'● ':''}${c.name} · ${c.artist} · ${mm}:${ss} ${delta} · ${c.score}${localTag}`;
+    b.innerHTML=`${c.current?'● ':''}${c.name} · ${c.artist} · ${mm}:${ss} ${delta} · ${c.score}`;
     if(!c.id){                       // 没有 id 的条目不可切换
       b.onclick=ev=>{ev.stopPropagation(); NH.done('当前用的就是这条');};
       b.style.opacity='.6';
     }else b.onclick=async ev=>{ev.stopPropagation();
       if(NH.S!==song || NH.LRCEDIT){ box.remove(); return; }
-      if(c.local_edit && c.current &&
-         !confirm('这条歌词你本地改过。用网上的原版覆盖吗？（覆盖前会备份，可用「恢复最初」找回）')) return;
       box.remove();
       NH.busy('换歌词中…');
       try{

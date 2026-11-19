@@ -95,12 +95,7 @@ def edit_line(idx, li, start, reading):
 
 
 def rematch(idx, duration):
-    """重新匹配：候选**完全来自网络**，不拿本地缓存当候选。
-
-    缓存只用来知道"当前正在用哪个 id"，以便在列表里标 ●；
-    即使本地改过（缓存即本地编辑结果），网上同一 id 的原版仍会出现，
-    选中它就等于用网上版本覆盖本地（覆盖前有 .bak 备份）。
-    """
+    """重新匹配：候选只来自网络（网易云），不掺本地缓存。"""
     item = CACHE.get(str(idx))
     if not item:
         return {"stem": "", "candidates": []}
@@ -109,16 +104,6 @@ def rematch(idx, duration):
 
     cur = LY.get_lrc(title, artist) or {}
     cur_id = cur.get("id")
-    local_text = cur.get("lrc") or ""
-    local_modified = False
-    if cur_id and local_text:
-        try:
-            online = LY.fetch_lrc_by_id(cur_id)
-        except Exception:
-            online = ""
-        if online:
-            local_modified = ([x["text"] for x in LY.parse_lrc(online)] !=
-                              [x["text"] for x in LY.parse_lrc(local_text)])
 
     seen, rows = set(), []
 
@@ -131,41 +116,26 @@ def rematch(idx, duration):
             return
         delta = (round(c["duration"] - duration, 1)
                  if c.get("duration") and duration else None)
-        limit = LY.CFG["mb_max_delta"] if src == "mb" else LY.CFG["fallback_max_delta"]
-        if delta is not None and abs(delta) > limit:
+        if delta is not None and abs(delta) > LY.CFG["fallback_max_delta"]:
             return
         seen.add(c["id"])
         rows.append({"id": c["id"], "name": c.get("name", ""), "artist": c.get("artist", ""),
                      "duration": c.get("duration") or 0, "delta": delta, "source": src,
                      "score": LY.score_candidate(c, title, artist, duration)})
 
-    canon = LY.mb_canonical(title, artist, duration)
-    queries = {(canon["title"], canon["artist"]) if canon else (title, artist), (title, artist)}
-    for q_title, q_artist in queries:
-        src = "mb" if canon and (q_title, q_artist) == (canon["title"], canon["artist"]) else "netease"
-        for c in LY.search_candidates(q_title, q_artist):
-            add(c, src, q_title)
+    for c in LY.search_candidates(title, artist):
+        add(c, "netease", title)
 
     for r in rows:
         if cur_id and str(r["id"]) == str(cur_id):
             r["current"] = True
-            r["local_edit"] = local_modified
 
     rows.sort(key=lambda r: (not r.get("current"), -r["score"]))
-    if cur_id and not any(r.get("current") for r in rows):
-        rows.insert(0, {"id": cur_id, "name": cur.get("name") or title,
-                        "artist": cur.get("artist") or artist,
-                        "duration": cur.get("duration") or 0, "delta": None,
-                        "source": "current", "current": True, "local_edit": local_modified,
-                        "score": LY.score_candidate({"name": cur.get("name") or title,
-                                                     "artist": cur.get("artist") or artist,
-                                                     "duration": cur.get("duration") or 0},
-                                                    title, artist, duration)})
     return {"stem": item["stem"], "candidates": rows[:10]}
 
 
 def pick(idx, song_id) -> dict:
-    """用户选定某个候选：把它的歌词写进缓存，返回结果。"""
+    """用户选定候选：用网络歌词替换当前歌词（重写 data/lyrics，读音全部重来）。"""
     item = CACHE.get(str(idx))
     if not item or not song_id:
         return {"ok": False, "error": "缺少歌曲或候选 id"}
@@ -173,8 +143,11 @@ def pick(idx, song_id) -> dict:
     lrc = LY.fetch_lrc_by_id(song_id)
     if not lrc or LY.content_lines(lrc) < 3:
         return {"ok": False, "error": "这个候选没有可用歌词"}
-    LY.write_local_lrc(title, artist, lrc,
-                       duration=LY.audio_duration(item["file"]), name=title, by=artist)
+    # 重写当前歌曲的 nhlrc 正文（备份旧文件），旧读音不保留
+    res = LRC.import_text(item["file"], lrc, item.get("uid"),
+                          item["title"], item.get("artist", ""))
+    if not res.get("ok"):
+        return {"ok": False, "error": res.get("error") or "写歌词失败"}
     LIB.refresh(item["uid"])
     idx2 = next((k for k, v in CACHE.items() if v["file"] == item["file"]), str(idx))
     d = song_payload(int(idx2))
