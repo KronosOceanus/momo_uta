@@ -81,7 +81,8 @@ def song_payload(idx: int) -> dict:
     hit = LY.get_lrc(title, artist) or {}
     if not item.get("has_lyric", True):
         return {"idx": str(idx), "key": item["key"], "title": item["title"],
-                "artist": item.get("artist", ""), "pending": True, "lines": []}
+                "artist": item.get("artist", ""), "pending": True, "lines": [],
+                "audio": f"/audio/{idx}"}
     edits = ED.for_song(item["key"])
     lines = LY.parse_lrc(hit.get("lrc", ""))
     for li, ln in enumerate(lines):

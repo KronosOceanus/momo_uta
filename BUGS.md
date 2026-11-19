@@ -38,5 +38,7 @@
 
 - [x] 没有歌词的曲子点击后不能播放（提交 见下）
   现象：点开一首"待匹配"的歌，播放按钮无效、进度条不动
-  原因：load() 的 pending 分支只显示"匹配歌词中…"，从未调用 commitAudio() 绑定音频
-  改法：pending 分支先 commitAudio()，音频可立即播放，歌词匹配在后台继续
+  原因一：load() 的 pending 分支只显示"匹配歌词中…"，从未调用 commitAudio() 绑定音频
+  原因二：pending 的载荷里没有 audio 字段，即使调了 commitAudio 也没有地址
+  改法：pending 分支先 commitAudio()；payload 补 audio；前端再加 /audio/<idx> 兜底
+        歌词匹配在后台继续，匹配到后自动换成有歌词界面
