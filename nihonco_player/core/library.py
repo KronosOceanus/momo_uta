@@ -54,8 +54,8 @@ def save_import(audio: str, title: str, artist: str) -> None:
 
 def _entry(p: Path, group: str) -> dict | None:
     stem = p.stem
-    if not LY.JP.search(stem) or not LY.is_likely_song(stem):
-        return None
+    # 不再按"像不像日文歌"过滤：进了歌单就应该看得见。
+    # 过滤只用于歌词匹配时的判断（is_likely_song 仍被匹配流程使用）。
     artist, title = LY.split_name(stem)
     has = LY._cached(title, artist)
     hit = LY.get_lrc(title, artist, use_cache=True) if has else None
@@ -81,7 +81,7 @@ def scan_library(folder: Path | None = None) -> list[dict]:
     seen: set[str] = set()
 
     def add(p: Path, group: str) -> None:
-        if p.suffix.lower() not in (".mp3", ".flac", ".wav"):
+        if p.suffix.lower() not in (".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"):
             return
         e = _entry(p, group)
         if e and e["file"] not in seen:
