@@ -84,7 +84,9 @@ function rowForTime(t){
   return n<0?0:n;
 }
 function highlight(i){
+  const __t0=performance.now();
   const ls=viewLines(); const l=ls[i];
+  const __changed=(CUR!==i);
   CUR=i;
   if(LRCEDIT){
     document.querySelectorAll('.lerow').forEach(el=>
@@ -98,6 +100,11 @@ function highlight(i){
   }
   // 播放时 rAF 循环已在画波形，这里不再重复画
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间
+  if(__changed && typeof reportJS==='function'){
+    const __ms=performance.now()-__t0;
+    if(__ms>10) reportJS('slow',{fn:'highlight', ms:Math.round(__ms), row:i,
+                                t:Math.round((lineT(l)||0)*100)/100, lrc:LRCEDIT});
+  }
   if(LRCEDIT){
     // 右侧罗马音在编辑模式下隐藏，不需要联动
   }else{

@@ -82,10 +82,20 @@ async function loadWave(){
     drawWave();
   }catch(e){ document.getElementById('wavehint').textContent='波形加载失败'; }
 }
+function reportJS(kind, data){
+  fetch('/api/debug',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind, data:JSON.stringify(data)})}).catch(()=>{});
+}
 (function waveLoop(){
   let last=0, prevTs=0, lastPost=0, buf=[];
   function tick(ts){
-    if(WAVE && LRCEDIT && !au.paused && ts-last>=16){ drawWave(); last=ts; }   // ~60fps
+    if(WAVE && LRCEDIT && !au.paused && ts-last>=16){
+      const t0=performance.now();
+      drawWave();
+      const ms=performance.now()-t0;
+      if(ms>15) reportJS('slow',{fn:'drawWave', ms:Math.round(ms), t:Math.round(au.currentTime*100)/100, cur:CUR});
+      last=ts;
+    }
     if(prevTs){
       const dt=ts-prevTs;
       if(dt>40 && au.currentTime>0){          // 长帧：记下当时上下文
