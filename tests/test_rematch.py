@@ -64,5 +64,24 @@ class TestRematch(unittest.TestCase):
             self.assertEqual(doc["lines"][0]["text"], "新しい歌詞")
 
 
+    def test_pick_rejects_untimed_lyrics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            CACHE.clear(); CACHE["0"] = item(audio)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60), \
+                 patch.object(LY, "fetch_lrc_by_id", return_value="作词 : X\nあの日\n今も\n空を"):
+                LRF.save(audio, [{"t": 1.0, "text": "旧歌词"}], {})
+                before = LRF.store_path(audio).read_text(encoding="utf-8")
+                res = SONG.pick("0", 123)
+                after = LRF.store_path(audio).read_text(encoding="utf-8")
+            self.assertFalse(res["ok"])
+            self.assertIn("时间轴", res["error"])
+            self.assertEqual(before, after)
+
+
 if __name__ == "__main__":
     unittest.main()

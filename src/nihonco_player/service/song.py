@@ -30,7 +30,10 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
     """普通页与 LRC 编辑共用的唯一歌词入口。"""
     doc = LRC.load(item["file"], item.get("uid"),
                    item["title"], item.get("artist", ""))
-    has_lines = any((ln.get("text") or "").strip() for ln in doc["lines"])
+    has_text = any((ln.get("text") or "").strip() for ln in doc["lines"])
+    # 本地草稿允许未打点；网络匹配结果必须带时间轴
+    allow_untimed = doc.get("kind") == "nhlrc" or doc.get("source") == "local-lrc"
+    has_lines = has_text and (allow_untimed or LY.has_timed(doc.get("text") or ""))
     return doc, has_lines
 
 
@@ -116,14 +119,10 @@ def rematch(idx, duration):
     def add(c, src, q_title):
         if not c or not c.get("id") or c["id"] in seen:
             return
-        if not LY._match(q_title, c.get("name", "")):
-            return
-        if LY.is_excluded(c.get("name", "")):
+        if not LY.accept_candidate(c, title, artist, duration):
             return
         delta = (round(c["duration"] - duration, 1)
                  if c.get("duration") and duration else None)
-        if delta is not None and abs(delta) > LY.CFG["fallback_max_delta"]:
-            return
         seen.add(c["id"])
         rows.append({"id": c["id"], "name": c.get("name", ""), "artist": c.get("artist", ""),
                      "duration": c.get("duration") or 0, "delta": delta, "source": src,
@@ -147,8 +146,8 @@ def pick(idx, song_id) -> dict:
         return {"ok": False, "error": "缺少歌曲或候选 id"}
     artist, title = LY.split_name(item["stem"])
     lrc = LY.fetch_lrc_by_id(song_id)
-    if not lrc or LY.content_lines(lrc) < 3:
-        return {"ok": False, "error": "这个候选没有可用歌词"}
+    if not LY.valid_lrc(lrc):
+        return {"ok": False, "error": "这个候选没有带时间轴的可用歌词"}
     # 重写当前歌曲的 nhlrc 正文（备份旧文件），旧读音不保留
     res = LRC.import_text(item["file"], lrc, item.get("uid"),
                           item["title"], item.get("artist", ""))

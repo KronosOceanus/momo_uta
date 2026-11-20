@@ -380,12 +380,12 @@ async function load(i, autoplay, nextEditMode){
       if(autoplay) NH.playFromStart?.();
     }
     if(knownNoMatch){                             // 已确认没歌词：不再重跑分离/匹配
+      NH.syncModes?.();
       lyr.innerHTML='<div class="lm">没匹配到歌词（仍可播放）</div>';
       return true;
     }
-    lyr.innerHTML='<div class="lm">匹配歌词中…</div>';
-    busy('匹配歌词中…');
-    lyr.innerHTML='<div class="lm">分离人声，确认是否有人声…</div>';
+    lyr.innerHTML='';
+    busy('分离人声，确认是否有人声…');
     const v=(VC.auto_start===false) ? null : await ensureVocals(d.idx);
     if(request!==NH.LOAD_REQUEST) return false;
     if(v && v.state==='done' && v.has_vocals===false){
@@ -395,15 +395,13 @@ async function load(i, autoplay, nextEditMode){
       done('这首是纯音乐，跳过歌词匹配');
       return true;
     }
+    busy('匹配歌词中…');
     try{
-      await api('/api/pl',{action:'match',idx:d.idx});
-      for(let k=0;k<40 && request===NH.LOAD_REQUEST;k++){
-        await new Promise(r=>setTimeout(r,1500));
-        if(request!==NH.LOAD_REQUEST) return false;
-        const d2=await api('/api/song/'+i);
-        if(request!==NH.LOAD_REQUEST) return false;
-        if(!d2.pending) return load(i, autoplay, nextEditMode);
-      }
+      await api('/api/pl',{action:'match',idx:d.idx});   // 后端同步跑完匹配才返回
+      if(request!==NH.LOAD_REQUEST) return false;
+      const d2=await api('/api/song/'+i);
+      if(request!==NH.LOAD_REQUEST) return false;
+      if(!d2.pending) return load(i, autoplay, nextEditMode);
     }catch(e){
       if(request!==NH.LOAD_REQUEST) return false;
     }

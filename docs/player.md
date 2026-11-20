@@ -397,7 +397,7 @@ load(i)：
     ③ 等人声分离（auto_start 开时）
     ④ 纯音乐 → 不匹配，结束
     ⑤ POST /api/pl {action:"match"} 触发抓取
-    ⑥ 每 1.5 秒 GET /api/song/i，最多 40 次（60 秒）
+    ⑥ match 返回后 GET /api/song/i 一次；仍 pending 即失败
        一旦不再 pending → 重新 load
     ⑦ 超时 → "没匹配到歌词（仍可播放）"
 ```
@@ -465,7 +465,7 @@ savehint   LRC 保存状态（只在这里显示，不弹 toast）
 ⑤ 波形 1x DPR、标记只有行起点，不做节拍/逐字网格
 ⑥ 单句循环的"本行结束"用下一行起点，最后一行固定 +8s
 ⑦ 人声分离串行且较慢；切歌不取消正在跑的分离
-⑧ pending 匹配最多等 60 秒，超时后不再自动重试
+⑧ pending 匹配由 match 同步完成后直接重载；没有歌词即结束
 ```
 
 ## 12. 代码地图与测试

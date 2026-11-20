@@ -2,6 +2,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from nihonco_player.core import lyrics as L  # noqa: E402
@@ -25,6 +26,27 @@ class TestParseLrc(unittest.TestCase):
     def test_content_lines_excludes_metadata(self):
         lrc = "[00:00.00]作词 : X\n[00:10.00]あの日\n[00:12.00]今も\n[00:14.00]空を"
         self.assertEqual(L.content_lines(lrc), 3)
+
+
+class TestTimedLyrics(unittest.TestCase):
+    def test_multiline_regex(self):
+        self.assertTrue(L.has_timed("[00:00.000] a\n[00:12.212] b\n"))
+
+    def test_untimed_rejected(self):
+        self.assertFalse(L.has_timed("作词 : X\nあの日\n今も"))
+        self.assertTrue(L.valid_lrc("[00:01.00]あの日\n[00:03.00]今も\n[00:05.00]空を"))
+        self.assertFalse(L.valid_lrc("[00:01.00]あの日\n[00:03.00]今も"))
+
+
+class TestUnifiedMatch(unittest.TestCase):
+    def test_auto_skips_candidate_without_valid_lyrics(self):
+        from nihonco_player.core import lyrics_fetch as LF
+        c1 = {"id": 1, "name": "曲", "artist": "歌手", "duration": 60.0}
+        c2 = {"id": 2, "name": "曲", "artist": "歌手", "duration": 60.0}
+        hit = {"id": 2, "name": "曲", "lrc": "[00:01.00]あの日"}
+        with patch.object(LF, "search_candidates", return_value=[c1, c2]), \
+             patch.object(LF, "fetch_candidate", side_effect=[None, hit]):
+            self.assertEqual(LF.auto_match("曲", "歌手", 60), hit)
 
 
 class TestMatch(unittest.TestCase):

@@ -10,7 +10,7 @@ from nihonco_yomi.config import LY as CFG
 from nihonco_yomi.paths import ROOT
 
 JP = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
-TIMED = re.compile(r"^\[(\d+):(\d+(?:\.\d+)?)(?:-\d+)?\](.*)$")
+TIMED = re.compile(r"^\[(\d+):(\d+(?:\.\d+)?)(?:-\d+)?\](.*)$", re.MULTILINE)
 KANA = re.compile(r"[\u3040-\u309f\u30a0-\u30ff]")
 HAN = re.compile(r"[\u4e00-\u9fff]")
 
@@ -19,6 +19,11 @@ LRC = re.compile(r"^\[(\d+):(\d+(?:\.\d+)?)(?:-\d+)?\](.*)$")   # 兼容 [00:12.
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
 HAN_RE = re.compile(r"[\u4e00-\u9fff]")
 LAT_RE = re.compile(r"[A-Za-z]")
+
+
+def has_timed(lrc: str) -> bool:
+    """整段里是否至少有一行带时间戳（多行文本必须能匹配）。"""
+    return any(TIMED.match(line.strip()) for line in str(lrc or "").splitlines())
 
 
 def content_lines(lrc: str) -> int:

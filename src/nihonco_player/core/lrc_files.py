@@ -96,11 +96,12 @@ def load(audio: str | Path, uid: str | None = None,
     if sp.is_file():
         full = sp.read_text(encoding="utf-8", errors="ignore")
         body, tail = _split_nhlrc(full)
-        path, kind = sp, "nhlrc"
+        path, kind, source = sp, "nhlrc", "nhlrc"
     else:
         artist, title = LY.split_name(audio.stem)
         hit = LY.get_lrc(title, artist) or {}
         full = hit.get("lrc") or ""
+        source = hit.get("source") or ""
         cached_ann = hit.get("nhlrc_annotations") or {}
         tail = {"lines": [{"i": int(i), "seg": seg} for i, seg in cached_ann.items()]} \
             if cached_ann else None
@@ -113,8 +114,8 @@ def load(audio: str | Path, uid: str | None = None,
     strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
     annotations = annotations_for(lines, tail, strict=strict)
     return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
-            "path": str(path), "kind": kind, "text": body, "lines": lines,
-            "metadata": metadata, "annotations": annotations,
+            "path": str(path), "kind": kind, "source": source, "text": body,
+            "lines": lines, "metadata": metadata, "annotations": annotations,
             "nhlrc": kind == "nhlrc"}
 
 

@@ -9,16 +9,17 @@
 ```text
 自动匹配（第一次找歌词）
   有本地缓存 → 直接用
-  没有 → MusicBrainz 查规范名（可选）→ 网易云按时长打分 → lrclib 兜底
+  没有 → 网易云 search_candidates → 同一套过滤和打分 → 第一个有效候选
   → 写歌词缓存
 
 懒匹配（打开时发现没歌词）
   先确认不是纯音乐 → POST /api/pl {action:"match"}
   → get_lrc(force=True) 强制联网 → 写缓存
-  → 前端轮询 /api/song，最多 60 秒
+  → match 返回后前端再拉一次 /api/song
+  → 还有歌词就重载，没有就显示没匹配到
 
 重新匹配（用户主动换版本）
-  → 只搜网易云，候选全部来自网络
+  → 同一批网易云候选、同一套过滤
   → 选中后重写 data/lyrics 的 nhlrc 正文，读音重来
 ```
 
@@ -38,11 +39,12 @@
 
 ② 版本层：同名不同版本（TV size / full / live / remix）
      主要靠时长差；差得越少分越高
-     MB 规范名只用于把查询词换成更标准的写法
 
 ③ 内容层：歌词本身是不是可用
-     必须带时间戳
+     网络歌词必须带时间戳（无时间轴直接拒绝）
      有效歌词行 ≥ 3（排除"作词/作曲"这类）
+     自动匹配与手动 pick 共用这一个判断
+     例外：本地 nhlrc 草稿允许尚未打点
      假名占比用于标记语言（不直接淘汰，除了纯音乐判定）
 ```
 
@@ -109,12 +111,10 @@ is_likely_song(stem)
 ### 3.2 允许的时长差
 
 ```text
-MB 规范化：mb_max_delta     默认 3.0 秒
-普通候选：fallback_max_delta 默认 30.0 秒
+候选：fallback_max_delta 默认 30.0 秒
 ```
 
 ```text
-3 秒用于 MB：同一录音的不同发行版通常只有几秒差；
 30 秒用于网易云：要容纳 TV size / 剪辑版 / 前后奏差异。
 ```
 
@@ -136,7 +136,7 @@ score = 40 × 歌名是否匹配
 
 ## 4. 来源与角色
 
-### 4.1 网易云（主来源）
+### 4.1 网易云：唯一候选来源
 
 ```text
 搜索：music.163.com/api/search/get
@@ -146,35 +146,27 @@ score = 40 × 歌名是否匹配
 
 ```text
 它负责：
-  · 自动匹配的主候选
-  · 重新匹配的全部候选
+  · 自动匹配的候选
+  · 重新匹配的候选
   · 实际歌词文本
 ```
 
-### 4.2 MusicBrainz（只做规范名）
-
 ```text
-mb_canonical(title, artist, duration)
-  search_recordings(recording=title, artist=artist)
-  取时长与本地差 ≤ 3s、歌名能 match、未被排除的录音
-  返回 {title, artist, length}
-
-它不提供歌词。
-作用：把"歌手 - 歌名"换成 MB 的标准写法，再去网易云搜，
-      提高同一版本被搜到的概率。
+自动与手动必须用同一批候选、同一套过滤；
+否则会出现"自动找不到、手动能找到"。
 ```
 
-### 4.3 lrclib（兜底）
+### 4.2 不再参与主流程的来源
 
 ```text
-lrclib.net/api/search?track_name=...&artist_name=...
-只取 syncedLyrics（带时间戳）
-歌名必须 match
-```
+MusicBrainz：只保留 mb_canonical 工具，当前匹配流程不再调用。
+lrclib：只保留函数，当前匹配流程不再作为兜底。
 
-```text
-只在 get_lrc 的"网易云也没结果"时尝试一次；
-不参与重新匹配的候选列表。
+原因：
+  多一个来源就多一套候选/过滤/校验，
+  很容易再次出现自动与手动结果不一致。
+  如果以后要恢复，必须同时进入自动和手动候选，
+  而不是只给自动加后门。
 ```
 
 ## 5. 自动匹配：`get_lrc`
@@ -199,33 +191,29 @@ get_lrc(title, artist, duration=0, force=False)
 force=True：完全跳过缓存，重新联网（懒匹配用）。
 ```
 
-### 5.2 有 duration 的流程
+### 5.2 匹配流程
 
 ```text
-① mb_canonical(title, artist, duration)
-     查到 → 用 (标准歌名, 标准歌手) 调 best_by_duration
-           命中 → via="mb"
-           没命中 → 记 why=netease_no_match
-     没查到 → 记 why=mb_no_candidate
-② ①没命中 → best_by_duration(原标题, 原歌手, duration)
-③ ①②都没命中 → netease(原标题, 原歌手) 或 lrclib(原标题, 原歌手)
-④ 无论成败都写缓存（失败写负缓存）
+① search_candidates(title, artist)
+     网易云三种查询拼法，最多 20 个 id，补详情
+② accept_candidate(c, title, artist, duration)
+     歌名 match、排除词、|时长差| ≤ fallback_max_delta
+③ score_candidate 打分，按分数降序
+④ 从上往下取前 10 个：
+      fetch_candidate(c)
+        → 取 lrc
+        → valid_lrc：必须带时间轴、有效行 ≥ 3
+     第一个通过的就是结果
+⑤ 无论成败都写缓存（失败写负缓存）
 ```
 
 ```text
-best_by_duration：
-  搜索（3 种查询拼法，最多 20 个 id）→ 补详情 → 打分
-  取前 5 个：
-    排除词、歌名 match、时长差 ≤ 30s
-    取歌词 → 必须带时间戳、有效行 ≥ 3
-    第一个通过的就是结果
+没有 duration 时同样走这条流程，只是不做时长过滤。
 ```
 
-### 5.3 没 duration 的流程
-
 ```text
-直接 netease(title, artist) → 失败再 lrclib(title, artist)
-不做版本/时长过滤（没有时长可比）
+自动和手动共用：
+  search_candidates / accept_candidate / fetch_candidate / valid_lrc
 ```
 
 ### 5.4 缓存内容
@@ -277,13 +265,15 @@ service.playlist 收到 action=match
 ### 6.3 前端等待
 
 ```text
-每 1.5 秒 GET /api/song/<idx>，最多 40 次（60 秒）
-  一旦不再 pending → 重新 load，正常显示
-  超时 → "没匹配到歌词（仍可播放）"
+POST match 是同步的：后端跑完 lazy_match 才返回。
+  返回后前端 GET /api/song/<idx> 一次：
+    不再 pending → 重新 load，正常显示
+    仍然 pending → "没匹配到歌词（仍可播放）"
+  不再空轮询 60 秒
 ```
 
 ```text
-LOAD_REQUEST 每次自增；切歌后旧轮询自动失效。
+LOAD_REQUEST 每次自增；切歌后旧的匹配结果不会覆盖新页面。
 ```
 
 ## 7. 重新匹配（用户主动换版本）
@@ -305,7 +295,8 @@ POST /api/rematch {idx, duration}
 ```
 
 ```text
-不查缓存、不插本地候选、不查 MB/lrclib。
+不查缓存、不插本地候选。
+自动匹配用的是同一批候选、同一套 accept_candidate。
 ```
 
 ### 7.2 选中：替换正文
@@ -313,7 +304,9 @@ POST /api/rematch {idx, duration}
 ```text
 POST /api/pick {idx, id}
   ① fetch_lrc_by_id(id)（网易云）
-  ② 有效歌词行 < 3 → 拒绝
+  ② valid_lrc 不通过 → 拒绝
+     必须带时间轴、有效歌词行 ≥ 3
+     与自动匹配的内容校验完全一致
   ③ 把网络正文写进 data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc
       · 旧文件先备份成 .bak
       · 旧读音全部丢弃
@@ -369,7 +362,7 @@ POST /api/lrc {action:"import_lrc", idx, text}
 
 没结果：
   get_lrc 返回 None，写负缓存 {miss:true, reason}
-  payload 继续 pending；前端 60 秒后放弃
+  payload 继续 pending；前端拿到 match 返回后再查一次就放弃
 
 想强制重试：
   · 重新匹配（重新搜网易云）
@@ -377,14 +370,13 @@ POST /api/lrc {action:"import_lrc", idx, text}
 ```
 
 ```text
-MB 查询失败会重试一次（间隔 2 秒）；仍失败就当没有规范名。
+自动匹配没有候选/候选全部无时间轴 → 返回 None 并写负缓存。
 ```
 
 ## 10. 配置
 
 ```text
 config/defaults.json → lyrics 组：
-  mb_max_delta          3.0    MB 规范名允许的时长差
   fallback_max_delta    30.0   普通候选允许的时长差
   min_content_lines     3      有效歌词行下限
   name_min_len          4      短名子串匹配的最小长度
@@ -405,11 +397,11 @@ data/config.json 可覆盖；改完重启生效。
 ① 只从文件名取歌名/歌手
    ID3 标签、nhlrc 元数据都不参与；文件名不规范就会匹配错
 
-② 主要依赖网易云
-   接口不可用/地区限制时，只剩 lrclib 兜底（且没有版本筛选）
+② 只依赖网易云
+   接口不可用/地区限制时没有自动兜底；需要手动重新匹配
 
-③ MB 只做规范名
-   不提供歌词，也不能单独作为候选来源
+③ 无时间轴歌词一律拒绝
+   自动匹配、重新匹配 pick 使用同一判断
 
 ④ 同名版本靠时长
    TV size / full / live 时长接近时可能挑错；需要手动重新匹配
@@ -417,8 +409,8 @@ data/config.json 可覆盖；改完重启生效。
 ⑤ 负缓存会"记住失败"
    网上后来补了歌词也不会自动发现；要手动重新匹配/懒匹配
 
-⑥ 重新匹配不跨源
-   只搜网易云；lrclib 的歌词不会出现在候选里
+⑥ 重新匹配和自动匹配同源
+   都只搜网易云，候选与过滤完全一致
 
 ⑦ 重新匹配会丢旧读音
    选中新歌词 = 正文替换 + 读音重来；旧读音只留在 .bak 里
@@ -429,7 +421,7 @@ data/config.json 可覆盖；改完重启生效。
 | 职责 | 位置 |
 |---|---|
 | 名称/语言/排除/打分 | `core/lyrics_text.py` |
-| 来源查询（网易云/MB/lrclib） | `core/lyrics_fetch.py` |
+| 来源查询（网易云，统一候选/过滤/校验） | `core/lyrics_fetch.py` |
 | 缓存读写/本地 lrc | `core/lyrics_cache.py` |
 | 自动/懒匹配、重新匹配 | `service/song.py` |
 | 导入与配对 | `core/importing.py`、`service/playlist.py` |

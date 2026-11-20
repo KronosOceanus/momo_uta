@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""歌词抓取层：网易云 / MusicBrainz / lrclib，按时长与名字挑选，编排 get_lrc。"""
+"""歌词抓取层：网易云候选，自动与手动共用过滤、校验和挑选。"""
 from __future__ import annotations
 
 import json
@@ -13,9 +13,8 @@ from nihonco_yomi.config import LY as CFG
 from nihonco_yomi.paths import CACHE, ROOT
 
 from .lyrics_cache import cache_path, _cached, write_local_lrc
-from .lyrics_text import (_match, _norm, content_lines, is_excluded, is_likely_song,
-                          lang_guess, split_name)
-from .lyrics_text import TIMED as TS
+from .lyrics_text import (_match, _norm, content_lines, has_timed, is_excluded,
+                          is_likely_song, lang_guess, split_name)
 
 UA = {"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"}
 def _get(url: str, timeout: int = 10) -> str:
@@ -147,37 +146,63 @@ def audio_duration(path) -> float:
         return 0.0
 
 
-def best_by_duration(title: str, artist: str, duration: float,
-                     max_delta: float | None = None) -> dict | None:
+def valid_lrc(text: str) -> bool:
+    """唯一的歌词可用性判断：必须有时间轴、至少 3 行。"""
+    return bool(text) and has_timed(text) and content_lines(text) >= CFG["min_content_lines"]
+
+
+def accept_candidate(c: dict, title: str, artist: str, duration: float,
+                     max_delta: float | None = None) -> bool:
+    """自动与手动共用的候选元数据过滤。"""
+    if not c or not c.get("id"):
+        return False
+    name = c.get("name", "")
+    if not _match(title, name) or is_excluded(name):
+        return False
     max_delta = CFG["fallback_max_delta"] if max_delta is None else max_delta
-    """默认匹配：按 (标题, 歌手, 时长) 打分挑最可能的版本。"""
+    if c.get("duration") and duration and abs(c["duration"] - duration) > max_delta:
+        return False
+    return True
+
+
+def fetch_candidate(c: dict) -> dict | None:
+    """按候选 id 抓正文；自动和手动 pick 共用同一套校验。"""
+    lr = _get(f"https://music.163.com/api/song/lyric?id={c['id']}&lv=-1&kv=-1&tv=-1")
+    try:
+        j = json.loads(lr)
+    except Exception:
+        return None
+    lyr = j.get("lrc", {}).get("lyric", "") or ""
+    if not valid_lrc(lyr):
+        return None
+    lang, ratio = lang_guess(lyr)
+    return {"source": "netease", "id": c["id"], "name": c.get("name", ""),
+            "artist": c.get("artist", ""), "duration": c.get("duration") or 0,
+            "score": c.get("score"), "tlyric": j.get("tlyric", {}).get("lyric", "") or "",
+            "lang": lang, "kana_ratio": ratio, "lrc": lyr}
+
+
+def auto_match(title: str, artist: str, duration: float) -> dict | None:
+    """自动匹配：和 rematch 用同一批候选、同一套过滤，自动取分数最高。"""
     cands = search_candidates(title, artist)
     if not cands:
         return None
     for c in cands:
         c["score"] = score_candidate(c, title, artist, duration)
     cands.sort(key=lambda c: -c["score"])
-    for c in cands[:5]:
-        if is_excluded(c["name"]):
+    for c in cands[:10]:
+        if not accept_candidate(c, title, artist, duration):
             continue
-        if not _match(title, c["name"]):      # 歌名必须对得上，否则同歌手同长度会错配
-            continue
-        if c["duration"] and duration and abs(c["duration"] - duration) > max_delta:
-            continue                      # 明显是别的版本（TV size / live）
-        lr = _get(f"https://music.163.com/api/song/lyric?id={c['id']}&lv=-1&kv=-1&tv=-1")
-        try:
-            j = json.loads(lr)
-        except Exception:
-            continue
-        lyr = j.get("lrc", {}).get("lyric", "") or ""
-        if not TS.search(lyr) or content_lines(lyr) < 3:
-            continue
-        lang, ratio = lang_guess(lyr)
-        return {"source": "netease", "id": c["id"], "name": c["name"], "artist": c["artist"],
-                "duration": c["duration"], "score": c["score"],
-                "tlyric": j.get("tlyric", {}).get("lyric", "") or "",
-                "lang": lang, "kana_ratio": ratio, "lrc": lyr}
+        hit = fetch_candidate(c)
+        if hit:
+            return hit
     return None
+
+
+def best_by_duration(title: str, artist: str, duration: float,
+                     max_delta: float | None = None) -> dict | None:
+    """兼容旧调用：自动匹配。"""
+    return auto_match(title, artist, duration)
 
 
 def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0.0,
@@ -186,29 +211,18 @@ def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0
     if use_cache and not force and p.exists():
         try:
             old = json.loads(p.read_text(encoding="utf-8"))
-            # 旧缓存没按时长匹配过 → 重算一次
-            if not duration or old.get("duration") or old.get("miss"):
+            old_lrc = old.get("lrc") or ""
+            cached_ok = (not old_lrc or valid_lrc(old_lrc)
+                         or old.get("source") == "local-lrc")
+            # 旧缓存没按时长匹配过 → 重算一次；无时间轴的旧结果直接作废
+            if cached_ok and (not duration or old.get("duration") or old.get("miss")):
                 return old
         except Exception:
             pass
-    hit, why = None, "no_candidate"
-    if duration:
-        canon = mb_canonical(title, artist, duration)      # ① MB 规范名
-        if canon:
-            hit = best_by_duration(canon["title"], canon["artist"], duration)
-            if hit:
-                hit["via"] = "mb"
-            else:
-                why = "netease_no_match"
-        else:
-            why = "mb_no_candidate"
-        if not hit:
-            hit = best_by_duration(title, artist, duration)
-    if not hit:
-        hit = netease(title, artist) or lrclib(title, artist)
+    hit = auto_match(title, artist, duration)
     p.parent.mkdir(parents=True, exist_ok=True)
     # 失败也缓存，避免每次启动都重新联网（负缓存）
-    p.write_text(json.dumps({**hit, "title": title, "artist_q": artist} if hit else {"miss": True, "reason": why},
+    p.write_text(json.dumps({**hit, "title": title, "artist_q": artist} if hit else {"miss": True, "reason": "no_match"},
                             ensure_ascii=False), encoding="utf-8")
     return hit
 
