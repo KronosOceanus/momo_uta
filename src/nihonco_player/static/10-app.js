@@ -381,7 +381,7 @@ async function load(i, autoplay, nextEditMode){
     }
     if(knownNoMatch){                             // 已确认没歌词：不再重跑分离/匹配
       NH.syncModes?.();
-      lyr.innerHTML='<div class="lm">没匹配到歌词（仍可播放）</div>';
+      lyr.innerHTML='';
       return true;
     }
     lyr.innerHTML='';
@@ -391,7 +391,7 @@ async function load(i, autoplay, nextEditMode){
     if(v && v.state==='done' && v.has_vocals===false){
       NH.NO_MATCH.add(String(d.idx));
       NH.MATCHING=false; NH.syncModes?.();
-      lyr.innerHTML='<div class="lm">纯音乐（无人声），不匹配歌词</div>';
+      lyr.innerHTML='';
       done('这首是纯音乐，跳过歌词匹配');
       return true;
     }
@@ -408,7 +408,7 @@ async function load(i, autoplay, nextEditMode){
     if(request!==NH.LOAD_REQUEST) return false;
     NH.NO_MATCH.add(String(d.idx));
     NH.MATCHING=false; NH.syncModes?.();
-    lyr.innerHTML='<div class="lm">没匹配到歌词（仍可播放）</div>';
+    lyr.innerHTML='';
     done('这首歌没匹配到歌词，仍可播放');
     return true;
   }
