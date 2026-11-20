@@ -9,9 +9,9 @@ aside .it:hover{background:#171c23}
 
 
 aside .it .ar{color:var(--dim);font-size:11px}
-aside .it{position:relative}
-.it.picked{background:#1b232d}
-.it.picked .orig{color:#dfe3e8}
+aside .it{position:relative;user-select:none}
+.it.picked{background:#244033;box-shadow:inset 3px 0 0 var(--a)}
+.it.picked .orig{color:#f2f5f3}
 .t1{display:flex;align-items:baseline;gap:6px;min-width:0}
 .t1 .orig{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .t1 .mch{color:#7d848d;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
@@ -84,9 +84,9 @@ audio{width:100%;margin:0;position:sticky;bottom:0}
 .plh .pln{flex:1;color:#dfe3e8;font-size:13.5px}
 .plh .plc{color:#6d737c;font-size:12px}
 .plb{padding-left:4px}
-.it{position:relative}
-.it.picked{background:#1b232d}
-.it.picked .orig{color:#dfe3e8}
+.it{position:relative;user-select:none}
+.it.picked{background:#244033;box-shadow:inset 3px 0 0 var(--a)}
+.it.picked .orig{color:#f2f5f3}
 .del{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:20px;height:20px;
   display:none;align-items:center;justify-content:center;border-radius:4px;color:#6d737c;
   font-weight:400;font-size:12px;cursor:pointer}
@@ -141,7 +141,7 @@ body.lrcedit .lrcwrap{display:flex}
 .mark.set{color:#7fbfa6}
 /* LRC 编辑表格 */
 .letable{padding:6px 0}
-.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px;border-bottom:1px solid #161a20;cursor:pointer}
+.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px;border-bottom:1px solid #161a20;cursor:pointer;user-select:none}
 .lerow:hover{background:#141a20}
 .lerow.sel{background:#182430}
 .lerow .no{width:2.2em;color:#5b626c;font-size:12px;text-align:right}
@@ -151,7 +151,7 @@ body.lrcedit .lrcwrap{display:flex}
 .lerow input.ts:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
 .lerow .bind{color:#5b626c;cursor:pointer;font-size:12px;padding:0 3px}
 .lerow .bind:hover{color:#7fbfa6}
-.lerow input{flex:1;background:transparent;border:0;color:#dfe3e8;font-size:15px;
+.lerow input{user-select:text;flex:1;background:transparent;border:0;color:#dfe3e8;font-size:15px;
   font-family:inherit;padding:3px 0;outline:none}
 .lerow input:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
 .lerow .del{color:#5b626c;cursor:pointer;padding:0 4px}
@@ -188,8 +188,8 @@ body.lrcedit #lrcbar{display:grid}
 .legend{font-size:11px;color:#6d737c}
 .off .oflab{color:#8a9099;margin-right:4px}
 
-.lerow.picked{background:#1b232d}
-.lerow.picked .no{color:#7fbfa6}
+.lerow.picked{background:#244033;box-shadow:inset 3px 0 0 var(--a)}
+.lerow.picked .no{color:var(--a)}
 
 .lerow.cur{background:#152a22;box-shadow:inset 2px 0 0 var(--a)}
 .lerow.cur .no{color:var(--a)}
