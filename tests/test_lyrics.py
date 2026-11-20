@@ -38,6 +38,16 @@ class TestTimedLyrics(unittest.TestCase):
         self.assertFalse(L.valid_lrc("[00:01.00]あの日\n[00:03.00]今も"))
 
 
+class TestLocalOnlyLoad(unittest.TestCase):
+    def test_local_only_does_not_call_network(self):
+        import tempfile
+        from nihonco_player.core import lyrics_fetch as LF
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(LF, "cache_path", return_value=Path(tmp) / "none.json"), \
+                 patch.object(LF, "auto_match", side_effect=AssertionError("不该联网")):
+                self.assertIsNone(LF.get_lrc("曲", "歌手", network=False))
+
+
 class TestUnifiedMatch(unittest.TestCase):
     def test_auto_skips_candidate_without_valid_lyrics(self):
         from nihonco_player.core import lyrics_fetch as LF

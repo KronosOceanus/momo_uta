@@ -206,7 +206,7 @@ def best_by_duration(title: str, artist: str, duration: float,
 
 
 def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0.0,
-            force: bool = False) -> dict | None:
+            force: bool = False, network: bool = True) -> dict | None:
     p = cache_path(title, artist)
     if use_cache and not force and p.exists():
         try:
@@ -219,6 +219,8 @@ def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0
                 return old
         except Exception:
             pass
+    if not network:                     # 加载路径只读本地；联网只由匹配阶段触发
+        return None
     hit = auto_match(title, artist, duration)
     p.parent.mkdir(parents=True, exist_ok=True)
     # 失败也缓存，避免每次启动都重新联网（负缓存）

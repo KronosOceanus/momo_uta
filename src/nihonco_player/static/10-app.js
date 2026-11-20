@@ -345,6 +345,14 @@ async function load(i, autoplay, nextEditMode){
   const request=++NH.LOAD_REQUEST;
   NH.MATCHING=false; NH.syncModes?.();
   const editing=NH.LRCEDIT;
+  if(!editing){                                  // 点击后立即切换标题，别等接口
+    const it=NH.LIB.find(x=>String(x.idx)===String(i));
+    if(it){
+      document.getElementById('vtitle').textContent=it.title+(it.artist?' · '+it.artist:'');
+      lyr.innerHTML='';
+      document.getElementById('rmcol').innerHTML='';
+    }
+  }
   let d;
   try{
     if(editing){

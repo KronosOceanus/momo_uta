@@ -13,6 +13,7 @@
   → 写歌词缓存
 
 懒匹配（打开时发现没歌词）
+  普通加载只读本地，不联网
   先确认不是纯音乐 → POST /api/pl {action:"match"}
   → get_lrc(force=True) 强制联网 → 写缓存
   → match 返回后前端再拉一次 /api/song
@@ -238,7 +239,8 @@ force=True：完全跳过缓存，重新联网（懒匹配用）。
 ### 6.1 触发
 
 ```text
-GET /api/song/<idx> 返回 pending=true（data/lyrics 没有、缓存也没有）
+GET /api/song/<idx> 只读本地（data/lyrics、歌词缓存、负缓存），不联网
+返回 pending=true（本地都没有歌词）
   → 前端先 commitAudio（能播），autoplay 则播
   → 等人声分离结果（§7）
      判定纯音乐 → 跳过匹配，toast 提示"纯音乐"；歌词区空白

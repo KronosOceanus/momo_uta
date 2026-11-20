@@ -86,7 +86,8 @@ def exists(audio: str | Path, uid: str | None = None) -> bool:
 
 
 def load(audio: str | Path, uid: str | None = None,
-         title: str | None = None, artist: str | None = None) -> dict:
+         title: str | None = None, artist: str | None = None,
+         network: bool = False) -> dict:
     """优先 data/lyrics 下的 nhlrc；没有就用歌词缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -100,7 +101,7 @@ def load(audio: str | Path, uid: str | None = None,
         path, kind, source = sp, "nhlrc", "nhlrc"
     else:
         artist, title = LY.split_name(audio.stem)
-        hit = LY.get_lrc(title, artist) or {}
+        hit = LY.get_lrc(title, artist, network=network) or {}
         full = hit.get("lrc") or ""
         source = hit.get("source") or ""
         cached_ann = hit.get("nhlrc_annotations") or {}
