@@ -10,6 +10,8 @@ aside .it:hover{background:#171c23}
 
 aside .it .ar{color:var(--dim);font-size:11px}
 aside .it{position:relative}
+.it.picked{background:#1b232d}
+.it.picked .orig{color:#dfe3e8}
 .t1{display:flex;align-items:baseline;gap:6px;min-width:0}
 .t1 .orig{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .t1 .mch{color:#7d848d;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
@@ -83,6 +85,8 @@ audio{width:100%;margin:0;position:sticky;bottom:0}
 .plh .plc{color:#6d737c;font-size:12px}
 .plb{padding-left:4px}
 .it{position:relative}
+.it.picked{background:#1b232d}
+.it.picked .orig{color:#dfe3e8}
 .del{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:20px;height:20px;
   display:none;align-items:center;justify-content:center;border-radius:4px;color:#6d737c;
   font-weight:400;font-size:12px;cursor:pointer}

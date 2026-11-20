@@ -148,13 +148,15 @@ function renderLrcTable(){
     el.onclick=e=>{
       if(e.target.tagName==='INPUT') return;      // 输入框内点击：不抢焦点
       const i=+el.dataset.i;
+      const mod = e.metaKey || e.ctrlKey || e.shiftKey;
+      if(mod) e.preventDefault();
       if(e.metaKey||e.ctrlKey){ NH.SEL.has(i)?NH.SEL.delete(i):NH.SEL.add(i); }
       else if(e.shiftKey && NH.ESEL>=0){ NH.SEL.clear();
         for(let k=Math.min(NH.ESEL,i);k<=Math.max(NH.ESEL,i);k++) NH.SEL.add(k); }
       else { NH.SEL.clear(); }
       NH.ESEL=i; paintSelection();
       const r=NH.EROWS[i];
-      if(r && r.t!==null) NH.seekIdx(i, true);
+      if(!mod && r && r.t!==null) NH.seekIdx(i, true);
     };
   });
   box.querySelectorAll('input.ts').forEach(el=>{

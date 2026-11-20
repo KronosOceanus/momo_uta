@@ -36,7 +36,15 @@ def playlists_action(req) -> dict:
     elif act == "list_clear":
         PL.clear(str(req.get("id")))
     elif act == "entry_remove":
-        PL.remove(str(req.get("list")), str(req.get("uid")))
+        lid = str(req.get("list") or req.get("from") or "")
+        uid = str(req.get("uid") or "")
+        if lid and uid:
+            PL.remove(lid, uid)
+    elif act == "entries_remove":
+        lid = str(req.get("list") or req.get("from") or "")
+        uids = [str(x) for x in (req.get("uids") or []) if x]
+        if lid and uids:
+            PL.remove_many(lid, uids)
     elif act == "entry_move":
         PL.move(str(req.get("from")), str(req.get("to")), str(req.get("uid")))
     elif act == "list_reorder":

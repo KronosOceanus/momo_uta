@@ -70,6 +70,14 @@ class TestPlaylistsApi(unittest.TestCase):
         g = self.get()[0]
         self.assertNotIn("u1", [i["uid"] for i in g["items"]])
 
+    def test_bulk_remove(self):
+        self.post({"action": "list_create", "name": "批量删"})
+        lid = [g for g in self.get() if g["name"] == "批量删"][0]["id"]
+        PL.add(lid, ["u0", "u1", "u2"])
+        self.post({"action": "entries_remove", "list": lid, "uids": ["u0", "u2"]})
+        g = [x for x in self.get() if x["id"] == lid][0]
+        self.assertEqual([i["uid"] for i in g["items"]], ["u1"])
+
     def test_clear(self):
         self.post({"action": "list_clear", "id": "default"})
         self.assertEqual(self.get()[0]["items"], [])

@@ -153,9 +153,16 @@ def add(lid: str, uids: list[str]) -> int:
 
 
 def remove(lid: str, uid: str) -> None:
+    remove_many(lid, [uid])
+
+
+def remove_many(lid: str, uids: list[str]) -> None:
+    drop = {str(u) for u in uids if u}
+    if not drop:
+        return
     with _locked():
         d = load()
-        d["members"][lid] = [u for u in d["members"].get(lid, []) if u != uid]
+        d["members"][lid] = [u for u in d["members"].get(lid, []) if u not in drop]
         save(d)
 
 

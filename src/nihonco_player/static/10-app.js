@@ -10,6 +10,7 @@ const NH = window.NH || (window.NH = {});
 NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false;
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
+NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
 
 // ── 波形与整体偏移 ────────────────────────────────
 const CFG=(window.__CFG)||{};
@@ -529,7 +530,7 @@ function renderList(){
         <span class="car">${open?'▾':'▸'}</span><span class="pln">${g.name}</span>
         <span class="plc">${its.length}</span></div>
       <div class="plb" ${open?'':'hidden'}>`
-      + its.map(x=>`<div class="it" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" draggable="true">
+      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" draggable="true">
           <div class="t1"><span class="orig">${x.orig||x.title}</span>
             ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${x.title}</span>`}</div>
           <div class="ar">${x.artist}</div>
@@ -540,8 +541,37 @@ function renderList(){
   document.getElementById('list').innerHTML=html||'<div class="empty">没有歌</div>';
 }
 
+function paintSongSel(){
+  document.querySelectorAll('.it').forEach(el=>{
+    const pl=el.closest('.pl');
+    el.classList.toggle('picked',
+      !!pl && NH.SEL_LIST===pl.dataset.id && NH.SELU.has(el.dataset.u));
+  });
+}
+function clearSongSel(){
+  NH.SELU.clear(); NH.SEL_LIST=null; NH.SEL_ANCHOR=null; paintSongSel();
+}
+function songUidsVisible(lid){
+  const pl=document.querySelector('.pl[data-id="'+lid+'"]');
+  return pl ? [...pl.querySelectorAll('.it')].map(x=>x.dataset.u) : [];
+}
+function selectSongRange(lid, uid){
+  if(NH.SEL_LIST!==lid){ NH.SELU.clear(); NH.SEL_LIST=lid; NH.SEL_ANCHOR=null; }
+  const uids=songUidsVisible(lid);
+  let b=uids.indexOf(uid);
+  if(b<0) return;
+  let a=uids.indexOf(NH.SEL_ANCHOR);
+  if(a<0) a=b;
+  NH.SELU=new Set(uids.slice(Math.min(a,b), Math.max(a,b)+1));
+  if(!NH.SEL_ANCHOR) NH.SEL_ANCHOR=uid;
+  paintSongSel();
+}
+
 // 歌单右键菜单：导入 / 重命名 / 清空 / 删除
-function closeCtx(){ document.getElementById('ctxmenu')?.remove(); }
+function closeCtx(){
+  document.getElementById('ctxmenu')?.remove();
+  document.getElementById('songctx')?.remove();
+}
 function openPlMenu(x, y, g){
   closeCtx();
   const box=document.createElement('div');
@@ -574,7 +604,41 @@ function openPlMenu(x, y, g){
   box.style.left=Math.min(x, window.innerWidth-r.width-8)+'px';
   box.style.top=Math.min(y, window.innerHeight-r.height-8)+'px';
 }
+function openSongMenu(x, y, lid, uids){
+  closeCtx();
+  const box=document.createElement('div');
+  box.className='menu'; box.id='songctx'; box.style.minWidth='170px';
+  const n=uids.length;
+  const b=document.createElement('button');
+  b.textContent = n===1 ? '从歌单移除' : `移除选中的 ${n} 首`;
+  b.style.color='#e06c75';
+  b.onclick=async ev=>{
+    ev.stopPropagation(); closeCtx();
+    const ok=await uiConfirm(n===1?'从歌单移除？':`移除选中的 ${n} 首？`, '歌本身不会丢', true);
+    if(!ok) return;
+    const r=await api('/api/pl',{action:'entries_remove',list:lid,uids});
+    NH.SELU.clear(); NH.SEL_LIST=null; NH.SEL_ANCHOR=null;
+    applyLists(r);
+  };
+  box.appendChild(b);
+  document.body.appendChild(box);
+  const r=box.getBoundingClientRect();
+  box.style.left=Math.min(x, window.innerWidth-r.width-8)+'px';
+  box.style.top=Math.min(y, window.innerHeight-r.height-8)+'px';
+}
+
 document.getElementById('list').addEventListener('contextmenu', e=>{
+  const row=e.target.closest('.it');
+  if(row){
+    e.preventDefault();
+    const pl=row.closest('.pl');
+    const lid=pl.dataset.id, uid=row.dataset.u;
+    if(NH.SEL_LIST!==lid || !NH.SELU.has(uid)){
+      NH.SELU=new Set([uid]); NH.SEL_LIST=lid; NH.SEL_ANCHOR=uid; paintSongSel();
+    }
+    openSongMenu(e.clientX, e.clientY, lid, [...NH.SELU]);
+    return;
+  }
   const h=e.target.closest('.plh');
   if(!h) return;
   e.preventDefault();
@@ -588,17 +652,33 @@ document.addEventListener('keydown', e=>{
 // 一次事件委托，避免重复绑定
 document.getElementById('list').addEventListener('click', async e=>{
   const delEntry=e.target.closest('[data-act="del-entry"]');
-  if(delEntry){ e.stopPropagation();
-    await api('/api/pl',{action:'entry_remove',uid:delEntry.dataset.u,from:delEntry.dataset.id});
-    return loadLib(); }
+  if(delEntry){
+    e.stopPropagation();
+    const lid=delEntry.dataset.id, uid=delEntry.dataset.u;
+    const r=await api('/api/pl',{action:'entry_remove',list:lid,uid});
+    if(NH.SEL_LIST===lid) NH.SELU.delete(uid);
+    applyLists(r); paintSongSel();
+    return;
+  }
 
   const head=e.target.closest('[data-act="toggle"]');
   if(head){ const id=head.dataset.id;
     NH.OPEN.has(id)?NH.OPEN.delete(id):NH.OPEN.add(id); saveOpen(); return renderList(); }
 
   const row=e.target.closest('.it');
-  if(row){ document.querySelectorAll('.it').forEach(x=>x.style.background='');
-    row.style.background='#182430'; load(row.dataset.i); }
+  if(row){
+    const lid=row.closest('.pl').dataset.id, uid=row.dataset.u;
+    if(e.shiftKey){ e.preventDefault(); selectSongRange(lid, uid); return; }
+    if(e.metaKey||e.ctrlKey){
+      e.preventDefault();
+      if(NH.SEL_LIST!==lid){ NH.SELU.clear(); NH.SEL_LIST=lid; NH.SEL_ANCHOR=null; }
+      NH.SELU.has(uid)?NH.SELU.delete(uid):NH.SELU.add(uid);
+      NH.SEL_ANCHOR=uid; paintSongSel(); return;
+    }
+    clearSongSel();
+    NH.SEL_LIST=lid; NH.SEL_ANCHOR=uid;
+    load(row.dataset.i);
+  }
 });
 document.getElementById('list').addEventListener('dblclick', e=>{
   const row=e.target.closest('.it');
