@@ -602,7 +602,7 @@ function renderList(){
         <span class="car">${open?'▾':'▸'}</span><span class="pln">${g.name}</span>
         <span class="plc">${its.length}</span></div>
       <div class="plb" ${open?'':'hidden'}>`
-      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" draggable="true">
+      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING)===String(x.idx)?'1':''}" draggable="true">
           <div class="t1"><span class="orig">${x.orig||x.title}</span>
             ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${x.title}</span>`}</div>
           <div class="ar">${x.artist}</div>
@@ -611,6 +611,7 @@ function renderList(){
       + `</div></div>`;
   });
   document.getElementById('list').innerHTML=html||'<div class="empty">没有歌</div>';
+  NH.markPlaying?.();
 }
 
 function paintSongSel(){
