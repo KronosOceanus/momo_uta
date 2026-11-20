@@ -143,7 +143,7 @@ body.lrcedit .lrcwrap{display:flex}
 .mark.set{color:#7fbfa6}
 /* LRC 编辑表格 */
 .letable{padding:6px 0}
-.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px 5px 30%;border-bottom:1px solid #161a20;cursor:pointer}
+.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px 5px 25%;border-bottom:1px solid #161a20;cursor:pointer}
 .lerow:hover{background:#141a20}
 .lerow.sel{background:#182430}
 .lerow .no{width:2.2em;color:#5b626c;font-size:12px;text-align:right}
