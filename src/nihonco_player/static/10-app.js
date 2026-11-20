@@ -640,6 +640,13 @@ function selectSongRange(lid, uid){
   paintSongSel();
 }
 
+// 搜索框：输入即过滤（轻量防抖）
+let Q_TIMER = null;
+document.getElementById('q').addEventListener('input', () => {
+  clearTimeout(Q_TIMER);
+  Q_TIMER = setTimeout(renderList, 120);
+});
+
 // 歌单右键菜单：导入 / 重命名 / 清空 / 删除
 function closeCtx(){
   document.getElementById('ctxmenu')?.remove();
