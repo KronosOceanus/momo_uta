@@ -318,7 +318,7 @@ lrc_action(req)：
 ```text
 playlists_action(req)：
   list_create / list_rename / list_delete / list_clear
-  entry_remove / entry_move / entry_reorder / list_reorder
+  entry_remove / entry_move / entries_move / entry_reorder / list_reorder
   ui_open / ui_offset
   match（懒匹配）
   edit_clear（清空标注，恢复默认）

@@ -776,13 +776,21 @@ document.getElementById('list').addEventListener('dblclick', e=>{
 });
 document.getElementById('list').addEventListener('dragstart', e=>{
   const row=e.target.closest('.it'), head=e.target.closest('.plh');
-  if(row){ const pl=row.closest('.pl');
-    NH.DRAG={kind:'song', uid:row.dataset.u, from:pl.dataset.id};
-    e.dataTransfer.setData('text/plain','song'); }
-  else if(head){ const pl=head.parentElement;
+  if(row){
+    const pl=row.closest('.pl'), lid=pl.dataset.id, uid=row.dataset.u;
+    let uids=[uid];
+    if(NH.SEL_LIST===lid && NH.SELU.has(uid)){       // 拖已多选的行 → 整组移动
+      uids=[...pl.querySelectorAll('.it')].map(x=>x.dataset.u)
+        .filter(u=>NH.SELU.has(u));
+    }
+    NH.DRAG={kind:'songs', uids, from:lid};
+    e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain', uids.length>1?`${uids.length} songs`:'song');
+  }else if(head){ const pl=head.parentElement;
     if(pl.dataset.id==='default'){ NH.DRAG=null; return; }   // 默认歌单固定置顶
     NH.DRAG={kind:'list', id:pl.dataset.id};
-    e.dataTransfer.setData('text/plain','list'); }
+    e.dataTransfer.setData('text/plain','list');
+  }
 });
 document.getElementById('list').addEventListener('dragover', e=>{
   if(e.target.closest('.it')||e.target.closest('.plh')||e.target.closest('.plb')) e.preventDefault();
@@ -792,20 +800,28 @@ document.getElementById('list').addEventListener('drop', async e=>{
   const targetRow=e.target.closest('.it');
   const targetPl=(e.target.closest('.pl')||{}).dataset;
   const toPl=targetPl && targetPl.id;
-  if(NH.DRAG.kind==='song'){
-    if(!toPl) return;
-    if(targetRow){                                   // 落在某首歌上 → 插到它前面
-      const uids=[...e.target.closest('.plb').querySelectorAll('.it')].map(x=>x.dataset.u);
-      if(NH.DRAG.from===toPl){
-        const arr=uids.filter(u=>u!==NH.DRAG.uid);
-        arr.splice(arr.indexOf(targetRow.dataset.u), 0, NH.DRAG.uid);
-        await api('/api/pl',{action:'entry_reorder',list:toPl,uids:arr});
-      }else{
-        await api('/api/pl',{action:'entry_move',from:NH.DRAG.from,to:toPl,uid:NH.DRAG.uid});
+  if(NH.DRAG.kind==='songs'){
+    const moved=NH.DRAG.uids||[];
+    if(!toPl || !moved.length){ NH.DRAG=null; return; }
+    const from=NH.DRAG.from;
+    const before=targetRow?targetRow.dataset.u:null;
+    let changed=false;
+    if(from===toPl){
+      if(before && !moved.includes(before)){        // 同歌单内多选重排
+        const uids=[...e.target.closest('.plb').querySelectorAll('.it')].map(x=>x.dataset.u);
+        const arr=uids.filter(u=>!moved.includes(u));
+        const at=arr.indexOf(before);
+        if(at>=0){
+          arr.splice(at,0,...moved);
+          await api('/api/pl',{action:'entry_reorder',list:toPl,uids:arr});
+          changed=true;
+        }
       }
-    }else{                                           // 落在歌单空白处 → 移过去
-      if(NH.DRAG.from!==toPl) await api('/api/pl',{action:'entry_move',from:NH.DRAG.from,to:toPl,uid:NH.DRAG.uid});
+    }else{                                           // 跨歌单：整组移动，可选插到目标歌前面
+      await api('/api/pl',{action:'entries_move',from,to:toPl,uids:moved,before});
+      changed=true;
     }
+    if(changed) clearSongSel();
   }else if(NH.DRAG.kind==='list' && toPl && NH.DRAG.id!==toPl){
     const ids=[...document.querySelectorAll('.pl')].map(x=>x.dataset.id).filter(x=>x!=='default');
     ids.splice(ids.indexOf(NH.DRAG.id),1);

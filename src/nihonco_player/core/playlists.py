@@ -182,6 +182,30 @@ def reorder_lists(ids: list[str]) -> None:
 
 
 
+def move_many(lid_from: str, lid_to: str, uids: list[str],
+              before: str | None = None) -> None:
+    """批量移动；before 是目标歌单里插到它前面的 uid。"""
+    moved = [u for u in dict.fromkeys(str(x) for x in uids if x)]
+    if not moved or not lid_from or not lid_to:
+        return
+    with _locked():
+        d = load()
+        src = d["members"].get(lid_from, [])
+        moved = [u for u in moved if u in src]
+        if not moved:
+            return
+        moved_set = set(moved)
+        base = [u for u in src if u not in moved_set]
+        dst = base if lid_from == lid_to else [
+            u for u in d["members"].get(lid_to, []) if u not in moved_set]
+        at = dst.index(before) if before in dst else len(dst)
+        dst[at:at] = moved
+        if lid_from != lid_to:
+            d["members"][lid_from] = base
+        d["members"][lid_to] = dst
+        save(d)
+
+
 def move(lid_from: str, lid_to: str, uid: str) -> None:
     with _locked():
         d = load()
