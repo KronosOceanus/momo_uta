@@ -266,13 +266,17 @@ cv.addEventListener('contextmenu', e=>e.preventDefault());
 cv.addEventListener('wheel', e=>{
   if(!NH.WAVE) return;
   e.preventDefault();
-  if(e.deltaX || e.deltaY){
-    e.preventDefault();
-    if(NH.FOLLOW) return;                // 跟随中不平移；只有手动关掉才能平移
-    const v=viewStart(), w=cv.getBoundingClientRect().width || 1;
-    NH.PAN_START=clampStart(v.start + (e.deltaX||e.deltaY)*v.span/w, v.span);
-    drawWave();
+  const d=e.deltaX || e.deltaY;
+  if(!d) return;
+  const v=viewStart();                   // 先记住当前看到的窗口
+  if(NH.FOLLOW){                         // 手动拖 → 自动关跟随，冻结原地
+    NH.PAN_START=v.start;
+    NH.FOLLOW=false;
+    syncFollow();
   }
+  const w=cv.getBoundingClientRect().width || 1;
+  NH.PAN_START=clampStart(v.start + d*v.span/w, v.span);
+  drawWave();
 }, {passive:false});
 cv.addEventListener('click', e=>{
   if(!NH.WAVE || e.button===2) return;
