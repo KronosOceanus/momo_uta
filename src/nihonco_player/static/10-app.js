@@ -18,7 +18,7 @@ NH.WMARK = {};   // 查看歌曲的波形播放头（静止时用）
 const CFG=(window.__CFG)||{};
 const UI=(CFG.player&&CFG.player.ui)||{};
 const VC=(CFG.vocals)||{};
-NH.WAVE = null; NH.VIEW = {span:UI.wave_span||5}; NH.OFFSET = 0; NH.FOLLOW = UI.follow_default!==false; NH.DRAWN = null;
+NH.WAVE = null; NH.VIEW = {span:UI.wave_span||5}; NH.OFFSET = 0; NH.FOLLOW = true; NH.DRAWN = null;
 const cv=document.getElementById('wave'), cx=cv.getContext('2d');
 if(cv.style) cv.style.height=(UI.wave_height||120)+'px';
 const SPAN_MIN=UI.wave_span_min||2, SPAN_MAX=UI.wave_span_max||10;   // 秒
@@ -252,23 +252,27 @@ async function loadWave(force){
   }
   requestAnimationFrame(tick);
 })();
-document.getElementById('wavefollow').onclick=e=>{
-  NH.FOLLOW=!NH.FOLLOW;
-  e.target.textContent='跟随：'+(NH.FOLLOW?'开':'关');
-  e.target.classList.toggle('on', NH.FOLLOW);
-  if(!NH.FOLLOW){ NH.DRAWN=NH.DRAWN||viewStart(); }   // 关掉时冻结当前窗口
+document.getElementById('wavefollow').onclick=()=>{
+  if(NH.FOLLOW){
+    NH.PAN_START = viewStart().start;    // 先冻结当前窗口，再关
+    NH.FOLLOW = false;
+  }else{
+    NH.FOLLOW = true;
+  }
+  syncFollow();
 };
 cv.addEventListener('contextmenu', e=>e.preventDefault());
 // 双指滑动（触控板）/ 滚轮：左右平移窗口（竖向滑动也当横向用）
 cv.addEventListener('wheel', e=>{
   if(!NH.WAVE) return;
   e.preventDefault();
-  const d=e.deltaX || e.deltaY;
-  if(!d) return;
-  const v=viewStart(), w=cv.getBoundingClientRect().width || 1;
-  if(NH.FOLLOW){ NH.FOLLOW=false; syncFollow(); }      // 手动平移 → 关闭跟随
-  NH.PAN_START=clampStart(v.start + d*v.span/w, v.span);
-  drawWave();
+  if(e.deltaX || e.deltaY){
+    e.preventDefault();
+    if(NH.FOLLOW) return;                // 跟随中不平移；只有手动关掉才能平移
+    const v=viewStart(), w=cv.getBoundingClientRect().width || 1;
+    NH.PAN_START=clampStart(v.start + (e.deltaX||e.deltaY)*v.span/w, v.span);
+    drawWave();
+  }
 }, {passive:false});
 cv.addEventListener('click', e=>{
   if(!NH.WAVE || e.button===2) return;
