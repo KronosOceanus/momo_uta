@@ -241,7 +241,7 @@ force=True：完全跳过缓存，重新联网（懒匹配用）。
 GET /api/song/<idx> 返回 pending=true（data/lyrics 没有、缓存也没有）
   → 前端先 commitAudio（能播），autoplay 则播
   → 等人声分离结果（§7）
-     判定纯音乐 → 跳过匹配，提示"纯音乐（无人声）"
+     判定纯音乐 → 跳过匹配，toast 提示"纯音乐"；歌词区空白
   → POST /api/pl {action:"match", idx}
 ```
 
@@ -268,7 +268,7 @@ service.playlist 收到 action=match
 POST match 是同步的：后端跑完 lazy_match 才返回。
   返回后前端 GET /api/song/<idx> 一次：
     不再 pending → 重新 load，正常显示
-    仍然 pending → "没匹配到歌词（仍可播放）"
+    仍然 pending → toast 提示没匹配到；歌词区空白
   不再空轮询 60 秒
 ```
 

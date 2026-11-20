@@ -399,7 +399,7 @@ load(i)：
     ⑤ POST /api/pl {action:"match"} 触发抓取
     ⑥ match 返回后 GET /api/song/i 一次；仍 pending 即失败
        一旦不再 pending → 重新 load
-    ⑦ 超时 → "没匹配到歌词（仍可播放）"
+    ⑦ 超时 → toast 提示没匹配到；歌词区保持空白
 ```
 
 ```text
