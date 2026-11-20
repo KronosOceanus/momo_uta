@@ -143,7 +143,7 @@ body.lrcedit .lrcwrap{display:flex}
 .mark.set{color:#7fbfa6}
 /* LRC 编辑表格 */
 .letable{padding:6px 0}
-.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px;border-bottom:1px solid #161a20;cursor:pointer}
+.lerow{display:flex;gap:8px;align-items:center;padding:5px 24px;border-bottom:1px solid #161a20;cursor:pointer}
 .lerow:hover{background:#141a20}
 .lerow.sel{background:#182430}
 .lerow .no{width:2.2em;color:#5b626c;font-size:12px;text-align:right}
@@ -158,7 +158,8 @@ body.lrcedit .lrcwrap{display:flex}
 .lerow input:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
 .lerow .del{color:#5b626c;cursor:pointer;padding:0 4px}
 .lerow .del:hover{color:#e06c75}
-body.lrcedit .lyr{padding:0}
+body.lrcedit .lyr{flex:1 1 100%;border-right:0;padding:0}
+body.lrcedit .letable{max-width:1000px;margin:0 auto}
 
 /* 头部：模式按钮居右 */
 .hdr .modes{margin-left:auto;display:flex;gap:8px}
