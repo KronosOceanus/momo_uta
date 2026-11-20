@@ -311,6 +311,7 @@ lrc_action(req)：
   restore   用 .bak 覆盖
   export    生成 nhlrc 与纯 lrc 两种文本
   import_lrc 导入文本（保留 nhlrc 读音）
+  delete    删除 nhlrc/.bak/歌词缓存
 ```
 
 ### 6.3 playlist

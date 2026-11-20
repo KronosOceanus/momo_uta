@@ -151,6 +151,7 @@ body.lrcedit .lrcwrap{display:flex}
   font-family:ui-monospace,monospace;padding:2px 0;outline:none}
 .lerow input.ts.none{color:#c8843f}
 .lerow input.ts:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
+.lrcrow .danger{color:#e06c75}
 .lerow .bind{color:#5b626c;cursor:pointer;font-size:12px;padding:0;width:4.2em;height:22px;
   display:inline-flex;align-items:center;justify-content:center;border-radius:4px;flex:0 0 auto}
 .lerow .bind:hover{color:#7fbfa6;background:#1b232d}

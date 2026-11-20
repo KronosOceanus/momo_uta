@@ -27,6 +27,10 @@ def lrc_action(req):
         if res.get("ok"):
             LIB.refresh(item.get("uid"))
         return res
+    if act == "delete":
+        res = LRC.delete_store(item["file"], uid, title, artist)
+        LIB.refresh(item.get("uid"))
+        return res
     if act == "export":
         lines = req.get("lines")
         doc = LRC.load(item["file"], uid, title, artist)

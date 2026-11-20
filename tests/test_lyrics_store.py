@@ -165,6 +165,31 @@ class TestSaveAlignment(unittest.TestCase):
             self.assertEqual(after[2], before[1])
 
 
+class TestDeleteStore(unittest.TestCase):
+    def test_delete_removes_nhlrc_backup_and_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60), \
+                 patch.object(LRF.LY, "write_local_lrc"):
+                LRF.save(audio, rows(), {})
+                LRF.save(audio, rows()[:2], {})       # 第二次保存生成 .bak
+                store = LRF.store_path(audio)
+                bak = LRF.store_backup(audio)
+                self.assertTrue(store.is_file() and bak.is_file())
+                res = LRF.delete_store(audio)
+                self.assertTrue(res["ok"])
+                self.assertFalse(store.exists())
+                self.assertFalse(bak.exists())
+                cache = LC.cache_path("曲", "歌手")
+                self.assertTrue(cache.is_file())
+                self.assertTrue(json.loads(cache.read_text(encoding="utf-8"))["miss"])
+                self.assertEqual(LRF.load(audio)["lines"], [])
+
+
 class TestSharedLyricsSource(unittest.TestCase):
     def test_store_only_is_not_pending_and_lrc_sees_same(self):
         from nihonco_player.service import lrc as SVC_LRC

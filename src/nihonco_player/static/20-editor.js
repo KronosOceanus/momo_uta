@@ -392,6 +392,22 @@ document.getElementById('lrcimport').onclick=async()=>{
       res=>`已导入 ${res.lines} 行${res.backed_up?'（已备份原文件）':''}`);
   }catch(err){ NH.done('导入失败：'+err.message); }
 };
+document.getElementById('lrcfiledel').onclick=async()=>{
+  if(!NH.LRCEDIT || NH.LRC_LOCKED || !NH.S) return;
+  const song=NH.S;
+  if(!await NH.uiConfirm('删除这首歌的歌词文件？',
+      'nhlrc 和备份都会被删除，当前编辑内容也会丢弃。\n以后可以重新匹配。', true)) return;
+  clearTimeout(NH.SAVE_T);
+  NH.EDIRTY=false;
+  try{
+    if(NH.SAVE_PENDING) await NH.SAVE_PENDING;
+    const r=await NH.api('/api/lrc',{action:'delete', idx:song.idx});
+    if(!r.ok) throw new Error(r.error||'删除失败');
+    NH.NO_MATCH.add(String(song.idx));
+    await NH.load(song.idx,false,false);       // 退出 LRC，回到普通页
+    NH.done('已删除歌词文件');
+  }catch(err){ NH.done('删除失败：'+err.message); }
+};
 document.getElementById('lrcreset').onclick=async()=>{
   if(!NH.LRCEDIT || NH.LRC_LOCKED || !NH.S) return;
   const song=NH.S;

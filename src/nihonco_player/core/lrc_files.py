@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import threading
@@ -155,6 +156,30 @@ def restore_backup(audio: str | Path, uid: str | None = None,
     LY.write_local_lrc(title, artist, body,
                        duration=LY.audio_duration(audio), name=title, by=artist)
     return {"ok": True, "path": str(sp), "lines": len(parse(sp.read_text(encoding="utf-8")))}
+
+
+def delete_store(audio: str | Path, uid: str | None = None,
+                 title: str | None = None, artist: str | None = None) -> dict:
+    """删除当前歌曲的 nhlrc、备份和歌词缓存；写一个负缓存阻止立即回退联网。"""
+    audio = Path(audio)
+    u = uid or uid_of(audio)
+    sp = store_path(audio, u, title, artist)
+    bak = store_backup(audio, u, title, artist)
+    deleted: list[str] = []
+    with LOCK:
+        for p in (sp, bak):
+            if p.is_file():
+                p.unlink()
+                deleted.append(str(p))
+        artist, title = LY.split_name(audio.stem)
+        cp = LY.cache_path(title, artist)
+        if cp.is_file():
+            cp.unlink()
+            deleted.append(str(cp))
+        cp.parent.mkdir(parents=True, exist_ok=True)
+        cp.write_text(json.dumps({"miss": True, "reason": "deleted"},
+                                 ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "deleted": deleted, "cache": str(cp)}
 
 
 def import_text(audio: str | Path, text: str, uid: str | None = None,
