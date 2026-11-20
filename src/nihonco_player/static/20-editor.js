@@ -8,7 +8,6 @@ NH.LRCEDIT = false;
 // ── LRC 编辑表格 ────────────────────────────────
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
 NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false;
-NH.ANCHOR = -1;   // Shift 范围选择的锚点（不随范围终点移动）
 
 function setLrcLocked(locked){
   if(locked===NH.LRC_LOCKED) return;
@@ -123,7 +122,7 @@ async function openLrcEditor(entering=false){
   NH.LRC_METADATA=d.metadata||[];
   NH.EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
   if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
-  NH.ESEL=0; NH.SEL.clear(); NH.ANCHOR=-1; NH.EDIRTY=false; NH.MARK=null;
+  NH.ESEL=0; NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
   NH.UNDO=[]; NH.REDO=[];
   document.getElementById('savehint').textContent='';
   renderLrcTable();
@@ -151,15 +150,10 @@ function renderLrcTable(){
       const i=+el.dataset.i;
       const mod = e.metaKey || e.ctrlKey || e.shiftKey;
       if(mod) e.preventDefault();
-      if(e.metaKey||e.ctrlKey){
-        NH.SEL.has(i)?NH.SEL.delete(i):NH.SEL.add(i);
-        NH.ANCHOR=i;
-      }
-      else if(e.shiftKey && NH.ANCHOR>=0){
-        NH.SEL.clear();
-        for(let k=Math.min(NH.ANCHOR,i);k<=Math.max(NH.ANCHOR,i);k++) NH.SEL.add(k);
-      }
-      else { NH.SEL.clear(); NH.ANCHOR=i; }
+      if(e.metaKey||e.ctrlKey){ NH.SEL.has(i)?NH.SEL.delete(i):NH.SEL.add(i); }
+      else if(e.shiftKey && NH.ESEL>=0){ NH.SEL.clear();
+        for(let k=Math.min(NH.ESEL,i);k<=Math.max(NH.ESEL,i);k++) NH.SEL.add(k); }
+      else { NH.SEL.clear(); }
       NH.ESEL=i; paintSelection();
       const r=NH.EROWS[i];
       if(!mod && r && r.t!==null) NH.seekIdx(i, true);
