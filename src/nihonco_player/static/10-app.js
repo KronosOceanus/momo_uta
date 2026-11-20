@@ -12,6 +12,7 @@ NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING !== null && String(NH.PLAYING) ==
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
 NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
+NH.WMARK = {};   // 查看歌曲的波形播放头（静止时用）
 
 // ── 波形与整体偏移 ────────────────────────────────
 const CFG=(window.__CFG)||{};
@@ -27,8 +28,13 @@ function clampStart(st, span){
   const dur=(NH.WAVE && NH.WAVE.duration) || 0;
   return Math.max(0, Math.min(Math.max(0, dur-span), st));
 }
+function waveMarker(idx){
+  const v=NH.WMARK[idx]; return v==null ? 0 : v;
+}
 function waveTime(){
   if(NH.isSelfPlaying()) return NH.au.currentTime || 0;
+  const m=NH.WMARK[NH.S && NH.S.idx];
+  if(m!=null) return m;
   if(NH.LRCEDIT && NH.ESEL >= 0){
     const l=NH.EROWS[NH.ESEL];
     if(l && l.t != null) return l.t + NH.OFFSET;
@@ -39,11 +45,44 @@ function waveTime(){
   }
   return NH.MARK != null ? NH.MARK : 0;
 }
+function setWaveMarker(t, select){
+  if(!NH.S) return;
+  const dur=(NH.WAVE && NH.WAVE.duration) || NH.S.duration || 0;
+  t=Math.max(0, dur ? Math.min(dur, +t||0) : +t||0);
+  NH.WMARK[NH.S.idx]=t; NH.MARK=t;
+  if(select){
+    const i=nearestWaveRow(t);
+    if(i>=0){
+      if(NH.LRCEDIT){ NH.ESEL=i; NH.paintSelection(); }
+      else NH.highlight(i);
+    }
+  }
+  drawWave();
+}
+function waveStep(delta){
+  if(!NH.S) return;
+  const self=NH.isSelfPlaying();
+  const base=self ? (NH.au.currentTime||0) : waveMarker(NH.S.idx);
+  const dur=self ? (NH.au.duration||0) : ((NH.WAVE&&NH.WAVE.duration)||NH.S.duration||0);
+  const t=Math.max(0, dur ? Math.min(dur, base+delta) : base+delta);
+  NH.WMARK[NH.S.idx]=t; NH.MARK=t;
+  if(self) NH.seekPrecise(t);
+  else {
+    const i=nearestWaveRow(t);
+    if(i>=0){
+      if(NH.LRCEDIT){ NH.ESEL=i; NH.paintSelection(); }
+      else NH.highlight(i);
+    }
+  }
+  drawWave();
+  const el=document.getElementById('mark');
+  if(el){ el.textContent='标记：'+NH.lrcFmt(t); el.classList.add('set'); }
+}
 function nearestWaveRow(t){
-  const ls=viewLines(); let n=-1, best=1e9;
+  const ls=NH.viewLines(); let n=-1, best=1e9;
   ls.forEach((l,i)=>{
-    if(!l || isMetaLine(l) || lineT(l)===null) return;
-    const d=Math.abs(lineT(l)-t);
+    if(!l || NH.isMetaLine(l) || NH.lineT(l)===null) return;
+    const d=Math.abs(NH.lineT(l)-t);
     if(d<best){ best=d; n=i; }
   });
   return n;
@@ -237,17 +276,8 @@ cv.addEventListener('click', e=>{
   const ratio=Math.max(0, Math.min(1,(e.clientX-r.left)/r.width));
   const v=NH.DRAWN || viewStart();                 // 所见即所得
   const t=Math.round((v.start + ratio*v.span)*100)/100;
-  NH.MARK=t;
-  if(NH.isSelfPlaying()){
-    NH.seekPrecise(t);
-  }else{
-    const i=nearestWaveRow(t);
-    if(i>=0){
-      if(NH.LRCEDIT){ NH.ESEL=i; NH.paintSelection(); }
-      else NH.highlight(i);
-    }
-  }
-  drawWave();
+  setWaveMarker(t, true);
+  if(NH.isSelfPlaying()) NH.seekPrecise(t);
   const el=document.getElementById('mark');
   el.textContent='标记：'+NH.lrcFmt(NH.MARK); el.classList.add('set');
   drawWave();
@@ -261,14 +291,10 @@ document.getElementById('zoomval').onclick=()=>{
     {min:SPAN_LO, max:SPAN_HI, fmt:v=>String(v), apply:v=>setWaveSpan(v)});
 };
 document.querySelectorAll('#wavebar [data-seek]').forEach(b=>b.onclick=()=>{
-  NH.seekPrecise(Math.max(0, Math.min(NH.au.duration||0, NH.au.currentTime + parseFloat(b.dataset.seek))));
+  waveStep(parseFloat(b.dataset.seek));
 });
-document.getElementById('jumpback').onclick=()=>{
-  NH.seekPrecise(Math.max(0, NH.au.currentTime - NH.VIEW.span));
-};
-document.getElementById('jumpfwd').onclick=()=>{
-  NH.seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime + NH.VIEW.span));
-};
+document.getElementById('jumpback').onclick=()=>{ waveStep(-NH.VIEW.span); };
+document.getElementById('jumpfwd').onclick=()=>{ waveStep(NH.VIEW.span); };
 document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   if(!NH.S) return;
   NH.OFFSET=Math.round((NH.OFFSET+parseFloat(b.dataset.off))*100)/100;
@@ -335,7 +361,7 @@ async function load(i, autoplay, nextEditMode){
     if(autoplay || NH.PLAYING===null){            // 单击只换 UI，不打断旧音频
       NH.commitAudio();
       NH.au.playbackRate=+document.getElementById('rate').value;
-      if(autoplay) NH.au.play().catch(()=>{});
+      if(autoplay) NH.playFromMarker?.();
     }
     lyr.innerHTML='<div class="lm">分离人声，确认是否有人声…</div>';
     const v=(VC.auto_start===false) ? null : await ensureVocals(d.idx);
@@ -383,7 +409,7 @@ async function load(i, autoplay, nextEditMode){
     else NH.WAVE=null;
     if(NH.PLAYING===null) NH.commitAudio();                 // 第一次载入才绑定音频
 
-    if(autoplay){ NH.commitAudio(); NH.au.play().catch(()=>{}); }
+    if(autoplay){ NH.commitAudio(); NH.playFromMarker?.(); }
     NH.au.playbackRate=+document.getElementById('rate').value;
   }
   NH.VSTAT=null; paintVStatus();
@@ -802,5 +828,5 @@ document.getElementById('resetall').onclick=async()=>{
   load(NH.S.idx);
 };
 
-Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, ensureVocals, pollVocals, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport});
+Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, ensureVocals, pollVocals, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport});
 })();

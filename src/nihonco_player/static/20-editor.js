@@ -157,6 +157,7 @@ function renderLrcTable(){
       else { NH.SEL.clear(); }
       NH.ESEL=i; paintSelection();
       const r=NH.EROWS[i];
+      if(!NH.isSelfPlaying() && r && r.t!==null) NH.WMARK[NH.S.idx]=lineT(r);
       if(!mod && NH.isSelfPlaying() && r && r.t!==null) NH.seekIdx(i, true);
     };
     el.ondblclick=ev=>{

@@ -97,7 +97,8 @@ function selectLine(i){
   if(NH.S && String(NH.PLAYING) === String(NH.S.idx)){
     seekIdx(i, true);                   // 正在播这首：跳转，保持播放/暂停状态
   }else{
-    highlight(i);                       // 只是查看另一首：只高亮，不碰音频
+    NH.WMARK[NH.S.idx]=lineT(l);        // 查看另一首：只移动波形头
+    highlight(i);                       // 只高亮，不碰音频
   }
 }
 
@@ -105,6 +106,7 @@ async function playLine(i){
   if(!NH.S) return;
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
+  NH.WMARK[NH.S.idx]=lineT(l);
   if(NH.PLAYING!==NH.S.idx) NH.commitAudio();
   await seekPrecise(Math.max(0, lineT(l)));
   await NH.au.play().catch(()=>{});
@@ -252,7 +254,19 @@ const PL=(window.__CFG&&window.__CFG.player)||{};
 })();
 const playBtn=document.getElementById('play');
 function syncPlayBtn(){ playBtn.textContent = NH.au.paused ? '播放' : '暂停'; }
-document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); NH.au.play().catch(()=>{}); };
+function playFromMarker(){
+  const song = NH.S;
+  if(!song) return;
+  const idx = song.idx;
+  const t = NH.WMARK[idx] || 0;
+  NH.au.preload().then(() => {
+    if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+    NH.au.currentTime = t;
+    NH.au.play().catch(()=>{});
+  }).catch(()=>{});
+}
+NH.playFromMarker = playFromMarker;
+document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); playFromMarker(); };
 playBtn.onclick=()=>{
   if(NH.PLAYING===null) return;              // 只控制正在播放的 A，不切到查看的 B
   if(NH.au.paused){ NH.au.play().catch(()=>{}); } else { NH.au.pause(); }
