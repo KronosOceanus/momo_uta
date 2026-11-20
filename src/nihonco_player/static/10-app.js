@@ -458,6 +458,7 @@ function uiPrompt(title, value){
     const cancel = document.createElement('button'); cancel.textContent = '取消';
     row.appendChild(cancel); row.appendChild(ok);
     box.appendChild(lab); box.appendChild(inp); box.appendChild(row);
+    box.addEventListener('click', e => e.stopPropagation());
     document.body.appendChild(box);
     const close = v => {
       document.removeEventListener('keydown', key);
@@ -475,6 +476,44 @@ function uiPrompt(title, value){
   });
 }
 NH.uiPrompt = uiPrompt;
+
+function uiConfirm(title, body, danger){
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.className = 'menu';
+    box.id = 'uiconfirm';
+    box.style.cssText = 'position:fixed;left:50%;top:32%;transform:translateX(-50%);min-width:300px;max-width:520px;padding:12px;z-index:99';
+    const h = document.createElement('div');
+    h.textContent = title;
+    h.style.cssText = 'font-size:13px;color:#e9e7e4;padding:2px 4px 6px';
+    const p = document.createElement('div');
+    p.textContent = body || '';
+    p.style.cssText = 'font-size:12px;color:#878c95;line-height:1.6;padding:0 4px 10px;white-space:pre-wrap';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+    const cancel = document.createElement('button'); cancel.textContent = '取消';
+    const ok = document.createElement('button'); ok.textContent = '确定';
+    if(danger) ok.style.color = '#e06c75';
+    row.appendChild(cancel); row.appendChild(ok);
+    box.appendChild(h); box.appendChild(p); box.appendChild(row);
+    box.addEventListener('click', e => e.stopPropagation());
+    document.body.appendChild(box);
+    const close = v => {
+      document.removeEventListener('keydown', key);
+      box.remove();
+      resolve(v);
+    };
+    const key = e => {
+      if(e.key === 'Escape'){ e.preventDefault(); close(false); }
+      else if(e.key === 'Enter'){ e.preventDefault(); close(true); }
+    };
+    document.addEventListener('keydown', key);
+    ok.onclick = () => close(true);
+    cancel.onclick = () => close(false);
+    cancel.focus();
+  });
+}
+NH.uiConfirm = uiConfirm;
 
 function renderList(){
   const q=(document.getElementById('q').value||'').trim().toLowerCase();
@@ -521,14 +560,14 @@ function openPlMenu(x, y, g){
     applyLists(r);
   });
   mk('清空歌单', async ()=>{
-    if(!confirm(`清空「${g.name}」？歌本身不会丢`)) return;
-    await api('/api/pl',{action:'list_clear',id:g.id});
-    loadLib();
+    if(!await uiConfirm(`清空「${g.name}」？`, '歌本身不会丢')) return;
+    const r=await api('/api/pl',{action:'list_clear',id:g.id});
+    applyLists(r);
   });
   if(!g.locked) mk('删除歌单', async ()=>{
-    if(!confirm(`删除歌单「${g.name}」？（歌本身不会丢）`)) return;
-    await api('/api/pl',{action:'list_delete',id:g.id});
-    loadLib();
+    if(!await uiConfirm(`删除歌单「${g.name}」？`, '歌本身不会丢', true)) return;
+    const r=await api('/api/pl',{action:'list_delete',id:g.id});
+    applyLists(r);
   }, true);
   document.body.appendChild(box);
   const r=box.getBoundingClientRect();

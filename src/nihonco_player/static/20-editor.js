@@ -376,7 +376,7 @@ document.getElementById('lrcimport').onclick=async()=>{
   try{
     const r=await picker.pick_lrc_text();
     if(!r?.text || NH.S!==song || !NH.LRCEDIT || NH.LRC_LOCKED) return;
-    if(!confirm(`用「${r.name}」覆盖当前歌词？当前内容会被替换`)) return;
+    if(!await NH.uiConfirm('覆盖当前歌词？', `用「${r.name}」覆盖当前歌词，当前内容会被替换`, true)) return;
     await replaceLrc({action:'import_lrc', idx:song.idx, text:r.text}, '导入中…',
       res=>`已导入 ${res.lines} 行${res.backed_up?'（已备份原文件）':''}`);
   }catch(err){ NH.done('导入失败：'+err.message); }
@@ -389,7 +389,7 @@ document.getElementById('lrcreset').onclick=async()=>{
     if(NH.S!==song || !NH.LRCEDIT || NH.LRC_LOCKED) return;
     if(!st.exists){ NH.done('没有备份（首次保存时才会生成）'); return; }
     const when=new Date(st.mtime*1000).toLocaleString();
-    if(!confirm(`恢复到这个备份？\n${when} · ${st.lines} 行\n当前编辑内容会丢失`)) return;
+    if(!await NH.uiConfirm('恢复到这个备份？', `${when} · ${st.lines} 行\n当前编辑内容会丢失`, true)) return;
     await replaceLrc({action:'restore', idx:song.idx}, '恢复中…',
       res=>`已恢复最初版本（${res.lines} 行）`);
   }catch(err){ NH.done('恢复失败：'+err.message); }
@@ -468,7 +468,7 @@ document.addEventListener('click', async e=>{
     });
     return;
   }
-  document.querySelectorAll('.menu').forEach(m=>{ if(m.id!=='uiprompt') m.remove(); });
+  document.querySelectorAll('.menu').forEach(m=>{ if(m.id!=='uiprompt' && m.id!=='uiconfirm') m.remove(); });
   const bc = e.target.closest('.bc');
   if(!bc) return;
   e.stopPropagation();
