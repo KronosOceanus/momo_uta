@@ -8,6 +8,7 @@ const NH = window.NH || (window.NH = {});
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
 NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false;
+NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING !== null && String(NH.PLAYING) === String(NH.S.idx));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
 NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
@@ -26,11 +27,32 @@ function clampStart(st, span){
   const dur=(NH.WAVE && NH.WAVE.duration) || 0;
   return Math.max(0, Math.min(Math.max(0, dur-span), st));
 }
+function waveTime(){
+  if(NH.isSelfPlaying()) return NH.au.currentTime || 0;
+  if(NH.LRCEDIT && NH.ESEL >= 0){
+    const l=NH.EROWS[NH.ESEL];
+    if(l && l.t != null) return l.t + NH.OFFSET;
+  }
+  if(!NH.LRCEDIT && NH.CUR >= 0){
+    const l=NH.LINES[NH.CUR];
+    if(l && l.t != null) return l.t + NH.OFFSET;
+  }
+  return NH.MARK != null ? NH.MARK : 0;
+}
+function nearestWaveRow(t){
+  const ls=viewLines(); let n=-1, best=1e9;
+  ls.forEach((l,i)=>{
+    if(!l || isMetaLine(l) || lineT(l)===null) return;
+    const d=Math.abs(lineT(l)-t);
+    if(d<best){ best=d; n=i; }
+  });
+  return n;
+}
 function viewStart(){
   const dur=(NH.WAVE && NH.WAVE.duration) || 0;
   const span=Math.min(NH.VIEW.span, dur||NH.VIEW.span);
   if(!NH.FOLLOW) return {start:clampStart(NH.PAN_START, span), span};
-  let s0=(NH.au.currentTime||0) - span/2;
+  let s0=waveTime() - span/2;
   s0=Math.max(0, Math.min((dur||0)-span, s0));
   return {start:s0, span};
 }
@@ -128,8 +150,8 @@ function drawWave(){
     });
     cx.stroke();
   }
-  // 播放头居中
-  const x=Math.round(((NH.au.currentTime||0)-start)/perPx);
+  // 播放头：B 在播跟音频，否则跟选中行
+  const x=Math.round((waveTime()-start)/perPx);
   cx.strokeStyle='#7fbfa6'; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
@@ -186,7 +208,7 @@ async function loadWave(force){
 (function waveLoop(){
   let last=0;
   function tick(ts){
-    if(NH.WAVE && NH.LRCEDIT && !NH.au.paused && ts-last>=32){ drawWave(); last=ts; }
+    if(NH.WAVE && NH.LRCEDIT && NH.isSelfPlaying() && !NH.au.paused && ts-last>=32){ drawWave(); last=ts; }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -215,8 +237,16 @@ cv.addEventListener('click', e=>{
   const ratio=Math.max(0, Math.min(1,(e.clientX-r.left)/r.width));
   const v=NH.DRAWN || viewStart();                 // 所见即所得
   const t=Math.round((v.start + ratio*v.span)*100)/100;
-  NH.seekPrecise(t);
-  NH.MARK=Math.round(t*100)/100;
+  NH.MARK=t;
+  if(NH.isSelfPlaying()){
+    NH.seekPrecise(t);
+  }else{
+    const i=nearestWaveRow(t);
+    if(i>=0){
+      if(NH.LRCEDIT){ NH.ESEL=i; NH.paintSelection(); }
+      else NH.highlight(i);
+    }
+  }
   drawWave();
   const el=document.getElementById('mark');
   el.textContent='标记：'+NH.lrcFmt(NH.MARK); el.classList.add('set');
@@ -289,6 +319,7 @@ async function load(i, autoplay, nextEditMode){
   }finally{
     if(editing && request===NH.LOAD_REQUEST) NH.setLrcLocked(false);
   }
+  if(NH.loop && (NH.PLAYING===null || String(NH.PLAYING)!==String(d.idx))) NH.closeLineLoop?.();
   const changedSong=!NH.S || String(NH.S.idx)!==String(d.idx);
   if(changedSong || nextEditMode!==undefined){
     NH.EDITMODE=nextEditMode===true;

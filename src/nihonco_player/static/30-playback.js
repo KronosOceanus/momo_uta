@@ -7,13 +7,34 @@ function markPlaying(){
   document.querySelectorAll('.it').forEach(x=>{
     x.dataset.playing = (String(x.dataset.i)===String(NH.PLAYING)) ? '1' : ''; });
 }
+function syncPlayControls(){
+  const on = NH.PLAYING !== null && NH.PLAYING !== undefined;
+  ['prev','play','next','loop','songloop','play2','back10','fwd10'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.disabled=!on;
+  });
+  const seek=document.getElementById('seek'); if(seek) seek.classList.toggle('off', !on);
+}
+function syncLoopBtn(){
+  const b=document.getElementById('loop'); if(!b) return;
+  b.textContent = NH.loop ? '单句循环：开' : '单句循环';
+  b.classList.toggle('on', NH.loop);
+}
+function closeLineLoop(){
+  if(!NH.loop) return;
+  NH.loop=false; NH.LOOP_ROW=-1; syncLoopBtn();
+}
+NH.closeLineLoop = closeLineLoop;
+NH.syncPlayControls = syncPlayControls;
+
 function commitAudio(){
   if(!NH.S) return;
+  const prev=NH.PLAYING;
+  if(prev!==null && prev!==undefined && String(prev)!==String(NH.S.idx)) closeLineLoop();
   NH.PLAYING = NH.S.idx; markPlaying();
   NH.au.src = NH.S.audio || ('/audio/'+NH.S.idx);
   NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
   document.getElementById('ttl').textContent = '▶ ' + NH.S.title + (NH.S.artist?' · '+NH.S.artist:'');
-  syncPlayBtn();
+  syncPlayBtn(); syncPlayControls();
 }
 // ── 统一播放层：普通视图与编辑表格共用同一套时间语义 ──
 const META_RE=/^(作词|作曲|编曲|制作|演唱|歌\s*[:：]|Lyrics|Composer|Arranger|Producer)/;
@@ -197,6 +218,7 @@ function paintTicks(){
   box.appendChild(frag);
 }
 function seekToClientX(x){
+  if(NH.PLAYING===null) return;
   const r=document.getElementById('seek').getBoundingClientRect();
   const ratio=Math.max(0,Math.min(1,(x-r.left)/r.width));
   const dur=isFinite(NH.au.duration)?NH.au.duration:0;
@@ -209,9 +231,9 @@ function seekToClientX(x){
   seek.addEventListener('mousedown', e=>{ dragging=true; seekToClientX(e.clientX); });
   document.addEventListener('mousemove', e=>{ if(dragging) seekToClientX(e.clientX); });
   document.addEventListener('mouseup', ()=>{ dragging=false; });
-  document.getElementById('play2').onclick=()=>{ if(NH.au.paused) NH.au.play().catch(()=>{}); else NH.au.pause(); };
-  document.getElementById('back10').onclick=()=>{ seekPrecise(Math.max(0, NH.au.currentTime-10)); };
-  document.getElementById('fwd10').onclick=()=>{ seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
+  document.getElementById('play2').onclick=()=>{ if(NH.PLAYING===null) return; if(NH.au.paused) NH.au.play().catch(()=>{}); else NH.au.pause(); };
+  document.getElementById('back10').onclick=()=>{ if(NH.PLAYING===null) return; seekPrecise(Math.max(0, NH.au.currentTime-10)); };
+  document.getElementById('fwd10').onclick=()=>{ if(NH.PLAYING===null) return; seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
   document.getElementById('volume').oninput=e=>{ NH.au.volume=+e.target.value; NH.au.muted=NH.au.volume===0; paintTransport(); };
   document.getElementById('mute').onclick=()=>{ NH.au.muted=!NH.au.muted; paintTransport(); };
   ['timeupdate','loadedmetadata','durationchange','play','pause','volumechange'].forEach(ev=>
@@ -232,15 +254,23 @@ const playBtn=document.getElementById('play');
 function syncPlayBtn(){ playBtn.textContent = NH.au.paused ? '播放' : '暂停'; }
 document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); NH.au.play().catch(()=>{}); };
 playBtn.onclick=()=>{
-  if(NH.S && NH.PLAYING!==NH.S.idx){ commitAudio(); NH.au.play().catch(()=>{}); return; }
+  if(NH.PLAYING===null) return;              // 只控制正在播放的 A，不切到查看的 B
   if(NH.au.paused){ NH.au.play().catch(()=>{}); } else { NH.au.pause(); }
 };
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>NH.au.addEventListener(ev, syncPlayBtn));
 ['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.LRCEDIT) NH.drawWave(); }));
 NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
 document.getElementById('rate').oninput=e=>{NH.au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
-document.getElementById('prev').onclick=()=>{ const n=nextIdx(-1); if(n!==null) seekIdx(n,true); };
-document.getElementById('next').onclick=()=>{ const n=nextIdx(1);  if(n!==null) seekIdx(n,true); };
+async function stepPlaying(dir){
+  if(NH.PLAYING===null) return;
+  if(!NH.isSelfPlaying()){
+    const ok=await NH.load(NH.PLAYING, false);   // 页面跳到 A，不打断 A
+    if(!ok) return;
+  }
+  const n=nextIdx(dir); if(n!==null) seekIdx(n,true);
+}
+document.getElementById('prev').onclick=()=>stepPlaying(-1);
+document.getElementById('next').onclick=()=>stepPlaying(1);
 document.getElementById('t-rm').onclick=e=>{NH.MODE='rm';e.target.classList.add('on');document.getElementById('t-ky').classList.remove('on');const l=NH.LINES[NH.CUR];NH.renderSide();};
 document.getElementById('t-ky').onclick=e=>{NH.MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=NH.LINES[NH.CUR];NH.renderSide();};
 document.getElementById('rem').onclick=async()=>{
@@ -296,14 +326,21 @@ document.getElementById('rem').onclick=async()=>{
   if(top+bh>window.innerHeight-12) top=Math.max(12, r0.top-bh-6);   // 放不下就往上开
   box.style.left=left+'px'; box.style.top=top+'px';
 };
-document.getElementById('loop').onclick=e=>{NH.loop=!NH.loop;e.target.classList.toggle('on',NH.loop);
+document.getElementById('loop').onclick=async()=>{
+  if(NH.PLAYING===null) return;
+  if(!NH.isSelfPlaying()){
+    const ok=await NH.load(NH.PLAYING, false);
+    if(!ok) return;
+  }
+  NH.loop=!NH.loop;
   if(NH.loop){
     const items=navItems();
     const cur=idxAt(NH.au.currentTime);
     const hit=items.find(x=>x.i>=cur) || items[0];
     NH.LOOP_ROW = hit? hit.i : -1;
   }
-  e.target.textContent = NH.loop ? '单句循环：开' : '单句循环';};
+  syncLoopBtn();
+};
 
 // ── 单曲循环：播完自动从头再播 ──────────────────
 NH.loopSong = true;
@@ -313,8 +350,15 @@ function syncSongLoop(){
   songLoopBtn.textContent = '单曲循环：' + (NH.loopSong ? '开' : '关');
   songLoopBtn.classList.toggle('on', NH.loopSong);
 }
-if(songLoopBtn) songLoopBtn.onclick = () => { NH.loopSong = !NH.loopSong; syncSongLoop(); };
-syncSongLoop();
+if(songLoopBtn) songLoopBtn.onclick = async () => {
+  if(NH.PLAYING===null) return;
+  if(!NH.isSelfPlaying()){
+    const ok=await NH.load(NH.PLAYING, false);
+    if(!ok) return;
+  }
+  NH.loopSong = !NH.loopSong; syncSongLoop();
+};
+syncSongLoop(); syncLoopBtn(); syncPlayControls();
 NH.au.addEventListener('ended', () => {
   if(!NH.loopSong) return;
   const song = NH.S;
@@ -333,5 +377,5 @@ document.onkeydown=e=>{
   if(e.code==='ArrowRight')document.getElementById('next').click();
 };
 
-Object.assign(NH, {markPlaying, commitAudio, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, playBtn, syncPlayBtn});
+Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, playBtn, syncPlayBtn, stepPlaying});
 })();

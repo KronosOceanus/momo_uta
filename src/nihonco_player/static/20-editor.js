@@ -147,6 +147,7 @@ function renderLrcTable(){
   rows.forEach(el=>{
     el.onclick=e=>{
       if(e.target.tagName==='INPUT') return;      // 输入框内点击：不抢焦点
+      if(e.detail>1) return;
       const i=+el.dataset.i;
       const mod = e.metaKey || e.ctrlKey || e.shiftKey;
       if(mod) e.preventDefault();
@@ -156,7 +157,12 @@ function renderLrcTable(){
       else { NH.SEL.clear(); }
       NH.ESEL=i; paintSelection();
       const r=NH.EROWS[i];
-      if(!mod && r && r.t!==null) NH.seekIdx(i, true);
+      if(!mod && NH.isSelfPlaying() && r && r.t!==null) NH.seekIdx(i, true);
+    };
+    el.ondblclick=ev=>{
+      if(ev.target.tagName==='INPUT') return;
+      ev.preventDefault();
+      NH.playLine(+el.dataset.i);
     };
   });
   box.querySelectorAll('input.ts').forEach(el=>{
@@ -280,6 +286,7 @@ function paintSelection(){
     el.classList.toggle('sel', i===NH.ESEL);
     el.classList.toggle('picked', NH.SEL.has(i));
   });
+  if(NH.WAVE && typeof NH.drawWave==='function') NH.drawWave();
 }
 function insertPos(){
   if(NH.SEL.size) return Math.max(...NH.SEL)+1;

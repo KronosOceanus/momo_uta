@@ -33,6 +33,7 @@ def song_payload(idx: int) -> dict:
     if not item.get("has_lyric", True):
         return {"idx": str(idx), "key": item["key"], "title": item["title"],
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
+                "duration": LY.audio_duration(item["file"]),
                 "audio": f"/audio/{idx}"}
     key = item["key"]
     doc = LRC.load(item["file"], item.get("uid"), item["title"], item.get("artist", ""))
@@ -40,6 +41,7 @@ def song_payload(idx: int) -> dict:
     if not any((ln.get("text") or "").strip() for ln in lines):
         return {"idx": str(idx), "key": item["key"], "title": item["title"],
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
+                "duration": LY.audio_duration(item["file"]),
                 "audio": f"/audio/{idx}"}
     stored = doc.get("annotations") or {}
     changed = False
