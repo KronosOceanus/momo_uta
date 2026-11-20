@@ -208,9 +208,9 @@ body.lrcedit .lyr{flex:1 1 100%;border-right:0}
 
 /* 自绘播放条 */
 .transport{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid #20242b;background:#12161b}
-.transport .tb{background:none;border:0;color:#c9ced5;font-size:14px;cursor:pointer;padding:2px 6px;font-family:inherit}
+.transport .tb{background:none;border:0;color:#c9ced5;font-size:14px;cursor:pointer;padding:3px 8px;font-family:inherit;border-radius:6px}
 .transport .tb:hover{color:var(--a)}
-.transport .tb.big{font-size:18px;min-width:28px}
+.transport .tb.big{font-size:18px;min-width:38px;height:30px;padding:0 10px}
 .transport .tm{font-size:12px;color:#8a9099;font-variant-numeric:tabular-nums;min-width:3.4em;text-align:center}
 .transport .seek{position:relative;flex:1;height:6px;background:#22272f;border-radius:3px;cursor:pointer}
 .transport .fill{position:absolute;left:0;top:0;bottom:0;background:#4a7f6b;border-radius:3px}

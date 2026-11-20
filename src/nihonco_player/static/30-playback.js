@@ -233,7 +233,7 @@ function seekToClientX(x){
   seek.addEventListener('mousedown', e=>{ dragging=true; seekToClientX(e.clientX); });
   document.addEventListener('mousemove', e=>{ if(dragging) seekToClientX(e.clientX); });
   document.addEventListener('mouseup', ()=>{ dragging=false; });
-  document.getElementById('play2').onclick=()=>{ if(NH.PLAYING===null) return; if(NH.au.paused) NH.au.play().catch(()=>{}); else NH.au.pause(); };
+  document.getElementById('play2').onclick=togglePlayPause;
   document.getElementById('back10').onclick=()=>{ if(NH.PLAYING===null) return; seekPrecise(Math.max(0, NH.au.currentTime-10)); };
   document.getElementById('fwd10').onclick=()=>{ if(NH.PLAYING===null) return; seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
   document.getElementById('volume').oninput=e=>{ NH.au.volume=+e.target.value; NH.au.muted=NH.au.volume===0; paintTransport(); };
@@ -253,6 +253,11 @@ const PL=(window.__CFG&&window.__CFG.player)||{};
   el.value=v; if(typeof el.dispatchEvent==='function') el.dispatchEvent(new Event('input'));
 })();
 const playBtn=document.getElementById('play');
+function togglePlayPause(){
+  if(NH.PLAYING===null || NH.PLAYING===undefined) return;
+  if(NH.au.paused) NH.au.play().catch(()=>{});
+  else NH.au.pause();
+}
 function syncPlayBtn(){ playBtn.textContent = NH.au.paused ? '播放' : '暂停'; }
 function playFromStart(){
   const song = NH.S;
@@ -266,10 +271,7 @@ function playFromStart(){
 }
 NH.playFromStart = playFromStart;
 document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); playFromStart(); };
-playBtn.onclick=()=>{
-  if(NH.PLAYING===null) return;              // 只控制正在播放的 A，不切到查看的 B
-  if(NH.au.paused){ NH.au.play().catch(()=>{}); } else { NH.au.pause(); }
-};
+playBtn.onclick=togglePlayPause;
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>NH.au.addEventListener(ev, syncPlayBtn));
 ['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.LRCEDIT) NH.drawWave(); }));
 NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
