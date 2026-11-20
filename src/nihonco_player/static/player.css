@@ -141,7 +141,7 @@ body.lrcedit .lrcwrap{display:flex}
 .mark.set{color:#7fbfa6}
 /* LRC 编辑表格 */
 .letable{padding:6px 0}
-.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px;border-bottom:1px solid #161a20;cursor:pointer}
+.lerow{display:flex;gap:8px;align-items:center;padding:5px 12px;border-bottom:1px solid #161a20;cursor:pointer;user-select:none}
 .lerow:hover{background:#141a20}
 .lerow.sel{background:#182430}
 .lerow .no{width:2.2em;color:#5b626c;font-size:12px;text-align:right}
@@ -151,7 +151,7 @@ body.lrcedit .lrcwrap{display:flex}
 .lerow input.ts:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
 .lerow .bind{color:#5b626c;cursor:pointer;font-size:12px;padding:0 3px}
 .lerow .bind:hover{color:#7fbfa6}
-.lerow input{flex:1;background:transparent;border:0;color:#dfe3e8;font-size:15px;
+.lerow input{user-select:text;flex:1;background:transparent;border:0;color:#dfe3e8;font-size:15px;
   font-family:inherit;padding:3px 0;outline:none}
 .lerow input:focus{background:#10151b;border-radius:4px;box-shadow:0 0 0 1px #2b313a}
 .lerow .del{color:#5b626c;cursor:pointer;padding:0 4px}
@@ -189,7 +189,7 @@ body.lrcedit #lrcbar{display:grid}
 .off .oflab{color:#8a9099;margin-right:4px}
 
 .lerow.picked{background:#1b232d}
-.lerow.picked .no{color:#7fbfa6}
+.lerow.picked .no{color:inherit}
 
 .lerow.cur{background:#152a22;box-shadow:inset 2px 0 0 var(--a)}
 .lerow.cur .no{color:var(--a)}
