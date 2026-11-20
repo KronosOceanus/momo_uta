@@ -71,7 +71,7 @@ class TestPlayerHttp(unittest.TestCase):
 
     def test_page(self):
         html = urllib.request.urlopen(self.url("/")).read().decode()
-        self.assertIn("逐句练习", html)
+        self.assertIn("nihonco uta", html)
         self.assertIn("resetall", html)
 
     def test_library(self):

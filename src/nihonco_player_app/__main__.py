@@ -105,7 +105,7 @@ def main() -> None:
                 file_types=("音频 (*.mp3;*.flac;*.wav;*.m4a)", "歌词 (*.lrc)"))
 
     webview.create_window(
-        "にほんご歌练习", f"http://127.0.0.1:{port}/",
+        "nihonco uta", f"http://127.0.0.1:{port}/",
         width=APP["window_width"], height=APP["window_height"],
         min_size=tuple(APP["window_min"]), js_api=Api(),
     )
