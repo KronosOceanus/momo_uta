@@ -6,9 +6,9 @@ const NH = window.NH || (window.NH = {});
 NH.LRCEDIT = false;
 
 // ── LRC 编辑表格 ────────────────────────────────
-NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
+NH.EROWS = []; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
 NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false;
-NH.ANCHOR = -1;   // Shift 范围选择的锚点（不随范围终点移动）
+NH.ANCHOR = -1;   // 当前行 = Shift 范围起点 = 插入位置
 
 function setLrcLocked(locked){
   if(locked===NH.LRC_LOCKED) return;
@@ -80,7 +80,7 @@ async function flushLrc(){
 function undo(){
   if(!NH.UNDO.length) return;
   NH.REDO.push(JSON.stringify(NH.EROWS));
-  NH.EROWS=JSON.parse(NH.UNDO.pop()); NH.ESEL=Math.min(NH.ESEL, NH.EROWS.length-1);
+  NH.EROWS=JSON.parse(NH.UNDO.pop()); NH.ANCHOR=Math.min(NH.ANCHOR, NH.EROWS.length-1);
   NH.SEL.clear(); markDirty(); renderLrcTable();
 }
 function redo(){
@@ -123,7 +123,7 @@ async function openLrcEditor(entering=false){
   NH.LRC_METADATA=d.metadata||[];
   NH.EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
   if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
-  NH.ESEL=0; NH.SEL.clear(); NH.ANCHOR=-1; NH.EDIRTY=false; NH.MARK=null;
+  NH.ANCHOR=0; NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
   NH.UNDO=[]; NH.REDO=[];
   document.getElementById('savehint').textContent='';
   renderLrcTable();
@@ -131,7 +131,7 @@ async function openLrcEditor(entering=false){
 }
 
 function rowHtml(r,i){
-  return `<div class="lerow${i===NH.ESEL?' sel':''}${NH.SEL.has(i)?' picked':''}" data-i="${i}">
+  return `<div class="lerow${i===NH.ANCHOR?' sel':''}${NH.SEL.has(i)?' picked':''}" data-i="${i}">
     <span class="no">${String(i+1).padStart(2,'0')}</span>
     <input class="ts${r.t===null?' none':''}" data-i="${i}" value="${r.t===null?'':lrcFmt(r.t)}" placeholder="mm:ss.xx">
     <span class="bind" data-i="${i}" title="把标记时间写进这一行">↤</span>
@@ -153,14 +153,15 @@ function renderLrcTable(){
       if(mod) e.preventDefault();
       if(e.metaKey||e.ctrlKey){
         NH.SEL.has(i)?NH.SEL.delete(i):NH.SEL.add(i);
-        NH.ANCHOR=i;
+        if(NH.ANCHOR<0) NH.ANCHOR=i;
       }
-      else if(e.shiftKey && NH.ANCHOR>=0){
+      else if(e.shiftKey){
+        if(NH.ANCHOR<0) NH.ANCHOR=i;
         NH.SEL.clear();
         for(let k=Math.min(NH.ANCHOR,i);k<=Math.max(NH.ANCHOR,i);k++) NH.SEL.add(k);
       }
-      else { NH.SEL.clear(); NH.ANCHOR=i; }
-      NH.ESEL=i; paintSelection();
+      else { NH.ANCHOR=i; NH.SEL.clear(); NH.SEL.add(i); }
+      paintSelection();
       const r=NH.EROWS[i];
       if(!mod && r && r.t!==null) NH.seekIdx(i, true);
     };
@@ -180,7 +181,7 @@ function renderLrcTable(){
   });
   box.querySelectorAll('input.tx').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
-    el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
+    el.onfocus=()=>{ NH.ANCHOR=+el.dataset.i; paintSelection(); };
     el.oninput=()=>{
       if(NH.LRC_LOCKED) return;
       NH.EROWS[+el.dataset.i].text=el.value; markDirty();
@@ -198,7 +199,7 @@ function renderLrcTable(){
         snapshot();
         prev.text=(prev.text||'')+(cur.text||'');
         NH.EROWS.splice(i,1);
-        NH.ESEL=i-1; NH.SEL.clear();
+        NH.ANCHOR=i-1; NH.SEL.clear();
         renderLrcTable();
         const pv=document.querySelector(`.lerow[data-i="${i-1}"] input.tx`);
         if(pv){ pv.focus(); pv.setSelectionRange(joinAt, joinAt); }
@@ -212,7 +213,7 @@ function renderLrcTable(){
         snapshot();
         NH.EROWS[i].text=left;
         NH.EROWS.splice(i+1, 0, {t:null, text:right});
-        NH.ESEL=i+1; NH.SEL.clear(); NH.EDIRTY=true;
+        NH.ANCHOR=i+1; NH.SEL.clear(); NH.EDIRTY=true;
         renderLrcTable();
         const nx=document.querySelector(`.lerow[data-i="${i+1}"] input.tx`);
         if(nx){ nx.focus(); nx.setSelectionRange(0,0); }
@@ -234,7 +235,7 @@ function renderLrcTable(){
                  : {t:null, text:x};
       });
       NH.EROWS.splice(at,0,...fresh);
-      NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
+      NH.ANCHOR=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
       NH.done(`粘贴了 ${fresh.length} 行`);
     };
   });
@@ -245,7 +246,7 @@ function renderLrcTable(){
     el.onclick=e=>{ e.stopPropagation(); if(NH.LRC_LOCKED) return;
       snapshot(); NH.EROWS.splice(+el.dataset.i,1);
       if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
-      NH.ESEL=Math.min(NH.ESEL,NH.EROWS.length-1); NH.SEL.clear(); renderLrcTable(); };
+      NH.ANCHOR=Math.min(+el.dataset.i,NH.EROWS.length-1); NH.SEL.clear(); renderLrcTable(); };
   });
 }
 
@@ -277,19 +278,19 @@ document.addEventListener('mouseup', e=>{
     return b.bottom>=y1 && b.top<=y2 && b.right>=x1 && b.left<=x2;
   }).map(r=>+r.dataset.i);
   if(!picked.length) return;
-  NH.SEL=new Set(picked); NH.ESEL=Math.max(...picked);
+  NH.SEL=new Set(picked); NH.ANCHOR=Math.min(...picked);
   paintSelection();
 });
 function paintSelection(){
   document.querySelectorAll('.lerow').forEach(el=>{
     const i=+el.dataset.i;
-    el.classList.toggle('sel', i===NH.ESEL);
+    el.classList.toggle('sel', i===NH.ANCHOR);
     el.classList.toggle('picked', NH.SEL.has(i));
   });
 }
 function insertPos(){
-  if(NH.SEL.size) return Math.max(...NH.SEL)+1;
-  if(NH.ESEL>=0 && NH.ESEL<NH.EROWS.length) return NH.ESEL+1;
+  if(NH.SEL.size) return Math.max(...NH.SEL)+1;   // 多选：最后一行之后
+  if(NH.ANCHOR>=0 && NH.ANCHOR<NH.EROWS.length) return NH.ANCHOR+1;
   return NH.EROWS.length;
 }
 function insertLines(text){
@@ -303,35 +304,37 @@ function insertLines(text){
              : {t:null, text:x};
   });
   NH.EROWS.splice(at,0,...fresh);
-  NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
-  document.querySelector(`.lerow[data-i="${NH.ESEL}"]`)?.scrollIntoView({block:'center'});
+  NH.ANCHOR=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
+  document.querySelector(`.lerow[data-i="${NH.ANCHOR}"]`)?.scrollIntoView({block:'center'});
   return fresh.length;
 }
 function addRow(at){
   snapshot();
   const pos = (at===undefined) ? insertPos() : at;
   NH.EROWS.splice(pos,0,{t:null,text:''});
-  NH.ESEL=pos; NH.SEL.clear(); renderLrcTable();
+  NH.ANCHOR=pos; NH.SEL.clear(); renderLrcTable();
   document.querySelector(`.lerow[data-i="${pos}"]`)?.scrollIntoView({block:'center'});
 }
 function delRows(){
-  const idx = NH.SEL.size ? [...NH.SEL] : (NH.ESEL>=0?[NH.ESEL]:[]);
+  const idx = NH.SEL.size ? [...NH.SEL] : (NH.ANCHOR>=0?[NH.ANCHOR]:[]);
   if(!idx.length) return;
+  const top=Math.min(...idx);
   snapshot();
   idx.sort((a,b)=>b-a).forEach(i=>NH.EROWS.splice(i,1));
   if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
-  NH.ESEL=Math.min(idx[idx.length-1],NH.EROWS.length-1); NH.SEL.clear(); renderLrcTable();
+  NH.ANCHOR=Math.min(top,NH.EROWS.length-1); NH.SEL.clear(); renderLrcTable();
 }
 function selectAll(){
   NH.SEL.clear(); for(let i=0;i<NH.EROWS.length;i++) NH.SEL.add(i);
+  NH.ANCHOR=0;
   renderLrcTable();
 }
 function bindMark(i){
   if(NH.MARK===null){ NH.done('先在波形上点一个位置'); return; }
   snapshot(); NH.EROWS[i].t=NH.MARK;
-  NH.ESEL=Math.min(NH.EROWS.length-1, i+1); NH.SEL.clear();
+  NH.ANCHOR=Math.min(NH.EROWS.length-1, i+1); NH.SEL.clear();
   renderLrcTable();
-  document.querySelector(`.lerow[data-i="${NH.ESEL}"]`)?.scrollIntoView({block:'center'});
+  document.querySelector(`.lerow[data-i="${NH.ANCHOR}"]`)?.scrollIntoView({block:'center'});
 }
 
 document.addEventListener('paste', e=>{

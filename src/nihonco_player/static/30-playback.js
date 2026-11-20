@@ -68,7 +68,7 @@ function seekIdx(i, keepPlaying){
   seekPrecise(t);                              // 是否续播由 seekPrecise 自己判断
   highlight(i);
   if(NH.loop && !isMetaLine(viewLines()[i])) NH.LOOP_ROW=i;
-  if(NH.LRCEDIT){ NH.ESEL=i; NH.SEL.clear(); NH.paintSelection(); }
+  if(NH.LRCEDIT){ NH.ANCHOR=i; NH.paintSelection(); }
 }
 function selectLine(i){
   const ls=viewLines(); const l=ls[i];
