@@ -83,12 +83,13 @@ def import_to_list(req) -> dict:
     res = IMP.import_paths(paths, pool)
 
     # 导入的音频可能不在 music_dirs 里 → 先登记到 imports.json，
-    # 再按"路径 → uid"直接算，不依赖这次重扫的结果
+    # 再只把新增文件加进 CACHE，不动已有 idx、不扫全库。
     for f in res["added"]:
         p = Path(str(f))
         artist, title = LIB.LY.split_name(p.stem)
         LIB.save_import(str(p), title, artist)
-    library_n = LIB.refresh()
+    LIB.add_paths(res["added"], "导入")
+    library_n = len(CACHE)
     uids = [FP.fingerprint(f) for f in res["added"]]
     added_n = PL.add(lid, uids)
 

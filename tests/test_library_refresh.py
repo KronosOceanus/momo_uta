@@ -39,6 +39,20 @@ class TestCacheRefresh(unittest.TestCase):
         self.assertEqual(n, 1)
         self.assertEqual(CACHE["0"]["title"], "B2")
 
+    def test_add_paths_appends_without_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a = Path(tmp) / "X - A.mp3"; a.touch()
+            b = Path(tmp) / "X - B.mp3"; b.touch()
+            with patch.object(LIB, "scan_library", side_effect=AssertionError("不该全库扫描")), \
+                 patch.object(LIB, "FP") as fp, \
+                 patch.object(LIB, "_entry", side_effect=lambda p, g: item(str(p), p.stem)):
+                fp.flush.return_value = None
+                out = LIB.add_paths([a, b, a])
+            self.assertEqual(len(out), 2)
+            self.assertEqual(list(CACHE), ["0", "1", "2", "3"])
+            self.assertEqual(CACHE["2"]["title"], "X - A")
+            self.assertEqual(CACHE["3"]["title"], "X - B")
+
     def test_full_refresh_rebuilds(self):
         with patch.object(LIB, "scan_library", return_value=[item("u3", "C")]):
             n = LIB.refresh()

@@ -62,6 +62,30 @@ def refresh(uid: str | None = None) -> int:
         return len(CACHE)
 
 
+def add_paths(paths, group: str = "导入") -> list[dict]:
+    """只把指定文件加进 CACHE，不动已有 idx，也不扫全库。"""
+    out: list[dict] = []
+    with _LOCK:
+        seen = {v["file"] for v in CACHE.values()}
+        nums = [int(k) for k in CACHE if str(k).isdigit()]
+        nxt = max(nums) + 1 if nums else 0
+        for raw in paths:
+            p = Path(str(raw)).expanduser()
+            if p.suffix.lower() not in tuple(LB["extensions"]) or not p.is_file():
+                continue
+            if str(p) in seen:
+                continue
+            e = _entry(p, group)
+            if not e or e["file"] in seen:
+                continue
+            CACHE[str(nxt)] = e
+            nxt += 1
+            seen.add(e["file"])
+            out.append(e)
+    FP.flush()
+    return out
+
+
 def _entry(p: Path, group: str) -> dict | None:
     stem = p.stem
     # 不再按"像不像日文歌"过滤：进了歌单就应该看得见。
