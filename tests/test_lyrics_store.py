@@ -165,5 +165,31 @@ class TestSaveAlignment(unittest.TestCase):
             self.assertEqual(after[2], before[1])
 
 
+class TestSharedLyricsSource(unittest.TestCase):
+    def test_store_only_is_not_pending_and_lrc_sees_same(self):
+        from nihonco_player.service import lrc as SVC_LRC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            CACHE.clear()
+            CACHE["0"] = {"key": "k", "uid": LRF.uid_of(audio), "file": str(audio),
+                          "stem": audio.stem, "orig": "曲", "title": "曲",
+                          "artist": "歌手", "has_lyric": False, "group": ""}
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60), \
+                 patch.object(LRF.LY, "write_local_lrc"):
+                LRF.save(audio, rows(), {})
+                payload = SONG.song_payload(0)
+                lrc = SVC_LRC.lrc_action({"action": "load", "idx": "0"})
+            self.assertFalse(payload.get("pending"))
+            self.assertEqual(len(payload["lines"]), 3)
+            self.assertTrue(CACHE["0"]["has_lyric"])
+            self.assertFalse(lrc["pending"])
+            self.assertEqual([x["text"] for x in lrc["lines"]],
+                             [x["text"] for x in rows()])
+
+
 if __name__ == "__main__":
     unittest.main()

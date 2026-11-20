@@ -9,7 +9,7 @@ from ..core import lrc_doc as DOC
 from ..core import diag
 from ..core import lrc_files as LRC
 from ..core.library import CACHE
-from .song import annotate_line_with_notes, segs_of
+from .song import annotate_line_with_notes, load_lyrics, segs_of
 
 def lrc_action(req):
     item = CACHE.get(str(req.get("idx")))
@@ -18,7 +18,8 @@ def lrc_action(req):
     act = req.get("action") or "load"
     uid, title, artist = item.get("uid"), item["title"], item.get("artist", "")
     if act == "load":
-        return LRC.load(item["file"], uid, title, artist)
+        doc, has_lines = load_lyrics(item)
+        return {**doc, "pending": not has_lines}
     if act == "backup":
         return LRC.backup_status(item["file"], uid, title, artist)
     if act == "restore":

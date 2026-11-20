@@ -20,9 +20,9 @@
 
 ## BUG-003 LRC 提前匹配
 
-- 状态：待修
+- 状态：已修（待验证）
 - 日期：2026-11-20
 - 现象：普通页面还在“分离人声 / 匹配歌词中”，打开 LRC 编辑模式却已经有歌词。
 - 原因：LRC 编辑直接读 `data/lyrics` 的 nhlrc 或歌词缓存，不看当前 pending；而普通页面的 `has_lyric` 主要看歌词缓存，两边判断不一致；match 完成与普通页轮询之间也有时间差。
-- 修复方向：统一“有没有歌词”的来源；pending 时打开 LRC 要同步/等待；match 完成后主动刷新普通页面。
+- 修复：普通页和 LRC 共用 `load_lyrics`；匹配期间 `NH.MATCHING` 禁用 LRC；匹配失败/纯音乐后允许进 LRC（空表），并记住不再重复匹配。
 - 相关：`core/lrc_files.py` 的 `load`、`service/song.py` 的 `song_payload`、`core/library.py` 的 `_entry`、`static/20-editor.js` 的 `openLrcEditor`。

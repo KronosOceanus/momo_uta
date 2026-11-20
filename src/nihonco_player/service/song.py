@@ -26,23 +26,26 @@ LAT_RE = re.compile(r"[A-Za-z]")
 
 
 
+def load_lyrics(item: dict) -> tuple[dict, bool]:
+    """普通页与 LRC 编辑共用的唯一歌词入口。"""
+    doc = LRC.load(item["file"], item.get("uid"),
+                   item["title"], item.get("artist", ""))
+    has_lines = any((ln.get("text") or "").strip() for ln in doc["lines"])
+    return doc, has_lines
+
+
 def song_payload(idx: int) -> dict:
     item = CACHE[str(idx)]
-    artist, title = LY.split_name(item["stem"])
-    hit = LY.get_lrc(title, artist) or {}
-    if not item.get("has_lyric", True):
-        return {"idx": str(idx), "key": item["key"], "title": item["title"],
-                "artist": item.get("artist", ""), "pending": True, "lines": [],
-                "duration": LY.audio_duration(item["file"]),
-                "audio": f"/audio/{idx}"}
     key = item["key"]
-    doc = LRC.load(item["file"], item.get("uid"), item["title"], item.get("artist", ""))
-    lines = doc["lines"]
-    if not any((ln.get("text") or "").strip() for ln in lines):
-        return {"idx": str(idx), "key": item["key"], "title": item["title"],
+    doc, has_lines = load_lyrics(item)
+    if not has_lines:
+        item["has_lyric"] = False
+        return {"idx": str(idx), "key": key, "title": item["title"],
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
                 "duration": LY.audio_duration(item["file"]),
                 "audio": f"/audio/{idx}"}
+    item["has_lyric"] = True
+    lines = doc["lines"]
     stored = doc.get("annotations") or {}
     changed = False
     for li, ln in enumerate(lines):

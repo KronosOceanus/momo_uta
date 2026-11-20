@@ -7,7 +7,7 @@ const NH = window.NH || (window.NH = {});
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false;
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false; NH.MATCHING = false; NH.NO_MATCH = new Set();
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING !== null && String(NH.PLAYING) === String(NH.S.idx));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
@@ -343,6 +343,7 @@ async function load(i, autoplay, nextEditMode){
   if(NH.LRC_REPLACING) return false;
   clearToast();                                   // 换歌前不留下上一首的提示
   const request=++NH.LOAD_REQUEST;
+  NH.MATCHING=false; NH.syncModes?.();
   const editing=NH.LRCEDIT;
   let d;
   try{
@@ -368,20 +369,28 @@ async function load(i, autoplay, nextEditMode){
     NH.syncModes();
   }
   if(d.pending){                               // 没有歌词 → 先能播，再后台匹配
+    const knownNoMatch=NH.NO_MATCH.has(String(d.idx));
+    NH.MATCHING=!knownNoMatch; NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CUR=-1; NH.NAV=[];
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
-    lyr.innerHTML='<div class="lm">匹配歌词中…</div>';
-    busy('匹配歌词中…');
     document.getElementById('rmcol').innerHTML='';
     if(autoplay || NH.PLAYING===null){            // 单击只换 UI，不打断旧音频
       NH.commitAudio();
       NH.au.playbackRate=+document.getElementById('rate').value;
       if(autoplay) NH.playFromStart?.();
     }
+    if(knownNoMatch){                             // 已确认没歌词：不再重跑分离/匹配
+      lyr.innerHTML='<div class="lm">没匹配到歌词（仍可播放）</div>';
+      return true;
+    }
+    lyr.innerHTML='<div class="lm">匹配歌词中…</div>';
+    busy('匹配歌词中…');
     lyr.innerHTML='<div class="lm">分离人声，确认是否有人声…</div>';
     const v=(VC.auto_start===false) ? null : await ensureVocals(d.idx);
     if(request!==NH.LOAD_REQUEST) return false;
     if(v && v.state==='done' && v.has_vocals===false){
+      NH.NO_MATCH.add(String(d.idx));
+      NH.MATCHING=false; NH.syncModes?.();
       lyr.innerHTML='<div class="lm">纯音乐（无人声），不匹配歌词</div>';
       done('这首是纯音乐，跳过歌词匹配');
       return true;
@@ -399,6 +408,8 @@ async function load(i, autoplay, nextEditMode){
       if(request!==NH.LOAD_REQUEST) return false;
     }
     if(request!==NH.LOAD_REQUEST) return false;
+    NH.NO_MATCH.add(String(d.idx));
+    NH.MATCHING=false; NH.syncModes?.();
     lyr.innerHTML='<div class="lm">没匹配到歌词（仍可播放）</div>';
     done('这首歌没匹配到歌词，仍可播放');
     return true;

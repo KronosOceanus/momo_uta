@@ -108,6 +108,7 @@ function lrcText(){
 
 NH.LRC_OPEN_REQUEST = 0;
 async function openLrcEditor(entering=false){
+  if(NH.MATCHING){ NH.done('歌词匹配中，稍后再编辑'); return; }
   const song=NH.S, request=NH.LOAD_REQUEST, opening=++NH.LRC_OPEN_REQUEST;
   const d=await NH.api('/api/lrc',{action:'load', idx:song.idx});
   if(NH.S!==song || request!==NH.LOAD_REQUEST || opening!==NH.LRC_OPEN_REQUEST || (!entering && !NH.LRCEDIT)) return;
@@ -428,6 +429,8 @@ function syncModes(){
 
   e.textContent='振假名编辑模式：'+(NH.EDITMODE?'开':'关');
   l.textContent='LRC 编辑模式：'+(NH.LRCEDIT?'开':'关');
+  l.disabled = !!NH.MATCHING || !NH.S;
+  l.title = NH.MATCHING ? '歌词匹配中，稍后再编辑' : '编辑歌词时间轴';
   e.classList.toggle('on', NH.EDITMODE);
   l.classList.toggle('on', NH.LRCEDIT);
 
@@ -442,6 +445,7 @@ function syncModes(){
 
 document.getElementById('lrcedit').onclick=async e=>{
   if(!NH.S) return;
+  if(NH.MATCHING){ NH.done('歌词匹配中，稍后再编辑'); return; }
   if(NH.LRCEDIT) return NH.load(NH.S.idx, false, false);
   const button=e.currentTarget;
   button.disabled=true;
