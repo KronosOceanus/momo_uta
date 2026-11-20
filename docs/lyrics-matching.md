@@ -15,7 +15,7 @@
 懒匹配（打开时发现没歌词）
   先确认不是纯音乐 → POST /api/pl {action:"match"}
   → get_lrc(force=True) 强制联网 → 写缓存
-  → 前端轮询 /api/song，最多 60 秒
+  → 后端明确失败则立即结束；否则前端轮询 /api/song，最多 30 秒
 
 重新匹配（用户主动换版本）
   → 只搜网易云，候选全部来自网络
@@ -277,7 +277,8 @@ service.playlist 收到 action=match
 ### 6.3 前端等待
 
 ```text
-每 1.5 秒 GET /api/song/<idx>，最多 40 次（60 秒）
+POST match 返回 matched=false → 立即结束
+否则每 1.5 秒 GET /api/song/<idx>，最多 20 次（30 秒）
   一旦不再 pending → 重新 load，正常显示
   超时 → "没匹配到歌词（仍可播放）"
 ```
@@ -369,7 +370,7 @@ POST /api/lrc {action:"import_lrc", idx, text}
 
 没结果：
   get_lrc 返回 None，写负缓存 {miss:true, reason}
-  payload 继续 pending；前端 60 秒后放弃
+  payload 继续 pending；明确失败立即放弃，否则 30 秒后放弃
 
 想强制重试：
   · 重新匹配（重新搜网易云）
