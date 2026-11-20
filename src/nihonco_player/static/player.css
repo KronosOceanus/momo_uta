@@ -230,6 +230,7 @@ body.lrcedit #lrcrow2,body.lrcedit #lrcrow3{display:flex}
 
 /* 振假名工具行：全部重置靠右 */
 #fakbar{justify-content:flex-end}
+#fakbar .legend{margin-right:auto;color:#6d737c}
 /* 波形下方的缩放 / 跳转行 */
 #wavebar{display:none;padding-top:5px;padding-bottom:5px;
   grid-template-columns:1fr auto 1fr;align-items:center}
