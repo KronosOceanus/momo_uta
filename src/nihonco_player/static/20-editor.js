@@ -468,7 +468,7 @@ document.addEventListener('click', async e=>{
     });
     return;
   }
-  document.querySelectorAll('.menu').forEach(m=>m.remove());
+  document.querySelectorAll('.menu').forEach(m=>{ if(m.id!=='uiprompt') m.remove(); });
   const bc = e.target.closest('.bc');
   if(!bc) return;
   e.stopPropagation();
@@ -554,10 +554,10 @@ function renderSide(){
   const col=document.getElementById('rmcol');
   col.innerHTML=NH.LINES.map((l,n)=>`<div class="ln2" data-n="${n}">
     <span class="tx">${String(n+1).padStart(2,'0')}</span>${(NH.MODE==='rm'?(l.rmH||l.rm):(l.kyH||l.ky))||''}</div>`).join('');
-  col.querySelectorAll('.ln2').forEach(el=>el.onclick=()=>{
+  col.querySelectorAll('.ln2').forEach(el=>{
     const n=+el.dataset.n;
-    if(!NH.LINES[n] || NH.isMetaLine(NH.LINES[n])) return;
-    NH.seekIdx(NH.LRCEDIT ? NH.rowForTime(NH.LINES[n].t) : n, true);
+    el.onclick=()=>NH.selectLine(n);
+    el.ondblclick=()=>NH.playLine(n);
   });
   if(NH.CUR>=0) paint2(NH.CUR);
 }

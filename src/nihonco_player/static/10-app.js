@@ -338,7 +338,11 @@ async function load(i, autoplay, nextEditMode){
     NH.NAV=NH.LINES.map((l,i)=>l.meta?-1:i).filter(i=>i>=0);
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
     lyr.innerHTML=NH.LINES.map((l,n)=>`<div class="ln" data-n="${n}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}</div>`).join('');
-    document.querySelectorAll('.ln').forEach(el=>el.onclick=()=>NH.seek(+el.dataset.n));
+    document.querySelectorAll('.ln').forEach(el=>{
+      const n=+el.dataset.n;
+      el.onclick=()=>NH.selectLine(n);
+      el.ondblclick=()=>NH.playLine(n);
+    });
     NH.renderSide();
     NH.OFFSET = d.offset || 0;
     document.getElementById('offval').textContent = NH.OFFSET.toFixed(2)+'s';
@@ -439,6 +443,7 @@ function uiPrompt(title, value){
   return new Promise(resolve => {
     const box = document.createElement('div');
     box.className = 'menu';
+    box.id = 'uiprompt';
     box.style.cssText = 'position:fixed;left:50%;top:28%;transform:translateX(-50%);min-width:280px;padding:10px;z-index:99';
     const lab = document.createElement('div');
     lab.textContent = title;
@@ -629,7 +634,8 @@ async function doImport(listId, btn){
   }
 }
 
-document.getElementById('newlist').onclick=async()=>{
+document.getElementById('newlist').onclick=async e=>{
+  e.stopPropagation();
   const name=await uiPrompt('新歌单名称'); if(!name) return;
   const r=await api('/api/pl',{action:'list_create',name});
   applyLists(r);

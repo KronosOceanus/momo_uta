@@ -70,6 +70,22 @@ function seekIdx(i, keepPlaying){
   if(NH.loop && !isMetaLine(viewLines()[i])) NH.LOOP_ROW=i;
   if(NH.LRCEDIT){ NH.ESEL=i; NH.SEL.clear(); NH.paintSelection(); }
 }
+function selectLine(i){
+  const ls=viewLines(); const l=ls[i];
+  if(!l || isMetaLine(l) || lineT(l)===null) return;
+  highlight(i);                         // 只换高亮，不碰音频
+}
+
+async function playLine(i){
+  if(!NH.S) return;
+  const ls=viewLines(); const l=ls[i];
+  if(!l || isMetaLine(l) || lineT(l)===null) return;
+  if(NH.PLAYING!==NH.S.idx) NH.commitAudio();
+  await seekPrecise(Math.max(0, lineT(l)));
+  await NH.au.play().catch(()=>{});
+  highlight(i);
+}
+
 function nextIdx(dir){
   const items=navItems(); if(!items.length) return null;
   const i=idxAt(NH.au.currentTime);
@@ -313,5 +329,5 @@ document.onkeydown=e=>{
   if(e.code==='ArrowRight')document.getElementById('next').click();
 };
 
-Object.assign(NH, {markPlaying, commitAudio, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, playBtn, syncPlayBtn});
+Object.assign(NH, {markPlaying, commitAudio, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, playBtn, syncPlayBtn});
 })();
