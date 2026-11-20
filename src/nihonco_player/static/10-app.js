@@ -13,6 +13,7 @@ const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
 NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
 NH.WMARK = {};   // 查看歌曲的波形播放头（静止时用）
+NH.WAVE_SEQ = 0;  // 波形请求序号，切歌/重载时丢弃旧响应
 
 // ── 波形与整体偏移 ────────────────────────────────
 const CFG=(window.__CFG)||{};
@@ -234,15 +235,20 @@ async function pollVocals(idx){
 async function loadWave(force){
   if(!NH.S) return;
   if(!force && NH.WAVE) return;
+  const idx=NH.S.idx, seq=++NH.WAVE_SEQ;
   NH.WAVE=null;
   try{
     const src=(NH.VSTAT && NH.VSTAT.state==='done' && NH.VSTAT.has_vocals) ? '?src=vocals' : '';
-    const d=await api('/api/wave/'+NH.S.idx+src);
+    const d=await api('/api/wave/'+idx+src);
+    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.idx)!==String(idx)) return;
     if(d.error){ document.getElementById('wavehint').textContent='无法生成波形：'+d.error; return; }
     NH.WAVE=d;
     updateWaveHint();
     drawWave();
-  }catch(e){ document.getElementById('wavehint').textContent='波形加载失败'; }
+  }catch(e){
+    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.idx)!==String(idx)) return;
+    document.getElementById('wavehint').textContent='波形加载失败';
+  }
 }
 (function waveLoop(){
   let last=0;
@@ -355,6 +361,7 @@ async function load(i, autoplay, nextEditMode){
   }
   if(NH.loop && (NH.PLAYING===null || String(NH.PLAYING)!==String(d.idx))) NH.closeLineLoop?.();
   const changedSong=!NH.S || String(NH.S.idx)!==String(d.idx);
+  if(changedSong) NH.WAVE_SEQ=(NH.WAVE_SEQ||0)+1;   // 旧波形请求作废
   if(changedSong || nextEditMode!==undefined){
     NH.EDITMODE=nextEditMode===true;
     NH.LRCEDIT=false;

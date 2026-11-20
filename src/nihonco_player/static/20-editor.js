@@ -155,9 +155,9 @@ function renderLrcTable(){
       else if(e.shiftKey && NH.ESEL>=0){ NH.SEL.clear();
         for(let k=Math.min(NH.ESEL,i);k<=Math.max(NH.ESEL,i);k++) NH.SEL.add(k); }
       else { NH.SEL.clear(); }
-      NH.ESEL=i; paintSelection();
       const r=NH.EROWS[i];
-      if(!NH.isSelfPlaying() && r && r.t!==null) NH.WMARK[NH.S.idx]=lineT(r);
+      if(!NH.isSelfPlaying() && r && r.t!==null) NH.WMARK[NH.S.idx]=NH.lineT(r);
+      NH.ESEL=i; paintSelection();
       if(!mod && NH.isSelfPlaying() && r && r.t!==null) NH.seekIdx(i, true);
     };
     el.ondblclick=ev=>{
