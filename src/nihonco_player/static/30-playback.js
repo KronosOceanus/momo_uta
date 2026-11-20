@@ -323,6 +323,7 @@ document.getElementById('rem').onclick=async()=>{
         const d=await r.json();
         if(!r.ok || !d.ok){ NH.done(d.error||'换歌词失败'); return; }
         if(NH.S!==song || NH.LRCEDIT) return;
+        NH.NO_MATCH.delete(String(d.idx || song.idx));
         await NH.load(d.idx || song.idx);        // 重新拉这一首（已换新歌词）
         NH.loadLib();
         NH.done(`已换成 ${c.name}（${d.lines} 行歌词）`);

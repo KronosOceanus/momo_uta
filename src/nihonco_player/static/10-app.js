@@ -415,6 +415,7 @@ async function load(i, autoplay, nextEditMode){
     return true;
   }
   {
+    NH.NO_MATCH.delete(String(d.idx));
     NH.S=d; NH.LINES=d.lines; NH.CUR=-1;
     if(String(NH.PLAYING) !== String(d.idx)){
       document.querySelectorAll('.ln.on,.ln2.on').forEach(el=>el.classList.remove('on'));
