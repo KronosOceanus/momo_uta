@@ -65,6 +65,7 @@ def song_payload(idx: int) -> dict:
     return {"idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
             "lines": lines, "nhlrc": True,
         "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),
+        "duration": LY.audio_duration(item["file"]),
         "audio": f"/audio/{idx}",
 }
 

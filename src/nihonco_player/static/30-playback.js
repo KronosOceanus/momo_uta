@@ -296,7 +296,7 @@ document.getElementById('rem').onclick=async()=>{
   let d;
   try{
     const r = await fetch('/api/rematch',{method:'POST',headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({action:'rematch', idx:song.idx, duration:(NH.au.duration||0)})});
+      body: JSON.stringify({action:'rematch', idx:song.idx, duration:(song.duration || (NH.isSelfPlaying()?NH.au.duration:0))})});
     d = await r.json();
   }catch(err){
     NH.done('匹配失败：'+err.message); NH.lock(null,false); return;
