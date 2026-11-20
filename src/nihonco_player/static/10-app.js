@@ -340,7 +340,7 @@ async function load(i, autoplay, nextEditMode){
     lyr.innerHTML=NH.LINES.map((l,n)=>`<div class="ln" data-n="${n}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}</div>`).join('');
     document.querySelectorAll('.ln').forEach(el=>{
       const n=+el.dataset.n;
-      el.onclick=()=>NH.selectLine(n);
+      el.onclick=e=>{ if(e.detail>1) return; NH.selectLine(n); };
       el.ondblclick=()=>NH.playLine(n);
     });
     NH.renderSide();

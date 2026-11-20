@@ -556,7 +556,7 @@ function renderSide(){
     <span class="tx">${String(n+1).padStart(2,'0')}</span>${(NH.MODE==='rm'?(l.rmH||l.rm):(l.kyH||l.ky))||''}</div>`).join('');
   col.querySelectorAll('.ln2').forEach(el=>{
     const n=+el.dataset.n;
-    el.onclick=()=>NH.selectLine(n);
+    el.onclick=e=>{ if(e.detail>1) return; NH.selectLine(n); };
     el.ondblclick=()=>NH.playLine(n);
   });
   if(NH.CUR>=0) paint2(NH.CUR);

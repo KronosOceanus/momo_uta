@@ -73,7 +73,11 @@ function seekIdx(i, keepPlaying){
 function selectLine(i){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  highlight(i);                         // 只换高亮，不碰音频
+  if(NH.S && String(NH.PLAYING) === String(NH.S.idx)){
+    seekIdx(i, true);                   // 正在播这首：跳转，保持播放/暂停状态
+  }else{
+    highlight(i);                       // 只是查看另一首：只高亮，不碰音频
+  }
 }
 
 async function playLine(i){
