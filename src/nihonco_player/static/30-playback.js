@@ -254,19 +254,18 @@ const PL=(window.__CFG&&window.__CFG.player)||{};
 })();
 const playBtn=document.getElementById('play');
 function syncPlayBtn(){ playBtn.textContent = NH.au.paused ? '播放' : '暂停'; }
-function playFromMarker(){
+function playFromStart(){
   const song = NH.S;
   if(!song) return;
   const idx = song.idx;
-  const t = NH.WMARK[idx] || 0;
   NH.au.preload().then(() => {
     if(!NH.S || String(NH.S.idx)!==String(idx)) return;
-    NH.au.currentTime = t;
+    NH.au.currentTime = 0;
     NH.au.play().catch(()=>{});
   }).catch(()=>{});
 }
-NH.playFromMarker = playFromMarker;
-document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); playFromMarker(); };
+NH.playFromStart = playFromStart;
+document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); playFromStart(); };
 playBtn.onclick=()=>{
   if(NH.PLAYING===null) return;              // 只控制正在播放的 A，不切到查看的 B
   if(NH.au.paused){ NH.au.play().catch(()=>{}); } else { NH.au.pause(); }

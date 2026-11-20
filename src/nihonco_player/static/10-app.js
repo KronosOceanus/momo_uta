@@ -376,7 +376,7 @@ async function load(i, autoplay, nextEditMode){
     if(autoplay || NH.PLAYING===null){            // 单击只换 UI，不打断旧音频
       NH.commitAudio();
       NH.au.playbackRate=+document.getElementById('rate').value;
-      if(autoplay) NH.playFromMarker?.();
+      if(autoplay) NH.playFromStart?.();
     }
     lyr.innerHTML='<div class="lm">分离人声，确认是否有人声…</div>';
     const v=(VC.auto_start===false) ? null : await ensureVocals(d.idx);
@@ -424,7 +424,7 @@ async function load(i, autoplay, nextEditMode){
     else NH.WAVE=null;
     if(NH.PLAYING===null) NH.commitAudio();                 // 第一次载入才绑定音频
 
-    if(autoplay){ NH.commitAudio(); NH.playFromMarker?.(); }
+    if(autoplay){ NH.commitAudio(); NH.playFromStart?.(); }
     NH.au.playbackRate=+document.getElementById('rate').value;
   }
   NH.VSTAT=null; paintVStatus();
