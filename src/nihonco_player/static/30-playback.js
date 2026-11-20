@@ -285,6 +285,27 @@ document.getElementById('loop').onclick=e=>{NH.loop=!NH.loop;e.target.classList.
   }
   e.target.textContent = NH.loop ? '单句循环：开' : '单句循环';};
 
+// ── 单曲循环：播完自动从头再播 ──────────────────
+NH.loopSong = true;
+const songLoopBtn = document.getElementById('songloop');
+function syncSongLoop(){
+  if(!songLoopBtn) return;
+  songLoopBtn.textContent = '单曲循环：' + (NH.loopSong ? '开' : '关');
+  songLoopBtn.classList.toggle('on', NH.loopSong);
+}
+if(songLoopBtn) songLoopBtn.onclick = () => { NH.loopSong = !NH.loopSong; syncSongLoop(); };
+syncSongLoop();
+NH.au.addEventListener('ended', () => {
+  if(!NH.loopSong) return;
+  const song = NH.S;
+  // 等引擎的 ended/pause 流程走完再起新 source，避免把 watch 循环覆盖
+  setTimeout(() => {
+    if(!song || NH.S !== song || !NH.loopSong) return;
+    NH.au.currentTime = 0;
+    NH.au.play().catch(()=>{});
+  }, 0);
+});
+
 document.onkeydown=e=>{
   if(e.target.tagName==='INPUT' || e.isComposing || e.keyCode===229) return;
   if(e.code==='Space'){e.preventDefault();NH.au.paused?NH.au.play():NH.au.pause();}

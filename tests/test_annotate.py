@@ -107,3 +107,34 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestTokenizerConcurrency(unittest.TestCase):
+    def test_parallel_annotations_do_not_share_tokenizer(self):
+        """HTTP 是多线程的：Sudachi Tokenizer 不能并发使用。"""
+        import importlib
+        import threading
+        A = importlib.import_module("nihonco_yomi.annotate")
+
+        errs, outs = [], []
+        lock = threading.Lock()
+
+        def work():
+            try:
+                for _ in range(5):
+                    out = A.annotate_line("今日は雨が降る", {})
+                    with lock:
+                        outs.append(json.dumps(out, ensure_ascii=False, sort_keys=True))
+            except Exception as e:      # noqa: BLE001
+                with lock:
+                    errs.append(repr(e))
+
+        threads = [threading.Thread(target=work) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertFalse(errs, errs[:3])
+        self.assertEqual(len(set(outs)), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

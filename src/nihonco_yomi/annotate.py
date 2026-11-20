@@ -25,6 +25,7 @@ import argparse
 import json
 import re
 import sys
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -124,6 +125,8 @@ KANA_HEAD = re.compile(r"^[ぁ-ん]+")
 
 VERSION = {"engine": "sudachi", "dict": "sudachidict_core", "service": "0.3.0"}
 _TAGGER = None
+_INIT_LOCK = threading.Lock()
+_TOKEN_LOCK = threading.Lock()
 
 
 class _SudachiWord:
@@ -148,18 +151,22 @@ class _SudachiTagger:
         self._tok = dictionary.Dictionary().tokenizer(mode="A")
 
     def __call__(self, text: str):
-        # Sudachi 会在行尾吐零长 token（预分词副作用），跳过
-        return [_SudachiWord(m) for m in self._tok.tokenize(text) if m.surface()]
+        # Sudachi 的 Tokenizer 不能并发使用（HTTP 是多线程的）
+        with _TOKEN_LOCK:
+            # Sudachi 会在行尾吐零长 token（预分词副作用），跳过
+            return [_SudachiWord(m) for m in self._tok.tokenize(text) if m.surface()]
 
 
 def get_tagger():
     """Sudachi 惰性加载。缺依赖直接报错，不静默退化。"""
     global _TAGGER
     if _TAGGER is None:
-        try:
-            _TAGGER = _SudachiTagger()
-        except ImportError as e:
-            raise RuntimeError("没装 sudachipy；装：pip install -r requirements.txt") from e
+        with _INIT_LOCK:
+            if _TAGGER is None:
+                try:
+                    _TAGGER = _SudachiTagger()
+                except ImportError as e:
+                    raise RuntimeError("没装 sudachipy；装：pip install -r requirements.txt") from e
     return _TAGGER
 
 

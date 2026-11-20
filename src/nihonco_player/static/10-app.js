@@ -300,9 +300,11 @@ async function load(i, autoplay, nextEditMode){
     lyr.innerHTML='<div class="lm">匹配歌词中…</div>';
     busy('匹配歌词中…');
     document.getElementById('rmcol').innerHTML='';
-    NH.commitAudio();                             // 没有歌词也要能播放
-    NH.au.playbackRate=+document.getElementById('rate').value;
-    if(autoplay) NH.au.play().catch(()=>{});
+    if(autoplay || NH.PLAYING===null){            // 单击只换 UI，不打断旧音频
+      NH.commitAudio();
+      NH.au.playbackRate=+document.getElementById('rate').value;
+      if(autoplay) NH.au.play().catch(()=>{});
+    }
     lyr.innerHTML='<div class="lm">分离人声，确认是否有人声…</div>';
     const v=(VC.auto_start===false) ? null : await ensureVocals(d.idx);
     if(request!==NH.LOAD_REQUEST) return false;
@@ -426,6 +428,49 @@ async function loadLib(){
   renderList();
 }
 
+function applyLists(r){
+  if(!r || !r.lists) return;
+  NH.PLS = r.lists;
+  NH.LIB = NH.PLS.flatMap(g => g.items);
+  renderList();
+}
+
+function uiPrompt(title, value){
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.className = 'menu';
+    box.style.cssText = 'position:fixed;left:50%;top:28%;transform:translateX(-50%);min-width:280px;padding:10px;z-index:99';
+    const lab = document.createElement('div');
+    lab.textContent = title;
+    lab.style.cssText = 'font-size:12px;color:#878c95;padding:2px 4px 8px';
+    const inp = document.createElement('input');
+    inp.className = 'numin';
+    inp.value = value || '';
+    inp.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:8px';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+    const ok = document.createElement('button'); ok.textContent = '确定';
+    const cancel = document.createElement('button'); cancel.textContent = '取消';
+    row.appendChild(cancel); row.appendChild(ok);
+    box.appendChild(lab); box.appendChild(inp); box.appendChild(row);
+    document.body.appendChild(box);
+    const close = v => {
+      document.removeEventListener('keydown', key);
+      box.remove();
+      resolve(v);
+    };
+    const key = e => {
+      if(e.key === 'Escape'){ e.preventDefault(); close(null); }
+      else if(e.key === 'Enter'){ e.preventDefault(); close(inp.value.trim() || null); }
+    };
+    document.addEventListener('keydown', key);
+    ok.onclick = () => close(inp.value.trim() || null);
+    cancel.onclick = () => close(null);
+    inp.focus(); inp.select();
+  });
+}
+NH.uiPrompt = uiPrompt;
+
 function renderList(){
   const q=(document.getElementById('q').value||'').trim().toLowerCase();
   const hit=x=>!q || (x.orig||'').toLowerCase().includes(q) || (x.title||'').toLowerCase().includes(q)
@@ -465,10 +510,10 @@ function openPlMenu(x, y, g){
   };
   mk('导入音乐…', ()=>doImport(g.id));
   if(!g.locked) mk('重命名…', async ()=>{
-    const name=prompt('新的歌单名', g.name);
+    const name=await uiPrompt('新的歌单名', g.name);
     if(!name || name===g.name) return;
-    await api('/api/pl',{action:'list_rename',id:g.id,name});
-    loadLib();
+    const r=await api('/api/pl',{action:'list_rename',id:g.id,name});
+    applyLists(r);
   });
   mk('清空歌单', async ()=>{
     if(!confirm(`清空「${g.name}」？歌本身不会丢`)) return;
@@ -565,7 +610,7 @@ async function doImport(listId, btn){
   }else if(api_ && api_.pick_folder){
     const p = await api_.pick_folder(); if(p) paths=[p];
   }else{
-    paths = (prompt('路径（多个用 ; 分隔）')||'').split(';').map(x=>x.trim()).filter(Boolean);
+    paths = ((await uiPrompt('路径（多个用 ; 分隔）'))||'').split(';').map(x=>x.trim()).filter(Boolean);
   }
   if(!paths.length) return;
   busy('导入中…');
@@ -585,8 +630,9 @@ async function doImport(listId, btn){
 }
 
 document.getElementById('newlist').onclick=async()=>{
-  const name=prompt('新歌单名称'); if(!name) return;
-  await api('/api/pl',{action:'list_create',name}); loadLib();
+  const name=await uiPrompt('新歌单名称'); if(!name) return;
+  const r=await api('/api/pl',{action:'list_create',name});
+  applyLists(r);
 };
 loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一次
   await new Promise(r=>setTimeout(r,600));

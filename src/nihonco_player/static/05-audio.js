@@ -77,6 +77,7 @@ class AudioEngine {
     if(this._playing) return;
     if(!this._buf && this._url) await this.preload();
     if(!this._buf) return;
+    this._ended=false;
     this._startSrc();
     this._emit('play'); this._emit('playing'); this._watchStart();
   }
