@@ -150,20 +150,11 @@ function renderLrcTable(){
       const i=+el.dataset.i;
       const mod = e.metaKey || e.ctrlKey || e.shiftKey;
       if(mod) e.preventDefault();
-      if(e.metaKey||e.ctrlKey){
-        if(NH.SEL.has(i)){
-          NH.SEL.delete(i);
-          NH.ESEL = NH.SEL.size ? Math.max(...NH.SEL) : -1;
-        }else{
-          NH.SEL.add(i); NH.ESEL=i;
-        }
-      }
+      if(e.metaKey||e.ctrlKey){ NH.SEL.has(i)?NH.SEL.delete(i):NH.SEL.add(i); }
       else if(e.shiftKey && NH.ESEL>=0){ NH.SEL.clear();
-        for(let k=Math.min(NH.ESEL,i);k<=Math.max(NH.ESEL,i);k++) NH.SEL.add(k);
-        NH.ESEL=i;
-      }
-      else { NH.SEL.clear(); NH.ESEL=i; }
-      paintSelection();
+        for(let k=Math.min(NH.ESEL,i);k<=Math.max(NH.ESEL,i);k++) NH.SEL.add(k); }
+      else { NH.SEL.clear(); }
+      NH.ESEL=i; paintSelection();
       const r=NH.EROWS[i];
       if(!mod && r && r.t!==null) NH.seekIdx(i, true);
     };
@@ -254,7 +245,6 @@ function renderLrcTable(){
 
 NH.MARQ = null;
 document.getElementById('lyr').addEventListener('mousedown', e=>{
-  if((e.metaKey||e.ctrlKey) && e.target.tagName!=='INPUT') e.preventDefault();
   if(!NH.LRCEDIT || !e.shiftKey) return;
   if(e.target.tagName==='INPUT') return;
   e.preventDefault();

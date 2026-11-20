@@ -680,10 +680,6 @@ document.getElementById('list').addEventListener('click', async e=>{
     load(row.dataset.i);
   }
 });
-document.getElementById('list').addEventListener('mousedown', e=>{
-  if((e.shiftKey||e.metaKey||e.ctrlKey) && e.target.closest('.it') && !e.target.closest('.del'))
-    e.preventDefault();
-});
 document.getElementById('list').addEventListener('dblclick', e=>{
   const row=e.target.closest('.it');
   if(row) load(row.dataset.i, true);
