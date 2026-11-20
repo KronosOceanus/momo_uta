@@ -156,14 +156,11 @@ def pick(idx, song_id) -> dict:
     d = song_payload(int(idx2))
     return {"ok": True, "idx": idx2, "lines": len(d.get("lines") or [])}
 
-def lazy_match(item: dict) -> dict:
-    """按需抓歌词：返回是否真的匹配到，供前端提前结束等待。"""
+def lazy_match(item: dict) -> None:
+    """按需抓歌词：MB 规范化 + 时长门槛那条流程。"""
     artist, title = LY.split_name(item["stem"])
-    hit = LY.get_lrc(title, artist, duration=LY.audio_duration(item["file"]), force=True)
+    LY.get_lrc(title, artist, duration=LY.audio_duration(item["file"]), force=True)
     LIB.refresh(item.get("uid"))
-    lines = LY.content_lines((hit or {}).get("lrc") or "")
-    return {"matched": bool(hit) and lines >= 3, "lines": lines,
-            "source": (hit or {}).get("source")}
 
 
 # ── HTTP 用得着的两个封装 ─────────────────────────────

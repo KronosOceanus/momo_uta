@@ -160,36 +160,9 @@ class TestMatchAction(unittest.TestCase):
             old = PL.FILE
             PL.set_file(root / "playlists.json")
             try:
-                with patch.object(SONG, "lazy_match", return_value={"matched": True, "lines": 5}) as lazy:
+                with patch.object(SONG, "lazy_match") as lazy:
                     res = SVC.playlists_action({"action": "match", "idx": "0"})
             finally:
                 PL.set_file(old)
             lazy.assert_called_once()
             self.assertTrue(res["ok"])
-            self.assertTrue(res["matched"])
-            self.assertEqual(res["lines"], 5)
-
-    def test_match_reports_failure(self):
-        import tempfile
-        from pathlib import Path
-        from unittest.mock import patch
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import playlist as SVC
-        from nihonco_player.service import song as SONG
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            CACHE.clear()
-            CACHE["0"] = {"key": "k", "uid": "fp1", "file": str(root / "a.mp3"),
-                          "stem": "歌手 - 曲", "orig": "曲", "title": "曲",
-                          "artist": "歌手", "has_lyric": False, "group": ""}
-            old = PL.FILE
-            PL.set_file(root / "playlists.json")
-            try:
-                with patch.object(SONG, "lazy_match", return_value={"matched": False, "lines": 0}):
-                    res = SVC.playlists_action({"action": "match", "idx": "0"})
-            finally:
-                PL.set_file(old)
-            self.assertTrue(res["ok"])
-            self.assertFalse(res["matched"])
-            self.assertEqual(res["lines"], 0)

@@ -66,17 +66,8 @@ def playlists_action(req) -> dict:
                      item["title"], item.get("artist", ""))
     elif act == "match":
         item = CACHE.get(str(req.get("idx")))
-        if not item:
-            return {"ok": True, "matched": False, "lines": 0,
-                    "lists": PL.build(cached_items())}
-        try:
-            r = SONGS.lazy_match(item) or {}
-        except Exception as e:
-            return {"ok": True, "matched": False, "lines": 0, "error": str(e),
-                    "lists": PL.build(cached_items())}
-        return {"ok": True, "matched": bool(r.get("matched")),
-                "lines": int(r.get("lines") or 0),
-                "lists": PL.build(cached_items())}
+        if item:
+            SONGS.lazy_match(item)
     elif act == "import":
         return import_to_list(req)
     return {"ok": True, "lists": PL.build(cached_items())}

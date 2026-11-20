@@ -386,21 +386,9 @@ async function load(i, autoplay, nextEditMode){
       done('这首是纯音乐，跳过歌词匹配');
       return true;
     }
-    let matched;
     try{
-      const r=await api('/api/pl',{action:'match',idx:d.idx});
-      matched=r && r.matched;
-    }catch(e){
-      if(request!==NH.LOAD_REQUEST) return false;
-    }
-    if(request!==NH.LOAD_REQUEST) return false;
-    if(matched===false){                        // 后端明确没匹配到，不再空等
-      lyr.innerHTML='<div class="lm">没匹配到歌词（仍可播放）</div>';
-      done('这首歌没匹配到歌词，仍可播放');
-      return true;
-    }
-    try{
-      for(let k=0;k<20 && request===NH.LOAD_REQUEST;k++){   // 最多 30 秒
+      await api('/api/pl',{action:'match',idx:d.idx});
+      for(let k=0;k<40 && request===NH.LOAD_REQUEST;k++){
         await new Promise(r=>setTimeout(r,1500));
         if(request!==NH.LOAD_REQUEST) return false;
         const d2=await api('/api/song/'+i);
