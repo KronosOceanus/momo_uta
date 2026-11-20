@@ -363,12 +363,8 @@ function syncSongLoop(){
   songLoopBtn.textContent = '单曲循环：' + (NH.loopSong ? '开' : '关');
   songLoopBtn.classList.toggle('on', NH.loopSong);
 }
-if(songLoopBtn) songLoopBtn.onclick = async () => {
-  if(NH.PLAYING===null) return;
-  if(!NH.isSelfPlaying()){
-    const ok=await NH.load(NH.PLAYING, false);
-    if(!ok) return;
-  }
+if(songLoopBtn) songLoopBtn.onclick = () => {
+  if(NH.PLAYING===null) return;          // 只切播放器状态，不跳回 A
   NH.loopSong = !NH.loopSong; syncSongLoop();
 };
 syncSongLoop(); syncLoopBtn(); syncPlayControls();
