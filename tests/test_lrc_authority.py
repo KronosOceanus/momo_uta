@@ -21,8 +21,7 @@ def rows():
 def seed_cache(text):
     p = LC.cache_path("曲", "歌手")
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"source": "local-lrc", "lrc": text,
-                             "title": "曲", "artist_q": "歌手"}),
+    p.write_text(json.dumps({"lrc": text, "title": "曲", "artist_q": "歌手"}),
                  encoding="utf-8")
 
 
@@ -44,7 +43,7 @@ class TestAuthority(unittest.TestCase):
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                seed_cache("[00:01.00]君の名前\n[00:05.00]呼んでくれた\n")
+                seed_cache("[00:01.00]君の名前\n[00:05.00]呼んでくれた\n[00:09.00]また会おう\n")
                 d = SONG.song_payload(it["uid"])
                 self.assertGreaterEqual(len(d["lines"]), 2)
                 self.assertFalse(LRF.store_path(audio).exists())
@@ -56,7 +55,7 @@ class TestAuthority(unittest.TestCase):
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                seed_cache("[00:01.00]君の名前\n[00:05.00]呼んでくれた\n")
+                seed_cache("[00:01.00]君の名前\n[00:05.00]呼んでくれた\n[00:09.00]また会おう\n")
                 LRF.save(audio, rows(), {})
                 res = LRF.delete_store(audio)
                 self.assertTrue(res["ok"])

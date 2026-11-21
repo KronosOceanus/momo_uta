@@ -185,8 +185,6 @@ def _has_lyric(title: str, artist: str, uid=None, stored=None) -> bool:
         return False
     hit = LY.get_lrc(title, artist, use_cache=True) or {}
     lrc = hit.get("lrc") or ""
-    if hit.get("source") == "local-lrc":
-        return bool(lrc.strip())
     return (LY.content_lines(lrc) >= int(LY.CFG["min_content_lines"]) and LY.has_timed(lrc))
 
 

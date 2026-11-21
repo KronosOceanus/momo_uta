@@ -279,8 +279,6 @@ def _separate(uid: str, audio: str) -> dict:
     if not installed():
         raise RuntimeError("未安装 demucs（pip install demucs）")
     d, wav, meta_path = paths(uid)
-    if (d / "tmp").exists():
-        shutil.rmtree(d / "tmp", ignore_errors=True)   # 旧版本残留
     TMP_ROOT.mkdir(parents=True, exist_ok=True)
     tmp = TMP_ROOT / f"{uid}-{os.getpid()}-{int(time.time() * 1000)}"
     shutil.rmtree(tmp, ignore_errors=True)
@@ -358,9 +356,6 @@ def cleanup(protected=None, max_bytes=None) -> dict:
         for d in list(VOCALS.iterdir()):
             if not d.is_dir() or d.name in active_uids:
                 continue
-            legacy = d / "tmp"
-            if legacy.exists():
-                shutil.rmtree(legacy, ignore_errors=True)
             wav, mp = d / "vocals.wav", d / "meta.json"
             if not mp.is_file():
                 shutil.rmtree(d, ignore_errors=True)

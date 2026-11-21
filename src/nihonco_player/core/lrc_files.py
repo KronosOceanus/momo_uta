@@ -168,8 +168,7 @@ def usable_doc(doc: dict) -> bool:
     lines = doc.get("lines") or []
     if not any((ln.get("text") or "").strip() for ln in lines):
         return False
-    allow_untimed = doc.get("kind") == "nhlrc" or doc.get("source") == "local-lrc"
-    return allow_untimed or LY.has_timed(doc.get("text") or "")
+    return doc.get("kind") == "nhlrc" or LY.has_timed(doc.get("text") or "")
 
 
 def load(audio: str | Path, uid: str | None = None,
@@ -195,9 +194,7 @@ def load(audio: str | Path, uid: str | None = None,
         hit = LY.get_lrc(title, artist, network=network) or {}
         full = hit.get("lrc") or ""
         source = hit.get("source") or ""
-        cached_ann = hit.get("nhlrc_annotations") or {}
-        tail = {"lines": [{"i": int(i), "seg": seg} for i, seg in cached_ann.items()]} \
-            if cached_ann else None
+        tail = None
         body = full
         path, kind = sp, "cache"
         from_cache = bool(full)

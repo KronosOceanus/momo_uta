@@ -1116,8 +1116,6 @@ async function doImport(listId, btn){
   const api_ = window.pywebview && window.pywebview.api;
   if(api_ && api_.pick_any){
     paths = await api_.pick_any() || [];        // 一个对话框，文件/文件夹都行
-  }else if(api_ && api_.pick_folder){
-    const p = await api_.pick_folder(); if(p) paths=[p];
   }else{
     paths = ((await uiPrompt('路径（多个用 ; 分隔）'))||'').split(';').map(x=>x.trim()).filter(Boolean);
   }

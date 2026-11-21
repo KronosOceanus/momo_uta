@@ -66,11 +66,6 @@ def main() -> None:
                 r = webview.windows[0].create_file_dialog(FileDialog.FOLDER)
                 return list(r) if r else []
 
-        """兼容旧接口"""
-        def pick_folder(self):
-            r = webview.windows[0].create_file_dialog(FileDialog.FOLDER)
-            return r[0] if r else ""
-
         def save_text(self, default_name: str, text: str, alt_text: str = ""):
             """保存文本；.lrc 扩展名写 alt_text（纯 LRC），其余写 text（.nhlrc）。"""
             try:

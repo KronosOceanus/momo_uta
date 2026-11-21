@@ -406,7 +406,7 @@ GET
   /                       页面（注入 __CFG）
   /static/*               前端静态文件
   /api/song/<uid>         单曲载荷
-  /api/pl、/api/playlists  歌单列表
+  /api/pl                 歌单列表
   /api/library            曲库列表 + uid
   /api/wave/<uid>[?src=vocals]  波形峰值
   /api/jobs/<id>          统一任务状态
@@ -415,7 +415,6 @@ GET
 
 POST
   /api/pl                 playlists_action
-  /api/playlist           同上（别名）
   /api/line               改一处读音
   /api/rematch            重新匹配候选
   /api/pick               选中候选
@@ -476,7 +475,6 @@ service 层：
 ```text
 窗口里的前端通过 window.pywebview.api 调本机能力：
   pick_any()       一个对话框选文件/文件夹/多个
-  pick_folder()    兼容旧接口
   save_text(name, nhlrc, lrc)  导出；.lrc 扩展名写纯 LRC
   pick_lrc_text()  选歌词文件并读文本
 ```

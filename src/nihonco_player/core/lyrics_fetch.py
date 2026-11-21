@@ -134,8 +134,7 @@ def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0
         try:
             old = json.loads(p.read_text(encoding="utf-8"))
             old_lrc = old.get("lrc") or ""
-            cached_ok = (not old_lrc or valid_lrc(old_lrc)
-                         or old.get("source") == "local-lrc")
+            cached_ok = (not old_lrc or valid_lrc(old_lrc))
             # 旧缓存没按时长匹配过 → 重算一次；无时间轴的旧结果直接作废
             if cached_ok and (not duration or old.get("duration") or old.get("miss")):
                 return old

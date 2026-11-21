@@ -22,12 +22,10 @@ from . import static as STATIC
 class H(BaseHTTPRequestHandler):
     GET = {
         "/api/pl": "_get_playlists",
-        "/api/playlists": "_get_playlists",
         "/api/library": "_get_library",
     }
     POST = {
         "/api/pl": "_post_pl",
-        "/api/playlist": "_post_pl",
         "/api/line": "_post_line",
         "/api/rematch": "_post_rematch",
         "/api/pick": "_post_pick",
@@ -88,7 +86,6 @@ class H(BaseHTTPRequestHandler):
     # 每个写接口的必填字段（缺失直接 400，不让 service 里 KeyError/None 兜底）
     REQUIRED = {
         "/api/pl": ("action",),
-        "/api/playlist": ("action",),
         "/api/line": ("uid", "line", "start", "reading"),
         "/api/rematch": ("uid",),
         "/api/pick": ("uid", "id"),

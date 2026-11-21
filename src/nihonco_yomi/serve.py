@@ -66,7 +66,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 let TEXT = '', OV = {};
 const hash = s => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.codePointAt(0)) | 0; return Math.abs(h).toString(36); };
 const ckey = () => 'nihongo-acc:cand:' + hash(TEXT);
-const load = () => { try { return JSON.parse(localStorage.getItem(ckey()) || '{}'); } catch(e) { return {}; } };
+const load = () => { try { const d = JSON.parse(localStorage.getItem(ckey()) || '{}'); return Object.fromEntries(Object.entries(d).filter(([k]) => k.startsWith('o:'))); } catch(e) { return {}; } };
 const save = m => { try { localStorage.setItem(ckey(), JSON.stringify(m)); } catch(e) {} };
 
 function segHTML(seg, li){
@@ -94,9 +94,7 @@ function applyOcc(occ, reading, parts){
 }
 function markPicked(){
   for (const k of Object.keys(load())) {
-    const sel = k.startsWith('o:') ? `.cd[data-occ="${k.slice(2)}"]`
-                                   : `.cd[data-base="${k.slice(2)}"]`;
-    document.querySelectorAll(sel).forEach(el => el.classList.add('picked'));
+    document.querySelectorAll(`.cd[data-occ="${k.slice(2)}"]`).forEach(el => el.classList.add('picked'));
   }
 }
 
@@ -105,9 +103,7 @@ function restore(){
   document.querySelectorAll('.cd').forEach(el => {
     if (!partsOf[el.dataset.base]) partsOf[el.dataset.base] = JSON.parse(el.dataset.parts || '[]');
   });
-  // 旧版面板写入的 "w:" 记录（整词改）已不再支持，这里忽略
   for (const [k, reading] of Object.entries(saved)) {
-    if (!k.startsWith('o:')) continue;
     const occ = k.slice(2);
     const el = document.querySelector(`.cd[data-occ="${occ}"]`);
     const parts = el ? (JSON.parse(el.dataset.parts || '[]').find(x => x.r === reading)?.p || null) : null;
