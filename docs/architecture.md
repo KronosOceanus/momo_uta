@@ -188,7 +188,7 @@ A 类：设计阈值
 
 B 类：运行参数
   位置：config/defaults.json + data/config.json
-  例子：时长差、搜索上限、job 超时、波形采样率、窗口尺寸
+  例子：时长差、搜索上限、人声队列/执行超时、波形采样率、窗口尺寸
   含义：不改判定规则，只调行为
   改了重启（或刷新页面）生效
 
@@ -564,7 +564,7 @@ window.__CFG           注入前端
   vocals    人声分离
   library   扫描/导入
   app       桌面壳/日志
-  jobs      job 轮询/超时/保留条数
+  jobs      job 轮询/保留条数
 ```
 
 ```text

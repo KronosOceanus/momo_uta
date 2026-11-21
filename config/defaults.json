@@ -62,7 +62,9 @@
     "ratio_min": 0.05,
     "abs_threshold": 200,
     "floor_mult": 3,
-    "max_bytes": 536870912
+    "max_bytes": 536870912,
+    "queue_timeout_s": 600,
+    "run_timeout_s": 600
   },
   "library": {
     "_note": "曲库扫描与导入。",
@@ -77,10 +79,9 @@
     "log_max_bytes": 2097152
   },
   "jobs": {
-    "_note": "统一 job 的轮询、超时和保留条数。",
+    "_note": "统一 job 的轮询和保留条数；人声超时在 vocals.queue_timeout_s/run_timeout_s。",
     "poll_ms": 1000,
     "vocals_poll_ms": 1500,
-    "vocals_timeout_s": 600,
     "keep_done": 200
   }
 }

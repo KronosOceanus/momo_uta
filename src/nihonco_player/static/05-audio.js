@@ -10,7 +10,7 @@ class AudioEngine {
     this._ctx=null; this._gain=null; this._buf=null; this._src=null;
     this._offset=0; this._started=0; this._playing=false; this._rate=1;
     this._vol=1; this._muted=false; this._dur=0; this._ready=0; this._url='';
-    this._load=null; this._watch=0; this._ended=false; this._handlers={};
+    this._load=null; this._loadSeq=0; this._watch=0; this._ended=false; this._handlers={};
     this.ontimeupdate=null; this.onloadedmetadata=null; this.onerror=null;
   }
   addEventListener(type, fn){ (this._handlers[type] ||= []).push(fn); }
@@ -21,6 +21,7 @@ class AudioEngine {
   get src(){ return this._url; }
   set src(u){
     if(u!==this._url){
+      this._loadSeq++;                 // 旧 fetch/decode 完成后无权写回
       this._url=u; this._buf=null; this._ready=0; this._dur=0; this._offset=0;
       this._load=null;                 // 换歌必须重开预载，否则会拿到上一首的已解析 Promise
       this._stop();
@@ -62,15 +63,22 @@ class AudioEngine {
   preload(){
     if(this._load) return this._load;
     const url=this._url; if(!url) return Promise.resolve();
+    const seq=this._loadSeq;
     this._load=(async()=>{
       const res=await fetch(url);
       if(!res.ok) throw new Error('音频读取失败 '+res.status);
       const ab=await res.arrayBuffer();
       const ctx=this._ctxGet();
-      this._buf=await ctx.decodeAudioData(ab);
-      this._dur=this._buf.duration; this._ready=4; this._ended=false;
+      const buf=await ctx.decodeAudioData(ab);
+      if(seq!==this._loadSeq || url!==this._url) return null;   // 迟到结果丢弃
+      this._buf=buf;
+      this._dur=buf.duration; this._ready=4; this._ended=false;
       this._emit('loadedmetadata'); this._emit('durationchange'); this._emit('canplay');
-    })().catch(e=>{ this._ready=0; this._load=null; this._emit('error'); throw e; });
+      return buf;
+    })().catch(e=>{
+      if(seq!==this._loadSeq || url!==this._url) return null;   // 旧请求的失败不碰当前歌
+      this._ready=0; this._load=null; this._emit('error'); throw e;
+    });
     return this._load;
   }
   async play(){

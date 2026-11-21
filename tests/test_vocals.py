@@ -56,6 +56,22 @@ class TestVocalStats(unittest.TestCase):
                 self.assertTrue(st["has_vocals"])
 
 
+class TestVocalTimeout(unittest.TestCase):
+    def test_demucs_timeout_kills_and_cleans_tmp(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch.object(vocals_mod, "VOCALS", root / "vocals"), \
+                 patch.object(vocals_mod, "TMP_ROOT", root / "tmp" / "vocals"), \
+                 patch.object(vocals_mod, "installed", return_value=True), \
+                 patch.object(vocals_mod.subprocess, "run",
+                              side_effect=subprocess.TimeoutExpired(["demucs"], 1)):
+                with self.assertRaises(RuntimeError) as cm:
+                    vocals_mod._separate("uid-timeout", str(root / "a.mp3"))
+            self.assertIn("超时", str(cm.exception))
+            self.assertEqual(list((root / "tmp" / "vocals").glob("*")), [])
+
+
 class TestVocalCleanup(unittest.TestCase):
     def test_cleanup_removes_orphans_and_tmp_but_keeps_protected(self):
         with tempfile.TemporaryDirectory() as tmp:

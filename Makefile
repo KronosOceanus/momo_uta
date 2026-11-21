@@ -48,7 +48,7 @@ api:
 	@$(PY) -c "import nihonco_yomi; print(nihonco_yomi.Annotator().annotate('今日は雨が降る')['romaji']['text'])"
 
 test: arch test-python
-	node --test tests/lrc_editor.test.cjs tests/state_machine.test.cjs
+	node --test tests/lrc_editor.test.cjs tests/state_machine.test.cjs tests/audio_engine.test.cjs
 
 test-python: arch-python
 	$(PY) -m unittest discover -s tests

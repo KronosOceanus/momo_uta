@@ -98,6 +98,13 @@ def _run() -> None:
     while True:
         uid, audio = _queue.get()
         with _lock:
+            st = _states.get(uid)
+            if not st or st.get("state") != "queued":
+                continue
+            if time.time() - float(st.get("since") or 0) > float(VC["queue_timeout_s"]):
+                _states[uid] = {"state": "failed", "error": "人声分离排队超时",
+                                "since": time.time()}
+                continue
             _states[uid] = {"state": "running", "since": time.time()}
         try:
             m = _separate(uid, audio)
@@ -134,7 +141,11 @@ def _separate(uid: str, audio: str) -> dict:
                "-n", MODEL, "-o", str(tmp), audio]
         env = dict(os.environ)
         env.setdefault("HF_ENDPOINT", VC["hf_endpoint"])   # 国内直连 HF 会卡住
-        r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, env=env,
+                               timeout=float(VC["run_timeout_s"]))
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("人声分离执行超时")
         if r.returncode != 0:
             raise RuntimeError((r.stderr or r.stdout or "demucs 失败")[-400:])
 
@@ -142,9 +153,13 @@ def _separate(uid: str, audio: str) -> dict:
         if not src:
             raise RuntimeError("demucs 没有产出 vocals 文件")
 
-        r = subprocess.run(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
-                            "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
-                           capture_output=True, text=True)
+        try:
+            r = subprocess.run(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
+                                "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
+                               capture_output=True, text=True,
+                               timeout=float(VC["run_timeout_s"]))
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("人声分离转码超时")
         if r.returncode != 0 or not wav.is_file():
             raise RuntimeError("转 16k 单声道失败")
 

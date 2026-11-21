@@ -39,15 +39,15 @@ def start(kind: str, uid=None) -> dict:
 
         def run_vocals():
             VOC.ensure(uid, audio)
-            deadline = time.monotonic() + float(JOB["vocals_timeout_s"])
-            while time.monotonic() < deadline:
+            # 超时由 vocals worker 负责：排队超时/子进程超时会写 failed。
+            # 这里只等待真实终态，不再自己宣告超时却留下仍在跑的子进程。
+            while True:
                 st = VOC.status(uid)
                 if st.get("state") == "done":
                     return st
                 if st.get("state") == "failed":
                     raise RuntimeError(st.get("error") or "人声分离失败")
                 time.sleep(float(JOB["vocals_poll_ms"]) / 1000)
-            raise TimeoutError("人声分离超时")
 
         return JOBS.start(kind, uid, run_vocals)
 

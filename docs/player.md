@@ -93,11 +93,12 @@ class AudioEngine
 
 ```text
 preload()
-  ① fetch(audio URL) → arrayBuffer
-  ② ctx.decodeAudioData(arrayBuffer) → _buf
-  ③ _dur = _buf.duration；_ready = 4
-  ④ 依次发 loadedmetadata / durationchange / canplay
-  ⑤ 失败：_ready=0、_load=null、发 error，并把异常抛给调用方
+  ① 捕获当前 _loadSeq + URL
+  ② fetch(audio URL) → arrayBuffer
+  ③ ctx.decodeAudioData(arrayBuffer) → buffer
+  ④ 如果 _loadSeq/URL 已变 → 丢弃结果，不写 _buf/_dur，不发事件
+  ⑤ 否则写 _buf/_dur/_ready，发 loadedmetadata / durationchange / canplay
+  ⑥ 当前请求失败：_ready=0、_load=null、发 error；旧请求失败静默丢弃
 ```
 
 ```text
@@ -343,9 +344,9 @@ ontimeupdate 里：
 ### 6.1 触发
 
 ```text
-打开任意一首歌（含 pending）→ 前端 POST /api/vocals {action:"ensure", idx}
+打开任意一首歌（含 pending）→ 前端 POST /api/jobs {kind:"vocals", uid}
   配置 vocals.auto_start=false 时跳过
-前端随后每 1.5 秒 GET /api/vocals/<idx>，最多 400 次
+前端轮询 GET /api/jobs/<id>
 ```
 
 ### 6.2 后端流水线（串行队列）
@@ -356,12 +357,16 @@ ensure(uid, audio)
   · 已在 queued/running → 直接返回状态（幂等）
   · 否则入队，单线程 worker 依次跑
 
+排队：
+  超过 vocals.queue_timeout_s → 标记 failed，不启动 demucs
+
 一次分离：
   ① demucs --two-stems=vocals -n htdemucs
      （子进程；默认 HF_ENDPOINT 指镜像，避免国内卡死）
-  ② 取 vocals.wav → ffmpeg 转 16k 单声道
-  ③ 删临时目录
-  ④ VAD 统计 → meta.json
+  ② 超过 vocals.run_timeout_s → kill 子进程 → failed
+  ③ 取 vocals.wav → ffmpeg 转 16k 单声道
+  ④ 删临时目录
+  ⑤ VAD 统计 → meta.json
 ```
 
 ```text
@@ -466,7 +471,7 @@ savehint   LRC 保存状态（只在这里显示，不弹 toast）
 ④ 波形只在 LRC 模式播放时逐帧刷新；普通模式不显示波形
 ⑤ 波形 1x DPR、标记只有行起点，不做节拍/逐字网格
 ⑥ 单句循环的"本行结束"用下一行起点，最后一行固定 +8s
-⑦ 人声分离串行且较慢；切歌不取消正在跑的分离
+⑦ 人声分离串行且较慢；切歌不取消正在跑的分离；子进程超时会终止并继续队列
 ⑧ pending 匹配由 match 同步完成后直接重载；没有歌词即结束
 ```
 

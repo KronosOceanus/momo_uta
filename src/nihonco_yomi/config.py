@@ -31,13 +31,14 @@ _FALLBACK = {
     "vocals": {"model": "htdemucs", "auto_start": True,
                "hf_endpoint": "https://hf-mirror.com", "sample_rate": 16000,
                "frame_sec": 0.02, "ratio_min": 0.05, "abs_threshold": 200,
-               "floor_mult": 3, "max_bytes": 536870912},
+               "floor_mult": 3, "max_bytes": 536870912,
+               "queue_timeout_s": 600, "run_timeout_s": 600},
     "library": {"extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"],
                 "auto_pair_lrc": True},
     "app": {"window_width": 1280, "window_height": 820, "window_min": [960, 600],
             "log_max_bytes": 2097152},
     "jobs": {"poll_ms": 1000, "vocals_poll_ms": 1500,
-             "vocals_timeout_s": 600, "keep_done": 200},
+             "keep_done": 200},
 }
 
 
