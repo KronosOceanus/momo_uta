@@ -9,6 +9,7 @@
   --accent:#63c6a3;--accent-soft:#7fbfa6;--accent-dark:#4a7f6b;--amber:#c8843f;
   --danger:#e06c75;--danger-bg:#2a1216;--danger-line:#5a2b32;--danger-text:#e3a0a8;
   --wave-bg:#0f1216;--wave-line:#3a4450;--wave-fill:#4a7f6b;--wave-thumb:#c9ced5;
+  --group-bg:#151a20;--group-head:#191f27;--song-bg:#10141a;
   --shadow:rgba(0,0,0,.50);--backdrop:rgba(0,0,0,.45);--focus-ring:rgba(99,198,163,.15);
   --flash-ring:rgba(200,132,63,.9);
   --a:var(--accent);--c:var(--amber);--dim:var(--muted);
@@ -23,6 +24,7 @@
   --accent:#2f7d5e;--accent-soft:#3b9270;--accent-dark:#24664c;--amber:#a65e16;
   --danger:#b74852;--danger-bg:#f9e9eb;--danger-line:#e4bcc1;--danger-text:#a23d47;
   --wave-bg:#f0ede6;--wave-line:#d5d0c4;--wave-fill:#3b8b6b;--wave-thumb:#5f5a51;
+  --group-bg:#ebe7de;--group-head:#e3dfd4;--song-bg:#f8f7f3;
   --shadow:rgba(40,35,25,.18);--backdrop:rgba(40,35,25,.28);--focus-ring:rgba(47,125,94,.16);
   --flash-ring:rgba(166,94,22,.8);
   --a:var(--accent);--c:var(--amber);--dim:var(--muted);
@@ -117,13 +119,13 @@ rt{font-size:.5em;color:var(--muted)}
 .menu button{background:none;border:0;color:var(--fg);font-size:13px;padding:4px 14px;border-radius:5px;cursor:pointer;text-align:left;font-family:inherit}
 .menu button:hover{background:var(--hover)}
 audio{width:100%;margin:0;position:sticky;bottom:0}
-.pl{border-bottom:1px solid var(--line)}
-.plh{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none}
+.pl{border-bottom:1px solid var(--line);background:var(--group-bg)}
+.plh{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none;background:var(--group-head)}
 .plh:hover{background:var(--hover)}
 .plh .car{color:var(--muted-2);font-size:11px;width:10px}
 .plh .pln{flex:1;color:var(--text-soft);font-size:13.5px}
 .plh .plc{color:var(--muted-2);font-size:12px;margin-right:6px}
-.plb{padding-left:4px}
+.plb{padding-left:4px;background:var(--song-bg)}
 .it{position:relative}
 .it.picked{background:var(--selected-strong)}
 .it.picked .orig{color:var(--text-soft)}
