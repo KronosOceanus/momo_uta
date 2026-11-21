@@ -157,23 +157,6 @@ class TestVocalCleanup(unittest.TestCase):
             self.assertFalse((d / "vocals.wav").exists())
             self.assertNotIn("pure", res["removed"])
 
-    def test_cleanup_removes_old_pure_wav(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            vocals = root / "vocals"
-            d = vocals / "pure"
-            d.mkdir(parents=True)
-            (d / "meta.json").write_text(
-                '{"has_vocals": false, "created": 1, "last_used": 1}', encoding="utf-8")
-            (d / "vocals.wav").write_bytes(b"x" * 100)
-            with patch.object(vocals_mod, "VOCALS", vocals), \
-                 patch.object(vocals_mod, "TMP_ROOT", root / "tmp" / "vocals"), \
-                 patch.object(vocals_mod, "_states", {}):
-                res = vocals_mod.cleanup(protected={"pure"})
-            self.assertTrue((d / "meta.json").is_file())
-            self.assertFalse((d / "vocals.wav").exists())
-            self.assertGreaterEqual(res["freed"], 100)
-
     def test_cleanup_cap_evicts_oldest(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

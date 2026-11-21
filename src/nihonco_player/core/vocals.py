@@ -377,12 +377,6 @@ def cleanup(protected=None, max_bytes=None) -> dict:
                 shutil.rmtree(d, ignore_errors=True)
                 removed_uids.append(d.name)
                 continue
-            if m.get("has_vocals") is False and wav.is_file():
-                try:
-                    freed += wav.stat().st_size
-                    wav.unlink()
-                except Exception:
-                    pass
             if d.name not in protected:
                 size = sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
                 shutil.rmtree(d, ignore_errors=True)
