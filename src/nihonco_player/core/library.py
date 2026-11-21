@@ -13,6 +13,7 @@ from nihonco_yomi.paths import ROOT
 
 from . import diag
 from . import fingerprint as FP
+from . import fsio as FS
 from . import library_index as LI
 from . import lrc_files as LRC
 from . import lyrics as LY
@@ -37,12 +38,13 @@ def load_imports() -> list[dict]:
 
 
 def save_import(audio: str, title: str, artist: str) -> None:
-    rows = load_imports()
-    if any(r.get("audio") == audio for r in rows):
-        return
-    rows.append({"audio": audio, "title": title, "artist": artist})
-    IMPORTS.parent.mkdir(parents=True, exist_ok=True)
-    IMPORTS.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+    lock = IMPORTS.with_suffix(".lock")
+    with FS.locked(lock):
+        rows = load_imports()
+        if any(r.get("audio") == audio for r in rows):
+            return
+        rows.append({"audio": audio, "title": title, "artist": artist})
+        FS.atomic_write_json(IMPORTS, rows, indent=1)
 
 
 _LOCK = threading.RLock()

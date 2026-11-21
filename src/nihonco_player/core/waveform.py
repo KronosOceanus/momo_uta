@@ -13,6 +13,8 @@ from pathlib import Path
 from nihonco_yomi.config import WV
 from nihonco_yomi.paths import CACHE
 
+from . import fsio as FS
+
 WAVE_DIR = CACHE / "wave"
 STEP = WV["step"]    # 峰值步长（秒）
 RATE = WV["rate"]    # 解码采样率
@@ -73,6 +75,5 @@ def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:
 
     out = {"duration": round(total / RATE, 2), "step": STEP,
            "peaks": [[round(a, 4), round(b, 4)] for a, b in peaks]}
-    WAVE_DIR.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(out), encoding="utf-8")
+    FS.atomic_write_json(p, out, indent=None)
     return out

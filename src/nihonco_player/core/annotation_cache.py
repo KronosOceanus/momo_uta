@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
 from functools import lru_cache
 from pathlib import Path
 
 from nihonco_yomi.paths import CACHE
+
+from . import fsio as FS
 
 CACHE_DIR = CACHE / "annotations"
 VERSION = 1
@@ -39,18 +39,7 @@ def _path(key: str) -> Path:
 
 
 def _atomic_json(path: Path, obj: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(obj, fh, ensure_ascii=False, separators=(",", ":"))
-        os.replace(tmp, path)
-    except Exception:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    FS.atomic_write_json(path, obj, indent=None)
 
 
 @lru_cache(maxsize=4096)

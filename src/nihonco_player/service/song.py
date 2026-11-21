@@ -14,6 +14,7 @@ from ..core import library as LIB
 from ..core import lrc_files as LRC
 from ..core import lrc_doc as DOC
 from ..core import diag
+from ..core import fsio as FS
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
@@ -66,7 +67,7 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     uid = item.get("uid")
     title = item.get("title", "")
     artist = item.get("artist", "")
-    with LRC.LOCK:
+    with LRC.LOCK, FS.locked(LRC.lock_path()):
         if mode == "replace" and text is not None:
             res = LRC.import_text(item["file"], text, uid, title, artist,
                                   expected_version=expected_version)
@@ -151,7 +152,7 @@ def edit_line(uid, li, start, reading):
     item = LIB.resolve(uid)
     if not item or not reading:
         return None
-    with LRC.LOCK:
+    with LRC.LOCK, FS.locked(LRC.lock_path()):
         doc = LRC.load(item["file"], item.get("uid"), item["title"], item.get("artist", ""))
         lines = doc["lines"]
         if not (0 <= li < len(lines)) or not (lines[li].get("text") or "").strip():

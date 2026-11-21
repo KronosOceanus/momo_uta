@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import array
-import json
 import math
 import os
 import shutil
@@ -24,6 +23,7 @@ from queue import Queue
 
 from nihonco_yomi.config import VC
 from . import diag
+from . import fsio as FS
 from nihonco_yomi.paths import VOCALS
 
 TMP_ROOT = VOCALS.parent / "tmp" / "vocals"
@@ -57,17 +57,15 @@ def _touch(uid: str) -> None:
     m["last_used"] = int(time.time())
     try:
         _, _, mp = paths(uid)
-        mp.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
+        FS.atomic_write_json(mp, m, indent=1)
     except Exception:
         pass
 
 
 def meta(uid: str) -> dict | None:
     _, _, m = paths(uid)
-    try:
-        return json.loads(m.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    out = FS.read_json(m, None)
+    return out if isinstance(out, dict) else None
 
 
 def status(uid: str) -> dict:
@@ -321,7 +319,7 @@ def _separate(uid: str, audio: str) -> dict:
              "duration": stats["duration"], "ratio": stats["ratio"],
              "floor": stats["floor"], "threshold": stats["threshold"],
              "has_vocals": stats["ratio"] >= MIN_RATIO}
-        meta_path.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
+        FS.atomic_write_json(meta_path, m, indent=1)
         if not m["has_vocals"]:
             # 纯音乐不需要 vocals.wav；保留 meta 即可，波形继续用原曲。
             try:
@@ -361,9 +359,8 @@ def cleanup(protected=None, max_bytes=None) -> dict:
                 shutil.rmtree(d, ignore_errors=True)
                 removed_uids.append(d.name)
                 continue
-            try:
-                m = json.loads(mp.read_text(encoding="utf-8"))
-            except Exception:
+            m = FS.read_json(mp, None)
+            if not isinstance(m, dict):
                 shutil.rmtree(d, ignore_errors=True)
                 removed_uids.append(d.name)
                 continue

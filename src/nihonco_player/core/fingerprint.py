@@ -19,6 +19,8 @@ from pathlib import Path
 
 from nihonco_yomi.paths import CACHE
 
+from . import fsio as FS
+
 INDEX = CACHE / "fingerprints.json"
 INDEX_VERSION = 2
 CHUNK = 32 * 1024
@@ -78,9 +80,8 @@ def flush() -> None:
         if not _DIRTY or _CACHE is None:
             return
         try:
-            INDEX.parent.mkdir(parents=True, exist_ok=True)
             data = {"_v": INDEX_VERSION, **_CACHE}
-            INDEX.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            FS.atomic_write_json(INDEX, data, indent=None)
             _DIRTY = False
         except Exception:
             pass

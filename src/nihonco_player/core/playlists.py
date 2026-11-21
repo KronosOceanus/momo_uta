@@ -8,13 +8,12 @@
 """
 from __future__ import annotations
 
-import contextlib
-import fcntl
-import json
 import time
 from pathlib import Path
 
 from nihonco_yomi.paths import ROOT
+
+from . import fsio as FS
 
 FILE = ROOT / "data" / "curated" / "playlists.json"
 DEFAULT_ID = "default"
@@ -26,10 +25,7 @@ def _empty() -> dict:
 
 
 def load() -> dict:
-    try:
-        d = json.loads(FILE.read_text(encoding="utf-8"))
-    except Exception:
-        d = {}
+    d = FS.read_json(FILE, {}) or {}
     out = _empty()
     out["lists"] = [x for x in d.get("lists", []) if x.get("id") and x.get("name")]
     out["members"] = {k: list(v) for k, v in d.get("members", {}).items()}
@@ -52,21 +48,13 @@ def set_file(path) -> None:
     LOCK = FILE.with_suffix(".lock")
 
 
-@contextlib.contextmanager
 def _locked():
     """跨进程互斥：浏览器服务 + 桌面 app 同时开着时，避免互相覆盖。"""
-    LOCK.parent.mkdir(parents=True, exist_ok=True)
-    with open(LOCK, "w") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(fh, fcntl.LOCK_UN)
+    return FS.locked(LOCK)
 
 
 def save(d: dict) -> None:
-    FILE.parent.mkdir(parents=True, exist_ok=True)
-    FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    FS.atomic_write_json(FILE, d, indent=1)
 
 
 def all_uids() -> list[str]:

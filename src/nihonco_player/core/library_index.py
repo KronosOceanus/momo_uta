@@ -6,11 +6,12 @@
 """
 from __future__ import annotations
 
-import json
 import threading
 from pathlib import Path
 
 from nihonco_yomi.paths import CACHE
+
+from . import fsio as FS
 
 INDEX = CACHE / "library_index.json"
 VERSION = 1
@@ -24,12 +25,9 @@ _dirty = False
 def _load() -> dict:
     global _data
     if _data is None:
-        try:
-            raw = json.loads(INDEX.read_text(encoding="utf-8"))
-            _data = ({"_meta": raw.get("meta") or {}, **raw.get("records", {})}
-                     if raw.get("_v") == VERSION else {})
-        except Exception:
-            _data = {}
+        raw = FS.read_json(INDEX, {}) or {}
+        _data = ({"_meta": raw.get("meta") or {}, **raw.get("records", {})}
+                 if raw.get("_v") == VERSION else {})
     return _data
 
 
@@ -105,12 +103,9 @@ def flush() -> None:
         if not _dirty or _data is None:
             return
         try:
-            INDEX.parent.mkdir(parents=True, exist_ok=True)
-            tmp = INDEX.with_suffix(".tmp")
             recs = {k: v for k, v in _data.items() if not k.startswith("_")}
-            tmp.write_text(json.dumps({"_v": VERSION, "meta": _data.get("_meta") or {},
-                                       "records": recs}, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(INDEX)
+            FS.atomic_write_json(INDEX, {"_v": VERSION, "meta": _data.get("_meta") or {},
+                                         "records": recs}, indent=None)
             _dirty = False
         except Exception:
             pass

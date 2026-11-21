@@ -117,6 +117,7 @@ src/
 │   │   ├── lyrics_cache.py     歌词缓存读写
 │   │   ├── lrc_doc.py          LRC/nhlrc 格式（纯函数）
 │   │   ├── lrc_files.py        data/lyrics 读写、备份
+│   │   ├── fsio.py             原子写 / JSON / 文件锁
 │   │   ├── annotation.py       行 → seg、对齐、渲染
 │   │   ├── annotation_cache.py 单行注音显示缓存
 │   │   ├── fingerprint.py      音频指纹 + 索引

@@ -6,12 +6,11 @@
 """
 from __future__ import annotations
 
-import contextlib
-import fcntl
-import json
 from pathlib import Path
 
 from nihonco_yomi.paths import ROOT
+
+from . import fsio as FS
 
 FILE = ROOT / "data" / "curated" / "song_meta.json"
 LOCK = FILE.with_suffix(".lock")
@@ -24,22 +23,12 @@ def set_file(path) -> None:
     LOCK = FILE.with_suffix(".lock")
 
 
-@contextlib.contextmanager
 def _locked():
-    LOCK.parent.mkdir(parents=True, exist_ok=True)
-    with open(LOCK, "w") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(fh, fcntl.LOCK_UN)
+    return FS.locked(LOCK)
 
 
 def load() -> dict:
-    try:
-        return json.loads(FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    return FS.read_json(FILE, {})
 
 
 def get(key: str, field: str, default=None):
@@ -50,5 +39,4 @@ def put(key: str, **fields) -> None:
     with _locked():
         d = load()
         d.setdefault(key, {}).update(fields)
-        FILE.parent.mkdir(parents=True, exist_ok=True)
-        FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+        FS.atomic_write_json(FILE, d, indent=1)

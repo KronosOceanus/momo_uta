@@ -8,16 +8,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import shutil
 import threading
-import time
 from pathlib import Path
 
 from nihonco_yomi.paths import LYRICS
 
 from . import diag
+from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
 from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
@@ -43,20 +42,11 @@ def _version(text: str) -> str:
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    """同目录临时文件 + os.replace；避免半写入。"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}-{time.time_ns()}")
-    try:
-        with tmp.open("w", encoding="utf-8") as fh:
-            fh.write(text)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, path)
-    finally:
-        try:
-            tmp.unlink()
-        except FileNotFoundError:
-            pass
+    FS.atomic_write_text(path, text)
+
+
+def lock_path() -> Path:
+    return LYRICS / ".lock"
 
 
 def _is_disabled_text(text: str) -> bool:
@@ -244,7 +234,7 @@ def restore_backup(audio: str | Path, uid: str | None = None,
     """用备份原子恢复权威文档；恢复成功即重新启用歌词。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
-    with LOCK:
+    with LOCK, FS.locked(lock_path()):
         b = next((x for x in backup_candidates(audio, u, title, artist) if x.is_file()), None)
         if not b:
             return {"ok": False, "error": "没有备份文件"}
@@ -270,7 +260,7 @@ def delete_store(audio: str | Path, uid: str | None = None,
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
-    with LOCK:
+    with LOCK, FS.locked(lock_path()):
         current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
         current_version = _version(current) if sp.is_file() else VERSION_NONE
         if expected_version is not None and current_version != str(expected_version):
@@ -292,7 +282,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
-    with LOCK:
+    with LOCK, FS.locked(lock_path()):
         current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
         current_version = _version(current) if sp.is_file() else VERSION_NONE
         if expected_version is not None and current_version != str(expected_version):
@@ -320,7 +310,7 @@ def save(audio: str | Path, lines: list[dict],
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
-    with LOCK:
+    with LOCK, FS.locked(lock_path()):
         original = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
         current_version = _version(original) if sp.is_file() else VERSION_NONE
         if expected_version is not None and current_version != str(expected_version):

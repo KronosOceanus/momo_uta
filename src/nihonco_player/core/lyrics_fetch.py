@@ -11,6 +11,8 @@ from pathlib import Path
 from nihonco_yomi.config import LY as CFG
 from nihonco_yomi.paths import CACHE, ROOT
 
+from . import fsio as FS
+
 from .lyrics_cache import cache_path
 from .lyrics_text import (_match, content_lines, has_timed, is_excluded,
                           is_likely_song, lang_guess, split_name)
@@ -143,10 +145,9 @@ def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0
     if not network:                     # 加载路径只读本地；联网只由匹配阶段触发
         return None
     hit = auto_match(title, artist, duration)
-    p.parent.mkdir(parents=True, exist_ok=True)
     # 失败也缓存，避免每次启动都重新联网（负缓存）
-    p.write_text(json.dumps({**hit, "title": title, "artist_q": artist} if hit else {"miss": True, "reason": "no_match"},
-                            ensure_ascii=False), encoding="utf-8")
+    FS.atomic_write_json(p, {**hit, "title": title, "artist_q": artist} if hit else {"miss": True, "reason": "no_match"},
+                         indent=None)
     return hit
 
 
@@ -178,14 +179,13 @@ def scan(folder: Path, force: bool = False, only_cached: bool = False) -> None:
         print(f"{i:3d}/{len(songs)} {'✓' if hit else '✗'} {stem[:46]}", flush=True)
         time.sleep(float(CFG["scan_sleep"]))
     rep = ROOT / "eval" / "reports" / "lyrics_coverage.md"
-    rep.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# 歌词获取覆盖\n", f"疑似歌曲 {len(songs)}，拿到 LRC {len(hits)}（{len(hits)/len(songs):.0%}）\n",
              "\n## 已拿到\n", "| 文件 | 来源 | 匹配到的曲名 |", "|---|---|---|"]
     for stem, h in hits:
         lines.append(f"| {stem} | {h.get('source','?')} | {h.get('name','')} |")
     lines += ["\n## 没拿到\n", "| 文件 |", "|---|"]
     lines += [f"| {stem} |" for stem, _ in miss]
-    rep.write_text("\n".join(lines), encoding="utf-8")
+    FS.atomic_write_text(rep, "\n".join(lines))
     print(f"\n覆盖 {len(hits)}/{len(songs)} = {len(hits)/len(songs):.0%} → {rep}")
 
 
