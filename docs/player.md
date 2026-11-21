@@ -38,8 +38,7 @@ NAV          每行的下标（跳转时再用 navItems() 过滤 meta 行）
 CUR          当前高亮行
 PLAYING      正在播放的歌曲 idx（用于切歌判断）
 MODE         右侧面板显示 rm（罗马音）还是 ky（键位）
-EDITMODE     是否在"点读音"编辑态
-LRCEDIT      是否在 LRC 打轴模式（与普通模式互斥）
+VIEW_MODE    normal / lrc / kana（查看模式，三者互斥）
 WAVE         波形峰值数据 {duration, step, peaks, source}
 VIEW         {span} 波形窗口宽度（秒）
 FOLLOW       波形是否跟随播放头

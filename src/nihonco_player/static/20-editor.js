@@ -3,7 +3,7 @@
 'use strict';
 const NH = window.NH || (window.NH = {});
 // 播放器 · LRC 编辑表格
-NH.LRCEDIT = false;
+NH.VIEW_MODE = 'normal';
 
 // ── LRC 编辑表格 ────────────────────────────────
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
@@ -40,12 +40,12 @@ function lrcPayload(){
   return NH.EROWS.map(x=>({t:x.t, text:x.text}));
 }
 async function saveLrc(silent, force){
-  if(!NH.S || !NH.LRCEDIT || NH.LRC_REPLACING) return false;
+  if(!NH.S || NH.VIEW_MODE!=='lrc' || NH.LRC_REPLACING) return false;
   const song=NH.S;
   // 等前一次写入结束，再读取当前表格，避免旧内容后写覆盖新内容。
   while(NH.SAVE_PENDING){
     await NH.SAVE_PENDING;
-    if(NH.S!==song || !NH.LRCEDIT || NH.LRC_REPLACING) return false;
+    if(NH.S!==song || NH.VIEW_MODE!=='lrc' || NH.LRC_REPLACING) return false;
   }
   if(!NH.EDIRTY && !force) return true;
   clearTimeout(NH.SAVE_T);
@@ -111,12 +111,11 @@ async function openLrcEditor(entering=false){
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
   const song=NH.S, request=NH.LOAD_REQUEST, opening=++NH.LRC_OPEN_REQUEST;
   const d=await NH.api('/api/lrc',{action:'load', idx:song.idx});
-  if(NH.S!==song || request!==NH.LOAD_REQUEST || opening!==NH.LRC_OPEN_REQUEST || (!entering && !NH.LRCEDIT)) return;
+  if(NH.S!==song || request!==NH.LOAD_REQUEST || opening!==NH.LRC_OPEN_REQUEST || (!entering && NH.VIEW_MODE!=='lrc')) return;
   if(!d.ok) throw new Error(d.error||'无法读取歌词');
   if(entering){
     NH.clearToast();
-    NH.LRCEDIT=true;
-    NH.EDITMODE=false;
+    NH.VIEW_MODE='lrc';
     syncModes();
   }
   // 编辑器保留文件顺序及未打点的行，播放视图只展示有时间戳的行。
@@ -253,7 +252,7 @@ function renderLrcTable(){
 
 NH.MARQ = null;
 document.getElementById('lyr').addEventListener('mousedown', e=>{
-  if(!NH.LRCEDIT || !e.shiftKey) return;
+  if(NH.VIEW_MODE!=='lrc' || !e.shiftKey) return;
   if(e.target.tagName==='INPUT') return;
   e.preventDefault();
   NH.MARQ={x0:e.clientX, y0:e.clientY};
@@ -338,7 +337,7 @@ function bindMark(i){
 }
 
 document.addEventListener('paste', e=>{
-  if(!NH.LRCEDIT || NH.LRC_LOCKED) return;
+  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
   if(e.target && e.target.tagName==='INPUT') return;   // 输入框里走原生粘贴
   const text=(e.clipboardData||window.clipboardData||{}).getData
     ? (e.clipboardData||window.clipboardData).getData('text') : '';
@@ -347,11 +346,11 @@ document.addEventListener('paste', e=>{
   const n=insertLines(text);
   if(n) NH.done(`粘贴了 ${n} 行`);
 });
-document.getElementById('lrcadd').onclick=()=>{ if(NH.LRCEDIT && !NH.LRC_LOCKED) addRow(); };
-document.getElementById('lrcdel').onclick=()=>{ if(NH.LRCEDIT && !NH.LRC_LOCKED) delRows(); };
-document.getElementById('lrcselall').onclick=()=>{ if(NH.LRCEDIT) selectAll(); };
+document.getElementById('lrcadd').onclick=()=>{ if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED) addRow(); };
+document.getElementById('lrcdel').onclick=()=>{ if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED) delRows(); };
+document.getElementById('lrcselall').onclick=()=>{ if(NH.VIEW_MODE==='lrc') selectAll(); };
 document.getElementById('lrcsaveas').onclick=async()=>{
-  if(!NH.LRCEDIT) return;
+  if(NH.VIEW_MODE!=='lrc') return;
   const name=(NH.S&&NH.S.title?NH.S.title:'lyrics')+'.nhlrc';
   if(window.pywebview && window.pywebview.api && window.pywebview.api.save_text){
     let ex={ok:false};
@@ -380,20 +379,20 @@ async function replaceLrc(req, pending, success){
   }
 }
 document.getElementById('lrcimport').onclick=async()=>{
-  if(!NH.LRCEDIT || NH.LRC_LOCKED || !NH.S) return;
+  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED || !NH.S) return;
   const song=NH.S;
   const picker=window.pywebview?.api;
   if(!picker?.pick_lrc_text){ NH.done('当前环境不支持选文件'); return; }
   try{
     const r=await picker.pick_lrc_text();
-    if(!r?.text || NH.S!==song || !NH.LRCEDIT || NH.LRC_LOCKED) return;
+    if(!r?.text || NH.S!==song || NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
     if(!await NH.uiConfirm('覆盖当前歌词？', `用「${r.name}」覆盖当前歌词，当前内容会被替换`, true)) return;
     await replaceLrc({action:'import_lrc', idx:song.idx, text:r.text}, '导入中…',
       res=>`已导入 ${res.lines} 行${res.backed_up?'（已备份原文件）':''}`);
   }catch(err){ NH.done('导入失败：'+err.message); }
 };
 document.getElementById('lrcfiledel').onclick=async()=>{
-  if(!NH.LRCEDIT || NH.LRC_LOCKED || !NH.S) return;
+  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED || !NH.S) return;
   const song=NH.S;
   if(!await NH.uiConfirm('删除这首歌的歌词文件？',
       'nhlrc 和备份都会被删除，当前编辑内容也会丢弃。\n以后可以重新匹配。', true)) return;
@@ -404,16 +403,16 @@ document.getElementById('lrcfiledel').onclick=async()=>{
     const r=await NH.api('/api/lrc',{action:'delete', idx:song.idx});
     if(!r.ok) throw new Error(r.error||'删除失败');
     NH.NO_MATCH.add(String(song.idx));
-    await NH.load(song.idx,false,false);       // 退出 LRC，回到普通页
+    await NH.load(song.idx,false,'normal');     // 退出 LRC，回到普通页
     NH.done('已删除歌词文件');
   }catch(err){ NH.done('删除失败：'+err.message); }
 };
 document.getElementById('lrcreset').onclick=async()=>{
-  if(!NH.LRCEDIT || NH.LRC_LOCKED || !NH.S) return;
+  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED || !NH.S) return;
   const song=NH.S;
   try{
     const st=await NH.api('/api/lrc',{action:'backup', idx:song.idx});
-    if(NH.S!==song || !NH.LRCEDIT || NH.LRC_LOCKED) return;
+    if(NH.S!==song || NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
     if(!st.exists){ NH.done('没有备份（首次保存时才会生成）'); return; }
     const when=new Date(st.mtime*1000).toLocaleString();
     if(!await NH.uiConfirm('恢复到这个备份？', `${when} · ${st.lines} 行\n当前编辑内容会丢失`, true)) return;
@@ -422,13 +421,13 @@ document.getElementById('lrcreset').onclick=async()=>{
   }catch(err){ NH.done('恢复失败：'+err.message); }
 };
 document.getElementById('lrcsave').onclick=()=>{
-  if(!NH.LRCEDIT || NH.LRC_LOCKED) return;
+  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
   if(!NH.EROWS.length){ NH.done('没有歌词行'); return; }
   saveLrc(false, true);          // 主动保存：总是写一次
 };
 
 document.addEventListener('keydown', e=>{
-  if(!NH.LRCEDIT || NH.LRC_LOCKED) return;
+  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
   const ins=e.target.tagName==='INPUT';
   if(ins) return;                       // 输入框里的 Enter 走"拆行"
   if(e.key==='Enter'){ e.preventDefault(); addRow(); return; }
@@ -442,11 +441,11 @@ function syncModes(){
   const rem=document.getElementById('rem');
   const enabled=!!NH.S && !NH.viewMatching();
   const body=document.body;
-  body.classList.toggle('fak', NH.EDITMODE);
-  body.classList.toggle('lrcedit', NH.LRCEDIT);
+  body.classList.toggle('fak', NH.VIEW_MODE==='kana');
+  body.classList.toggle('lrcedit', NH.VIEW_MODE==='lrc');
 
-  e.textContent='振假名编辑模式：'+(NH.EDITMODE?'开':'关');
-  l.textContent='LRC 编辑模式：'+(NH.LRCEDIT?'开':'关');
+  e.textContent='振假名编辑模式：'+(NH.VIEW_MODE==='kana'?'开':'关');
+  l.textContent='LRC 编辑模式：'+(NH.VIEW_MODE==='lrc'?'开':'关');
   l.disabled = !enabled;
   e.disabled = !enabled;
   if(rem){
@@ -454,8 +453,8 @@ function syncModes(){
     rem.title = NH.viewMatching() ? '歌词匹配中' : '重新匹配当前歌曲的歌词';
   }
   l.title = NH.viewMatching() ? '歌词匹配中，稍后再编辑' : '编辑歌词时间轴';
-  e.classList.toggle('on', NH.EDITMODE);
-  l.classList.toggle('on', NH.LRCEDIT);
+  e.classList.toggle('on', NH.VIEW_MODE==='kana');
+  l.classList.toggle('on', NH.VIEW_MODE==='lrc');
 
   e.title='编辑读音';
 
@@ -468,7 +467,7 @@ function syncModes(){
 document.getElementById('lrcedit').onclick=async e=>{
   if(!NH.S) return;
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
-  if(NH.LRCEDIT) return NH.load(NH.S.idx, false, false);
+  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.idx, false, 'normal');
   const button=e.currentTarget;
   button.disabled=true;
   try{ await openLrcEditor(true); }
@@ -485,14 +484,14 @@ document.getElementById('offchip').onclick=async()=>{
 };
 
 document.getElementById('edit').onclick=()=>{
-  if(NH.LRCEDIT) return NH.load(NH.S.idx, false, true);
+  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.idx, false, 'kana');
   NH.LRC_OPEN_REQUEST++;   // 如果正在读取 LRC，保留用户最后选择的模式
-  NH.EDITMODE=!NH.EDITMODE;
+  NH.VIEW_MODE = NH.VIEW_MODE==='kana' ? 'normal' : 'kana';
   syncModes();
 };
 document.addEventListener('click', async e=>{
   const ew = e.target.closest('.ew');
-  if(NH.EDITMODE && ew){
+  if(NH.VIEW_MODE==='kana' && ew){
     e.stopPropagation();
     openPicker(ew, [], async v => {
       const lineEl=ew.closest('.ln'); const li=+lineEl.dataset.n; const start=+ew.dataset.start;
@@ -509,7 +508,7 @@ document.addEventListener('click', async e=>{
   if(!bc) return;
   e.stopPropagation();
   const cands = (bc.dataset.cands||'').split('|').filter(Boolean);
-  if(NH.EDITMODE){ openPicker(bc, [], (v)=>{ doEdit(bc, v); }); return; }
+  if(NH.VIEW_MODE==='kana'){ openPicker(bc, [], (v)=>{ doEdit(bc, v); }); return; }
   if(cands.length >= 2) openPicker(bc, cands, (v)=>{ doEdit(bc, v); }, false);
 });
 

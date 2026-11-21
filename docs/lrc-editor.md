@@ -63,7 +63,7 @@ text 是纯文本（不含时间戳，不含元数据）
 点「LRC 编辑模式」
   → openLrcEditor(true)
   → GET /api/lrc {action:"load"}
-  → LRCEDIT = true；EDITMODE = false
+  → VIEW_MODE = 'lrc'
   → 用返回的 lines 覆盖 EROWS；metadata 存 LRC_METADATA
   → 清空选择/撤销栈/脏标记
   → 渲染表格；初始化波形（窗口/跟随/峰值）
@@ -79,9 +79,9 @@ text 是纯文本（不含时间戳，不含元数据）
 
 ```text
 再点一次「LRC 编辑模式」
-  → load(当前 idx, false, false)
+  → load(当前 idx, false, 'normal')
   → load() 发现正在编辑：setLrcLocked(true) → flushLrc() → 取新载荷
-  → LRCEDIT=false，回到普通视图
+  → VIEW_MODE='normal'，回到普通视图
 ```
 
 ```text
@@ -92,9 +92,10 @@ text 是纯文本（不含时间戳，不含元数据）
 ### 2.3 与"振假名编辑模式"的关系
 
 ```text
-EDITMODE（点读音）和 LRCEDIT（打轴）互斥：
-  在 LRCEDIT 里点「振假名编辑模式」→ 先 load(..., nextEditMode=true) 退出打轴
-  在 EDITMODE 里点「LRC 编辑模式」→ 先 load(..., false) 退出读音编辑
+VIEW_MODE 三态互斥：normal / lrc / kana。
+  在 'lrc' 里点「振假名编辑模式」→ 先 load(..., 'kana') 退出打轴
+  在 'kana' 里点「LRC 编辑模式」→ 直接进入 'lrc'
+  在 'lrc' 里点「LRC 编辑模式」→ 先 load(..., 'normal') 退出
 ```
 
 ### 2.4 界面状态

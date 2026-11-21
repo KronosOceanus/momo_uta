@@ -61,7 +61,7 @@ function player() {
       get: () => window.NH[k], set: v => { window.NH[k] = v; }, configurable: true });
   }`);
   run(`done=msg=>messages.push(msg); loadWave=()=>{};
-       S={idx:'0'}; LRCEDIT=true; EROWS=[{t:1,text:'original'}];`);
+       S={idx:'0'}; VIEW_MODE='lrc'; EROWS=[{t:1,text:'original'}];`);
   const edit = text => run(`EROWS[0].text=${JSON.stringify(text)}; markDirty()`);
   const dispatch = (type, event) => handlers.get(type).forEach(handler => handler(event));
   return {calls, requests, run, edit, dispatch, document};
@@ -76,13 +76,13 @@ test('leaving LRC mode saves before fetching the ordinary lyrics', async () => {
   const leaving = p.run("document.getElementById('lrcedit').onclick({})");
   assert.equal(p.calls[0]?.path, '/api/lrc');
   assert.equal(p.calls[0].body.lines[0].text, 'changed');
-  assert.equal(p.run('LRCEDIT'), true);
+  assert.equal(p.run('VIEW_MODE===\'lrc\''), true);
   p.requests[0].resolve({ok: true});
   await nextTurn();
   assert.equal(p.calls[1].path, '/api/song/0');
   p.requests[1].resolve(song('0'));
   await leaving;
-  assert.equal(p.run('LRCEDIT'), false);
+  assert.equal(p.run('VIEW_MODE===\'lrc\''), false);
 });
 
 test('a failed save keeps the editor open when switching songs or modes', async () => {
@@ -95,7 +95,7 @@ test('a failed save keeps the editor open when switching songs or modes', async 
     await nextTurn();
     assert.equal(p.calls.length, 1);
     await leaving;
-    assert.equal(p.run('LRCEDIT && EDIRTY && S.idx === "0"'), true);
+    assert.equal(p.run('VIEW_MODE===\'lrc\' && EDIRTY && S.idx === "0"'), true);
     assert.equal(p.run('EROWS[0].text'), 'keep this');
     assert.equal(p.document.getElementById('lyr').inert, false);
     p.document.getElementById('lrcadd').onclick();
@@ -141,7 +141,7 @@ test('switching commits the focused timestamp before locking editing and fetches
   p.requests[1].resolve(song('1'));
   await leaving;
   assert.deepEqual(p.calls.map(call => call.path), ['/api/lrc', '/api/song/1']);
-  assert.equal(p.run('!LRCEDIT && S.idx === "1"'), true);
+  assert.equal(p.run('VIEW_MODE!==\'lrc\' && S.idx === "1"'), true);
   assert.equal(p.document.getElementById('lyr').inert, false);
 });
 
@@ -224,4 +224,13 @@ test('replacing lyrics waits for a sent save and blocks song transitions', async
   await replacing;
   assert.equal(p.run('EROWS[0].text'), 'restored');
   assert.equal(p.document.getElementById('lyr').inert, false);
+});
+
+test('view mode is a single mutually exclusive enum', () => {
+  const p = player();
+  p.run("VIEW_MODE='normal'");
+  p.run("document.getElementById('edit').onclick()");
+  assert.equal(p.run('VIEW_MODE'), 'kana');
+  p.run("document.getElementById('edit').onclick()");
+  assert.equal(p.run('VIEW_MODE'), 'normal');
 });

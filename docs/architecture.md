@@ -461,7 +461,7 @@ service 层：
   30-playback.js 时间语义、播放条、高亮、循环、键盘
 
 共享状态都在 NH 上：
-  NH.S / NH.LINES / NH.WAVE / NH.VIEW / NH.LRCEDIT …
+  NH.S / NH.LINES / NH.WAVE / NH.VIEW / NH.VIEW_MODE …
 ```
 
 ```text

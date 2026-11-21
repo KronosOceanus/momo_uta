@@ -38,7 +38,7 @@ function commitAudio(){
 }
 // ── 统一播放层：普通视图与编辑表格共用同一套时间语义 ──
 const META_RE=/^(作词|作曲|编曲|制作|演唱|歌\s*[:：]|Lyrics|Composer|Arranger|Producer)/;
-function viewLines(){ return NH.LRCEDIT ? NH.EROWS : NH.LINES; }
+function viewLines(){ return NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES; }
 function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+NH.OFFSET : null; }
 function isMetaLine(l){ return !l || l.meta || META_RE.test((l.text||'').trim()); }
 function idxAt(t){
@@ -89,7 +89,7 @@ function seekIdx(i, keepPlaying){
   seekPrecise(t);                              // 是否续播由 seekPrecise 自己判断
   highlight(i);
   if(NH.loop && !isMetaLine(viewLines()[i])) NH.LOOP_ROW=i;
-  if(NH.LRCEDIT){ NH.ESEL=i; NH.SEL.clear(); NH.paintSelection(); }
+  if(NH.VIEW_MODE==='lrc'){ NH.ESEL=i; NH.SEL.clear(); NH.paintSelection(); }
 }
 function selectLine(i){
   const ls=viewLines(); const l=ls[i];
@@ -134,7 +134,7 @@ function rowForTime(t){
 function highlight(i){
   const ls=viewLines(); const l=ls[i];
   NH.CUR=i;
-  if(NH.LRCEDIT){
+  if(NH.VIEW_MODE==='lrc'){
     document.querySelectorAll('.lerow').forEach(el=>
       el.classList.toggle('cur', +el.dataset.i===i));
     // 播放中不自动滚动表格：换行时滚动正是"画面顿一下"的可疑来源
@@ -146,7 +146,7 @@ function highlight(i){
   }
   // 播放时 rAF 循环已在画波形，这里不再重复画
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间
-  if(NH.LRCEDIT){
+  if(NH.VIEW_MODE==='lrc'){
     // 右侧罗马音在编辑模式下隐藏，不需要联动
   }else{
     NH.paint2(i);          // 右侧只跟随"当前行"；meta 区间两边都不亮
@@ -173,9 +173,9 @@ NH.au.ontimeupdate=()=>{
   const i=idxAt(t);
   if(i>=0){
     // 只在"索引变了"或"DOM 上确实没亮"时重绘（后者修 UI 被重建后不重画的问题）
-    const el=NH.LRCEDIT ? document.querySelector(`.lerow[data-i="${i}"]`)
+    const el=NH.VIEW_MODE==='lrc' ? document.querySelector(`.lerow[data-i="${i}"]`)
                      : document.querySelectorAll('.ln')[i];
-    const lit=NH.LRCEDIT ? (el && el.classList.contains('cur'))
+    const lit=NH.VIEW_MODE==='lrc' ? (el && el.classList.contains('cur'))
                       : (el && el.classList.contains('on'));
     if(i!==NH.CUR || !lit) highlight(i);
   }
@@ -283,7 +283,7 @@ document.getElementById('play2').addEventListener('pointerdown', e=>{
   }
 });
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>NH.au.addEventListener(ev, syncPlayBtn));
-['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.LRCEDIT) NH.drawWave(); }));
+['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.VIEW_MODE==='lrc') NH.drawWave(); }));
 NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
 document.getElementById('rate').oninput=e=>{NH.au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
 async function stepPlaying(dir){
@@ -300,7 +300,7 @@ document.getElementById('t-rm').onclick=e=>{NH.MODE='rm';e.target.classList.add(
 document.getElementById('t-ky').onclick=e=>{NH.MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=NH.LINES[NH.CUR];NH.renderSide();};
 document.getElementById('rem').onclick=async()=>{
   if(!NH.S || NH.BUSY) return;
-  if(NH.LRCEDIT && !await NH.load(NH.S.idx, false, false)) return;
+  if(NH.VIEW_MODE==='lrc' && !await NH.load(NH.S.idx, false, 'normal')) return;
   const song=NH.S;
   document.querySelectorAll('.menu').forEach(m=>m.remove());
   NH.busy('匹配中…'); NH.lock(this, true);
@@ -311,7 +311,7 @@ document.getElementById('rem').onclick=async()=>{
   }catch(err){
     NH.done('匹配失败：'+err.message); NH.lock(null,false); return;
   }
-  if(NH.S!==song || NH.LRCEDIT){ NH.lock(null,false); return; }
+  if(NH.S!==song || NH.VIEW_MODE==='lrc'){ NH.lock(null,false); return; }
   if(!d.candidates || !d.candidates.length){ NH.done('没找到候选，可以试试手动导入 lrc'); NH.lock(null,false); return; }
   NH.done(`找到 ${d.candidates.length} 个候选`); NH.lock(null,false);
   const box=document.createElement('div'); box.className='menu'; box.style.maxWidth='520px';
@@ -325,13 +325,13 @@ document.getElementById('rem').onclick=async()=>{
       b.onclick=ev=>{ev.stopPropagation(); NH.done('当前用的就是这条');};
       b.style.opacity='.6';
     }else b.onclick=async ev=>{ev.stopPropagation();
-      if(NH.S!==song || NH.LRCEDIT){ box.remove(); return; }
+      if(NH.S!==song || NH.VIEW_MODE==='lrc'){ box.remove(); return; }
       box.remove();
       NH.busy('换歌词中…');
       try{
         const d=await NH.api('/api/pick',{action:'pick', idx:song.idx, id:c.id});
         if(!d.ok){ NH.done(d.error||'换歌词失败'); return; }
-        if(NH.S!==song || NH.LRCEDIT) return;
+        if(NH.S!==song || NH.VIEW_MODE==='lrc') return;
         NH.NO_MATCH.delete(String(d.idx || song.idx));
         await NH.load(d.idx || song.idx);        // 重新拉这一首（已换新歌词）
         NH.loadLib();

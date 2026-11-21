@@ -7,7 +7,7 @@ const NH = window.NH || (window.NH = {});
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.VIEW_MODE = 'normal'; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING !== null && String(NH.PLAYING) === String(NH.S.idx));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
@@ -36,11 +36,11 @@ function waveTime(){
   if(NH.isSelfPlaying()) return NH.au.currentTime || 0;
   const m=NH.WMARK[NH.S && NH.S.idx];
   if(m!=null) return m;
-  if(NH.LRCEDIT && NH.ESEL >= 0){
+  if(NH.VIEW_MODE==='lrc' && NH.ESEL >= 0){
     const l=NH.EROWS[NH.ESEL];
     if(l && l.t != null) return l.t + NH.OFFSET;
   }
-  if(!NH.LRCEDIT && NH.CUR >= 0){
+  if(NH.VIEW_MODE!=='lrc' && NH.CUR >= 0){
     const l=NH.LINES[NH.CUR];
     if(l && l.t != null) return l.t + NH.OFFSET;
   }
@@ -54,7 +54,7 @@ function setWaveMarker(t, select){
   if(select){
     const i=nearestWaveRow(t);
     if(i>=0){
-      if(NH.LRCEDIT){ NH.ESEL=i; NH.paintSelection(); }
+      if(NH.VIEW_MODE==='lrc'){ NH.ESEL=i; NH.paintSelection(); }
       else NH.highlight(i);
     }
   }
@@ -71,7 +71,7 @@ function waveStep(delta){
   else {
     const i=nearestWaveRow(t);
     if(i>=0){
-      if(NH.LRCEDIT){ NH.ESEL=i; NH.paintSelection(); }
+      if(NH.VIEW_MODE==='lrc'){ NH.ESEL=i; NH.paintSelection(); }
       else NH.highlight(i);
     }
   }
@@ -178,7 +178,7 @@ function drawWave(){
   cx.stroke();
   // 只要"每一句开头的线"，其他辅助线一律不画
   {
-    const ls = NH.LRCEDIT ? NH.EROWS : NH.LINES;
+    const ls = NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES;
     cx.strokeStyle='rgba(200,132,63,0.62)';   // 暖橙色，和绿色波形、亮绿播放头区分开
     cx.lineWidth=1; cx.beginPath();
     (ls||[]).forEach(l=>{
@@ -237,7 +237,7 @@ async function startVocals(idx){
     if(done.state==='done'){
       NH.VSTAT=done.result || {state:'done'};
       paintVStatus();
-      if(NH.LRCEDIT) loadWave(true);
+      if(NH.VIEW_MODE==='lrc') loadWave(true);
     }else{
       NH.VSTAT={state:'failed', error:done.error || '人声分离失败'};
       paintVStatus();
@@ -270,7 +270,7 @@ async function loadWave(force){
 (function waveLoop(){
   let last=0;
   function tick(ts){
-    if(NH.WAVE && NH.LRCEDIT && NH.isSelfPlaying() && !NH.au.paused && ts-last>=32){ drawWave(); last=ts; }
+    if(NH.WAVE && NH.VIEW_MODE==='lrc' && NH.isSelfPlaying() && !NH.au.paused && ts-last>=32){ drawWave(); last=ts; }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -337,7 +337,7 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   await api('/api/pl',{action:'ui_offset', idx:NH.S.idx, offset:NH.OFFSET});
 });
 document.getElementById('offval').onclick=()=>{
-  if(!NH.LRCEDIT || NH.LRC_LOCKED) return;
+  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
   const el=document.getElementById('offval');
   inlineEdit(el, NH.OFFSET, {min:-10, max:10, fmt:v=>v.toFixed(2), apply:async v=>{
     NH.OFFSET=Math.round(v*100)/100;
@@ -355,13 +355,13 @@ function saveOpen(){
 }
 
 NH.LOAD_REQUEST = 0;
-async function load(i, autoplay, nextEditMode){
+async function load(i, autoplay, nextMode){
   if(NH.LRC_REPLACING) return false;
   clearToast();                                   // 换歌前不留下上一首的提示
   const request=++NH.LOAD_REQUEST;
   NH.viewDispatch({type:'LOAD_START', idx:i, request});
   NH.syncModes?.();
-  const editing=NH.LRCEDIT;
+  const editing=NH.VIEW_MODE==='lrc';
   if(!editing){                                  // 点击后立即切换标题，别等接口
     const it=NH.LIB.find(x=>String(x.idx)===String(i));
     if(it){
@@ -393,9 +393,8 @@ async function load(i, autoplay, nextEditMode){
   if(NH.loop && (NH.PLAYING===null || String(NH.PLAYING)!==String(d.idx))) NH.closeLineLoop?.();
   const changedSong=!NH.S || String(NH.S.idx)!==String(d.idx);
   if(changedSong) NH.WAVE_SEQ=(NH.WAVE_SEQ||0)+1;   // 旧波形请求作废
-  if(changedSong || nextEditMode!==undefined){
-    NH.EDITMODE=nextEditMode===true;
-    NH.LRCEDIT=false;
+  if(changedSong || nextMode!==undefined){
+    NH.VIEW_MODE=nextMode || 'normal';
     NH.syncModes();
   }
   if(d.pending){                               // 没有歌词 → 先能播，再后台匹配
@@ -431,7 +430,7 @@ async function load(i, autoplay, nextEditMode){
       if(st.state==='failed') throw new Error(st.error || '匹配失败');
       const d2=await api('/api/song/'+i);
       if(request!==NH.LOAD_REQUEST) return false;
-      if(!d2.pending) return load(i, autoplay, nextEditMode);
+      if(!d2.pending) return load(i, autoplay, nextMode);
     }catch(e){
       if(request!==NH.LOAD_REQUEST) return false;
     }
@@ -462,7 +461,7 @@ async function load(i, autoplay, nextEditMode){
     NH.OFFSET = d.offset || 0;
     document.getElementById('offval').textContent = NH.OFFSET.toFixed(2)+'s';
     NH.syncModes();
-    if(NH.LRCEDIT) NH.renderLrcTable();
+    if(NH.VIEW_MODE==='lrc') NH.renderLrcTable();
     else NH.WAVE=null;
     if(NH.PLAYING===null) NH.commitAudio();                 // 第一次载入才绑定音频
 
@@ -470,7 +469,7 @@ async function load(i, autoplay, nextEditMode){
     NH.au.playbackRate=+document.getElementById('rate').value;
   }
   NH.VSTAT=null; NH.VSTAT_IDX=null; paintVStatus();
-  if(!NH.LRCEDIT) NH.WAVE=null;
+  if(NH.VIEW_MODE!=='lrc') NH.WAVE=null;
   startVocals(d.idx);
   return true;
 }
@@ -552,7 +551,7 @@ function scheduleAutoRebuild(){
   if(NH.AUTO_REBUILD) return;
   NH.AUTO_REBUILD=true;
   const run=async()=>{
-    if(NH.LRCEDIT || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, 5000); return; }
+    if(NH.VIEW_MODE==='lrc' || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, 5000); return; }
     if(NH.PLAYING!==null && NH.au && !NH.au.paused){ setTimeout(run, 5000); return; }
     busy('发现缺失歌曲，正在重建索引…');
     try{
