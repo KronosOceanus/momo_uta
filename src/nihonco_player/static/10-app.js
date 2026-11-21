@@ -1208,7 +1208,7 @@ function applyTheme(theme, persist){
   const root=document.documentElement;
   if(root && root.dataset) root.dataset.theme = light ? 'light' : 'dark';
   const b=document.getElementById('theme');
-  if(b) b.textContent = light ? '☀️ 日间模式' : '🌙 夜间模式';
+  if(b) b.textContent = light ? '☀️ 日间' : '🌙 夜间';
   if(NH.WAVE && typeof drawWave==='function') drawWave();
   if(typeof paintTicks==='function') paintTicks();
   if(typeof paintTransport==='function') paintTransport();
