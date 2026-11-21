@@ -204,7 +204,7 @@ function paintTransport(){
   const pct=dur?Math.min(100, cur/dur*100):0;
   document.getElementById('fill').style.width=pct+'%';
   document.getElementById('thumb').style.left=pct+'%';
-  document.getElementById('play2').textContent = NH.au.paused ? '▶' : '⏸';
+  document.getElementById('play2ico').textContent = NH.au.paused ? '▶' : '⏸';
   document.getElementById('mute').textContent = NH.au.muted||NH.au.volume===0 ? '🔇' : '🔊';
 }
 function paintTicks(){
@@ -253,7 +253,11 @@ const PL=(window.__CFG&&window.__CFG.player)||{};
   el.value=v; if(typeof el.dispatchEvent==='function') el.dispatchEvent(new Event('input'));
 })();
 const playBtn=document.getElementById('play');
+let TOGGLE_AT=0;
 function togglePlayPause(){
+  const now=performance.now();
+  if(now-TOGGLE_AT<320) return;              // 防止 pointerdown + click 连发
+  TOGGLE_AT=now;
   if(NH.PLAYING===null || NH.PLAYING===undefined) return;
   if(NH.au.paused) NH.au.play().catch(()=>{});
   else NH.au.pause();
@@ -272,6 +276,12 @@ function playFromStart(){
 NH.playFromStart = playFromStart;
 document.getElementById('start').onclick=()=>{ if(!NH.S) return; commitAudio(); playFromStart(); };
 playBtn.onclick=togglePlayPause;
+document.getElementById('play2').addEventListener('pointerdown', e=>{
+  if(e.pointerType==='mouse' || e.pointerType==='touch'){
+    e.preventDefault();
+    togglePlayPause();
+  }
+});
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>NH.au.addEventListener(ev, syncPlayBtn));
 ['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.LRCEDIT) NH.drawWave(); }));
 NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
