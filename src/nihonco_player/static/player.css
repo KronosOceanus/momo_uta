@@ -262,3 +262,26 @@ button{white-space:nowrap}
 .legend,.savehint,.oflab,.wavehint,.tm,#offval,#zoomval,.plh .pln,.plh .plc,.lm{white-space:nowrap}
 .plh .pln{overflow:hidden;text-overflow:ellipsis}
 .menu button{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
+
+/* 独立对话框：新建歌单 / 重命名 / 确认 */
+.dialog-backdrop{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
+  justify-content:center;padding:20px;background:rgba(0,0,0,.45)}
+.dialog{width:min(440px,calc(100vw - 40px));max-height:calc(100vh - 40px);overflow:auto;
+  box-sizing:border-box;background:#171b21;border:1px solid #2b313a;border-radius:12px;
+  padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+.dialog-title{font-size:14px;font-weight:600;color:var(--fg);margin:0 0 14px}
+.dialog-body{font-size:12px;line-height:1.65;color:var(--dim);white-space:pre-wrap;margin:0 0 4px}
+.dialog-input{display:block;width:100%;height:38px;box-sizing:border-box;margin:0;
+  padding:8px 10px;background:#0f1318;color:var(--fg);border:1px solid #2b313a;
+  border-radius:7px;font:inherit;font-size:14px;outline:none}
+.dialog-input:focus{border-color:var(--a);box-shadow:0 0 0 3px rgba(99,198,163,.15)}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;
+  padding-top:14px;border-top:1px solid #20242b}
+.dialog-actions button{min-width:72px;padding:7px 14px;border-radius:7px;cursor:pointer;
+  font:inherit;font-size:13px;background:transparent;color:#cfd3d8;border:1px solid #2b313a}
+.dialog-actions button:hover{border-color:var(--a);color:var(--a)}
+.dialog-actions button.primary{background:#20323d;border-color:var(--a);color:var(--a)}
+.dialog-actions button.primary:hover{background:#26404a}
+.dialog-actions button.danger{color:#e06c75;border-color:#5a3036}
+.dialog-actions button.danger:hover{background:#3a2227;border-color:#e06c75}
+.dialog-actions button:disabled{opacity:.35;cursor:not-allowed}

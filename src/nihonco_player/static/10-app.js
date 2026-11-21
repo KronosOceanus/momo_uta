@@ -577,79 +577,97 @@ function applyLists(r){
   renderList();
 }
 
-function uiPrompt(title, value){
+function openDialog(opts){
   return new Promise(resolve => {
+    const {id, title, body, input, okText='确定', cancelText='取消', danger=false} = opts;
+    const back = document.createElement('div');
+    back.className = 'dialog-backdrop';
     const box = document.createElement('div');
-    box.className = 'menu';
-    box.id = 'uiprompt';
-    box.style.cssText = 'position:fixed;left:50%;top:28%;transform:translateX(-50%);min-width:280px;padding:10px;z-index:99';
-    const lab = document.createElement('div');
-    lab.textContent = title;
-    lab.style.cssText = 'font-size:12px;color:#878c95;padding:2px 4px 8px';
-    const inp = document.createElement('input');
-    inp.className = 'numin';
-    inp.value = value || '';
-    inp.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:8px';
+    box.className = 'dialog';
+    box.id = id;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+
+    const h = document.createElement('div');
+    h.className = 'dialog-title';
+    h.textContent = title;
+    box.appendChild(h);
+
+    if(body){
+      const p = document.createElement('div');
+      p.className = 'dialog-body';
+      p.textContent = body;
+      box.appendChild(p);
+    }
+
+    let inp = null;
+    if(input){
+      inp = document.createElement('input');
+      inp.className = 'dialog-input';
+      inp.value = opts.value || '';
+      inp.maxLength = opts.maxLength || 200;
+      box.appendChild(inp);
+    }
+
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
-    const ok = document.createElement('button'); ok.textContent = '确定';
-    const cancel = document.createElement('button'); cancel.textContent = '取消';
+    row.className = 'dialog-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.textContent = cancelText;
+    const ok = document.createElement('button');
+    ok.type = 'button'; ok.textContent = okText;
+    ok.className = 'primary' + (danger ? ' danger' : '');
     row.appendChild(cancel); row.appendChild(ok);
-    box.appendChild(lab); box.appendChild(inp); box.appendChild(row);
+    box.appendChild(row);
+
+    back.appendChild(box);
+    back.addEventListener('click', e => {
+      if(e.target === back) finish(input ? null : false);
+    });
     box.addEventListener('click', e => e.stopPropagation());
-    document.body.appendChild(box);
-    const close = v => {
+    document.body.appendChild(back);
+
+    const finish = v => {
       document.removeEventListener('keydown', key);
-      box.remove();
+      back.remove();
       resolve(v);
     };
     const key = e => {
-      if(e.key === 'Escape'){ e.preventDefault(); close(null); }
-      else if(e.key === 'Enter'){ e.preventDefault(); close(inp.value.trim() || null); }
+      if(e.isComposing || e.keyCode === 229) return;
+      if(e.key === 'Escape'){ e.preventDefault(); finish(input ? null : false); }
+      else if(e.key === 'Enter'){
+        e.preventDefault();
+        if(input && !inp.value.trim()) return;
+        finish(input ? (inp.value.trim() || null) : true);
+      }
     };
     document.addEventListener('keydown', key);
-    ok.onclick = () => close(inp.value.trim() || null);
-    cancel.onclick = () => close(null);
-    inp.focus(); inp.select();
+
+    const submit = () => {
+      if(input && !inp.value.trim()) return;
+      finish(input ? (inp.value.trim() || null) : true);
+    };
+    const dismiss = () => finish(input ? null : false);
+    ok.onclick = submit;
+    cancel.onclick = dismiss;
+
+    if(inp){
+      const sync = () => { ok.disabled = !inp.value.trim(); };
+      inp.addEventListener('input', sync);
+      sync();
+      inp.focus(); inp.select();
+    }else{
+      cancel.focus();
+    }
   });
+}
+
+function uiPrompt(title, value){
+  return openDialog({id:'uiprompt', title, value, input:true});
 }
 NH.uiPrompt = uiPrompt;
 
 function uiConfirm(title, body, danger){
-  return new Promise(resolve => {
-    const box = document.createElement('div');
-    box.className = 'menu';
-    box.id = 'uiconfirm';
-    box.style.cssText = 'position:fixed;left:50%;top:32%;transform:translateX(-50%);min-width:300px;max-width:520px;padding:12px;z-index:99';
-    const h = document.createElement('div');
-    h.textContent = title;
-    h.style.cssText = 'font-size:13px;color:#e9e7e4;padding:2px 4px 6px';
-    const p = document.createElement('div');
-    p.textContent = body || '';
-    p.style.cssText = 'font-size:12px;color:#878c95;line-height:1.6;padding:0 4px 10px;white-space:pre-wrap';
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
-    const cancel = document.createElement('button'); cancel.textContent = '取消';
-    const ok = document.createElement('button'); ok.textContent = '确定';
-    if(danger) ok.style.color = '#e06c75';
-    row.appendChild(cancel); row.appendChild(ok);
-    box.appendChild(h); box.appendChild(p); box.appendChild(row);
-    box.addEventListener('click', e => e.stopPropagation());
-    document.body.appendChild(box);
-    const close = v => {
-      document.removeEventListener('keydown', key);
-      box.remove();
-      resolve(v);
-    };
-    const key = e => {
-      if(e.key === 'Escape'){ e.preventDefault(); close(false); }
-      else if(e.key === 'Enter'){ e.preventDefault(); close(true); }
-    };
-    document.addEventListener('keydown', key);
-    ok.onclick = () => close(true);
-    cancel.onclick = () => close(false);
-    cancel.focus();
-  });
+  return openDialog({id:'uiconfirm', title, body, danger, input:false});
 }
 NH.uiConfirm = uiConfirm;
 
