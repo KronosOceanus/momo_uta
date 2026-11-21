@@ -235,9 +235,8 @@ core 的特点：
 ### 5.2 曲库与 `CACHE`
 
 ```text
-CACHE：idx(str) → 条目（列表顺序）
-BY_UID：uid → 同一份条目（稳定身份）
-GENERATION：每次发布/增删 +1
+CACHE：idx(str) → 条目（只负责列表顺序）
+BY_UID：uid → 同一份条目（唯一歌曲身份）
   条目字段：
     key       md5(文件名主干)[:12]        用于标签/偏移等"按歌"的元数据
     uid       音频指纹                    用于歌词/歌单/人声
@@ -253,11 +252,10 @@ idx 是"当前会话里的位置"：
 
 发布：
   _publish() 构建新 idx 表 + BY_UID；
-  加锁 update + 删除旧 key，不先 clear；
-  GENERATION += 1。
+  加锁 update + 删除旧 key，不先 clear。
 
-读接口用 LIB.resolve(ref)：
-  uid 优先，idx 仅兼容 fallback。
+读/写接口只用 LIB.resolve(uid)：
+  只查 BY_UID；idx 不是身份。
 ```
 
 ```text
@@ -296,22 +294,19 @@ scan_library()：
 
 ```text
 uid    音频指纹：所有读写/播放/任务的主身份
-idx    会话内位置：列表 data-i、兼容旧接口 fallback
+idx    纯展示位置：列表 data-i、排序
 key    md5(文件名主干)：标签、整体偏移等按歌元数据
 ```
 
 ```text
-新前端传 uid：
+所有歌曲接口只传 uid：
   /api/song/<uid>
   /api/wave/<uid>
   /audio/<uid>
   /api/lrc、/api/line、/api/rematch、/api/pick、/api/jobs 用 body.uid
-  idx 只用于列表显示和 DOM
 
-写请求：
-  uid：稳定身份，generation 过期也照常执行
-  idx：必须带 generation；缺版本或版本不一致 → 409
-  resolve_request() 在同一把锁内校验版本并解析成条目
+idx 只用于列表显示和 DOM；
+任何读写都不接受 idx。
 ```
 
 ```text
@@ -331,7 +326,7 @@ service 只做"把 core 的步骤串起来"，不实现具体规则：
 ### 6.1 song
 
 ```text
-song_payload(uid)  // idx 兼容 fallback
+song_payload(uid)
   曲库条目 → 歌词（data/lyrics 或缓存）→ 逐行注音 → 必要时自动落盘
   → {uid, idx, title, artist, lines, offset, audio, pending?}
 
@@ -394,8 +389,8 @@ routes.py 只做三件事：
 GET
   /                       页面（注入 __CFG）
   /static/*               前端静态文件
-  /api/song/<uid>         单曲载荷（idx 兼容）
-  /api/pl、/api/playlists  歌单列表 + generation（同一快照）
+  /api/song/<uid>         单曲载荷
+  /api/pl、/api/playlists  歌单列表
   /api/library            曲库列表 + uid
   /api/wave/<uid>[?src=vocals]  波形峰值
   /api/vocals/<uid>       人声状态（兼容）
@@ -409,10 +404,9 @@ POST
   /api/rematch            重新匹配候选
   /api/pick               选中候选
   /api/import/one         导入
-  /api/lrc                LRC 编辑（uid 优先）
+  /api/lrc                LRC 编辑（uid）
   /api/vocals             人声分离 ensure（兼容）
   /api/jobs               启动 vocals / match / rebuild 任务
-  uid 写请求可带任意 generation；idx 兼容写请求必须带当前 generation
   /api/log                前端未捕获错误写 app.log
 ```
 

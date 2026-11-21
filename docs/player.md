@@ -10,7 +10,7 @@
 点歌
   → 后端返回 {idx, title, lines[], audio, offset, pending?}
   → 前端 NH.S = 数据，渲染歌词/右侧面板
-  → NH.commitAudio()：把 /audio/<idx> 交给 AudioEngine
+  → NH.commitAudio()：把 /audio/<uid> 交给 AudioEngine
   → AudioEngine：fetch 整个文件 → decodeAudioData → 得到一个 AudioBuffer
   → 播放 = 新建 AudioBufferSourceNode，从 _offset 处 start
   → 跳转 = 停掉旧 source → 新建 source，从新位置 start（采样级精确）
@@ -36,7 +36,7 @@ S            当前歌曲的载荷（idx/title/artist/lines/audio/offset/pending
 LINES        歌词行（每行 t/text/ruby/rm/ky…）
 NAV          每行的下标（跳转时再用 navItems() 过滤 meta 行）
 CUR          当前高亮行
-PLAYING      正在播放的歌曲 idx（用于切歌判断）
+PLAYING_UID  正在播放的歌曲 uid
 MODE         右侧面板显示 rm（罗马音）还是 ky（键位）
 VIEW_MODE    normal / lrc / kana（查看模式，三者互斥）
 WAVE         波形峰值数据 {duration, step, peaks, source}
@@ -50,7 +50,7 @@ VSTAT        人声分离状态（none/queued/running/done/failed）
 ### 1.2 数据流
 
 ```text
-GET /api/song/<idx>
+GET /api/song/<uid>
    │  载荷由 service.song.song_payload 组装
    ▼
 load(i, autoplay)
@@ -58,7 +58,7 @@ load(i, autoplay)
    └─ 无歌词：先 commitAudio 能播，再走"人声判定 → 懒匹配"（§6/§7）
    ▼
 commitAudio()
-   ├─ PLAYING = S.idx
+   ├─ PLAYING_UID = S.uid
    ├─ au.src = S.audio || "/audio/"+S.idx
    └─ au.preload()（整首解码，异步）
    ▼
@@ -179,7 +179,7 @@ seekPrecise(t)：
   播放条：timeupdate / loadedmetadata / durationchange / play / pause /
           volumechange → 重画进度条、刻度
   波形：pause / seeked / loadedmetadata 且处于 LRC 模式 → 重画
-  歌单：PLAYING 变化 → 列表标记 ▶
+  歌单：PLAYING_UID 变化 → 列表标记 ▶
 ```
 
 ## 3. 波形
@@ -272,7 +272,7 @@ clampStart(st, span)：把起点夹到 [0, max(0, duration-span)]
 ```text
 loadWave(force)：
   src = （VSTAT.done 且 has_vocals）? "?src=vocals" : ""
-  GET /api/wave/<idx>?src=vocals
+  GET /api/wave/<uid>?src=vocals
     后端有人声轨 → 用人声轨算峰值，响应 source="vocals"
     没有 → 回退原曲，source="mix"
   提示文案：人声波形 / 原曲波形 + 时长 + 窗口

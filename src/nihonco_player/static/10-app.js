@@ -7,7 +7,7 @@ const NH = window.NH || (window.NH = {});
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
@@ -364,7 +364,7 @@ async function load(ref, autoplay, nextMode){
   NH.syncModes?.();
   const editing=NH.VIEW_MODE==='lrc';
   if(!editing){                                  // 点击后立即切换标题，别等接口
-    const it=NH.LIB.find(x=>String(x.uid)===String(ref) || String(x.idx)===String(ref));
+    const it=NH.LIB.find(x=>String(x.uid)===String(ref));
     if(it){
       document.getElementById('vtitle').textContent=it.title+(it.artist?' · '+it.artist:'');
       lyr.innerHTML='';
@@ -380,7 +380,6 @@ async function load(ref, autoplay, nextMode){
     }
     d=await api('/api/song/'+encodeURIComponent(ref));
     if(request!==NH.LOAD_REQUEST) return false;
-    if(d && d.uid == null) d.uid = String(d.idx);   // 兼容旧载荷
     NH.syncLyricMark(d.uid, !d.pending);
   }catch(e){
     if(request===NH.LOAD_REQUEST){
@@ -526,7 +525,6 @@ function busy(msg){ toast(msg, 0); }
 function done(msg){ toast(msg, UI.toast_ms||4200); }
 
 async function api(path, body){
-  if(body && body.generation === undefined && NH.GENERATION != null) body = {...body, generation: NH.GENERATION};
   const r=await fetch(path, body?{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)}:undefined);
   if(!r.ok){
@@ -545,7 +543,6 @@ async function api(path, body){
 async function loadLib(){
   const d = await api('/api/pl');
   NH.PLS = d.lists || d;
-  if(d.generation != null) NH.GENERATION = d.generation;
   if(d.open && d.open.length) NH.OPEN = new Set(d.open);
   NH.LIB = NH.PLS.flatMap(g=>g.items);
   renderList();
@@ -575,7 +572,6 @@ function scheduleAutoRebuild(){
 
 function applyLists(r){
   if(!r || !r.lists) return;
-  if(r.generation != null) NH.GENERATION = r.generation;
   NH.PLS = r.lists;
   NH.LIB = NH.PLS.flatMap(g => g.items);
   renderList();
@@ -938,7 +934,6 @@ async function doImport(listId, btn){
   busy('导入中…');
   try{
     const r = await api('/api/pl',{action:'import', list:listId, paths});
-    if(r.generation != null) NH.GENERATION=r.generation;
     if(r.lists) NH.PLS=r.lists; NH.LIB=NH.PLS.flatMap(g=>g.items); renderList();
     if(r.ok===false){ done(r.error||'导入失败'); return; }
     const bits=[`新增 ${r.imported} 首`];

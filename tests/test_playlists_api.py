@@ -155,14 +155,16 @@ class TestMatchAction(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             CACHE.clear()
-            CACHE["0"] = {"key": "k", "uid": "fp1", "file": str(root / "a.mp3"),
-                          "stem": "歌手 - 曲", "orig": "曲", "title": "曲",
-                          "artist": "歌手", "has_lyric": False, "group": ""}
+            it = {"key": "k", "uid": "fp1", "file": str(root / "a.mp3"),
+                  "stem": "歌手 - 曲", "orig": "曲", "title": "曲",
+                  "artist": "歌手", "has_lyric": False, "group": ""}
+            CACHE["0"] = it
+            LIB.BY_UID["fp1"] = it
             old = PL.FILE
             PL.set_file(root / "playlists.json")
             try:
                 with patch.object(SONG, "lazy_match") as lazy:
-                    res = SVC.playlists_action({"action": "match", "idx": "0", "generation": LIB.generation()})
+                    res = SVC.playlists_action({"action": "match", "uid": "fp1"})
             finally:
                 PL.set_file(old)
             lazy.assert_called_once()

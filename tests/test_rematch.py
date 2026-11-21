@@ -23,21 +23,21 @@ class TestRematch(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
-            CACHE.clear(); CACHE["0"] = item(audio)
+            it = item(audio); CACHE.clear(); CACHE["0"] = it; LIB.BY_UID[it["uid"]] = it
             with patch.object(LY, "search_candidates", return_value=[]), \
                  patch.object(LY, "get_lrc", return_value={"id": 999, "lrc": "[00:01.00]旧"}):
-                d = SONG.rematch(0, 60)
+                d = SONG.rematch(it["uid"], 60)
             self.assertEqual(d["candidates"], [])      # 不再把本地当前项插进来
 
     def test_current_marked_only_if_online(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
-            CACHE.clear(); CACHE["0"] = item(audio)
+            it = item(audio); CACHE.clear(); CACHE["0"] = it; LIB.BY_UID[it["uid"]] = it
             cand = {"id": 999, "name": "曲", "artist": "歌手", "duration": 60.0}
             with patch.object(LY, "search_candidates", return_value=[cand]), \
                  patch.object(LY, "get_lrc", return_value={"id": 999, "lrc": "[00:01.00]旧"}):
-                d = SONG.rematch(0, 60)
+                d = SONG.rematch(it["uid"], 60)
             self.assertTrue(d["candidates"][0]["current"])
 
     def test_pick_rewrites_lyrics_and_resets_readings(self):
@@ -45,7 +45,7 @@ class TestRematch(unittest.TestCase):
             root = Path(tmp)
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
-            CACHE.clear(); CACHE["0"] = item(audio)
+            it = item(audio); CACHE.clear(); CACHE["0"] = it; LIB.BY_UID[it["uid"]] = it
             new = "[00:05.00]新しい歌詞\n[00:09.00]二行目\n[00:13.00]三行目\n"
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
@@ -54,7 +54,7 @@ class TestRematch(unittest.TestCase):
                  patch.object(LY, "fetch_lrc_by_id", return_value=new):
                 LRF.save(audio, [{"t": 1.0, "text": "旧歌词"}],
                          {0: [["旧歌词", "ふるうた", "A"]]})
-                res = SONG.pick("0", 123, LIB.generation())
+                res = SONG.pick(it["uid"], 123)
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 doc = LRF.load(audio)
             self.assertTrue(res["ok"])
@@ -69,14 +69,14 @@ class TestRematch(unittest.TestCase):
             root = Path(tmp)
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
-            CACHE.clear(); CACHE["0"] = item(audio)
+            it = item(audio); CACHE.clear(); CACHE["0"] = it; LIB.BY_UID[it["uid"]] = it
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LY, "fetch_lrc_by_id", return_value="作词 : X\nあの日\n今も\n空を"):
                 LRF.save(audio, [{"t": 1.0, "text": "旧歌词"}], {})
                 before = LRF.store_path(audio).read_text(encoding="utf-8")
-                res = SONG.pick("0", 123, LIB.generation())
+                res = SONG.pick(it["uid"], 123)
                 after = LRF.store_path(audio).read_text(encoding="utf-8")
             self.assertFalse(res["ok"])
             self.assertIn("时间轴", res["error"])

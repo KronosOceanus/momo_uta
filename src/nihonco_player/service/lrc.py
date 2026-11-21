@@ -11,11 +11,7 @@ from .song import load_lyrics, save_lyrics
 
 def lrc_action(req):
     act = req.get("action") or "load"
-    ref = req.get("uid") or req.get("idx")
-    if act in ("save", "delete", "restore", "import_lrc"):
-        item = LIB.resolve_request(ref, req.get("generation"), is_uid=bool(req.get("uid")))
-    else:
-        item = LIB.resolve(ref)
+    item = LIB.resolve(req.get("uid"))
     if not item:
         return {"ok": False, "error": "没有这首歌"}
     uid, title, artist = item.get("uid"), item["title"], item.get("artist", "")

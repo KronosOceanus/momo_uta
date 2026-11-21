@@ -95,9 +95,11 @@ class TestManualReading(unittest.TestCase):
         audio = root / "歌手 - 曲.mp3"
         audio.touch()
         CACHE.clear()
-        CACHE["0"] = {"key": "k1", "uid": LRF.uid_of(audio), "file": str(audio),
-                      "stem": audio.stem, "orig": "曲", "title": "曲",
-                      "artist": "歌手", "has_lyric": True, "group": ""}
+        it = {"key": "k1", "uid": LRF.uid_of(audio), "file": str(audio),
+              "stem": audio.stem, "orig": "曲", "title": "曲",
+              "artist": "歌手", "has_lyric": True, "group": ""}
+        CACHE["0"] = it
+        LIB.BY_UID[it["uid"]] = it
         return audio
 
     def test_edit_reading_writes_store(self):
@@ -108,8 +110,8 @@ class TestManualReading(unittest.TestCase):
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows(), {})                # 先有正文
-                SONG.song_payload(0)                       # 自动注音并落盘
-                res = SONG.edit_line_action({"idx": "0", "generation": LIB.generation(), "line": 0,
+                SONG.song_payload(LRF.uid_of(audio))                       # 自动注音并落盘
+                res = SONG.edit_line_action({"uid": LRF.uid_of(audio), "line": 0,
                                              "start": 0, "reading": "きみだ"})
                 self.assertIn("きみだ", res["ruby"])
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
@@ -128,12 +130,12 @@ class TestManualReading(unittest.TestCase):
                  patch.object(PL, "FILE", root / "playlists.json"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows(), {})
-                SONG.song_payload(0)
-                SONG.edit_line_action({"idx": "0", "generation": LIB.generation(), "line": 0,
+                SONG.song_payload(LRF.uid_of(audio))
+                SONG.edit_line_action({"uid": LRF.uid_of(audio), "line": 0,
                                        "start": 0, "reading": "きみだ"})
                 self.assertIn("きみだ", LRF.store_path(audio).read_text(encoding="utf-8"))
-                SVC_PL.playlists_action({"action": "edit_clear", "idx": "0", "generation": LIB.generation()})
-                SONG.song_payload(0)                     # 重新注音并落盘
+                SVC_PL.playlists_action({"action": "edit_clear", "uid": LRF.uid_of(audio)})
+                SONG.song_payload(LRF.uid_of(audio))                     # 重新注音并落盘
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertNotIn("きみだ", raw)
 
@@ -145,15 +147,19 @@ class TestSaveAlignment(unittest.TestCase):
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
             CACHE.clear()
-            CACHE["0"] = {"key": "k2", "uid": LRF.uid_of(audio), "file": str(audio),
-                          "stem": audio.stem, "orig": "曲", "title": "曲",
-                          "artist": "歌手", "has_lyric": True, "group": ""}
-            with patch.object(LRF, "LYRICS", root / "lyrics"),                  patch.object(LC, "CACHE", root / "cache"),                  patch.object(LRF.LY, "audio_duration", return_value=60):
+            it = {"key": "k2", "uid": LRF.uid_of(audio), "file": str(audio),
+              "stem": audio.stem, "orig": "曲", "title": "曲",
+              "artist": "歌手", "has_lyric": True, "group": ""}
+            CACHE["0"] = it
+            LIB.BY_UID[it["uid"]] = it
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows()[:2], {})            # 先有正文
-                SONG.song_payload(0)
+                SONG.song_payload(LRF.uid_of(audio))
                 before = LRF.load(audio)["annotations"]
                 from nihonco_player.service import lrc as SVC
-                res = SVC.lrc_action({"action": "save", "idx": "0", "generation": LIB.generation(), "lines": [
+                res = SVC.lrc_action({"action": "save", "uid": LRF.uid_of(audio), "lines": [
                     {"t": 1.0, "text": "新しい行"},
                     {"t": 5.0, "text": "君の名前"},
                     {"t": 9.0, "text": "呼んでくれた"},
@@ -208,8 +214,8 @@ class TestSharedLyricsSource(unittest.TestCase):
                  patch.object(LRF.LY, "audio_duration", return_value=60), \
                  patch.object(LRF.LY, "write_local_lrc"):
                 LRF.save(audio, rows(), {})
-                payload = SONG.song_payload(0)
-                lrc = SVC_LRC.lrc_action({"action": "load", "idx": "0"})
+                payload = SONG.song_payload(LRF.uid_of(audio))
+                lrc = SVC_LRC.lrc_action({"action": "load", "uid": LRF.uid_of(audio)})
             self.assertFalse(payload.get("pending"))
             self.assertEqual(len(payload["lines"]), 3)
             self.assertTrue(CACHE["0"]["has_lyric"])

@@ -20,8 +20,7 @@ from . import lyrics as LY
 MUSIC = Path.home() / "Music" / "网易云音乐"
 IMPORTS = ROOT / "data" / "curated" / "imports.json"     # 导入的音频路径（不在 music_dirs 里也能列）
 CACHE: dict = {}          # idx(str) -> 歌曲条目（列表顺序）
-BY_UID: dict = {}         # uid -> 歌曲条目（稳定身份）
-GENERATION = 0            # 每次发布/增删自增，用于拒绝过期列表引用
+BY_UID: dict = {}         # uid -> 歌曲条目（唯一歌曲身份）
 LAST_MISSING: list[str] = []   # 最近一次加载未解析到的歌单 uid
 
 def music_dirs() -> list[Path]:
@@ -51,7 +50,6 @@ _LOCK = threading.RLock()
 
 def _publish(entries: list[dict]) -> None:
     """一次性发布新曲库：不先清空 CACHE，uid 索引同步更新。"""
-    global GENERATION
     new = {str(i): e for i, e in enumerate(entries)}
     by_uid = {str(e["uid"]): e for e in entries if e.get("uid")}
     with _LOCK:
@@ -61,72 +59,31 @@ def _publish(entries: list[dict]) -> None:
             CACHE.pop(k, None)
         BY_UID.clear()
         BY_UID.update(by_uid)
-        GENERATION += 1
 
 
-def resolve(ref) -> dict | None:
-    """uid 优先，idx 仅作兼容 fallback。"""
-    if ref is None:
+def resolve(uid) -> dict | None:
+    """只按 uid 找歌；idx 不再是身份。"""
+    if uid is None:
         return None
-    ref = str(ref)
     with _LOCK:
-        item = BY_UID.get(ref)
-        if item:
-            return item
-        return CACHE.get(ref)
+        return BY_UID.get(str(uid))
 
 
-class StaleRef(Exception):
-    """旧 idx 请求没有版本，或版本已过期。"""
-
-
-def resolve_request(ref, generation=None, is_uid=False) -> dict | None:
-    """写请求用：uid 稳定；idx 必须在同一把锁内校验 generation。"""
-    if ref is None:
+def idx_for(uid) -> str | None:
+    """uid → 当前列表 idx，仅用于展示。"""
+    if uid is None:
         return None
-    ref = str(ref)
+    uid = str(uid)
     with _LOCK:
-        if ref in BY_UID:
-            return BY_UID[ref]
-        if is_uid:
-            return None
-        item = CACHE.get(ref)
-        if not item:
-            return None
-        if generation is None:
-            raise StaleRef("旧 idx 请求必须带 generation")
-        if str(generation) != str(GENERATION):
-            raise StaleRef("曲库已更新，请重新加载")
-        return item
-
-
-def idx_for(ref) -> str | None:
-    """uid/idx → 当前列表 idx；uid 优先。"""
-    if ref is None:
-        return None
-    ref = str(ref)
-    with _LOCK:
-        if ref in BY_UID:
-            for k, v in CACHE.items():
-                if v is BY_UID[ref] or str(v.get("uid")) == ref:
-                    return k
-        return ref if ref in CACHE else None
+        for k, v in CACHE.items():
+            if str(v.get("uid")) == uid:
+                return k
+    return None
 
 
 def snapshot() -> list[tuple[str, dict]]:
     with _LOCK:
         return list(CACHE.items())
-
-
-def snapshot_state() -> tuple[list[tuple[str, dict]], int]:
-    """列表和版本号必须来自同一把锁下的快照。"""
-    with _LOCK:
-        return list(CACHE.items()), GENERATION
-
-
-def generation() -> int:
-    with _LOCK:
-        return GENERATION
 
 
 def _resolve_uid(uid: str) -> tuple[Path, str] | None:
@@ -163,9 +120,6 @@ def refresh(uid: str | None = None) -> int:
                         if old_uid:
                             BY_UID.pop(old_uid, None)
                         BY_UID[str(e["uid"])] = e
-                        if old_uid != str(e["uid"]):
-                            global GENERATION
-                            GENERATION += 1
                     LI.flush()
                     return len(CACHE)
             found = _resolve_uid(str(uid))
@@ -205,10 +159,6 @@ def add_paths(paths, group: str = "导入") -> list[dict]:
             nxt += 1
             seen.add(e["file"])
             out.append(e)
-    if out:
-        global GENERATION
-        with _LOCK:
-            GENERATION += 1
     LI.flush()
     FP.flush()
     return out

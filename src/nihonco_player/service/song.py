@@ -134,9 +134,9 @@ def song_payload(ref, _item=None) -> dict:
 }
 
 
-def edit_line(ref, li, start, reading, generation=None, is_uid=False):
+def edit_line(uid, li, start, reading):
     """改一处的读音：重算该行、立即写回 nhlrc，返回新 HTML 与罗马音。"""
-    item = LIB.resolve_request(ref, generation, is_uid=is_uid)
+    item = LIB.resolve(uid)
     if not item or not reading:
         return None
     with LRC.LOCK:
@@ -196,9 +196,9 @@ def rematch(ref, duration):
     return {"stem": item["stem"], "candidates": rows[:int(LY.CFG["manual_limit"])]}
 
 
-def pick(ref, song_id, generation=None, is_uid=False) -> dict:
+def pick(uid, song_id) -> dict:
     """用户选定候选：用网络歌词替换当前歌词（重写 data/lyrics，读音全部重来）。"""
-    item = LIB.resolve_request(ref, generation, is_uid=is_uid)
+    item = LIB.resolve(uid)
     if not item or not song_id:
         return {"ok": False, "error": "缺少歌曲或候选 id"}
     artist, title = LY.split_name(item["stem"])
@@ -229,8 +229,7 @@ def edit_line_action(req) -> dict:
     line = int(req.get("line", -1))
     start = int(req.get("start", -1))
     reading = str(req.get("reading") or "")
-    r = edit_line(req.get("uid") or req.get("idx"), line, start, reading,
-                  req.get("generation"), bool(req.get("uid")))
+    r = edit_line(req.get("uid"), line, start, reading)
     if not r:
         return {"error": "读音保存失败"}
     return r

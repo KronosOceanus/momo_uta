@@ -89,12 +89,12 @@ class H(BaseHTTPRequestHandler):
     REQUIRED = {
         "/api/pl": ("action",),
         "/api/playlist": ("action",),
-        "/api/line": ("idx", "line", "start", "reading"),
-        "/api/rematch": ("idx",),
-        "/api/pick": ("idx", "id"),
+        "/api/line": ("uid", "line", "start", "reading"),
+        "/api/rematch": ("uid",),
+        "/api/pick": ("uid", "id"),
         "/api/import/one": ("paths",),
-        "/api/lrc": ("idx",),
-        "/api/vocals": ("idx",),
+        "/api/lrc": ("uid",),
+        "/api/vocals": ("uid",),
     }
 
     def do_POST(self):
@@ -107,19 +107,12 @@ class H(BaseHTTPRequestHandler):
         fn = self.POST.get(p)
         if not fn:
             return self._send(404, "not found")
-        missing = []
-        for k in self.REQUIRED.get(p, ()):
-            if k == "idx":
-                if req.get("uid") in (None, "", [], {}) and req.get("idx") in (None, "", [], {}):
-                    missing.append("uid/idx")
-            elif req.get(k) in (None, "", [], {}):
-                missing.append(k)
+        missing = [k for k in self.REQUIRED.get(p, ())
+                   if req.get(k) in (None, "", [], {})]
         if missing:
             return self._json({"ok": False, "error": "缺少参数：" + "/".join(missing)}, 400)
         try:
             return getattr(self, fn)(req)
-        except LIB.StaleRef as e:
-            return self._json({"ok": False, "error": str(e)}, 409)
         except Exception as e:
             diag.exception("http", e, method="POST", path=p)
             try:
@@ -130,8 +123,7 @@ class H(BaseHTTPRequestHandler):
     # ── GET ──────────────────────────────────────────
     def _get_playlists(self):
         d = SVC_PL.playlists_action({"action": "noop"})
-        return self._json({"lists": d["lists"], "open": SVC_PL.playlists_open(),
-                           "generation": d.get("generation")})
+        return self._json({"lists": d["lists"], "open": SVC_PL.playlists_open()})
 
     def _get_library(self):
         rows = [{"idx": k, "uid": v.get("uid"), "title": v["title"],
@@ -173,8 +165,7 @@ class H(BaseHTTPRequestHandler):
 
     def _post_vocals(self, req):
         from ..core import vocals as VOC
-        item = LIB.resolve_request(req.get("uid") or req.get("idx"),
-                                   req.get("generation"), is_uid=bool(req.get("uid")))
+        item = LIB.resolve(req.get("uid"))
         if not item:
             return self._json({"ok": False, "error": "no such song"}, 404)
         return self._json(VOC.ensure(item["uid"], item["file"]))
@@ -189,8 +180,7 @@ class H(BaseHTTPRequestHandler):
         if not kind:
             return self._json({"ok": False, "error": "缺少任务类型"}, 400)
         try:
-            job = SVC_JOBS.start(kind, req.get("uid") or req.get("idx"),
-                                 req.get("generation"), bool(req.get("uid")))
+            job = SVC_JOBS.start(kind, req.get("uid"))
         except ValueError as e:
             return self._json({"ok": False, "error": str(e)}, 400)
         except Exception as e:
@@ -256,11 +246,10 @@ class H(BaseHTTPRequestHandler):
         return self._json(SVC_SONG.edit_line_action(req))
 
     def _post_rematch(self, req):
-        return self._json(SVC_SONG.rematch(req.get("uid") or req.get("idx"), req.get("duration")))
+        return self._json(SVC_SONG.rematch(req.get("uid"), req.get("duration")))
 
     def _post_pick(self, req):
-        r = SVC_SONG.pick(req.get("uid") or req.get("idx"), req.get("id"),
-                          req.get("generation"), bool(req.get("uid")))
+        r = SVC_SONG.pick(req.get("uid"), req.get("id"))
         return self._json(r, 200 if r.get("ok") else 400)
 
     def _post_lrc(self, req):

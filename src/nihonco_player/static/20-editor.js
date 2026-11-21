@@ -469,7 +469,7 @@ function syncModes(){
 document.getElementById('lrcedit').onclick=async e=>{
   if(!NH.S) return;
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
-  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.uid || NH.S.idx, false, 'normal');
+  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.uid, false, 'normal');
   const button=e.currentTarget;
   button.disabled=true;
   try{ await openLrcEditor(true); }
@@ -486,7 +486,7 @@ document.getElementById('offchip').onclick=async()=>{
 };
 
 document.getElementById('edit').onclick=()=>{
-  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.uid || NH.S.idx, false, 'kana');
+  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.uid, false, 'kana');
   NH.LRC_OPEN_REQUEST++;   // 如果正在读取 LRC，保留用户最后选择的模式
   NH.VIEW_MODE = NH.VIEW_MODE==='kana' ? 'normal' : 'kana';
   syncModes();

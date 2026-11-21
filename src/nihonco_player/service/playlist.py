@@ -15,36 +15,27 @@ from ..core import playlists as PL
 from . import song as SONGS
 
 
-def _items_and_gen():
-    items, gen = LIB.snapshot_state()
-    return [dict(v, idx=k) for k, v in items], gen
-
-
-def _lists_and_gen():
-    """歌单列表和 generation 必须来自同一份 CACHE 快照。"""
-    items, gen = _items_and_gen()
-    return PL.build(items), gen
-
-
 def cached_items() -> list[dict]:
-    """CACHE 里的条目补上 idx（原始条目，不包歌单）。"""
-    return _items_and_gen()[0]
+    """CACHE 里的条目补上 idx（快照，避免发布中读到半套）。"""
+    return [dict(v, idx=k) for k, v in LIB.snapshot()]
+
+
+def _lists():
+    return PL.build(cached_items())
 
 def playlists_action(req) -> dict:
     """歌单动作：建/改名/删/清空/加/移除/导入。"""
     act = req.get("action")
+    if act in ("ui_offset", "edit_clear", "match") and not req.get("uid"):
+        return {"ok": False, "error": "缺少 uid", "lists": _lists()}
     if act == "list_create":
         PL.create(str(req.get("name") or "新歌单"))
     elif act == "list_rename":
         if not PL.rename(str(req.get("id")), str(req.get("name") or "")):
-            lists, gen = _lists_and_gen()
-            return {"ok": False, "error": "默认歌单不能改名",
-                    "lists": lists, "generation": gen}
+            return {"ok": False, "error": "默认歌单不能改名", "lists": _lists()}
     elif act == "list_delete":
         if not PL.delete(str(req.get("id"))):
-            lists, gen = _lists_and_gen()
-            return {"ok": False, "error": "默认歌单不能删除",
-                    "lists": lists, "generation": gen}
+            return {"ok": False, "error": "默认歌单不能删除", "lists": _lists()}
     elif act == "list_clear":
         PL.clear(str(req.get("id")))
     elif act == "entry_remove":
@@ -70,46 +61,38 @@ def playlists_action(req) -> dict:
     elif act == "ui_open":
         PL.set_open([x for x in (req.get("ids") or []) if x])
     elif act == "ui_offset":
-        item = LIB.resolve_request(req.get("uid") or req.get("idx"),
-                                   req.get("generation"), is_uid=bool(req.get("uid")))
+        item = LIB.resolve(req.get("uid"))
         if item:
             META.put(item["key"], offset=round(float(req.get("offset") or 0), 3))
     elif act == "edit_clear":
-        item = LIB.resolve_request(req.get("uid") or req.get("idx"),
-                                   req.get("generation"), is_uid=bool(req.get("uid")))
+        item = LIB.resolve(req.get("uid"))
         if item:
             doc = LRC.load(item["file"], item.get("uid"),
                            item["title"], item.get("artist", ""))
             SONGS.save_lyrics(item, doc["lines"], "reset")
     elif act == "match":
-        item = LIB.resolve_request(req.get("uid") or req.get("idx"),
-                                   req.get("generation"), is_uid=bool(req.get("uid")))
+        item = LIB.resolve(req.get("uid"))
         if item:
             SONGS.lazy_match(item)
     elif act == "import":
         return import_to_list(req)
     elif act == "library_rebuild":
         if not LIB.LAST_MISSING:               # 没有缺失就不重建
-            lists, gen = _lists_and_gen()
             return {"ok": True, "library": len(LIB.snapshot()), "missing": 0, "recovered": 0,
-                    "lists": lists, "missing_count": 0, "generation": gen}
+                    "lists": _lists(), "missing_count": 0}
         r = LIB.rebuild_library()
-        lists, gen = _lists_and_gen()
-        return {**r, "lists": lists,
-                "missing_count": len(LIB.LAST_MISSING), "generation": gen}
-    lists, gen = _lists_and_gen()
-    return {"ok": True, "lists": lists,
+        return {**r, "lists": _lists(),
+                "missing_count": len(LIB.LAST_MISSING)}
+    return {"ok": True, "lists": _lists(),
             "missing_count": len(LIB.LAST_MISSING),
-            "auto_rebuild": LIB.should_auto_rebuild(),
-            "generation": gen}
+            "auto_rebuild": LIB.should_auto_rebuild()}
 
 
 def import_to_list(req) -> dict:
     lid = str(req.get("list"))
     paths = [str(x) for x in (req.get("paths") or [])]
     if not paths:
-        lists, gen = _lists_and_gen()
-        return {"ok": False, "error": "没有选择文件", "lists": lists, "generation": gen}
+        return {"ok": False, "error": "没有选择文件", "lists": _lists()}
 
     pool = [it["file"] for g in PL.build(cached_items()) if g["id"] == lid for it in g["items"]]
     res = IMP.import_paths(paths, pool)
@@ -132,9 +115,7 @@ def import_to_list(req) -> dict:
     res.update({"ok": True, "library": library_n, "imported": added_n,
                 "pending_count": pending_n,
                 "already": max(0, len(uids) - added_n)})
-    lists, gen = _lists_and_gen()
-    res["lists"] = lists
-    res["generation"] = gen
+    res["lists"] = _lists()
     return res
 
 # ── 路由表 ────────────────────────────────────────

@@ -27,6 +27,7 @@ class TestJobService(unittest.TestCase):
         CACHE.clear()
         CACHE["0"] = {"uid": "u-test", "file": "/tmp/x.mp3", "title": "x",
                       "artist": "a", "key": "k", "has_lyric": False}
+        LIB.BY_UID["u-test"] = CACHE["0"]
 
     def tearDown(self):
         CACHE.clear()
@@ -34,7 +35,7 @@ class TestJobService(unittest.TestCase):
 
     def test_match_job(self):
         with patch.object(SONG, "lazy_match") as lazy:
-            job = SJ.start("match", "0", LIB.generation())
+            job = SJ.start("match", "u-test")
             done = wait(job["id"])
         lazy.assert_called_once()
         self.assertEqual(done["state"], "done")
@@ -42,7 +43,7 @@ class TestJobService(unittest.TestCase):
     def test_vocals_job(self):
         with patch.object(VOC, "ensure", return_value={"state": "queued"}), \
              patch.object(VOC, "status", return_value={"state": "done", "has_vocals": True}):
-            job = SJ.start("vocals", "0", LIB.generation())
+            job = SJ.start("vocals", "u-test")
             done = wait(job["id"])
         self.assertEqual(done["result"]["has_vocals"], True)
 
@@ -59,7 +60,7 @@ class TestJobService(unittest.TestCase):
 
     def test_unknown_kind(self):
         with self.assertRaises(ValueError):
-            SJ.start("nope", "0")
+            SJ.start("nope", "u-test")
 
 
 if __name__ == "__main__":

@@ -35,12 +35,11 @@ class TestUiSmoke(unittest.TestCase):
         cls._voc_patch = patch.object(VOC, "VOCALS", Path(cls._lyr_tmp.name) / "vocals")
         cls._voc_patch.start()
         lib = LIB.scan_library()
-        CACHE.clear()
-        CACHE.update({str(i): x for i, x in enumerate(lib)})
+        LIB._publish(lib)
         if not lib:
             raise unittest.SkipTest("库里没有歌，跳过界面测试")
-        cls.idx = next((k for k, v in CACHE.items() if v.get("has_lyric")), None)
-        if cls.idx is None:
+        cls.uid = next((v.get("uid") for v in CACHE.values() if v.get("has_lyric")), None)
+        if cls.uid is None:
             raise unittest.SkipTest("库里没有带歌词的歌")
         cls.srv = make_server(0)
         cls.port = cls.srv.server_address[1]
@@ -96,7 +95,7 @@ class TestUiSmoke(unittest.TestCase):
             results["it"] = w.evaluate_js("document.querySelectorAll('.it').length")
 
         def click_song(w):
-            w.evaluate_js(f"NH.load('{self.idx}')")
+            w.evaluate_js(f"NH.load('{self.uid}')")
             time.sleep(3)
             results["lines"] = w.evaluate_js("document.querySelectorAll('#lyr .ln').length")
             results["side"] = w.evaluate_js("document.querySelectorAll('#rmcol .ln2').length")

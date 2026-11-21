@@ -91,10 +91,15 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertEqual(rows[0]["orig"], "テスト曲")
 
     def test_song_payload(self):
-        d = json.loads(urllib.request.urlopen(self.url("/api/song/0")).read())
+        d = json.loads(urllib.request.urlopen(self.url("/api/song/" + CACHE_ITEM["uid"])).read())
         self.assertGreaterEqual(len(d["lines"]), 3)
         self.assertTrue(any(l["ruby"] for l in d["lines"]))
         self.assertIn("rmH", d["lines"][1])
+
+    def test_song_idx_is_not_accepted(self):
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(self.url("/api/song/0"))
+        self.assertEqual(cm.exception.code, 404)
 
     def test_song_payload_by_uid(self):
         d = json.loads(urllib.request.urlopen(
@@ -105,10 +110,9 @@ class TestPlayerHttp(unittest.TestCase):
 
     def test_edit_line(self):
         """改一处读音：返回新 ruby 且罗马音跟着变。"""
-        song = json.loads(urllib.request.urlopen(self.url("/api/song/0")).read())
         li, start = 1, 2                      # 第 2 行的「日」
-        d = json.loads(self.post("/api/line", {"idx": "0", "generation": LIB.generation(), "line": li, "start": start,
-                                               "reading": "か"}).read())
+        d = json.loads(self.post("/api/line", {"uid": CACHE_ITEM["uid"], "line": li,
+                                               "start": start, "reading": "か"}).read())
         self.assertEqual(d["line"], li)
         self.assertIn("<rt>か</rt>", d["ruby"])
         self.assertIn("ka", d["rm"])
@@ -180,21 +184,13 @@ class TestPlayerHttp(unittest.TestCase):
             else:
                 ROUTES.H._test_boom_get = old_method
 
-    def test_stale_generation_rejected(self):
-        body = {"idx": "0", "line": 1, "start": 2,
-                "reading": "か", "generation": -1}
+    def test_idx_write_rejected(self):
+        body = {"idx": "0", "line": 1, "start": 2, "reading": "か"}
         req = urllib.request.Request(self.url("/api/line"), data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
         with self.assertRaises(urllib.error.HTTPError) as cm:
             urllib.request.urlopen(req)
-        self.assertEqual(cm.exception.code, 409)
-        self.assertIn("曲库已更新", json.loads(cm.exception.read())["error"])
-
-    def test_uid_write_ignores_stale_generation(self):
-        body = {"uid": CACHE_ITEM["uid"], "line": 1, "start": 2,
-                "reading": "か", "generation": -1}
-        d = json.loads(self.post("/api/line", body).read())
-        self.assertIn("<rt>か</rt>", d["ruby"])
+        self.assertEqual(cm.exception.code, 400)
 
     def test_bad_json(self):
         req = urllib.request.Request(self.url("/api/line"), data=b"{oops",

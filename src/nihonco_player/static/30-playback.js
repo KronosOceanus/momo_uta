@@ -33,7 +33,7 @@ function commitAudio(){
   if(!NH.S) return;
   const prev=NH.PLAYING_UID;
   if(prev!==null && prev!==undefined && String(prev)!==String(NH.S.uid)) closeLineLoop();
-  NH.PLAYING_UID = NH.S.uid; NH.PLAYING = NH.S.idx; markPlaying();
+  NH.PLAYING_UID = NH.S.uid; markPlaying();
   NH.au.src = NH.S.audio || ('/audio/'+encodeURIComponent(NH.S.uid));
   NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
   document.getElementById('ttl').textContent = '▶ ' + NH.S.title + (NH.S.artist?' · '+NH.S.artist:'');

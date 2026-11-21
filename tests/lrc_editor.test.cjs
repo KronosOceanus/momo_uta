@@ -61,14 +61,14 @@ function player() {
       get: () => window.NH[k], set: v => { window.NH[k] = v; }, configurable: true });
   }`);
   run(`done=msg=>messages.push(msg); loadWave=()=>{};
-       S={idx:'0'}; VIEW_MODE='lrc'; EROWS=[{t:1,text:'original'}];`);
+       S={idx:'0',uid:'u0'}; VIEW_MODE='lrc'; EROWS=[{t:1,text:'original'}];`);
   const edit = text => run(`EROWS[0].text=${JSON.stringify(text)}; markDirty()`);
   const dispatch = (type, event) => handlers.get(type).forEach(handler => handler(event));
   return {calls, requests, run, edit, dispatch, document};
 }
 
 const nextTurn = () => new Promise(resolve => setImmediate(resolve));
-const song = idx => ({idx, lines: [], title: 'Test song'});
+const song = idx => ({idx, uid: 'u' + idx, lines: [], title: 'Test song'});
 
 test('leaving LRC mode saves before fetching the ordinary lyrics', async () => {
   const p = player();
@@ -79,14 +79,14 @@ test('leaving LRC mode saves before fetching the ordinary lyrics', async () => {
   assert.equal(p.run('VIEW_MODE===\'lrc\''), true);
   p.requests[0].resolve({ok: true});
   await nextTurn();
-  assert.equal(p.calls[1].path, '/api/song/0');
+  assert.equal(p.calls[1].path, '/api/song/u0');
   p.requests[1].resolve(song('0'));
   await leaving;
   assert.equal(p.run('VIEW_MODE===\'lrc\''), false);
 });
 
 test('a failed save keeps the editor open when switching songs or modes', async () => {
-  for (const action of ["load('1')", "document.getElementById('edit').onclick()"]){
+  for (const action of ["load('u1')", "document.getElementById('edit').onclick()"]){
     const p = player();
     p.edit('keep this');
     const leaving = p.run(action);
@@ -126,7 +126,7 @@ test('switching commits the focused timestamp before locking editing and fetches
     closest: selector => selector === '#lyr',
     blur() { p.run('EROWS[0].t=4.5; markDirty()'); }
   };
-  const leaving = p.run("load('1')");
+  const leaving = p.run("load('u1')");
   assert.equal(p.document.getElementById('lyr').inert, true);
   assert.equal(p.document.getElementById('lrcrow2').inert, true);
   assert.equal(p.calls[0].body.lines[0].t, 4.5);
@@ -140,16 +140,16 @@ test('switching commits the focused timestamp before locking editing and fetches
   assert.equal(p.run('EROWS.length'), 1);
   p.requests[1].resolve(song('1'));
   await leaving;
-  assert.deepEqual(p.calls.map(call => call.path), ['/api/lrc', '/api/song/1']);
+  assert.deepEqual(p.calls.map(call => call.path), ['/api/lrc', '/api/song/u1']);
   assert.equal(p.run('VIEW_MODE!==\'lrc\' && S.idx === "1"'), true);
   assert.equal(p.document.getElementById('lyr').inert, false);
 });
 
 test('an earlier song response cannot unlock a newer song transition', async () => {
   const p = player();
-  const first = p.run("load('1')");
+  const first = p.run("load('u1')");
   await nextTurn();
-  const second = p.run("load('2')");
+  const second = p.run("load('u2')");
   await nextTurn();
   p.requests[0].resolve(song('1'));
   assert.equal(await first, false);
@@ -212,7 +212,7 @@ test('replacing lyrics waits for a sent save and blocks song transitions', async
   p.edit('draft');
   const saving = p.run('saveLrc(true)');
   const replacing = p.run("replaceLrc({action:'restore',idx:S.idx}, 'restoring', ()=> 'restored')");
-  assert.equal(await p.run("load('1')"), false);
+  assert.equal(await p.run("load('u1')"), false);
   assert.equal(p.calls.length, 1);
   p.requests[0].resolve({ok: true});
   await saving;

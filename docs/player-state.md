@@ -28,7 +28,6 @@ A = 正在播放的歌
 NH.S           查看的歌曲载荷（idx/title/artist/lines/offset/duration）
 NH.LINES       查看歌曲的歌词行
 NH.PLAYING_UID 正在播放的歌曲 uid（稳定身份）
-NH.PLAYING    同歌的当前 idx，仅展示/兼容
 NH.au          AudioEngine，唯一出声的东西
 NH.loop        单句循环开关（只属于 A）
 NH.LOOP_ROW    单句循环锚定的行号
