@@ -224,15 +224,18 @@ class H(BaseHTTPRequestHandler):
         if crange:
             self.send_header("Content-Range", crange)
         self.end_headers()
-        with open(item["file"], "rb") as fh:
-            fh.seek(start)
-            left = length
-            while left > 0:
-                chunk = fh.read(min(65536, left))
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                left -= len(chunk)
+        try:
+            with open(item["file"], "rb") as fh:
+                fh.seek(start)
+                left = length
+                while left > 0:
+                    chunk = fh.read(min(65536, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            return                         # 前端 abort 音频请求：不是错误
 
     # ── POST ─────────────────────────────────────────
     def _post_pl(self, req):

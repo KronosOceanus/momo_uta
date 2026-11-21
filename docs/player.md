@@ -94,11 +94,12 @@ class AudioEngine
 ```text
 preload()
   ① 捕获当前 _loadSeq + URL
-  ② fetch(audio URL) → arrayBuffer
-  ③ ctx.decodeAudioData(arrayBuffer) → buffer
-  ④ 如果 _loadSeq/URL 已变 → 丢弃结果，不写 _buf/_dur，不发事件
-  ⑤ 否则写 _buf/_dur/_ready，发 loadedmetadata / durationchange / canplay
-  ⑥ 当前请求失败：_ready=0、_load=null、发 error；旧请求失败静默丢弃
+  ② fetch(audio URL)，带 AbortController；切歌时 abort 旧请求
+  ③ fetch 完成后再次校验序号，已切歌则不解码
+  ④ arrayBuffer → decodeAudioData
+  ⑤ 如果 _loadSeq/URL 已变 → 丢弃结果，不写 _buf/_dur，不发事件
+  ⑥ 否则写 _buf/_dur/_ready，发 loadedmetadata / durationchange / canplay
+  ⑦ 当前请求失败：_ready=0、_load=null、发 error；abort/旧请求失败静默丢弃
 ```
 
 ```text
