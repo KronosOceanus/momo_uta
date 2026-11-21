@@ -26,6 +26,7 @@ from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
 LOCK = threading.RLock()
+VERSION_NONE = "none"
 
 
 def uid_of(audio: str | Path) -> str:
@@ -58,8 +59,16 @@ def _atomic_write(path: Path, text: str) -> None:
             pass
 
 
+def _is_disabled_text(text: str) -> bool:
+    _body, tail = _split_nhlrc(text)
+    return bool(tail and tail.get("disabled"))
+
+
 def _backup_once(sp: Path, bak: Path) -> bool:
     if sp.is_file() and not bak.exists():
+        text = sp.read_text(encoding="utf-8", errors="ignore")
+        if _is_disabled_text(text):       # disabled 不是可恢复的歌词备份
+            return False
         bak.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(sp, bak)
         return True
@@ -173,7 +182,7 @@ def load(audio: str | Path, uid: str | None = None,
     from_cache = False
     tail = None
     disabled = False
-    version = None
+    version = VERSION_NONE
 
     if sp.is_file():
         full = sp.read_text(encoding="utf-8", errors="ignore")
@@ -226,6 +235,8 @@ def backup_status(audio: str | Path, uid: str | None = None,
     if not b:
         return {"exists": False}
     text = b.read_text(encoding="utf-8", errors="ignore")
+    if _is_disabled_text(text):
+        return {"exists": False, "disabled": True}
     return {"exists": True, "path": str(b), "lines": len(parse(text)),
             "mtime": b.stat().st_mtime, "size": b.stat().st_size}
 
@@ -242,10 +253,13 @@ def restore_backup(audio: str | Path, uid: str | None = None,
             return {"ok": False, "error": "没有备份文件"}
         sp = store_path(audio, u, title, artist)
         current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        if expected_version is not None and _version(current) != str(expected_version):
+        current_version = _version(current) if sp.is_file() else VERSION_NONE
+        if expected_version is not None and current_version != str(expected_version):
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": _version(current)}
+                    "version": current_version}
         text = b.read_text(encoding="utf-8", errors="ignore")
+        if _is_disabled_text(text):
+            return {"ok": False, "error": "没有可恢复的歌词备份"}
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(parse(text)),
                 "version": _version(text)}
@@ -261,9 +275,10 @@ def delete_store(audio: str | Path, uid: str | None = None,
     bak = store_backup(audio, u, title, artist)
     with LOCK:
         current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        if expected_version is not None and _version(current) != str(expected_version):
+        current_version = _version(current) if sp.is_file() else VERSION_NONE
+        if expected_version is not None and current_version != str(expected_version):
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": _version(current)}
+                    "version": current_version}
         if sp.is_file():
             _backup_once(sp, bak)
         text = _disabled_text()
@@ -282,9 +297,10 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
     bak = store_backup(audio, u, title, artist)
     with LOCK:
         current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        if expected_version is not None and _version(current) != str(expected_version):
+        current_version = _version(current) if sp.is_file() else VERSION_NONE
+        if expected_version is not None and current_version != str(expected_version):
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": _version(current)}
+                    "version": current_version}
         backed = _backup_once(sp, bak)
         body, tail = _split_nhlrc(text)
         body = body if body.endswith("\n") else body + "\n"
@@ -309,7 +325,7 @@ def save(audio: str | Path, lines: list[dict],
     bak = store_backup(audio, u, title, artist)
     with LOCK:
         original = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        current_version = _version(original) if sp.is_file() else ""
+        current_version = _version(original) if sp.is_file() else VERSION_NONE
         if expected_version is not None and current_version != str(expected_version):
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
                     "version": current_version}

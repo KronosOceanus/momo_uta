@@ -321,6 +321,7 @@ body = sha1(整篇正文)[:8]
   · 首次写之前，把现有的 nhlrc 备份成 data/lyrics/bak/ 下的同名 .nhlrc.bak
     （之后再保存不会覆盖 .bak）
   · "恢复最初"用 data/lyrics/bak/ 下的 .nhlrc.bak
+  · disabled 文档不会成为可恢复歌词备份
 ```
 
 ### 6.3 自动注音

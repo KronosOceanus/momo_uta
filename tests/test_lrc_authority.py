@@ -122,6 +122,33 @@ class TestAuthority(unittest.TestCase):
                 SONG.lazy_match(it)
             self.assertFalse(get_lrc.called)
 
+    def test_none_version_blocks_old_draft_after_disable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio, _ = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                old = LRF.load(audio)["version"]
+                self.assertEqual(old, "none")
+                self.assertTrue(LRF.delete_store(audio, expected_version=old)["ok"])
+                stale = LRF.save(audio, rows(), {}, expected_version=old)
+                self.assertFalse(stale["ok"])
+                self.assertTrue(stale["conflict"])
+                self.assertTrue(LRF.load(audio)["disabled"])
+
+    def test_disabled_is_not_a_restorable_backup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio, _ = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.delete_store(audio)                 # 无旧歌词，写 disabled
+                self.assertTrue(LRF.save(audio, rows(), {})["ok"])
+                self.assertFalse(LRF.backup_path(audio).exists())
+                r = LRF.restore_backup(audio)
+                self.assertFalse(r["ok"])
+                self.assertFalse(r["ok"])
+
     def test_refresh_failure_is_not_save_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -474,6 +474,10 @@ data/cache/lyrics/  = 可重建缓存，只做单向回退
   LRC.LOCK 覆盖读取旧文档、合并、备份和写入
   version 不一致 → 保留草稿，返回冲突，不覆盖
   同目录临时文件 + os.replace
+
+没有 nhlrc 时 version = "none"（不是 null）；
+删除后 version 变成 disabled 文档哈希，
+旧草稿的 "none" 会被拒绝，不能重新启用歌词。
 ```
 
 ```text
@@ -482,6 +486,9 @@ data/cache/lyrics/  = 可重建缓存，只做单向回退
   读取时 disabled 优先：
     不走缓存、不自动匹配
   保存新歌词、导入、pick、恢复备份会重新启用。
+
+删除失败时不清 EDIRTY；
+恢复/导入前先等自动保存结束，再读取当前 version。
 ```
 
 ```text

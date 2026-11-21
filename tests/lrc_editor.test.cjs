@@ -256,3 +256,24 @@ test('version conflict keeps the draft dirty', async () => {
   assert.equal(p.run('EDIRTY'), true);
   assert.equal(p.run("EROWS[0].text"), 'draft');
 });
+
+test('delete failure keeps the draft dirty', async () => {
+  const p = player();
+  p.run("window.NH.uiConfirm=async()=>true; VIEW_MODE='lrc'; LRC_VERSION='v1'; EDIRTY=true;");
+  const deleting = p.run("document.getElementById('lrcfiledel').onclick()");
+  await nextTurn();
+  assert.equal(p.calls[0].path, '/api/lrc');
+  p.requests[0].resolve({ok: false, error: 'conflict'});
+  await deleting;
+  assert.equal(p.run('EDIRTY'), true);
+});
+
+test('replace takes the version after pending save', async () => {
+  const p = player();
+  p.run("LRC_VERSION='v1'; VIEW_MODE='lrc'; SAVE_PENDING=Promise.resolve().then(()=>{LRC_VERSION='v2'; return true;});");
+  const replacing = p.run("replaceLrc({action:'import_lrc',uid:'u0',text:'x'},'x',()=> 'ok')");
+  await nextTurn();
+  assert.equal(p.calls[0].body.version, 'v2');
+  p.requests[0].resolve({ok: false, error: 'stop'});
+  await replacing;
+});

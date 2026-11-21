@@ -366,14 +366,13 @@ document.getElementById('lrcsaveas').onclick=async()=>{
   }else NH.done('当前环境不支持导出');
 };
 async function replaceLrc(req, pending, success){
-  if(req && req.uid && req.version===undefined) req={...req, version:NH.LRC_VERSION};
   NH.LRC_REPLACING=true;
   setLrcLocked(true);
   NH.busy(pending);
   try{
     // 覆盖操作须等已发出的自动保存结束，避免旧内容覆盖导入或备份。
     await NH.SAVE_PENDING;
-    const res=await NH.api('/api/lrc',req);
+    const res=await NH.api('/api/lrc',{...req, version:NH.LRC_VERSION});
     if(!res.ok) throw new Error(res.error||'操作失败');
     await openLrcEditor();
     NH.done(success(res));
@@ -403,14 +402,19 @@ document.getElementById('lrcfiledel').onclick=async()=>{
   if(!await NH.uiConfirm('删除这首歌的歌词文件？',
       '歌词将被禁用，备份会保留。\n这首歌仍可播放，但不会自动匹配歌词。\n以后可以通过重新匹配或保存新歌词重新启用。', true)) return;
   clearTimeout(NH.SAVE_T);
-  NH.EDIRTY=false;
   try{
-    if(NH.SAVE_PENDING) await NH.SAVE_PENDING;
+    if(NH.SAVE_PENDING && !await NH.SAVE_PENDING){
+      NH.done('歌词尚未保存，已取消删除'); return;
+    }
     const r=await NH.api('/api/lrc',{action:'delete', uid:song.uid, version:NH.LRC_VERSION});
     if(!r.ok) throw new Error(r.error||'删除失败');
+    NH.EDIRTY=false;
     await NH.load(song.uid,false,'normal');     // 退出 LRC，回到普通页
     NH.done('已禁用这首歌的歌词');
-  }catch(err){ NH.done('删除失败：'+err.message); }
+  }catch(err){
+    if(NH.EDIRTY) markDirty();                   // 删除失败：草稿仍算未保存
+    NH.done('删除失败：'+err.message);
+  }
 };
 document.getElementById('lrcreset').onclick=async()=>{
   if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED || !NH.S) return;
