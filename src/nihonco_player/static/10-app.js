@@ -384,6 +384,7 @@ async function load(ref, autoplay, nextMode){
     }
     d=await api('/api/song/'+encodeURIComponent(ref));
     if(request!==NH.LOAD_REQUEST) return false;
+    NH.LRC_VERSION = d.version || 'none';
     NH.syncLyricMark(d.uid, !d.pending && !d.disabled);
   }catch(e){
     if(request===NH.LOAD_REQUEST){
@@ -998,7 +999,9 @@ loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一�
 
 document.getElementById('resetall').onclick=async()=>{
   if(!NH.S) return;
-  const r=await api('/api/pl',{action:'edit_clear', uid:NH.S.uid, version:NH.LRC_VERSION});
+  const song=NH.S, version=NH.LRC_VERSION;
+  const r=await api('/api/pl',{action:'edit_clear', uid:song.uid, version});
+  if(NH.S!==song) return;                         // 已切歌：不要动当前草稿
   if(r && r.ok===false){ done(r.error||'歌曲已不可用'); await loadLib(); return; }
   if(r && r.version) NH.LRC_VERSION=r.version;
   toast('已恢复默认标注');

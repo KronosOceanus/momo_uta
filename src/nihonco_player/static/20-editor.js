@@ -401,19 +401,26 @@ document.getElementById('lrcfiledel').onclick=async()=>{
   const song=NH.S;
   if(!await NH.uiConfirm('删除这首歌的歌词文件？',
       '歌词将被禁用，备份会保留。\n这首歌仍可播放，但不会自动匹配歌词。\n以后可以通过重新匹配或保存新歌词重新启用。', true)) return;
-  clearTimeout(NH.SAVE_T);
+  NH.LRC_REPLACING=true;
+  setLrcLocked(true);                             // 和导入/恢复共用切歌锁
   try{
     if(NH.SAVE_PENDING && !await NH.SAVE_PENDING){
       NH.done('歌词尚未保存，已取消删除'); return;
     }
     const r=await NH.api('/api/lrc',{action:'delete', uid:song.uid, version:NH.LRC_VERSION});
     if(!r.ok) throw new Error(r.error||'删除失败');
+    if(NH.S!==song || NH.VIEW_MODE!=='lrc') return;  // 迟到响应不碰新会话
     NH.EDIRTY=false;
+    NH.LRC_REPLACING=false;
+    setLrcLocked(false);
     await NH.load(song.uid,false,'normal');     // 退出 LRC，回到普通页
     NH.done('已禁用这首歌的歌词');
   }catch(err){
-    if(NH.EDIRTY) markDirty();                   // 删除失败：草稿仍算未保存
+    if(NH.S===song && NH.EDIRTY) markDirty();    // 删除失败：草稿仍算未保存
     NH.done('删除失败：'+err.message);
+  }finally{
+    NH.LRC_REPLACING=false;
+    setLrcLocked(false);
   }
 };
 document.getElementById('lrcreset').onclick=async()=>{

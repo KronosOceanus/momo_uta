@@ -68,7 +68,7 @@ function player() {
 }
 
 const nextTurn = () => new Promise(resolve => setImmediate(resolve));
-const song = idx => ({idx, uid: 'u' + idx, lines: [], title: 'Test song'});
+const song = idx => ({idx, uid: 'u' + idx, lines: [], title: 'Test song', version: 'v' + idx});
 
 test('leaving LRC mode saves before fetching the ordinary lyrics', async () => {
   const p = player();
@@ -276,4 +276,26 @@ test('replace takes the version after pending save', async () => {
   assert.equal(p.calls[0].body.version, 'v2');
   p.requests[0].resolve({ok: false, error: 'stop'});
   await replacing;
+});
+
+
+test('load refreshes the current document version for reset', async () => {
+  const p = player();
+  p.run("LRC_VERSION='old'");
+  const loading = p.run("load('u1')");
+  await nextTurn();
+  p.requests[0].resolve(song('1'));
+  await loading;
+  assert.equal(p.run('LRC_VERSION'), 'v1');
+});
+
+test('delete locks song switching until the response', async () => {
+  const p = player();
+  p.run("window.NH.uiConfirm=async()=>true; VIEW_MODE='lrc'; EDIRTY=true;");
+  const deleting = p.run("document.getElementById('lrcfiledel').onclick()");
+  await nextTurn();
+  assert.equal(await p.run("load('u1')"), false);
+  p.requests[0].resolve({ok: false, error: 'conflict'});
+  await deleting;
+  assert.equal(p.run('EDIRTY'), true);
 });
