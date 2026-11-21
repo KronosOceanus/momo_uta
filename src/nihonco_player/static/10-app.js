@@ -7,7 +7,7 @@ const NH = window.NH || (window.NH = {});
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false; NH.MATCHING = false; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING !== null && String(NH.PLAYING) === String(NH.S.idx));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
@@ -359,7 +359,8 @@ async function load(i, autoplay, nextEditMode){
   if(NH.LRC_REPLACING) return false;
   clearToast();                                   // 换歌前不留下上一首的提示
   const request=++NH.LOAD_REQUEST;
-  NH.MATCHING=false; NH.syncModes?.();
+  NH.viewDispatch({type:'LOAD_START', idx:i, request});
+  NH.syncModes?.();
   const editing=NH.LRCEDIT;
   if(!editing){                                  // 点击后立即切换标题，别等接口
     const it=NH.LIB.find(x=>String(x.idx)===String(i));
@@ -380,7 +381,11 @@ async function load(i, autoplay, nextEditMode){
     if(request!==NH.LOAD_REQUEST) return false;
     NH.syncLyricMark(d.idx, !d.pending);
   }catch(e){
-    if(request===NH.LOAD_REQUEST) done('加载歌曲失败：'+e.message);
+    if(request===NH.LOAD_REQUEST){
+      NH.viewDispatch({type:'LOAD_FAILED', idx:i, request, error:e.message});
+      NH.syncModes?.();
+      done('加载歌曲失败：'+e.message);
+    }
     return false;
   }finally{
     if(editing && request===NH.LOAD_REQUEST) NH.setLrcLocked(false);
@@ -395,7 +400,13 @@ async function load(i, autoplay, nextEditMode){
   }
   if(d.pending){                               // 没有歌词 → 先能播，再后台匹配
     const knownNoMatch=NH.NO_MATCH.has(String(d.idx));
-    NH.MATCHING=!knownNoMatch; NH.syncModes?.();
+    NH.viewDispatch({type:'LOAD_PENDING', idx:d.idx, request});
+    if(knownNoMatch){
+      NH.viewDispatch({type:'LOAD_FAILED', idx:d.idx, request, error:'no lyrics'});
+    }else{
+      NH.viewDispatch({type:'MATCH_START', idx:d.idx, request});
+    }
+    NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CUR=-1; NH.NAV=[];
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
     document.getElementById('rmcol').innerHTML='';
@@ -426,12 +437,14 @@ async function load(i, autoplay, nextEditMode){
     }
     if(request!==NH.LOAD_REQUEST) return false;
     NH.NO_MATCH.add(String(d.idx));
-    NH.MATCHING=false; NH.syncModes?.();
+    NH.viewDispatch({type:'MATCH_FAILED', idx:d.idx, request, error:'no match'});
+    NH.syncModes?.();
     lyr.innerHTML='';
     done('这首歌没匹配到歌词，仍可播放');
     return true;
   }
   {
+    NH.viewDispatch({type:'LOAD_READY', idx:d.idx, request});
     NH.NO_MATCH.delete(String(d.idx));
     NH.S=d; NH.LINES=d.lines; NH.CUR=-1;
     if(String(NH.PLAYING) !== String(d.idx)){

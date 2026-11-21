@@ -108,7 +108,7 @@ function lrcText(){
 
 NH.LRC_OPEN_REQUEST = 0;
 async function openLrcEditor(entering=false){
-  if(NH.MATCHING){ NH.done('歌词匹配中，稍后再编辑'); return; }
+  if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
   const song=NH.S, request=NH.LOAD_REQUEST, opening=++NH.LRC_OPEN_REQUEST;
   const d=await NH.api('/api/lrc',{action:'load', idx:song.idx});
   if(NH.S!==song || request!==NH.LOAD_REQUEST || opening!==NH.LRC_OPEN_REQUEST || (!entering && !NH.LRCEDIT)) return;
@@ -440,7 +440,7 @@ document.addEventListener('keydown', e=>{
 function syncModes(){
   const e=document.getElementById('edit'), l=document.getElementById('lrcedit');
   const rem=document.getElementById('rem');
-  const enabled=!!NH.S && !NH.MATCHING;
+  const enabled=!!NH.S && !NH.viewMatching();
   const body=document.body;
   body.classList.toggle('fak', NH.EDITMODE);
   body.classList.toggle('lrcedit', NH.LRCEDIT);
@@ -451,9 +451,9 @@ function syncModes(){
   e.disabled = !enabled;
   if(rem){
     rem.disabled = !enabled;
-    rem.title = NH.MATCHING ? '歌词匹配中' : '重新匹配当前歌曲的歌词';
+    rem.title = NH.viewMatching() ? '歌词匹配中' : '重新匹配当前歌曲的歌词';
   }
-  l.title = NH.MATCHING ? '歌词匹配中，稍后再编辑' : '编辑歌词时间轴';
+  l.title = NH.viewMatching() ? '歌词匹配中，稍后再编辑' : '编辑歌词时间轴';
   e.classList.toggle('on', NH.EDITMODE);
   l.classList.toggle('on', NH.LRCEDIT);
 
@@ -467,7 +467,7 @@ function syncModes(){
 
 document.getElementById('lrcedit').onclick=async e=>{
   if(!NH.S) return;
-  if(NH.MATCHING){ NH.done('歌词匹配中，稍后再编辑'); return; }
+  if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
   if(NH.LRCEDIT) return NH.load(NH.S.idx, false, false);
   const button=e.currentTarget;
   button.disabled=true;

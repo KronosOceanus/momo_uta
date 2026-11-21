@@ -5,7 +5,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const staticDir = process.env.NIHONCO_TEST_STATIC || join(__dirname, '../src/nihonco_player/static');
-const scripts = ['05-audio', '10-app', '20-editor', '30-playback'].map(name =>
+const scripts = ['05-audio', '06-state', '10-app', '20-editor', '30-playback'].map(name =>
   readFileSync(join(staticDir, name + '.js'), 'utf8')
 );
 
@@ -45,6 +45,7 @@ function player() {
       if (path.startsWith('/audio/')) return Promise.resolve({ok: false, status: 404,
         arrayBuffer: async () => new ArrayBuffer(0)});
       if (path.startsWith('/api/vocals')) return Promise.resolve({ok: true, json: async () => ({state:'none'})});
+      if (path.startsWith('/api/jobs')) return Promise.resolve({ok: true, json: async () => ({id:'job', state:'done', result:{state:'done'}})});
       if (path === '/api/pl' && !options) return Promise.resolve({ok: true, json: async () => []});
       calls.push({path, body: options ? JSON.parse(options.body) : undefined});
       const pending = deferred();

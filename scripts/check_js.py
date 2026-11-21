@@ -2,7 +2,7 @@
 """前端脚本的完整性检查：
 
 1. 每个文件单独语法检查（node --check）
-2. 四个文件按加载顺序拼起来再检查一次（抓跨文件重复定义/漏声明）
+2. 五个文件按加载顺序拼起来再检查一次（抓跨文件重复定义/漏声明）
 3. 命名空间检查：每个脚本必须是 IIFE，且只通过 window.NH 暴露东西
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "src" / "nihonco_player" / "static"
-ORDER = ["05-audio.js", "10-app.js", "20-editor.js", "30-playback.js"]
+ORDER = ["05-audio.js", "06-state.js", "10-app.js", "20-editor.js", "30-playback.js"]
 
 
 def node_check(code: str, label: str) -> bool:

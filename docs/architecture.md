@@ -36,7 +36,7 @@ scripts/check_arch.py 用 AST 检查，`make test` 会跑。
 
 不是什么：
   · 不是多用户服务（没有登录、没有数据库、没有远程 API 暴露）
-  · 不是前端框架项目（没有打包器，四个 classic script）
+  · 不是前端框架项目（没有打包器，五个 classic script）
   · 不是流式音频服务（整首解码进内存）
 ```
 
@@ -47,7 +47,7 @@ scripts/check_arch.py 用 AST 检查，`make test` 会跑。
 ② 数据有单一归属
    曲库/歌词/歌单/人声/波形各自有明确的读写模块
 ③ 前端只有一个全局
-   window.NH；四个脚本按顺序加载，共享这个命名空间
+   window.NH；五个脚本按顺序加载，共享这个命名空间
 ```
 
 ## 2. 分层与依赖规则
@@ -140,6 +140,7 @@ src/
 │   │   ├── player.html
 │   │   ├── player.css
 │   │   ├── 05-audio.js         音频引擎
+│   │   ├── 06-state.js         查看歌曲的加载/匹配状态机
 │   │   ├── 10-app.js           状态/载入/波形/人声/提示
 │   │   ├── 20-editor.js        LRC 打轴
 │   │   └── 30-playback.js      时间语义/播放条/高亮
@@ -442,11 +443,11 @@ service 层：
 
 ```text
 没有构建步骤：
-  player.html 按顺序加载四个 classic script
+  player.html 按顺序加载五个 classic script
   每个脚本是一个 IIFE，只通过 window.NH 暴露
   check_js.py 会检查：
     · 每个文件语法
-    · 四个文件拼起来语法（抓跨文件重复定义）
+    · 五个文件拼起来语法（抓跨文件重复定义）
     · 必须是 IIFE
     · 必须取 window.NH
 ```
@@ -454,6 +455,7 @@ service 层：
 ```text
 分工：
   05-audio.js    AudioEngine：解码、播放、seek、变速、音量
+  06-state.js    当前歌曲的加载/匹配纯状态机
   10-app.js      状态、曲库/歌单、载入、波形、人声、toast
   20-editor.js   LRC 表格、打轴、保存、导入导出
   30-playback.js 时间语义、播放条、高亮、循环、键盘
