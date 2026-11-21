@@ -596,6 +596,7 @@ function flashAt(li, word){
   }
 }
 function applyEdit(d){
+  if(d.version) NH.LRC_VERSION=d.version;
   const el = document.querySelectorAll('.ln')[d.line];
   if(el){ el.innerHTML = `<span class="tx">${String(d.line+1).padStart(2,'0')}</span> ` + d.ruby;
           NH.LINES[d.line].rm = d.rm; NH.LINES[d.line].ky = d.ky; NH.LINES[d.line].ruby = d.ruby;

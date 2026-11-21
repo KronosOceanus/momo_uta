@@ -116,6 +116,7 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertEqual(d["line"], li)
         self.assertIn("<rt>か</rt>", d["ruby"])
         self.assertIn("ka", d["rm"])
+        self.assertTrue(d.get("version"))
 
     def test_client_log_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:

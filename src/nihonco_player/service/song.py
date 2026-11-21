@@ -167,10 +167,13 @@ def edit_line(uid, li, start, reading):
         r = annotate_line_with_notes(text, stored=ann.get(li),
                                      extra_start=start, extra_reading=reading)
         ann[li] = segs_of(r)
-        save_lyrics(item, lines, "annotated", ann)
+        res = save_lyrics(item, lines, "annotated", ann)
+        if not res.get("ok"):
+            return None
     return {"line": li, "ruby": ruby_html(r), "rm": r.get("romaji", {}).get("text", ""),
             "ky": r.get("keys", {}).get("text", ""),
-            "rmH": words_html_of(r, "romaji"), "kyH": words_html_of(r, "keys")}
+            "rmH": words_html_of(r, "romaji"), "kyH": words_html_of(r, "keys"),
+            "version": res.get("version")}
 
 
 def rematch(ref, duration):
