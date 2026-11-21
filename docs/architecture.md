@@ -255,8 +255,8 @@ refresh(uid)：
 
 load_for_playlists()（启动用）：
   读 playlists.json 的所有成员 uid
-  + imports.json 的路径
-  用指纹索引反查 uid → 路径
+  用指纹索引 / library_index.json 反查 uid → 路径
+  只加载歌单引用到的 imports，不加载无关 imports
   只对这些路径建 CACHE；不递归 music_dirs
   索引缺失/有 uid 解析不到 → 退回一次 scan_library()
 
@@ -408,7 +408,7 @@ service 层：
 ```text
 启动顺序：
   ① logsetup.setup()：日志文件 + sys.excepthook
-  ② load_cache_for_playlists() → 只加载歌单成员 + imports
+  ② load_cache_for_playlists() → 只加载歌单成员和被引用的 imports
   ③ make_server(0)：随机端口，只绑 127.0.0.1
   ④ 后台线程 serve_forever
   ⑤ webview.create_window + start

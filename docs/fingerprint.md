@@ -154,7 +154,12 @@ _v 不匹配 → 整个索引当空（算法升级时自动重建）
 
 启动按需加载时反向使用：
   uid → 仍存在的路径
-  只对歌单成员和 imports 需要的那几条做 _entry
+  只对歌单成员和被引用的 imports 做 _entry
+
+另有 data/cache/library_index.json：
+  路径 → { uid, size, mtime, title, artist, ... }
+  size/mtime 有效时跳过指纹重算和文件名解析；
+  不存 idx、不把 has_lyric 当最终真相。
 ```
 
 ### 3.2 什么时候写盘
@@ -175,7 +180,8 @@ scan_library() / load_for_playlists() 结束时 flush() 一次写盘
 ```text
 首次全量扫库（索引为空）：约 2.24 秒
 带索引全量再扫：        约 0.04 秒
-启动只加载歌单成员 + imports：约 0.002–0.005 秒
+启动只加载歌单成员（及被引用的 imports）：
+  首次建索引约 0.04 秒，之后约 0.0002–0.0009 秒
 索引文件本身：几十 KB 到几百 KB
 ```
 

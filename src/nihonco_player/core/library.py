@@ -11,6 +11,7 @@ from nihonco_yomi.config import LB
 from nihonco_yomi.paths import ROOT
 
 from . import fingerprint as FP
+from . import library_index as LI
 from . import lyrics as LY
 
 MUSIC = Path.home() / "Music" / "网易云音乐"
@@ -55,6 +56,7 @@ def refresh(uid: str | None = None) -> int:
                     e = _entry(Path(v["file"]), v.get("group", ""))
                     if e:
                         CACHE[k] = e
+                    LI.flush()
                     return len(CACHE)
         lib = scan_library()
         CACHE.clear()
@@ -82,77 +84,104 @@ def add_paths(paths, group: str = "导入") -> list[dict]:
             nxt += 1
             seen.add(e["file"])
             out.append(e)
+    LI.flush()
     FP.flush()
     return out
+
+
+def _has_lyric(title: str, artist: str) -> bool:
+    if not LY._cached(title, artist):
+        return False
+    hit = LY.get_lrc(title, artist, use_cache=True) or {}
+    if hit.get("source") == "local-lrc" and not (hit.get("lrc") or "").strip():
+        return False
+    return bool(hit) and (hit.get("source") == "local-lrc"
+                          or LY.content_lines(hit.get("lrc") or "") >= 3)
 
 
 def _entry(p: Path, group: str) -> dict | None:
     stem = p.stem
     # 不再按"像不像日文歌"过滤：进了歌单就应该看得见。
     # 过滤只用于歌词匹配时的判断（is_likely_song 仍被匹配流程使用）。
+    rec = LI.get(p)
+    if rec:
+        return {"key": rec.get("key") or hashlib.md5(stem.encode()).hexdigest()[:12],
+                "uid": rec["uid"], "file": str(p), "stem": rec.get("stem") or stem,
+                "orig": rec.get("orig") or rec.get("title") or stem,
+                "group": group or rec.get("group", ""),
+                "title": rec.get("title") or stem,
+                "artist": rec.get("artist", ""),
+                "source": rec.get("source", ""),
+                "lang": rec.get("lang") or "unknown",
+                "has_lyric": _has_lyric(*LY.split_name(rec.get("stem") or stem)),
+                "suspect": bool(rec.get("suspect"))}
     artist, title = LY.split_name(stem)
-    has = LY._cached(title, artist)
-    hit = LY.get_lrc(title, artist, use_cache=True) if has else None
-    if hit and hit.get("source") == "local-lrc" and not (hit.get("lrc") or "").strip():
-        hit = None                            # 空文件（比如误存的空壳）当作没有歌词
-    if not hit or (hit.get("source") != "local-lrc" and LY.content_lines(hit.get("lrc") or "") < 3):
-        # 网络匹配要有足够的歌词行。本地草稿可以尚未打点，不应再次匹配。
-        return {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
-                "uid": FP.fingerprint(p),
-                "file": str(p), "stem": stem, "orig": title, "group": group,
-                "title": title, "artist": artist, "source": "", "lang": "unknown",
-                "has_lyric": False, "suspect": False}
-    return {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
-            "uid": FP.fingerprint(p),
-            "has_lyric": True,
-            "file": str(p), "stem": stem, "orig": title, "group": group,
-            "title": hit.get("name") or title,
-            "artist": hit.get("artist") or artist, "source": hit.get("source") or "",
-            "lang": hit.get("lang") or "unknown",
-            "suspect": (hit.get("lang") == "other" and bool(LY.JP.search(stem)))}
+    if not _has_lyric(title, artist):
+        e = {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
+             "uid": FP.fingerprint(p),
+             "file": str(p), "stem": stem, "orig": title, "group": group,
+             "title": title, "artist": artist, "source": "", "lang": "unknown",
+             "has_lyric": False, "suspect": False}
+        LI.put(e)
+        return e
+    hit = LY.get_lrc(title, artist, use_cache=True) or {}
+    e = {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
+         "uid": FP.fingerprint(p),
+         "has_lyric": True,
+         "file": str(p), "stem": stem, "orig": title, "group": group,
+         "title": hit.get("name") or title,
+         "artist": hit.get("artist") or artist, "source": hit.get("source") or "",
+         "lang": hit.get("lang") or "unknown",
+         "suspect": (hit.get("lang") == "other" and bool(LY.JP.search(stem)))}
+    LI.put(e)
+    return e
 
 
 def load_for_playlists() -> list[dict]:
-    """只加载歌单成员和 imports，不递归扫 music_dirs。
-
-    索引缺失/有 uid 解析不到时，退回一次全量扫描，保证不丢歌。
-    """
+    """启动只加载歌单引用的歌，不再加载无关 imports。"""
     from . import playlists as PL
 
-    uids = PL.all_uids()
-    resolved = FP.paths_for_uids(uids)
-    imports = [Path(r["audio"]).expanduser() for r in load_imports()
-               if r.get("audio") and Path(r["audio"]).expanduser().is_file()]
+    uids = list(dict.fromkeys(PL.all_uids()))
+    wanted = set(uids)
+    if not wanted:
+        return []
 
+    resolved = FP.paths_for_uids(uids)
+    indexed = LI.paths_by_uid()
     chosen: dict[str, Path] = {}
     for uid in uids:
-        paths = resolved.get(uid) or []
-        if paths:
-            chosen[uid] = Path(paths[0])       # 同一 uid 多份拷贝时取第一份
-    out: list[dict] = []
-    seen_files: set[str] = set()
-    loaded_uids: set[str] = set()
+        paths = [Path(x) for x in (resolved.get(uid) or []) + (indexed.get(uid) or [])]
+        for p in paths:
+            if p.is_file():
+                chosen[uid] = p
+                break
 
-    def add(p: Path, group: str) -> None:
-        p = p.expanduser()
-        if not p.is_file() or str(p) in seen_files:
-            return
-        e = _entry(p, group)
-        if not e or e["file"] in seen_files:
-            return
-        seen_files.add(e["file"])
-        loaded_uids.add(str(e["uid"]))
-        out.append(e)
+    missing = wanted - set(chosen)
+    if missing:                                  # 索引没有 → 只从 imports 里补
+        for row in load_imports():
+            if not missing:
+                break
+            p = Path(str(row.get("audio") or "")).expanduser()
+            if not p.is_file():
+                continue
+            e = _entry(p, "导入")
+            if e and str(e["uid"]) in missing:
+                chosen[str(e["uid"])] = p
+                missing.discard(str(e["uid"]))
 
-    for uid, p in sorted(chosen.items(), key=lambda x: str(x[1])):
-        add(p, p.parent.name or "曲库")
-    for p in imports:
-        if str(p) not in seen_files:
-            add(p, "导入")
-
-    missing = {str(u) for u in uids} - loaded_uids
     if missing:
-        return scan_library()                 # 索引缺失/文件移动 → 一次兜底
+        return scan_library()                    # 仍解析不到 → 一次全量兜底
+
+    out: list[dict] = []
+    seen: set[str] = set()
+    import_paths = {str(Path(str(r.get("audio") or "")).expanduser())
+                    for r in load_imports() if r.get("audio")}
+    for uid, p in sorted(chosen.items(), key=lambda x: str(x[1])):
+        e = _entry(p, "导入" if str(p) in import_paths else (p.parent.name or "曲库"))
+        if e and e["file"] not in seen:
+            seen.add(e["file"])
+            out.append(e)
+    LI.flush()
     FP.flush()
     return out
 
@@ -185,5 +214,6 @@ def scan_library(folder: Path | None = None) -> list[dict]:
         if p.exists():
             add(p, "导入")
 
+    LI.flush()
     FP.flush()
     return out
