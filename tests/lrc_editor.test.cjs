@@ -299,3 +299,20 @@ test('delete locks song switching until the response', async () => {
   await deleting;
   assert.equal(p.run('EDIRTY'), true);
 });
+
+test('reset response does not cancel a switch already in flight', async () => {
+  const p = player();
+  p.run("LRC_VERSION='v0'");
+  const resetting = p.run("document.getElementById('resetall').onclick()");
+  await nextTurn();
+  const loading = p.run("load('u1')");
+  await nextTurn();
+  assert.equal(p.calls.length, 2);          // reset + B load
+  p.requests[0].resolve({ok: true, version: 'v2'});
+  await nextTurn();
+  assert.equal(p.calls.length, 2);          // 不能插进 load(A)
+  p.requests[1].resolve(song('1'));
+  await loading;
+  await resetting;
+  assert.equal(p.run('S.uid'), 'u1');
+});

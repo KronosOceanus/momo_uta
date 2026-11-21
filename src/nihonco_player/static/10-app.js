@@ -999,9 +999,10 @@ loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一�
 
 document.getElementById('resetall').onclick=async()=>{
   if(!NH.S) return;
-  const song=NH.S, version=NH.LRC_VERSION;
+  const song=NH.S, version=NH.LRC_VERSION, request=NH.LOAD_REQUEST;
   const r=await api('/api/pl',{action:'edit_clear', uid:song.uid, version});
-  if(NH.S!==song) return;                         // 已切歌：不要动当前草稿
+  // 响应回来前已经发起了别的 load（即使还没完成）→ 让那次切歌继续。
+  if(request!==NH.LOAD_REQUEST || NH.S!==song) return;
   if(r && r.ok===false){ done(r.error||'歌曲已不可用'); await loadLib(); return; }
   if(r && r.version) NH.LRC_VERSION=r.version;
   toast('已恢复默认标注');
