@@ -351,7 +351,7 @@ document.getElementById('offval').onclick=()=>{
 
 NH.OPEN = new Set();
 function saveOpen(){
-  api('/api/pl',{action:'ui_open', ids:[...NH.OPEN]}).catch(()=>{});
+  api('/api/pl',{action:'ui_open', ids:[...NH.OPEN]}).catch(err=>reportClientError('ui_open', err.message));
 }
 
 NH.LOAD_REQUEST = 0;
@@ -934,9 +934,43 @@ document.getElementById('newlist').onclick=async e=>{
   const r=await api('/api/pl',{action:'list_create',name});
   applyLists(r);
 };
+const _ERR_SEEN = new Map();
+function reportClientError(kind, message, stack, extra){
+  try{
+    const msg=String(message||'unknown').slice(0,500);
+    const key=kind+'|'+msg;
+    const now=Date.now();
+    if(_ERR_SEEN.get(key) && now-_ERR_SEEN.get(key)<10000) return;
+    _ERR_SEEN.set(key, now);
+    if(_ERR_SEEN.size>50){
+      for(const [k,t] of _ERR_SEEN) if(now-t>60000) _ERR_SEEN.delete(k);
+    }
+    const ctx=Object.assign({
+      phase: NH.VSTATE && NH.VSTATE.phase,
+      mode: NH.VIEW_MODE,
+      idx: NH.S && NH.S.idx,
+      page: (typeof location!=='undefined' ? location.pathname : '')
+    }, extra||{});
+    fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kind, message:msg, stack:String(stack||'').slice(0,4000), context:ctx})
+    }).catch(()=>{});
+  }catch(e){}
+}
+NH.reportClientError=reportClientError;
+
+window.addEventListener('error', e=>{
+  if(e.target && e.target!==window) return;      // 资源加载失败不当作 JS 异常
+  const err=e.error;
+  reportClientError('js_error', (err&&err.message)||e.message, err&&err.stack);
+});
+window.addEventListener('unhandledrejection', e=>{
+  const r=e.reason;
+  reportClientError('js_rejection', (r&&r.message)||String(r||'unhandled rejection'), r&&r.stack);
+});
+
 loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一次
   await new Promise(r=>setTimeout(r,600));
-  loadLib().catch(e=>toast('加载歌单失败：'+e.message));
+  loadLib().catch(e=>{ toast('加载歌单失败：'+e.message); reportClientError('load_lib', e.message, e.stack); });
 });
 
 document.getElementById('resetall').onclick=async()=>{
@@ -946,5 +980,5 @@ document.getElementById('resetall').onclick=async()=>{
   load(NH.S.idx);
 };
 
-Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, waitJob, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport});
+Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, waitJob, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});
 })();

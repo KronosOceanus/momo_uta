@@ -124,7 +124,7 @@ src/
 │   │   ├── importing.py        导入配对
 │   │   ├── vocals.py           demucs 队列 + VAD
 │   │   ├── waveform.py         峰值
-│   │   └── diag.py             诊断日志
+│   │   └── diag.py             诊断日志（含 traceback）
 │   │
 │   ├── service/                编排
 │   │   ├── song.py             载荷、改读音、匹配、选候选
@@ -222,7 +222,7 @@ paths.py 只放路径常量，不放逻辑。
   importing.py    文件配对
   vocals.py       人声分离队列
   waveform.py     波形峰值
-  diag.py         诊断日志
+  diag.py         诊断日志（log / exception）
 ```
 
 ```text
@@ -383,11 +383,17 @@ POST
   /api/lrc                LRC 编辑模式
   /api/vocals             人声分离 ensure（兼容）
   /api/jobs               启动 vocals / match / rebuild 任务
+  /api/log                前端未捕获错误写 app.log
 ```
 
 ```text
 必填字段在 REQUIRED 表里声明：
   缺了直接 400，返回 {"ok":false,"error":"缺少参数：…"}
+
+HTTP 边界：
+  handler 抛意外异常 → diag.exception("http", ...) 写 traceback
+  → 前端收到 {"ok":false,"error":"内部错误"} 500
+  已解析/缺参/业务可预期错误不走这个兜底
   不让 service 里出现 KeyError/None 兜底
 ```
 

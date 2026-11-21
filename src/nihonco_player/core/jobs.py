@@ -14,6 +14,8 @@ import threading
 import time
 import uuid
 
+from . import diag
+
 _lock = threading.RLock()
 _jobs: dict[str, dict] = {}
 MAX_DONE = 200
@@ -63,6 +65,7 @@ def start(kind: str, key, runner) -> dict:
                 job["result"] = result
                 job["updated"] = time.time()
         except Exception as e:
+            diag.exception("job", e, kind=kind, key=key)
             with _lock:
                 job["state"] = "failed"
                 job["error"] = str(e)[:500]

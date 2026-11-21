@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
+from ..core import diag
 from ..core import lyrics as LY
 from ..core.library import CACHE
 from ..web import PAGE
@@ -32,6 +35,7 @@ class H(BaseHTTPRequestHandler):
         "/api/lrc": "_post_lrc",
         "/api/vocals": "_post_vocals",
         "/api/jobs": "_post_jobs",
+        "/api/log": "_post_log",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -52,6 +56,16 @@ class H(BaseHTTPRequestHandler):
 
     # ── 分发 ─────────────────────────────────────────
     def do_GET(self):
+        try:
+            return self._do_GET()
+        except Exception as e:
+            diag.exception("http", e, method="GET", path=self.path)
+            try:
+                return self._json({"ok": False, "error": "内部错误"}, 500)
+            except Exception:
+                return None
+
+    def _do_GET(self):
         p = urllib.parse.urlparse(self.path).path
         if p == "/":
             return self._send(200, PAGE, "text/html; charset=utf-8")
@@ -97,7 +111,14 @@ class H(BaseHTTPRequestHandler):
                    if req.get(k) in (None, "", [], {})]
         if missing:
             return self._json({"ok": False, "error": "缺少参数：" + "/".join(missing)}, 400)
-        return getattr(self, fn)(req)
+        try:
+            return getattr(self, fn)(req)
+        except Exception as e:
+            diag.exception("http", e, method="POST", path=p)
+            try:
+                return self._json({"ok": False, "error": "内部错误"}, 500)
+            except Exception:
+                return None
 
     # ── GET ──────────────────────────────────────────
     def _get_playlists(self):
@@ -164,6 +185,28 @@ class H(BaseHTTPRequestHandler):
         except Exception as e:
             return self._json({"ok": False, "error": str(e)}, 500)
         return self._json(job)
+
+    _LOG_LOCK = threading.Lock()
+    _LOG_TIMES: list[float] = []
+
+    def _post_log(self, req):
+        """前端未捕获错误写 app.log；限频，避免死循环刷日志。"""
+        now = time.monotonic()
+        with self._LOG_LOCK:
+            self._LOG_TIMES[:] = [t for t in self._LOG_TIMES if now - t < 60]
+            if len(self._LOG_TIMES) >= 30:
+                return self._json({"ok": False, "skipped": True})
+            self._LOG_TIMES.append(now)
+        kind = str(req.get("kind") or "js")[:40]
+        msg = str(req.get("message") or "")[:500]
+        stack = str(req.get("stack") or "")[:4000]
+        ctx = req.get("context") or {}
+        try:
+            ctx = {str(k)[:40]: ("" if v is None else str(v)[:200]) for k, v in list(ctx.items())[:20]}
+        except Exception:
+            ctx = {}
+        diag.log("js", f"{kind} {msg}\n{stack}\n{json.dumps(ctx, ensure_ascii=False)}")
+        return self._json({"ok": True})
 
     def _get_audio(self, idx):
         item = CACHE.get(str(idx))

@@ -10,9 +10,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from nihonco_player.core import diag                  # noqa: E402
 from nihonco_player.core import lyrics as LY         # noqa: E402
 from nihonco_player.core import lrc_files as LRF     # noqa: E402
 from nihonco_player.core.library import CACHE        # noqa: E402
+from nihonco_player.http import routes as ROUTES      # noqa: E402
 from nihonco_player.http.server import make_server   # noqa: E402
 
 FAKE_LRC = "\n".join([
@@ -94,6 +96,73 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertEqual(d["line"], li)
         self.assertIn("<rt>か</rt>", d["ruby"])
         self.assertIn("ka", d["rm"])
+
+    def test_client_log_endpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "app.log"
+            with patch.object(diag, "LOG", log):
+                d = json.loads(self.post("/api/log", {
+                    "kind": "js_error", "message": "boom", "stack": "at x",
+                    "context": {"phase": "ready"}}).read())
+            self.assertTrue(d["ok"])
+            text = log.read_text(encoding="utf-8")
+            self.assertIn("boom", text)
+            self.assertIn("js_error", text)
+
+    def test_unexpected_handler_exception_returns_json_500(self):
+        def boom(self, req):
+            raise RuntimeError("handler boom")
+        old_route = ROUTES.H.POST.get("/api/__test_boom")
+        old_method = getattr(ROUTES.H, "_test_boom", None)
+        ROUTES.H.POST["/api/__test_boom"] = "_test_boom"
+        ROUTES.H._test_boom = boom
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                log = Path(tmp) / "app.log"
+                with patch.object(diag, "LOG", log):
+                    req = urllib.request.Request(self.url("/api/__test_boom"), data=b"{}",
+                                                 headers={"Content-Type": "application/json"})
+                    with self.assertRaises(urllib.error.HTTPError) as cm:
+                        urllib.request.urlopen(req)
+                self.assertEqual(cm.exception.code, 500)
+                body = json.loads(cm.exception.read())
+                self.assertIn("内部错误", body["error"])
+                text = log.read_text(encoding="utf-8")
+                self.assertIn("handler boom", text)
+                self.assertIn("http", text)
+        finally:
+            ROUTES.H.POST.pop("/api/__test_boom", None)
+            if old_route is not None:
+                ROUTES.H.POST["/api/__test_boom"] = old_route
+            if old_method is None:
+                delattr(ROUTES.H, "_test_boom")
+            else:
+                ROUTES.H._test_boom = old_method
+
+    def test_unexpected_get_exception_returns_json_500(self):
+        def boom(self):
+            raise RuntimeError("get boom")
+        old_route = ROUTES.H.GET.get("/api/__test_boom_get")
+        old_method = getattr(ROUTES.H, "_test_boom_get", None)
+        ROUTES.H.GET["/api/__test_boom_get"] = "_test_boom_get"
+        ROUTES.H._test_boom_get = boom
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                log = Path(tmp) / "app.log"
+                with patch.object(diag, "LOG", log):
+                    with self.assertRaises(urllib.error.HTTPError) as cm:
+                        urllib.request.urlopen(self.url("/api/__test_boom_get"))
+                self.assertEqual(cm.exception.code, 500)
+                self.assertIn("内部错误", json.loads(cm.exception.read())["error"])
+                self.assertIn("get boom", log.read_text(encoding="utf-8"))
+        finally:
+            ROUTES.H.GET.pop("/api/__test_boom_get", None)
+            if old_route is not None:
+                ROUTES.H.GET["/api/__test_boom_get"] = old_route
+            if old_method is None:
+                delattr(ROUTES.H, "_test_boom_get")
+            else:
+                ROUTES.H._test_boom_get = old_method
 
     def test_bad_json(self):
         req = urllib.request.Request(self.url("/api/line"), data=b"{oops",

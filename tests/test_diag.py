@@ -21,6 +21,19 @@ class TestDiag(unittest.TestCase):
         with patch.object(diag, "LOG", Path("/dev/null/nope/app.log")):
             diag.log("t", "x")          # 不应抛
 
+    def test_exception_writes_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "app.log"
+            with patch.object(diag, "LOG", log):
+                try:
+                    raise ValueError("坏了")
+                except ValueError as e:
+                    diag.exception("test", e, path="/api/x")
+            text = log.read_text(encoding="utf-8")
+            self.assertIn("ValueError", text)
+            self.assertIn("Traceback", text)
+            self.assertIn("path='/api/x'", text)
+
 
 if __name__ == "__main__":
     unittest.main()
