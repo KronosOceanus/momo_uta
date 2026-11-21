@@ -33,7 +33,6 @@ class H(BaseHTTPRequestHandler):
         "/api/pick": "_post_pick",
         "/api/import/one": "_post_import",
         "/api/lrc": "_post_lrc",
-        "/api/vocals": "_post_vocals",
         "/api/jobs": "_post_jobs",
         "/api/jobs/cancel_all": "_post_cancel_all_jobs",
         "/api/log": "_post_log",
@@ -79,8 +78,6 @@ class H(BaseHTTPRequestHandler):
             return self._get_audio(p[len("/audio/"):])
         if p.startswith("/api/wave/"):
             return self._get_wave(p[len("/api/wave/"):])
-        if p.startswith("/api/vocals/"):
-            return self._get_vocals(p[len("/api/vocals/"):])
         if p == "/api/jobs/active":
             return self._get_active_jobs()
         if p.startswith("/api/jobs/"):
@@ -97,7 +94,6 @@ class H(BaseHTTPRequestHandler):
         "/api/pick": ("uid", "id"),
         "/api/import/one": ("paths",),
         "/api/lrc": ("uid",),
-        "/api/vocals": ("uid",),
     }
 
     def do_POST(self):
@@ -160,20 +156,6 @@ class H(BaseHTTPRequestHandler):
         out = WAVE.peaks(item["file"], "mix")
         out["source"] = "mix"
         return self._json(out)
-
-    def _get_vocals(self, ref):
-        from ..core import vocals as VOC
-        item = LIB.resolve(ref)
-        if not item:
-            return self._json({"error": "no such song"}, 404)
-        return self._json(VOC.status(item["uid"]))
-
-    def _post_vocals(self, req):
-        from ..core import vocals as VOC
-        item = LIB.resolve(req.get("uid"))
-        if not item:
-            return self._json({"ok": False, "error": "no such song"}, 404)
-        return self._json(VOC.ensure(item["uid"], item["file"]))
 
     def _get_job(self, job_id):
         from ..core import jobs as JOBS

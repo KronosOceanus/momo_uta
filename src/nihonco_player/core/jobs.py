@@ -19,6 +19,7 @@ from nihonco_yomi.config import JOB
 from . import diag
 
 _lock = threading.RLock()
+_local = threading.local()
 _jobs: dict[str, dict] = {}
 MAX_DONE = int(JOB["keep_done"])
 
@@ -50,7 +51,7 @@ def start(kind: str, key, runner, cancel=None) -> dict:
     job_id = uuid.uuid4().hex
     now = time.time()
     job = {"id": job_id, "kind": kind, "key": str(key), "state": "queued",
-           "stage": "", "error": None, "result": None,
+           "stage": "queued", "error": None, "result": None,
            "since": now, "updated": now, "_cancel": cancel,
            "_cancel_requested": False}
     with _lock:
@@ -58,35 +59,57 @@ def start(kind: str, key, runner, cancel=None) -> dict:
         _prune_locked()
 
     def run():
-        with _lock:
-            if job.get("_cancel_requested"):
-                job["state"] = "canceled"
-                job["error"] = "已取消"
-                job["updated"] = time.time()
-                return
-            job["state"] = "running"
-            job["updated"] = time.time()
+        _local.job_id = job_id
         try:
-            result = runner()
             with _lock:
                 if job.get("_cancel_requested"):
                     job["state"] = "canceled"
+                    job["stage"] = "canceled"
                     job["error"] = "已取消"
-                else:
-                    job["state"] = "done"
-                    job["result"] = result
+                    job["updated"] = time.time()
+                    return
+                job["state"] = "running"
+                job["stage"] = "queued"
                 job["updated"] = time.time()
-        except Exception as e:
-            with _lock:
-                canceled = bool(job.get("_cancel_requested"))
-                job["state"] = "canceled" if canceled else "failed"
-                job["error"] = "已取消" if canceled else str(e)[:500]
-                job["updated"] = time.time()
-            if not canceled:
-                diag.exception("job", e, kind=kind, key=key)
+            try:
+                result = runner()
+                with _lock:
+                    if job.get("_cancel_requested"):
+                        job["state"] = "canceled"
+                        job["stage"] = "canceled"
+                        job["error"] = "已取消"
+                    else:
+                        job["state"] = "done"
+                        job["stage"] = "done"
+                        job["result"] = result
+                    job["updated"] = time.time()
+            except Exception as e:
+                with _lock:
+                    canceled = bool(job.get("_cancel_requested"))
+                    job["state"] = "canceled" if canceled else "failed"
+                    job["stage"] = job["state"]
+                    job["error"] = "已取消" if canceled else str(e)[:500]
+                    job["updated"] = time.time()
+                if not canceled:
+                    diag.exception("job", e, kind=kind, key=key)
+        finally:
+            _local.job_id = None
 
     threading.Thread(target=run, daemon=True, name=f"job-{kind}").start()
     return _copy(job)
+
+
+def set_stage(stage: str) -> None:
+    """executor 更新当前任务的实际阶段；state 仍是 job 生命周期。"""
+    job_id = getattr(_local, "job_id", None)
+    if not job_id:
+        return
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job or job["state"] in ("done", "failed", "canceled"):
+            return
+        job["stage"] = str(stage)
+        job["updated"] = time.time()
 
 
 def active(kind: str | None = None) -> list[dict]:
@@ -105,6 +128,7 @@ def cancel(job_id: str) -> dict | None:
             return _copy(job)
         job["_cancel_requested"] = True
         job["state"] = "canceling"
+        job["stage"] = "canceling"
         job["updated"] = time.time()
         cb = job.get("_cancel")
         out = _copy(job)

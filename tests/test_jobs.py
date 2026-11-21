@@ -39,6 +39,24 @@ class TestJobs(unittest.TestCase):
         self.assertEqual(done["state"], "failed")
         self.assertIn("nope", done["error"])
 
+    def test_stage_tracks_executor_phase(self):
+        import threading
+        started = threading.Event()
+        release = threading.Event()
+
+        def runner():
+            JOBS.set_stage("working")
+            started.set()
+            release.wait(2)
+            return True
+
+        job = JOBS.start("test", "stage", runner)
+        self.assertTrue(started.wait(2))
+        self.assertEqual(JOBS.get(job["id"])["stage"], "working")
+        release.set()
+        done = wait(job["id"])
+        self.assertEqual(done["stage"], "done")
+
     def test_cancel_running_job(self):
         import threading
         started = threading.Event()

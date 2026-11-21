@@ -210,6 +210,9 @@ function vJobTitle(j){
   const it=(NH.LIB||[]).find(x=>String(x.uid)===String(j.uid));
   return it ? (it.title || it.orig || j.uid) : j.uid;
 }
+function vStage(j){
+  return (j && (j.stage || j.state)) || '';
+}
 function vStateText(s){
   return s==='running'?'执行中':s==='queued'?'排队':s==='canceling'?'正在取消…':'';
 }
@@ -224,7 +227,7 @@ function renderVTasks(){
   if(!jobs.length){ closeVTasks(true); return; }
   const cur=vCurrentJob();
   // 只更新内容；显示/隐藏由 open/close 决定，避免轮询把列表强行打开。
-  const sig=jobs.map(j=>`${j.id}:${j.state}:${j.uid}:${vJobTitle(j)}`).join('|')+
+  const sig=jobs.map(j=>`${j.id}:${j.state}:${vStage(j)}:${j.uid}:${vJobTitle(j)}`).join('|')+
             '|cur:'+(cur?cur.id:'');
   if(sig===NH.VLIST_SIG) return;
   NH.VLIST_SIG=sig;
@@ -233,10 +236,11 @@ function renderVTasks(){
     const row=document.createElement('div'); row.className='vrow';
     const nm=document.createElement('span'); nm.className='vnm';
     nm.textContent=(cur && cur.id===j.id ? '当前 · ' : '') + vJobTitle(j);
-    const st=document.createElement('span'); st.className='vst '+(j.state==='running'?'run':j.state==='queued'?'que':'');
-    st.textContent=vStateText(j.state);
+    const stage=vStage(j);
+    const st=document.createElement('span'); st.className='vst '+(stage==='running'?'run':stage==='queued'?'que':'');
+    st.textContent=vStateText(stage);
     const b=document.createElement('button'); b.dataset.vcancel=j.id;
-    b.textContent=j.state==='canceling'?'取消中':'取消'; b.disabled=j.state==='canceling';
+    b.textContent=stage==='canceling'?'取消中':'取消'; b.disabled=stage==='canceling';
     row.append(nm,st,b); list.appendChild(row);
   });
   const showAll=jobs.length>1 || !cur;
@@ -316,13 +320,14 @@ async function refreshActiveVJobs(){
     const ids=new Set();
     for(const j of (r.jobs||[])){
       ids.add(j.id);
-      NH.VJOBS.set(j.id, {id:j.id, uid:String(j.key||''), state:j.state});
+      NH.VJOBS.set(j.id, {id:j.id, uid:String(j.key||''), state:j.state,
+                           stage:j.stage || j.state});
     }
     for(const id of [...NH.VJOBS.keys()]) if(!ids.has(id)) NH.VJOBS.delete(id);
     if(NH.S){
       const cur=vCurrentJob();
       if(cur && (!NH.VSTAT || NH.VSTAT_IDX!==String(NH.S.uid))){
-        NH.VSTAT={state:cur.state};
+        NH.VSTAT={state:vStage(cur)};
         NH.VSTAT_IDX=String(NH.S.uid);
       }
     }
@@ -339,16 +344,18 @@ async function startVocals(uid){
   let job=null;
   try{
     job=await api('/api/jobs',{kind:'vocals', uid});
-    const rec={id:job.id, uid:String(uid), state:job.state||'queued'};
+    const rec={id:job.id, uid:String(uid), state:job.state||'queued',
+               stage:job.stage||job.state||'queued'};
     NH.VJOBS.set(rec.id, rec);
-    if(NH.S && String(NH.S.uid)===String(uid)){ NH.VSTAT={state:rec.state}; paintVStatus(); }
+    if(NH.S && String(NH.S.uid)===String(uid)){ NH.VSTAT={state:vStage(rec)}; paintVStatus(); }
     const done=await waitJob(job.id, (j)=>{
       rec.state=j.state;
+      rec.stage=j.stage || j.state;
       if(NH.S && String(NH.S.uid)===String(uid)){
         NH.VSTAT = (j.state==='done') ? (j.result || {state:'done'})
           : (j.state==='canceled') ? {state:'canceled', error:j.error||'已取消'}
           : (j.state==='failed') ? {state:'failed', error:j.error||'人声分离失败'}
-          : {state:j.state};
+          : {state:vStage(j)};
         paintVStatus();
       }
       paintVCancel();
@@ -373,17 +380,18 @@ async function startVocals(uid){
 }
 async function cancelVJob(rec){
   if(!vActive(rec) || rec.state==='canceling') return;
-  const old=rec.state;
-  rec.state='canceling';
+  const old=rec.state, oldStage=rec.stage;
+  rec.state='canceling'; rec.stage='canceling';
   if(vCurrentJob()===rec) NH.VSTAT={state:'canceling'};
   paintVStatus();
   try{
     const r=await api('/api/jobs/'+encodeURIComponent(rec.id)+'/cancel', {});
     if(!r || !r.ok) throw new Error((r&&r.error)||'取消失败');
     rec.state=(r.job&&r.job.state)||'canceling';
+    rec.stage=(r.job&&(r.job.stage||r.job.state))||'canceling';
   }catch(err){
-    rec.state=old;
-    if(vCurrentJob()===rec) NH.VSTAT={state:old, error:err.message};
+    rec.state=old; rec.stage=oldStage;
+    if(vCurrentJob()===rec) NH.VSTAT={state:vStage(rec), error:err.message};
     NH.done('取消失败：'+err.message);
   }
   paintVStatus();
@@ -393,7 +401,7 @@ async function cancelAllVocals(){
   try{
     const r=await api('/api/jobs/cancel_all',{kind:'vocals'});
     if(!r || !r.ok) throw new Error((r&&r.error)||'取消失败');
-    for(const j of jobs) j.state='canceling';
+    for(const j of jobs){ j.state='canceling'; j.stage='canceling'; }
     if(vCurrentJob()) NH.VSTAT={state:'canceling'};
     paintVStatus();
   }catch(err){

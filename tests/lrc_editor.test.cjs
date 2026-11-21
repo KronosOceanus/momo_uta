@@ -44,7 +44,6 @@ function player() {
       // 播放引擎预载 / 人声状态请求不参与断言（测试环境没有这些后端）
       if (path.startsWith('/audio/')) return Promise.resolve({ok: false, status: 404,
         arrayBuffer: async () => new ArrayBuffer(0)});
-      if (path.startsWith('/api/vocals')) return Promise.resolve({ok: true, json: async () => ({state:'none'})});
       if (path.startsWith('/api/jobs')) return Promise.resolve({ok: true, json: async () => ({id:'job', state:'done', result:{state:'done'}})});
       if (path === '/api/pl' && !options) return Promise.resolve({ok: true, json: async () => []});
       calls.push({path, body: options ? JSON.parse(options.body) : undefined});

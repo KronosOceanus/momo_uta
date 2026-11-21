@@ -408,7 +408,6 @@ GET
   /api/pl、/api/playlists  歌单列表
   /api/library            曲库列表 + uid
   /api/wave/<uid>[?src=vocals]  波形峰值
-  /api/vocals/<uid>       人声状态（兼容）
   /api/jobs/<id>          统一任务状态
   /api/jobs/active        当前活动 vocals 任务
   /audio/<uid>            音频流（Range）
@@ -421,7 +420,6 @@ POST
   /api/pick               选中候选
   /api/import/one         导入
   /api/lrc                LRC 编辑（uid）
-  /api/vocals             人声分离 ensure（兼容）
   /api/jobs               启动 vocals / match / rebuild 任务
   /api/jobs/<id>/cancel   取消单个 vocals 任务
   /api/jobs/cancel_all    取消所有 vocals 任务
@@ -567,7 +565,7 @@ window.__CFG           注入前端
   vocals    人声分离
   library   扫描/导入
   app       桌面壳/日志
-  jobs      job 轮询/保留条数
+  jobs      job 轮询/保留条数；state=生命周期，stage=实际执行阶段
 ```
 
 ```text

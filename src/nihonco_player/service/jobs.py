@@ -43,9 +43,12 @@ def start(kind: str, uid=None) -> dict:
             # 这里只等待真实终态，不再自己宣告超时却留下仍在跑的子进程。
             while True:
                 st = VOC.status(uid)
-                if st.get("state") == "done":
+                state = st.get("state")
+                if state in ("queued", "running", "canceling"):
+                    JOBS.set_stage(state)       # state=运行中的 job，stage=真实队列阶段
+                if state == "done":
                     return st
-                if st.get("state") in ("failed", "canceled"):
+                if state in ("failed", "canceled"):
                     raise VOC.Cancelled(st.get("error") or "已取消")
                 time.sleep(float(JOB["vocals_poll_ms"]) / 1000)
 
@@ -68,6 +71,4 @@ def cancel_job(job_id: str) -> dict | None:
 
 
 def cancel_all_vocals() -> list[dict]:
-    jobs = JOBS.cancel_all("vocals")
-    VOC.cancel_all(include_running=True)      # 兼容旧 /api/vocals 直接启动的任务
-    return jobs
+    return JOBS.cancel_all("vocals")
