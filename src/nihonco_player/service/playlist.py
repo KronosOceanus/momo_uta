@@ -64,7 +64,7 @@ def playlists_action(req) -> dict:
         item = LIB.resolve(req.get("uid"))
         if not item:
             return {"ok": False, "error": "歌曲已不可用，请重新加载", "lists": _lists()}
-        META.put(item["key"], offset=round(float(req.get("offset") or 0), 3))
+        META.put(item["uid"], offset=round(float(req.get("offset") or 0), 3))
     elif act == "edit_clear":
         item = LIB.resolve(req.get("uid"))
         if not item:

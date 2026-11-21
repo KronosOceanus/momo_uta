@@ -95,6 +95,9 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertGreaterEqual(len(d["lines"]), 3)
         self.assertTrue(any(l["ruby"] for l in d["lines"]))
         self.assertIn("rmH", d["lines"][1])
+        self.assertEqual(d["idx"], "0")
+        self.assertIsInstance(d["idx"], str)
+        self.assertFalse(d["pending"])
 
     def test_song_idx_is_not_accepted(self):
         with self.assertRaises(urllib.error.HTTPError) as cm:
@@ -106,6 +109,7 @@ class TestPlayerHttp(unittest.TestCase):
             self.url("/api/song/" + CACHE_ITEM["uid"])).read())
         self.assertEqual(d["uid"], CACHE_ITEM["uid"])
         self.assertEqual(d["audio"], "/audio/" + CACHE_ITEM["uid"])
+        self.assertEqual(d["idx"], "0")
         self.assertGreaterEqual(len(d["lines"]), 3)
 
     def test_edit_line(self):

@@ -104,30 +104,37 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     return res
 
 
+def _payload_base(item: dict, idx, uid, doc: dict) -> dict:
+    """所有分支共用的载荷字段；idx 只做展示，统一为字符串或 None。"""
+    return {
+        "uid": uid,
+        "idx": None if idx is None else str(idx),
+        "key": item["key"],
+        "title": item["title"],
+        "artist": item.get("artist", ""),
+        "version": doc.get("version"),
+        "duration": LY.audio_duration(item["file"]),
+        "audio": f"/audio/{uid}",
+        "offset": float(META.get(uid, "offset", 0.0) or 0.0),
+    }
+
+
 def song_payload(ref, _item=None) -> dict:
     item = _item or LIB.resolve(ref)
     if not item:
         raise KeyError("没有这首歌")
-    idx = LIB.idx_for(item.get("uid") or ref)
     uid = item.get("uid")
-    key = item["key"]
+    idx = LIB.idx_for(uid or ref)
     doc, has_lines = load_lyrics(item)
+    base = _payload_base(item, idx, uid, doc)
     if doc.get("disabled"):
         item["has_lyric"] = False
-        return {"uid": uid, "idx": str(idx), "key": key, "title": item["title"],
-                "artist": item.get("artist", ""), "pending": False,
-                "disabled": True, "lines": [], "nhlrc": False,
-                "version": doc.get("version"),
-                "duration": LY.audio_duration(item["file"]),
-                "audio": f"/audio/{uid}"}
+        return {**base, "pending": False, "disabled": True,
+                "lines": [], "nhlrc": False}
     if not has_lines:
         item["has_lyric"] = False
-        return {"uid": uid, "idx": str(idx), "key": key, "title": item["title"],
-                "artist": item.get("artist", ""), "pending": True, "lines": [],
-                "disabled": False, "nhlrc": doc.get("kind") == "nhlrc",
-                "version": doc.get("version"),
-                "duration": LY.audio_duration(item["file"]),
-                "audio": f"/audio/{uid}"}
+        return {**base, "pending": True, "disabled": False, "lines": [],
+                "nhlrc": doc.get("kind") == "nhlrc"}
     item["has_lyric"] = True
     lines = doc["lines"]
     stored = doc.get("annotations") or {}
@@ -138,13 +145,8 @@ def song_payload(ref, _item=None) -> dict:
         fields = ANN_CACHE.line_fields(ln["text"], stored.get(li))
         ln.update(fields)
         ln["raw"] = ln["text"]
-    return {"uid": uid, "idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
-            "lines": lines, "nhlrc": doc.get("kind") == "nhlrc",
-            "disabled": False, "version": doc.get("version"),
-        "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),
-        "duration": LY.audio_duration(item["file"]),
-        "audio": f"/audio/{uid}",
-}
+    return {**base, "pending": False, "lines": lines,
+            "nhlrc": doc.get("kind") == "nhlrc", "disabled": False}
 
 
 def edit_line(uid, li, start, reading):

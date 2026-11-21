@@ -2,7 +2,7 @@
 """每首歌的界面状态（只影响播放，不改文件）。
 
 现在只有一个字段：offset（整体偏移，秒）。
-文件 data/curated/song_meta.json：{ "<song key>": {"offset": 0.4} }
+文件 data/curated/song_meta.json：{ "<uid>": {"offset": 0.4} }
 """
 from __future__ import annotations
 
