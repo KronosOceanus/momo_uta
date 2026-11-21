@@ -76,6 +76,30 @@ def resolve(ref) -> dict | None:
         return CACHE.get(ref)
 
 
+class StaleRef(Exception):
+    """旧 idx 请求没有版本，或版本已过期。"""
+
+
+def resolve_request(ref, generation=None, is_uid=False) -> dict | None:
+    """写请求用：uid 稳定；idx 必须在同一把锁内校验 generation。"""
+    if ref is None:
+        return None
+    ref = str(ref)
+    with _LOCK:
+        if ref in BY_UID:
+            return BY_UID[ref]
+        if is_uid:
+            return None
+        item = CACHE.get(ref)
+        if not item:
+            return None
+        if generation is None:
+            raise StaleRef("旧 idx 请求必须带 generation")
+        if str(generation) != str(GENERATION):
+            raise StaleRef("曲库已更新，请重新加载")
+        return item
+
+
 def idx_for(ref) -> str | None:
     """uid/idx → 当前列表 idx；uid 优先。"""
     if ref is None:
@@ -92,6 +116,12 @@ def idx_for(ref) -> str | None:
 def snapshot() -> list[tuple[str, dict]]:
     with _LOCK:
         return list(CACHE.items())
+
+
+def snapshot_state() -> tuple[list[tuple[str, dict]], int]:
+    """列表和版本号必须来自同一把锁下的快照。"""
+    with _LOCK:
+        return list(CACHE.items()), GENERATION
 
 
 def generation() -> int:
@@ -128,8 +158,14 @@ def refresh(uid: str | None = None) -> int:
                 if str(v.get("uid")) == str(uid):
                     e = _entry(Path(v["file"]), v.get("group", ""))
                     if e:
+                        old_uid = str(v.get("uid") or "")
                         CACHE[k] = e
-                        BY_UID[str(uid)] = e
+                        if old_uid:
+                            BY_UID.pop(old_uid, None)
+                        BY_UID[str(e["uid"])] = e
+                        if old_uid != str(e["uid"]):
+                            global GENERATION
+                            GENERATION += 1
                     LI.flush()
                     return len(CACHE)
             found = _resolve_uid(str(uid))
@@ -139,7 +175,8 @@ def refresh(uid: str | None = None) -> int:
                 if e:
                     nums = [int(k) for k in CACHE if str(k).isdigit()]
                     CACHE[str(max(nums) + 1 if nums else 0)] = e
-                    BY_UID[str(uid)] = e
+                    BY_UID.pop(str(uid), None)
+                    BY_UID[str(e["uid"])] = e
             LI.flush()
             return len(CACHE)
         lib = scan_library()

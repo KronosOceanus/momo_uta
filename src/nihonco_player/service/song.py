@@ -92,8 +92,8 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     return res
 
 
-def song_payload(ref) -> dict:
-    item = LIB.resolve(ref)
+def song_payload(ref, _item=None) -> dict:
+    item = _item or LIB.resolve(ref)
     if not item:
         raise KeyError("没有这首歌")
     idx = LIB.idx_for(item.get("uid") or ref)
@@ -134,9 +134,9 @@ def song_payload(ref) -> dict:
 }
 
 
-def edit_line(ref, li, start, reading):
+def edit_line(ref, li, start, reading, generation=None, is_uid=False):
     """改一处的读音：重算该行、立即写回 nhlrc，返回新 HTML 与罗马音。"""
-    item = LIB.resolve(ref)
+    item = LIB.resolve_request(ref, generation, is_uid=is_uid)
     if not item or not reading:
         return None
     with LRC.LOCK:
@@ -196,9 +196,9 @@ def rematch(ref, duration):
     return {"stem": item["stem"], "candidates": rows[:int(LY.CFG["manual_limit"])]}
 
 
-def pick(ref, song_id) -> dict:
+def pick(ref, song_id, generation=None, is_uid=False) -> dict:
     """用户选定候选：用网络歌词替换当前歌词（重写 data/lyrics，读音全部重来）。"""
-    item = LIB.resolve(ref)
+    item = LIB.resolve_request(ref, generation, is_uid=is_uid)
     if not item or not song_id:
         return {"ok": False, "error": "缺少歌曲或候选 id"}
     artist, title = LY.split_name(item["stem"])
@@ -212,7 +212,7 @@ def pick(ref, song_id) -> dict:
         return {"ok": False, "error": "写歌词失败：" + str(e)}
     if not res.get("ok"):
         return {"ok": False, "error": res.get("error") or "写歌词失败"}
-    d = song_payload(LIB.idx_for(item.get("uid")) or ref)
+    d = song_payload(None, item)   # 用刚保存的同一份条目回读，不再回查 idx
     return {"ok": True, "uid": item.get("uid"), "idx": d.get("idx"),
             "lines": len(d.get("lines") or [])}
 
@@ -229,7 +229,8 @@ def edit_line_action(req) -> dict:
     line = int(req.get("line", -1))
     start = int(req.get("start", -1))
     reading = str(req.get("reading") or "")
-    r = edit_line(req.get("uid") or req.get("idx"), line, start, reading)
+    r = edit_line(req.get("uid") or req.get("idx"), line, start, reading,
+                  req.get("generation"), bool(req.get("uid")))
     if not r:
         return {"error": "读音保存失败"}
     return r

@@ -147,6 +147,7 @@ class TestMatchAction(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
+        from nihonco_player.core import library as LIB
         from nihonco_player.core.library import CACHE
         from nihonco_player.service import playlist as SVC
         from nihonco_player.service import song as SONG
@@ -161,7 +162,7 @@ class TestMatchAction(unittest.TestCase):
             PL.set_file(root / "playlists.json")
             try:
                 with patch.object(SONG, "lazy_match") as lazy:
-                    res = SVC.playlists_action({"action": "match", "idx": "0"})
+                    res = SVC.playlists_action({"action": "match", "idx": "0", "generation": LIB.generation()})
             finally:
                 PL.set_file(old)
             lazy.assert_called_once()

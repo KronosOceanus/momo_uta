@@ -54,7 +54,7 @@ class TestRematch(unittest.TestCase):
                  patch.object(LY, "fetch_lrc_by_id", return_value=new):
                 LRF.save(audio, [{"t": 1.0, "text": "旧歌词"}],
                          {0: [["旧歌词", "ふるうた", "A"]]})
-                res = SONG.pick("0", 123)
+                res = SONG.pick("0", 123, LIB.generation())
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 doc = LRF.load(audio)
             self.assertTrue(res["ok"])
@@ -76,7 +76,7 @@ class TestRematch(unittest.TestCase):
                  patch.object(LY, "fetch_lrc_by_id", return_value="作词 : X\nあの日\n今も\n空を"):
                 LRF.save(audio, [{"t": 1.0, "text": "旧歌词"}], {})
                 before = LRF.store_path(audio).read_text(encoding="utf-8")
-                res = SONG.pick("0", 123)
+                res = SONG.pick("0", 123, LIB.generation())
                 after = LRF.store_path(audio).read_text(encoding="utf-8")
             self.assertFalse(res["ok"])
             self.assertIn("时间轴", res["error"])

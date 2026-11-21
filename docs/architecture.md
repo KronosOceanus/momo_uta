@@ -307,6 +307,11 @@ key    md5(文件名主干)：标签、整体偏移等按歌元数据
   /audio/<uid>
   /api/lrc、/api/line、/api/rematch、/api/pick、/api/jobs 用 body.uid
   idx 只用于列表显示和 DOM
+
+写请求：
+  uid：稳定身份，generation 过期也照常执行
+  idx：必须带 generation；缺版本或版本不一致 → 409
+  resolve_request() 在同一把锁内校验版本并解析成条目
 ```
 
 ```text
@@ -390,7 +395,7 @@ GET
   /                       页面（注入 __CFG）
   /static/*               前端静态文件
   /api/song/<uid>         单曲载荷（idx 兼容）
-  /api/pl、/api/playlists  歌单列表 + generation
+  /api/pl、/api/playlists  歌单列表 + generation（同一快照）
   /api/library            曲库列表 + uid
   /api/wave/<uid>[?src=vocals]  波形峰值
   /api/vocals/<uid>       人声状态（兼容）
@@ -407,7 +412,7 @@ POST
   /api/lrc                LRC 编辑（uid 优先）
   /api/vocals             人声分离 ensure（兼容）
   /api/jobs               启动 vocals / match / rebuild 任务
-  所有写请求可带 generation；不一致返回 409
+  uid 写请求可带任意 generation；idx 兼容写请求必须带当前 generation
   /api/log                前端未捕获错误写 app.log
 ```
 

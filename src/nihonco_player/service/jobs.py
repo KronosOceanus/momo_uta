@@ -13,7 +13,7 @@ from . import song as SONGS
 KINDS = {"vocals", "match", "rebuild"}
 
 
-def start(kind: str, idx=None) -> dict:
+def start(kind: str, idx=None, generation=None, is_uid=False) -> dict:
     kind = str(kind or "")
     if kind not in KINDS:
         raise ValueError("未知任务类型：" + kind)
@@ -28,7 +28,7 @@ def start(kind: str, idx=None) -> dict:
 
         return JOBS.start(kind, key, run_rebuild)
 
-    item = LIB.resolve(idx) if idx is not None else None
+    item = LIB.resolve_request(idx, generation, is_uid=is_uid) if idx is not None else None
     if not item:
         raise ValueError("没有这首歌")
     idx = item.get("uid") or idx

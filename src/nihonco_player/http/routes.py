@@ -116,11 +116,10 @@ class H(BaseHTTPRequestHandler):
                 missing.append(k)
         if missing:
             return self._json({"ok": False, "error": "缺少参数：" + "/".join(missing)}, 400)
-        if p != "/api/log" and req.get("generation") is not None:
-            if str(req.get("generation")) != str(LIB.generation()):
-                return self._json({"ok": False, "error": "曲库已更新，请重新加载"}, 409)
         try:
             return getattr(self, fn)(req)
+        except LIB.StaleRef as e:
+            return self._json({"ok": False, "error": str(e)}, 409)
         except Exception as e:
             diag.exception("http", e, method="POST", path=p)
             try:
@@ -132,7 +131,7 @@ class H(BaseHTTPRequestHandler):
     def _get_playlists(self):
         d = SVC_PL.playlists_action({"action": "noop"})
         return self._json({"lists": d["lists"], "open": SVC_PL.playlists_open(),
-                           "generation": LIB.generation()})
+                           "generation": d.get("generation")})
 
     def _get_library(self):
         rows = [{"idx": k, "uid": v.get("uid"), "title": v["title"],
@@ -174,7 +173,8 @@ class H(BaseHTTPRequestHandler):
 
     def _post_vocals(self, req):
         from ..core import vocals as VOC
-        item = LIB.resolve(req.get("uid") or req.get("idx"))
+        item = LIB.resolve_request(req.get("uid") or req.get("idx"),
+                                   req.get("generation"), is_uid=bool(req.get("uid")))
         if not item:
             return self._json({"ok": False, "error": "no such song"}, 404)
         return self._json(VOC.ensure(item["uid"], item["file"]))
@@ -189,7 +189,8 @@ class H(BaseHTTPRequestHandler):
         if not kind:
             return self._json({"ok": False, "error": "缺少任务类型"}, 400)
         try:
-            job = SVC_JOBS.start(kind, req.get("uid") or req.get("idx"))
+            job = SVC_JOBS.start(kind, req.get("uid") or req.get("idx"),
+                                 req.get("generation"), bool(req.get("uid")))
         except ValueError as e:
             return self._json({"ok": False, "error": str(e)}, 400)
         except Exception as e:
@@ -258,7 +259,8 @@ class H(BaseHTTPRequestHandler):
         return self._json(SVC_SONG.rematch(req.get("uid") or req.get("idx"), req.get("duration")))
 
     def _post_pick(self, req):
-        r = SVC_SONG.pick(req.get("uid") or req.get("idx"), req.get("id"))
+        r = SVC_SONG.pick(req.get("uid") or req.get("idx"), req.get("id"),
+                          req.get("generation"), bool(req.get("uid")))
         return self._json(r, 200 if r.get("ok") else 400)
 
     def _post_lrc(self, req):

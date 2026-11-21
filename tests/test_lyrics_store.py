@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from nihonco_player.core import lrc_doc as DOC
+from nihonco_player.core import library as LIB
 from nihonco_player.core import lrc_files as LRF
 from nihonco_player.core import lyrics as LY
 from nihonco_player.core import lyrics_cache as LC
@@ -108,7 +109,7 @@ class TestManualReading(unittest.TestCase):
                  patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows(), {})                # 先有正文
                 SONG.song_payload(0)                       # 自动注音并落盘
-                res = SONG.edit_line_action({"idx": "0", "line": 0,
+                res = SONG.edit_line_action({"idx": "0", "generation": LIB.generation(), "line": 0,
                                              "start": 0, "reading": "きみだ"})
                 self.assertIn("きみだ", res["ruby"])
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
@@ -128,10 +129,10 @@ class TestManualReading(unittest.TestCase):
                  patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows(), {})
                 SONG.song_payload(0)
-                SONG.edit_line_action({"idx": "0", "line": 0,
+                SONG.edit_line_action({"idx": "0", "generation": LIB.generation(), "line": 0,
                                        "start": 0, "reading": "きみだ"})
                 self.assertIn("きみだ", LRF.store_path(audio).read_text(encoding="utf-8"))
-                SVC_PL.playlists_action({"action": "edit_clear", "idx": "0"})
+                SVC_PL.playlists_action({"action": "edit_clear", "idx": "0", "generation": LIB.generation()})
                 SONG.song_payload(0)                     # 重新注音并落盘
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertNotIn("きみだ", raw)
@@ -152,7 +153,7 @@ class TestSaveAlignment(unittest.TestCase):
                 SONG.song_payload(0)
                 before = LRF.load(audio)["annotations"]
                 from nihonco_player.service import lrc as SVC
-                res = SVC.lrc_action({"action": "save", "idx": "0", "lines": [
+                res = SVC.lrc_action({"action": "save", "idx": "0", "generation": LIB.generation(), "lines": [
                     {"t": 1.0, "text": "新しい行"},
                     {"t": 5.0, "text": "君の名前"},
                     {"t": 9.0, "text": "呼んでくれた"},
