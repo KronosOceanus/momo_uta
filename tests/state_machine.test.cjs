@@ -68,3 +68,15 @@ test('view helpers are phase-based', () => {
   assert.equal(NH.reduceView({...base, phase: 'matching'}, {type: 'NOOP', request: 1}).phase, 'matching');
   assert.equal(NH.reduceView({...base, phase: 'ready'}, {type: 'NOOP', request: 1}).phase, 'ready');
 });
+
+test('request tokens are scoped per domain', () => {
+  const a = NH.track('load');
+  const b = NH.currentToken('load');
+  assert.equal(a, b);
+  const c = NH.track('load');
+  assert.equal(NH.isCurrent('load', a), false);
+  assert.equal(NH.isCurrent('load', c), true);
+  const w = NH.track('wave');
+  assert.equal(NH.isCurrent('wave', w), true);
+  assert.equal(NH.isCurrent('load', w), false);
+});

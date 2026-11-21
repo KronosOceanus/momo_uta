@@ -65,24 +65,24 @@ function audioReady(){
   if(NH.au.readyState>=1 && isFinite(NH.au.duration)) return Promise.resolve();
   return onceEvent('loadedmetadata', UI.canplay_wait_ms||900);
 }
-NH.SEEK_SEQ = 0; NH.SEEK_WAS_PLAYING = false;
+NH.SEEK_ACTIVE = false; NH.SEEK_WAS_PLAYING = false;
 async function seekPrecise(t){
   t=Math.max(0, t);
-  if(NH.SEEK_SEQ===0) NH.SEEK_WAS_PLAYING=!NH.au.paused;   // 连点时以第一次的状态为准
-  const seq=++NH.SEEK_SEQ;
+  if(!NH.SEEK_ACTIVE){ NH.SEEK_WAS_PLAYING=!NH.au.paused; NH.SEEK_ACTIVE=true; }   // 连点时以第一次的状态为准
+  const seq=NH.track('seek');
   if(NH.SEEK_WAS_PLAYING) NH.au.pause();         // 画面与旧声音都在此停下
   await audioReady();
-  if(seq!==NH.SEEK_SEQ) return;
+  if(!NH.isCurrent('seek',seq)) return;
   const seeked=onceEvent('seeked', UI.canplay_wait_ms||900);
   NH.au.currentTime=t;
   paintTransport();
   await seeked;
-  if(seq!==NH.SEEK_SEQ) return;
+  if(!NH.isCurrent('seek',seq)) return;
   if(NH.au.readyState<3) await onceEvent('canplay', UI.canplay_wait_ms||900);
-  if(seq!==NH.SEEK_SEQ) return;
+  if(!NH.isCurrent('seek',seq)) return;
   if(NH.SEEK_WAS_PLAYING) await NH.au.play().catch(()=>{});
   paintTransport();
-  NH.SEEK_SEQ=0;                              // 这一轮结束，下一次重新取播放状态
+  NH.SEEK_ACTIVE=false;                       // 这一轮结束，下一次重新取播放状态
 }
 
 function seekIdx(i, keepPlaying){

@@ -39,6 +39,11 @@ function reduceView(state, ev){
   };
 }
 
+NH.REQ = Object.create(null);       // domain → 最近一次请求序号
+NH.track = domain => (NH.REQ[domain] = (NH.REQ[domain] || 0) + 1);
+NH.currentToken = domain => NH.REQ[domain] || 0;
+NH.isCurrent = (domain, seq) => NH.currentToken(domain) === seq;
+
 NH.VIEW_PHASES = PHASES;
 NH.VSTATE = initial();
 NH.reduceView = reduceView;

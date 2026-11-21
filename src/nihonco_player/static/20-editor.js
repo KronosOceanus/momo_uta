@@ -111,12 +111,11 @@ function lrcText(){
   return rows.join('\n')+'\n';
 }
 
-NH.LRC_OPEN_REQUEST = 0;
 async function openLrcEditor(entering=false){
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
-  const song=NH.S, request=NH.LOAD_REQUEST, opening=++NH.LRC_OPEN_REQUEST;
+  const song=NH.S, request=NH.currentToken('load'), opening=NH.track('lrcOpen');
   const d=await NH.api('/api/lrc',{action:'load', uid:song.uid});
-  if(NH.S!==song || request!==NH.LOAD_REQUEST || opening!==NH.LRC_OPEN_REQUEST || (!entering && NH.VIEW_MODE!=='lrc')) return;
+  if(NH.S!==song || !NH.isCurrent('load',request) || !NH.isCurrent('lrcOpen',opening) || (!entering && NH.VIEW_MODE!=='lrc')) return;
   if(!d.ok) throw new Error(d.error||'无法读取歌词');
   if(entering){
     NH.clearToast();
@@ -506,7 +505,7 @@ document.getElementById('offchip').onclick=async()=>{
 
 document.getElementById('edit').onclick=()=>{
   if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.uid, false, 'kana');
-  NH.LRC_OPEN_REQUEST++;   // 如果正在读取 LRC，保留用户最后选择的模式
+  NH.track('lrcOpen');   // 如果正在读取 LRC，保留用户最后选择的模式
   NH.VIEW_MODE = NH.VIEW_MODE==='kana' ? 'normal' : 'kana';
   syncModes();
 };

@@ -13,7 +13,6 @@ const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
 NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
 NH.WMARK = {};   // 查看歌曲的波形播放头（静止时用）
-NH.WAVE_SEQ = 0;  // 波形请求序号，切歌/重载时丢弃旧响应
 
 // ── 波形与整体偏移 ────────────────────────────────
 const CFG=(window.__CFG)||{};
@@ -436,18 +435,18 @@ document.getElementById('vcancelall').onclick=cancelAllVocals;
 async function loadWave(force){
   if(!NH.S) return;
   if(!force && NH.WAVE) return;
-  const uid=NH.S.uid, seq=++NH.WAVE_SEQ;
+  const uid=NH.S.uid, seq=NH.track('wave');
   NH.WAVE=null;
   try{
     const src=(NH.VSTAT && NH.VSTAT.state==='done' && NH.VSTAT.has_vocals) ? '?src=vocals' : '';
     const d=await api('/api/wave/'+encodeURIComponent(uid)+src);
-    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.uid)!==String(uid)) return;
+    if(!NH.isCurrent('wave',seq) || !NH.S || String(NH.S.uid)!==String(uid)) return;
     if(d.error){ document.getElementById('wavehint').textContent='无法生成波形：'+d.error; return; }
     NH.WAVE=d;
     updateWaveHint();
     drawWave();
   }catch(e){
-    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.uid)!==String(uid)) return;
+    if(!NH.isCurrent('wave',seq) || !NH.S || String(NH.S.uid)!==String(uid)) return;
     document.getElementById('wavehint').textContent='波形加载失败';
   }
 }
@@ -542,11 +541,10 @@ function saveOpen(){
   api('/api/pl',{action:'ui_open', ids:[...NH.OPEN]}).catch(err=>reportClientError('ui_open', err.message));
 }
 
-NH.LOAD_REQUEST = 0;
 async function load(ref, autoplay, nextMode){
   if(NH.LRC_REPLACING) return false;
   clearToast();                                   // 换歌前不留下上一首的提示
-  const request=++NH.LOAD_REQUEST;
+  const request=NH.track('load');
   NH.viewDispatch({type:'LOAD_START', idx:ref, request});
   NH.syncModes?.();
   const editing=NH.VIEW_MODE==='lrc';
@@ -563,25 +561,25 @@ async function load(ref, autoplay, nextMode){
     if(editing){
       NH.setLrcLocked(true);
       if(!await NH.flushLrc()) return false;
-      if(request!==NH.LOAD_REQUEST) return false;
+      if(!NH.isCurrent('load',request)) return false;
     }
     d=await api('/api/song/'+encodeURIComponent(ref));
-    if(request!==NH.LOAD_REQUEST) return false;
+    if(!NH.isCurrent('load',request)) return false;
     NH.LRC_VERSION = d.version || 'none';
     NH.syncLyricMark(d.uid, !d.pending && !d.disabled);
   }catch(e){
-    if(request===NH.LOAD_REQUEST){
+    if(NH.isCurrent('load',request)){
       NH.viewDispatch({type:'LOAD_FAILED', idx:ref, request, error:e.message});
       NH.syncModes?.();
       done('加载歌曲失败：'+e.message);
     }
     return false;
   }finally{
-    if(editing && request===NH.LOAD_REQUEST) NH.setLrcLocked(false);
+    if(editing && NH.isCurrent('load',request)) NH.setLrcLocked(false);
   }
   if(NH.loop && (NH.PLAYING_UID===null || String(NH.PLAYING_UID)!==String(d.uid))) NH.closeLineLoop?.();
   const changedSong=!NH.S || String(NH.S.uid)!==String(d.uid);
-  if(changedSong) NH.WAVE_SEQ=(NH.WAVE_SEQ||0)+1;   // 旧波形请求作废
+  if(changedSong) NH.track('wave');   // 旧波形请求作废
   if(changedSong){ NH.VSTAT=null; NH.VSTAT_IDX=null; paintVStatus(); }
   if(changedSong || nextMode!==undefined){
     NH.VIEW_MODE=nextMode || 'normal';
@@ -618,15 +616,15 @@ async function load(ref, autoplay, nextMode){
     try{
       const job=await api('/api/jobs',{kind:'match', uid:d.uid});
       const st=await waitJob(job.id);
-      if(request!==NH.LOAD_REQUEST) return false;
+      if(!NH.isCurrent('load',request)) return false;
       if(st.state==='failed') throw new Error(st.error || '匹配失败');
       const d2=await api('/api/song/'+encodeURIComponent(d.uid));
-      if(request!==NH.LOAD_REQUEST) return false;
+      if(!NH.isCurrent('load',request)) return false;
       if(!d2.pending) return load(d.uid, autoplay, nextMode);
     }catch(e){
-      if(request!==NH.LOAD_REQUEST) return false;
+      if(!NH.isCurrent('load',request)) return false;
     }
-    if(request!==NH.LOAD_REQUEST) return false;
+    if(!NH.isCurrent('load',request)) return false;
     NH.NO_MATCH.add(String(d.uid));
     NH.viewDispatch({type:'MATCH_FAILED', idx:d.uid, request, error:'no match'});
     NH.syncModes?.();
@@ -1184,10 +1182,10 @@ loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一�
 
 document.getElementById('resetall').onclick=async()=>{
   if(!NH.S) return;
-  const song=NH.S, version=NH.LRC_VERSION, request=NH.LOAD_REQUEST;
+  const song=NH.S, version=NH.LRC_VERSION, request=NH.currentToken('load');
   const r=await api('/api/pl',{action:'edit_clear', uid:song.uid, version});
   // 响应回来前已经发起了别的 load（即使还没完成）→ 让那次切歌继续。
-  if(request!==NH.LOAD_REQUEST || NH.S!==song) return;
+  if(!NH.isCurrent('load',request) || NH.S!==song) return;
   if(r && r.ok===false){ done(r.error||'歌曲已不可用'); await loadLib(); return; }
   if(r && r.version) NH.LRC_VERSION=r.version;
   toast('已恢复默认标注');
