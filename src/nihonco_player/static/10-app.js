@@ -528,7 +528,7 @@ function scheduleAutoRebuild(){
   if(NH.AUTO_REBUILD) return;
   NH.AUTO_REBUILD=true;
   const run=async()=>{
-    if(NH.LRCEDIT || NH.BUSY){ setTimeout(run, 5000); return; }
+    if(NH.LRCEDIT || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, 5000); return; }
     if(NH.PLAYING!==null && NH.au && !NH.au.paused){ setTimeout(run, 5000); return; }
     busy('发现缺失歌曲，正在重建索引…');
     try{
