@@ -482,7 +482,8 @@ document.getElementById('offchip').onclick=async()=>{
   document.getElementById('offval').textContent='0.00s';
   syncModes();
   { const i=NH.idxAt(NH.au.currentTime); if(i>=0) NH.highlight(i); }
-  await NH.api('/api/pl',{action:'ui_offset', uid:NH.S?.uid, offset:0});
+  const r=await NH.api('/api/pl',{action:'ui_offset', uid:NH.S?.uid, offset:0});
+  if(r && r.ok===false) NH.done(r.error||'歌曲已不可用');
 };
 
 document.getElementById('edit').onclick=()=>{

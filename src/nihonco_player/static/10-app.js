@@ -335,7 +335,8 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   NH.syncModes(); drawWave();
   const i=NH.idxAt(NH.au.currentTime);
   if(i>=0) NH.highlight(i);
-  await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
+  const r=await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
+  if(r && r.ok===false) done(r.error||'歌曲已不可用');
 });
 document.getElementById('offval').onclick=()=>{
   if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
@@ -346,7 +347,10 @@ document.getElementById('offval').onclick=()=>{
     el.textContent=NH.OFFSET.toFixed(2)+'s';
     NH.syncModes(); drawWave();
     const i=NH.idxAt(NH.au.currentTime); if(i>=0) NH.highlight(i);
-    if(NH.S) await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
+    if(NH.S){
+      const r=await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
+      if(r && r.ok===false) done(r.error||'歌曲已不可用');
+    }
   }});
 };
 
@@ -994,7 +998,8 @@ loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一�
 
 document.getElementById('resetall').onclick=async()=>{
   if(!NH.S) return;
-  await api('/api/pl',{action:'edit_clear', uid:NH.S.uid});
+  const r=await api('/api/pl',{action:'edit_clear', uid:NH.S.uid});
+  if(r && r.ok===false){ done(r.error||'歌曲已不可用'); await loadLib(); return; }
   toast('已恢复默认标注');
   load(NH.S.uid);
 };

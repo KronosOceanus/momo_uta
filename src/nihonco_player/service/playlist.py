@@ -62,18 +62,21 @@ def playlists_action(req) -> dict:
         PL.set_open([x for x in (req.get("ids") or []) if x])
     elif act == "ui_offset":
         item = LIB.resolve(req.get("uid"))
-        if item:
-            META.put(item["key"], offset=round(float(req.get("offset") or 0), 3))
+        if not item:
+            return {"ok": False, "error": "歌曲已不可用，请重新加载", "lists": _lists()}
+        META.put(item["key"], offset=round(float(req.get("offset") or 0), 3))
     elif act == "edit_clear":
         item = LIB.resolve(req.get("uid"))
-        if item:
-            doc = LRC.load(item["file"], item.get("uid"),
-                           item["title"], item.get("artist", ""))
-            SONGS.save_lyrics(item, doc["lines"], "reset")
+        if not item:
+            return {"ok": False, "error": "歌曲已不可用，请重新加载", "lists": _lists()}
+        doc = LRC.load(item["file"], item.get("uid"),
+                       item["title"], item.get("artist", ""))
+        SONGS.save_lyrics(item, doc["lines"], "reset")
     elif act == "match":
         item = LIB.resolve(req.get("uid"))
-        if item:
-            SONGS.lazy_match(item)
+        if not item:
+            return {"ok": False, "error": "歌曲已不可用，请重新加载", "lists": _lists()}
+        SONGS.lazy_match(item)
     elif act == "import":
         return import_to_list(req)
     elif act == "library_rebuild":

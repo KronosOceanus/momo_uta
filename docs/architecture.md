@@ -266,7 +266,12 @@ refresh(uid)：
 重建/启动加载：
   _publish() 一次性发布新 CACHE + BY_UID
   并发读不会看到 clear 后的空表
-  旧 idx 仍可能指向新歌，所以写/播放只用 uid
+
+refresh 与同内容副本：
+  某个路径内容变了，先更新该条；
+  如果 CACHE 里还有别的副本持有旧 uid，
+  BY_UID[旧 uid] 继续指向剩余副本；
+  没有剩余副本才移除旧 uid。
 
 load_for_playlists()（启动用）：
   读 playlists.json 的所有成员 uid
@@ -364,6 +369,8 @@ playlists_action(req)：
   entry_remove / entry_move / entries_move / entry_reorder / list_reorder
   ui_open / ui_offset
   match（懒匹配）
+  ui_offset/edit_clear/match 找不到 uid 时返回 ok:false，
+  不能静默成功
   edit_clear（清空标注，恢复默认）
   import（导入音频/歌词，走 import_to_list）
 

@@ -142,6 +142,26 @@ class TestImportToList(unittest.TestCase):
             self.assertEqual(res["imported"], 1)
 
 
+class TestUnknownUid(unittest.TestCase):
+    def test_song_action_reports_missing_uid(self):
+        import tempfile
+        from pathlib import Path
+        from nihonco_player.core import library as LIB
+        from nihonco_player.core.library import CACHE
+        from nihonco_player.service import playlist as SVC
+        with tempfile.TemporaryDirectory() as tmp:
+            CACHE.clear(); LIB.BY_UID.clear()
+            old = PL.FILE
+            PL.set_file(Path(tmp) / "playlists.json")
+            try:
+                for action in ("edit_clear", "ui_offset", "match"):
+                    r = SVC.playlists_action({"action": action, "uid": "missing"})
+                    self.assertFalse(r["ok"], action)
+                    self.assertIn("不可用", r["error"])
+            finally:
+                PL.set_file(old)
+
+
 class TestMatchAction(unittest.TestCase):
     def test_match_calls_lazy_match(self):
         import tempfile

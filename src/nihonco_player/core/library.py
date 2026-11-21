@@ -116,10 +116,17 @@ def refresh(uid: str | None = None) -> int:
                     e = _entry(Path(v["file"]), v.get("group", ""))
                     if e:
                         old_uid = str(v.get("uid") or "")
+                        new_uid = str(e["uid"])
                         CACHE[k] = e
                         if old_uid:
                             BY_UID.pop(old_uid, None)
-                        BY_UID[str(e["uid"])] = e
+                            # 同内容可能还有别的副本；旧 uid 继续指向剩余那份
+                            remaining = next(
+                                (x for k2, x in CACHE.items()
+                                 if k2 != k and str(x.get("uid")) == old_uid), None)
+                            if remaining:
+                                BY_UID[old_uid] = remaining
+                        BY_UID[new_uid] = e
                     LI.flush()
                     return len(CACHE)
             found = _resolve_uid(str(uid))
@@ -129,8 +136,14 @@ def refresh(uid: str | None = None) -> int:
                 if e:
                     nums = [int(k) for k in CACHE if str(k).isdigit()]
                     CACHE[str(max(nums) + 1 if nums else 0)] = e
-                    BY_UID.pop(str(uid), None)
-                    BY_UID[str(e["uid"])] = e
+                    old_uid = str(uid)
+                    new_uid = str(e["uid"])
+                    BY_UID.pop(old_uid, None)
+                    remaining = next(
+                        (x for x in CACHE.values() if str(x.get("uid")) == old_uid), None)
+                    if remaining:
+                        BY_UID[old_uid] = remaining
+                    BY_UID[new_uid] = e
             LI.flush()
             return len(CACHE)
         lib = scan_library()

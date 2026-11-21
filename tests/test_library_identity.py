@@ -50,6 +50,20 @@ class TestLibraryIdentity(unittest.TestCase):
         self.assertIs(LIB.BY_UID["new"], new)
         self.assertIs(LIB.CACHE["0"], new)
 
+    def test_refresh_keeps_old_uid_if_another_copy_remains(self):
+        from unittest.mock import patch
+        old = {"uid": "same", "title": "A", "file": "/tmp/a.mp3"}
+        copy = {"uid": "same", "title": "A", "file": "/tmp/a-copy.mp3"}
+        new = {"uid": "new", "title": "A", "file": "/tmp/a.mp3"}
+        LIB.CACHE.clear(); LIB.CACHE["0"] = old; LIB.CACHE["1"] = copy
+        LIB.BY_UID.clear(); LIB.BY_UID["same"] = old
+        with patch.object(LIB, "_entry", return_value=new), \
+             patch.object(LIB.LI, "flush"):
+            LIB.refresh("same")
+        self.assertIs(LIB.BY_UID["same"], copy)   # 旧 uid 指向剩余副本
+        self.assertIs(LIB.BY_UID["new"], new)
+        self.assertIs(LIB.CACHE["0"], new)
+
     def test_unknown_ref(self):
         LIB._publish([])
         self.assertIsNone(LIB.resolve("nope"))
