@@ -31,11 +31,7 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
     """普通页与 LRC 编辑共用的唯一歌词入口。"""
     doc = LRC.load(item["file"], item.get("uid"),
                    item["title"], item.get("artist", ""))
-    has_text = any((ln.get("text") or "").strip() for ln in doc["lines"])
-    # 本地草稿允许未打点；网络匹配结果必须带时间轴
-    allow_untimed = doc.get("kind") == "nhlrc" or doc.get("source") == "local-lrc"
-    has_lines = has_text and (allow_untimed or LY.has_timed(doc.get("text") or ""))
-    return doc, has_lines
+    return doc, LRC.usable_doc(doc)
 
 
 def _annotate_lines(lines, stored=None, keep_unchanged=False):

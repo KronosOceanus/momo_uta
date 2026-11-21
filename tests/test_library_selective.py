@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from nihonco_player.core import fingerprint as FP
 from nihonco_player.core import library as LIB
+from nihonco_player.core import lrc_files as LRF
 from nihonco_player.core.library import CACHE
 
 
@@ -15,11 +16,16 @@ class TestSelectiveLibrary(unittest.TestCase):
         self.old_missing = list(LIB.LAST_MISSING)
         CACHE.clear()
         LIB.LAST_MISSING = []
+        self.old_lyrics = LRF.LYRICS
+        self._lyr_tmp = tempfile.TemporaryDirectory()
+        LRF.LYRICS = Path(self._lyr_tmp.name) / "lyrics"
 
     def tearDown(self):
         CACHE.clear()
         CACHE.update(self.old)
         LIB.LAST_MISSING = self.old_missing
+        LRF.LYRICS = self.old_lyrics
+        self._lyr_tmp.cleanup()
 
     def test_only_playlist_uids_loaded(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -85,6 +85,45 @@ def exists(audio: str | Path, uid: str | None = None) -> bool:
     return store_path(audio, uid or uid_of(audio)).is_file()
 
 
+def store_index(uids=None) -> dict[str, bool]:
+    """nhlrc 是否有非空正文；只查给定 uid 时按 uid glob。"""
+    out: dict[str, bool] = {}
+    if uids is not None:
+        wanted = {str(u) for u in uids}
+        for u in wanted:
+            for p in LYRICS.glob(f"*.{u}.nhlrc"):
+                try:
+                    body, _ = _split_nhlrc(p.read_text(encoding="utf-8", errors="ignore"))
+                    out[u] = any((r.get("text") or "").strip() for r in parse(body))
+                except Exception:
+                    out[u] = False
+                if out.get(u):
+                    break
+        return out
+    for p in LYRICS.glob("*.nhlrc"):
+        u = p.name.rsplit(".", 2)[-2]
+        try:
+            body, _ = _split_nhlrc(p.read_text(encoding="utf-8", errors="ignore"))
+            out[u] = out.get(u, False) or any(
+                (r.get("text") or "").strip() for r in parse(body))
+        except Exception:
+            out.setdefault(u, False)
+    return out
+
+
+def store_has_text(uid: str) -> bool:
+    return store_index({uid}).get(str(uid), False)
+
+
+def usable_doc(doc: dict) -> bool:
+    """统一的“有没有可用歌词”判断。"""
+    lines = doc.get("lines") or []
+    if not any((ln.get("text") or "").strip() for ln in lines):
+        return False
+    allow_untimed = doc.get("kind") == "nhlrc" or doc.get("source") == "local-lrc"
+    return allow_untimed or LY.has_timed(doc.get("text") or "")
+
+
 def load(audio: str | Path, uid: str | None = None,
          title: str | None = None, artist: str | None = None,
          network: bool = False) -> dict:

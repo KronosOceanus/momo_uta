@@ -240,7 +240,7 @@ CACHE：idx(str) → 条目
     file      绝对路径
     stem      文件名主干
     title/artist/orig
-    has_lyric 是否有可用歌词
+    has_lyric 是否有可用歌词（nhlrc 优先，其次缓存；网络歌词需时间轴）
     source/lang/suspect
     group     所在目录
 

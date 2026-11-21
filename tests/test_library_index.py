@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from nihonco_player.core import fingerprint as FP
 from nihonco_player.core import library as LIB
+from nihonco_player.core import lrc_files as LRF
 from nihonco_player.core import library_index as LI
 from nihonco_player.core.library import CACHE
 
@@ -15,11 +16,16 @@ class TestLibraryIndex(unittest.TestCase):
         self.old = dict(CACHE)
         self.old_missing = list(LIB.LAST_MISSING)
         CACHE.clear()
+        self.old_lyrics = LRF.LYRICS
+        self._lyr_tmp = tempfile.TemporaryDirectory()
+        LRF.LYRICS = Path(self._lyr_tmp.name) / "lyrics"
 
     def tearDown(self):
         CACHE.clear()
         CACHE.update(self.old)
         LIB.LAST_MISSING = self.old_missing
+        LRF.LYRICS = self.old_lyrics
+        self._lyr_tmp.cleanup()
 
     def test_full_scan_prunes_stale_index(self):
         with tempfile.TemporaryDirectory() as tmp:

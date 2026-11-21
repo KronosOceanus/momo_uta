@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from nihonco_player.core import library as LIB  # noqa: E402
+from nihonco_player.core import lrc_files as LRF  # noqa: E402
 
 
 class TestLibrary(unittest.TestCase):
@@ -20,9 +21,12 @@ class TestLibrary(unittest.TestCase):
         self.cache = Path(self.tmp.name) / "cache"
         self.cache.mkdir()
         LIB.LY.set_cache_dir(self.cache)
+        self.old_lyrics = LRF.LYRICS
+        LRF.LYRICS = self.dir / "lyrics"
 
     def tearDown(self):
         LIB.LY.set_cache_dir(Path.home() / "Documents" / "nihonco_uta" / "data" / "cache" / "lyrics")
+        LRF.LYRICS = self.old_lyrics
         self.tmp.cleanup()
 
     def _write_hit(self, title, artist, lrc="[00:01.00]あ\n[00:02.00]い\n[00:03.00]う"):
@@ -35,6 +39,37 @@ class TestLibrary(unittest.TestCase):
         rows = LIB.scan_library(self.dir)
         self.assertTrue(rows)
         self.assertTrue(all(r["has_lyric"] is False for r in rows))
+
+    def test_nhlrc_without_cache_counts_as_lyric(self):
+        audio = self.dir / "歌手A - 曲A.mp3"
+        with patch.object(LRF, "LYRICS", self.dir / "lyrics"), \
+             patch.object(LRF.LY, "audio_duration", return_value=60):
+            LRF.save(audio, [{"t": 1.0, "text": "あの日"},
+                             {"t": 2.0, "text": "今も"},
+                             {"t": 3.0, "text": "空を"}], {})
+            rows = [r for r in LIB.scan_library(self.dir) if r["stem"].endswith("曲A")]
+        self.assertTrue(rows)
+        self.assertTrue(rows[0]["has_lyric"])
+
+    def test_empty_nhlrc_is_not_lyric(self):
+        audio = self.dir / "歌手A - 曲A.mp3"
+        with patch.object(LRF, "LYRICS", self.dir / "lyrics"):
+            LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)
+            LRF.store_path(audio).write_text("", encoding="utf-8")
+            rows = [r for r in LIB.scan_library(self.dir) if r["stem"].endswith("曲A")]
+        self.assertTrue(rows)
+        self.assertFalse(rows[0]["has_lyric"])
+
+    def test_untimed_network_cache_is_not_lyric(self):
+        self._write_hit("曲A", "歌手A", "[00:01.00]あ\n[00:02.00]い\n[00:03.00]う")
+        # 网络缓存必须带时间轴
+        p = LIB.LY.cache_path("曲A", "歌手A")
+        import json
+        d = json.loads(p.read_text(encoding="utf-8"))
+        d["lrc"] = "あ\nい\nう"
+        p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        rows = [r for r in LIB.scan_library(self.dir) if r["stem"].endswith("曲A")]
+        self.assertFalse(rows[0]["has_lyric"])
 
     def test_scan_picks_up_cached(self):
         self._write_hit("曲A", "歌手A")

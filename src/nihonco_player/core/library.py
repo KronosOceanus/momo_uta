@@ -14,6 +14,7 @@ from nihonco_yomi.paths import ROOT
 from . import diag
 from . import fingerprint as FP
 from . import library_index as LI
+from . import lrc_files as LRC
 from . import lyrics as LY
 
 MUSIC = Path.home() / "Music" / "网易云音乐"
@@ -118,17 +119,19 @@ def add_paths(paths, group: str = "导入") -> list[dict]:
     return out
 
 
-def _has_lyric(title: str, artist: str) -> bool:
+def _has_lyric(title: str, artist: str, uid=None, stored=None) -> bool:
+    if uid is not None and stored is not None and str(uid) in stored:
+        return bool(stored[str(uid)])
     if not LY._cached(title, artist):
         return False
     hit = LY.get_lrc(title, artist, use_cache=True) or {}
-    if hit.get("source") == "local-lrc" and not (hit.get("lrc") or "").strip():
-        return False
-    return bool(hit) and (hit.get("source") == "local-lrc"
-                          or LY.content_lines(hit.get("lrc") or "") >= 3)
+    lrc = hit.get("lrc") or ""
+    if hit.get("source") == "local-lrc":
+        return bool(lrc.strip())
+    return (LY.content_lines(lrc) >= 3 and LY.has_timed(lrc))
 
 
-def _entry(p: Path, group: str) -> dict | None:
+def _entry(p: Path, group: str, stored=None) -> dict | None:
     stem = p.stem
     # 不再按"像不像日文歌"过滤：进了歌单就应该看得见。
     # 过滤只用于歌词匹配时的判断（is_likely_song 仍被匹配流程使用）。
@@ -142,12 +145,16 @@ def _entry(p: Path, group: str) -> dict | None:
                 "artist": rec.get("artist", ""),
                 "source": rec.get("source", ""),
                 "lang": rec.get("lang") or "unknown",
-                "has_lyric": _has_lyric(*LY.split_name(rec.get("stem") or stem)),
+                "has_lyric": _has_lyric(*LY.split_name(rec.get("stem") or stem),
+                                        uid=rec["uid"], stored=stored),
                 "suspect": bool(rec.get("suspect"))}
     artist, title = LY.split_name(stem)
-    if not _has_lyric(title, artist):
+    uid = FP.fingerprint(p)
+    if stored is None:
+        stored = LRC.store_index({uid})
+    if not _has_lyric(title, artist, uid, stored):
         e = {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
-             "uid": FP.fingerprint(p),
+             "uid": uid,
              "file": str(p), "stem": stem, "orig": title, "group": group,
              "title": title, "artist": artist, "source": "", "lang": "unknown",
              "has_lyric": False, "suspect": False}
@@ -155,7 +162,7 @@ def _entry(p: Path, group: str) -> dict | None:
         return e
     hit = LY.get_lrc(title, artist, use_cache=True) or {}
     e = {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
-         "uid": FP.fingerprint(p),
+         "uid": uid,
          "has_lyric": True,
          "file": str(p), "stem": stem, "orig": title, "group": group,
          "title": hit.get("name") or title,
@@ -178,6 +185,7 @@ def load_for_playlists() -> list[dict]:
 
     resolved = FP.paths_for_uids(uids)
     indexed = LI.paths_by_uid()
+    stored = LRC.store_index(uids)
     chosen: dict[str, Path] = {}
     for uid in uids:
         paths = [Path(x) for x in (resolved.get(uid) or []) + (indexed.get(uid) or [])]
@@ -194,7 +202,7 @@ def load_for_playlists() -> list[dict]:
             p = Path(str(row.get("audio") or "")).expanduser()
             if not p.is_file():
                 continue
-            e = _entry(p, "导入")
+            e = _entry(p, "导入", stored)
             if e and str(e["uid"]) in missing:
                 chosen[str(e["uid"])] = p
                 missing.discard(str(e["uid"]))
@@ -204,7 +212,7 @@ def load_for_playlists() -> list[dict]:
     import_paths = {str(Path(str(r.get("audio") or "")).expanduser())
                     for r in load_imports() if r.get("audio")}
     for uid, p in sorted(chosen.items(), key=lambda x: str(x[1])):
-        e = _entry(p, "导入" if str(p) in import_paths else (p.parent.name or "曲库"))
+        e = _entry(p, "导入" if str(p) in import_paths else (p.parent.name or "曲库"), stored)
         if e and e["file"] not in seen:
             seen.add(e["file"])
             out.append(e)
@@ -254,11 +262,12 @@ def load_cache_for_playlists() -> int:
 def scan_library(folder: Path | None = None) -> list[dict]:
     out: list[dict] = []
     seen: set[str] = set()
+    stored = LRC.store_index()
 
     def add(p: Path, group: str) -> None:
         if p.suffix.lower() not in tuple(LB["extensions"]):
             return
-        e = _entry(p, group)
+        e = _entry(p, group, stored)
         if e and e["file"] not in seen:
             seen.add(e["file"])
             out.append(e)
