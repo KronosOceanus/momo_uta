@@ -75,6 +75,11 @@ def idx_for(uid) -> str | None:
         return None
     uid = str(uid)
     with _LOCK:
+        target = BY_UID.get(uid)
+        if target is not None:
+            for k, v in CACHE.items():
+                if v is target:
+                    return k
         for k, v in CACHE.items():
             if str(v.get("uid")) == uid:
                 return k
@@ -113,17 +118,14 @@ def refresh(uid: str | None = None) -> int:
         if uid is not None:
             for k, v in list(CACHE.items()):
                 if str(v.get("uid")) == str(uid):
-                    e = _entry(Path(v["file"]), v.get("group", ""))
+                    e = _entry(Path(v["file"]), v.get("group", ""), force_fp=True)
                     if e:
                         old_uid = str(v.get("uid") or "")
                         new_uid = str(e["uid"])
                         CACHE[k] = e
                         if old_uid:
                             BY_UID.pop(old_uid, None)
-                            # 同内容可能还有别的副本；旧 uid 继续指向剩余那份
-                            remaining = next(
-                                (x for k2, x in CACHE.items()
-                                 if k2 != k and str(x.get("uid")) == old_uid), None)
+                            remaining = _live_copy(old_uid, exclude=v["file"])
                             if remaining:
                                 BY_UID[old_uid] = remaining
                         BY_UID[new_uid] = e
@@ -132,15 +134,14 @@ def refresh(uid: str | None = None) -> int:
             found = _resolve_uid(str(uid))
             if found:
                 p, group = found
-                e = _entry(p, group)
+                e = _entry(p, group, force_fp=True)
                 if e:
                     nums = [int(k) for k in CACHE if str(k).isdigit()]
                     CACHE[str(max(nums) + 1 if nums else 0)] = e
                     old_uid = str(uid)
                     new_uid = str(e["uid"])
                     BY_UID.pop(old_uid, None)
-                    remaining = next(
-                        (x for x in CACHE.values() if str(x.get("uid")) == old_uid), None)
+                    remaining = _live_copy(old_uid, exclude=str(p))
                     if remaining:
                         BY_UID[old_uid] = remaining
                     BY_UID[new_uid] = e
@@ -189,11 +190,31 @@ def _has_lyric(title: str, artist: str, uid=None, stored=None) -> bool:
     return (LY.content_lines(lrc) >= int(LY.CFG["min_content_lines"]) and LY.has_timed(lrc))
 
 
-def _entry(p: Path, group: str, stored=None) -> dict | None:
+def _live_copy(uid: str, exclude: str | None = None) -> dict | None:
+    """找出仍然真实持有 uid 的副本；必须验证文件存在且指纹匹配。"""
+    for x in list(CACHE.values()):
+        if str(x.get("uid")) != str(uid):
+            continue
+        f = str(x.get("file") or "")
+        if not f or (exclude and f == exclude):
+            continue
+        p = Path(f)
+        if not p.is_file():
+            continue
+        e = _entry(p, x.get("group", ""), force_fp=True)
+        if e and str(e.get("uid")) == str(uid):
+            return e
+    return None
+
+
+def _entry(p: Path, group: str, stored=None, force_fp: bool = False) -> dict | None:
     stem = p.stem
     # 不再按"像不像日文歌"过滤：进了歌单就应该看得见。
     # 过滤只用于歌词匹配时的判断（is_likely_song 仍被匹配流程使用）。
     rec = LI.get(p)
+    forced_uid = FP.fingerprint(p, force=True) if force_fp else None
+    if forced_uid and rec and str(rec.get("uid")) != forced_uid:
+        rec = None
     if rec:
         return {"key": rec.get("key") or hashlib.md5(stem.encode()).hexdigest()[:12],
                 "uid": rec["uid"], "file": str(p), "stem": rec.get("stem") or stem,
@@ -207,7 +228,7 @@ def _entry(p: Path, group: str, stored=None) -> dict | None:
                                         uid=rec["uid"], stored=stored),
                 "suspect": bool(rec.get("suspect"))}
     artist, title = LY.split_name(stem)
-    uid = FP.fingerprint(p)
+    uid = forced_uid or FP.fingerprint(p)
     if stored is None:
         stored = LRC.store_index({uid})
     if not _has_lyric(title, artist, uid, stored):

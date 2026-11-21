@@ -119,7 +119,7 @@ def _samples(path: Path, size: int) -> bytes:
     return bytes(out)
 
 
-def fingerprint(audio: str | Path) -> str:
+def fingerprint(audio: str | Path, force: bool = False) -> str:
     """返回 12 位十六进制指纹；读不了文件时退回路径哈希（保证不抛错）。"""
     global _DIRTY
     p = Path(audio)
@@ -129,7 +129,7 @@ def fingerprint(audio: str | Path) -> str:
         with _LOCK:
             idx = _load()
             rec = idx.get(key)
-            if rec and rec.get("size") == st.st_size and rec.get("mtime") == st.st_mtime:
+            if not force and rec and rec.get("size") == st.st_size and rec.get("mtime") == st.st_mtime:
                 return rec["fp"]
         dur = _duration(p)
         data = _samples(p, st.st_size)

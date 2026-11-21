@@ -271,7 +271,9 @@ refresh 与同内容副本：
   某个路径内容变了，先更新该条；
   如果 CACHE 里还有别的副本持有旧 uid，
   BY_UID[旧 uid] 继续指向剩余副本；
-  没有剩余副本才移除旧 uid。
+  选择剩余副本前要 force 重算指纹，
+  文件不存在或指纹不匹配的副本不能使用；
+  没有 live 副本才移除旧 uid。
 
 load_for_playlists()（启动用）：
   读 playlists.json 的所有成员 uid
