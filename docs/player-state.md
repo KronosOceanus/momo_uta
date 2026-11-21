@@ -370,13 +370,14 @@ B 不在播：
 PLAYING_UID == null（从未播放过）：
   禁用：
     #prev、#next
-    #loop、#songloop
+    #loop
     #play2、#back10、#fwd10
     进度条 pointer-events:none
 
 不禁止：
   #start（S 存在时显式载入 B 并从头播）
   #prevSong / #nextSong（无 S/A 时 no-op）
+  #songloop（可先设定，之后播放时生效）
   重新匹配、LRC 模式、振假名编辑、音量、波形缩放
 
 PLAYING_UID 一旦被 commitAudio 设置：

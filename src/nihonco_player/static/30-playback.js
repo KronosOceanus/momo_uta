@@ -12,7 +12,7 @@ function markPlaying(){
 }
 function syncPlayControls(){
   const on = NH.PLAYING_UID !== null && NH.PLAYING_UID !== undefined;
-  ['prev','next','loop','songloop','play2','back10','fwd10'].forEach(id=>{
+  ['prev','next','loop','play2','back10','fwd10'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.disabled=!on;
   });
   const seek=document.getElementById('seek'); if(seek) seek.classList.toggle('off', !on);
@@ -403,7 +403,7 @@ function syncSongLoop(){
   songLoopBtn.classList.toggle('on', NH.loopSong);
 }
 if(songLoopBtn) songLoopBtn.onclick = () => {
-  if(NH.PLAYING_UID===null) return;          // 只切播放器状态，不跳回 A
+  // 没有播放歌曲也可以先设定，之后播放时生效。
   NH.loopSong = !NH.loopSong; syncSongLoop();
 };
 syncSongLoop(); syncLoopBtn(); syncPlayControls();
