@@ -208,7 +208,7 @@ idx 与 uid 的关系：
 ```text
 ① 用条目 uid（指纹）查 data/lyrics：
      glob("*.​<指纹>.nhlrc")   ← 只认指纹后缀，不看前缀
-     找不到再找 "*.​<指纹>.nhlrc.bak"
+     找不到再找 data/lyrics/bak/*.<指纹>.nhlrc.bak
 ② 没有 → 歌词缓存（按歌名/歌手取，抓取结果）
 ③ 没有 → 视为没有歌词（触发懒匹配）
 ```
@@ -224,7 +224,7 @@ idx 与 uid 的关系：
   · 前缀截断到 120 字节以内
   · 指纹永远保留在后缀
 
-首次写入前备份成同名 .nhlrc.bak；之后再保存不覆盖 .bak。
+首次写入前备份成data/lyrics/bak/ 下的同名 .nhlrc.bak；之后再保存不覆盖 .bak。
 ```
 
 ```text

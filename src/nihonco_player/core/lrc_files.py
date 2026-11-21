@@ -75,10 +75,10 @@ def store_path(audio: str | Path, uid: str | None = None,
 def store_backup(audio: str | Path, uid: str | None = None,
                  title: str | None = None, artist: str | None = None) -> Path:
     u = uid or uid_of(audio)
-    found = _find(u, ".nhlrc.bak")
-    if found:
-        return found
-    return store_path(audio, u, title, artist).with_suffix(".nhlrc.bak")
+    bak_dir = LYRICS / "bak"
+    for p in bak_dir.glob(f"*.{u}.nhlrc.bak"):
+        return p
+    return bak_dir / (store_path(audio, u, title, artist).name + ".bak")
 
 
 def exists(audio: str | Path, uid: str | None = None) -> bool:
@@ -194,6 +194,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
     bak = store_backup(audio, u, title, artist)
     src = sp
     if src.is_file() and not bak.exists():
+        bak.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, bak)
         backed = True
     body, tail = _split_nhlrc(text)
@@ -229,6 +230,7 @@ def save(audio: str | Path, lines: list[dict],
         original = src.read_text(encoding="utf-8", errors="ignore")
         bak = store_backup(audio, u, title, artist)
         if not bak.exists():
+            bak.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, bak)
             backed = True
     elif LY._cached(title, artist):

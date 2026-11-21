@@ -32,7 +32,7 @@
 ```text
 存在位置：
   data/lyrics/<歌名> - <歌手>.<音频指纹>.nhlrc
-  首次写入时备份成同名 .nhlrc.bak
+  首次写入时备份成 data/lyrics/bak/ 下的同名 .nhlrc.bak
 ```
 
 ## 1. 它解决什么问题
@@ -91,7 +91,7 @@ LRC 只有两样东西：
 ```text
 目录：data/lyrics/
 文件：<歌名> - <歌手>.<指纹>.nhlrc
-备份：<歌名> - <歌手>.<指纹>.nhlrc.bak
+备份：data/lyrics/bak/<歌名> - <歌手>.<指纹>.nhlrc.bak
 ```
 
 ```text
@@ -108,7 +108,7 @@ LRC 只有两样东西：
 ```text
 查找只认后缀：
   data/lyrics/*.<指纹>.nhlrc
-  data/lyrics/*.<指纹>.nhlrc.bak
+  data/lyrics/bak/*.<指纹>.nhlrc.bak
 
 前缀是给人看的：
   歌名/歌手变了，仍按指纹命中同一份文件；
@@ -318,9 +318,9 @@ body = sha1(整篇正文)[:8]
 ```text
 保护：
   · 没有非空歌词行 → 拒绝保存（不写空文件）
-  · 首次写之前，把现有的 nhlrc 备份成同名 .nhlrc.bak
+  · 首次写之前，把现有的 nhlrc 备份成 data/lyrics/bak/ 下的同名 .nhlrc.bak
     （之后再保存不会覆盖 .bak）
-  · "恢复最初"用 .nhlrc.bak
+  · "恢复最初"用 data/lyrics/bak/ 下的 .nhlrc.bak
 ```
 
 ### 6.3 自动落盘
@@ -477,7 +477,7 @@ body = sha1(整篇正文)[:8]
    │
    └─ render_nhlrc(lines, metadata, 标注) ────► 正文 + 尾部
                                                 │
-                        首次写：备份 .nhlrc.bak
+                        首次写：备份到 data/lyrics/bak/
                                                 │
                                      写 data/lyrics/<…>.<指纹>.nhlrc
 ```

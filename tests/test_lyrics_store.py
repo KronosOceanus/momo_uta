@@ -179,6 +179,7 @@ class TestDeleteStore(unittest.TestCase):
                 LRF.save(audio, rows()[:2], {})       # 第二次保存生成 .bak
                 store = LRF.store_path(audio)
                 bak = LRF.store_backup(audio)
+                self.assertEqual(bak.parent.name, "bak")
                 self.assertTrue(store.is_file() and bak.is_file())
                 res = LRF.delete_store(audio)
                 self.assertTrue(res["ok"])
