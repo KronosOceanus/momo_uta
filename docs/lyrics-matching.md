@@ -237,13 +237,13 @@ force=True：完全跳过缓存，重新联网（懒匹配用）。
 ### 6.1 触发
 
 ```text
-GET /api/song/<idx> 只读本地（data/lyrics、歌词缓存、负缓存），不联网
+GET /api/song/<uid> 只读本地（data/lyrics、歌词缓存、负缓存），不联网
 返回 pending=true（本地都没有歌词）
   → 前端先 commitAudio（能播），autoplay 则播
   → 三个上方按钮禁用，toast“匹配歌词中…”
   → 人声分离和匹配并行：
       · ensureVocals 后台跑，状态 chip 显示“人声分离中”
-      · 立即 POST /api/pl {action:"match", idx}，不等分离完成
+      · 立即 POST /api/jobs {kind:"match", uid}，不等分离完成
   → 匹配成功/失败后恢复按钮；分离结果只影响 chip/波形
 ```
 
@@ -261,14 +261,18 @@ service.playlist 收到 action=match
 ```text
 注意：懒匹配不写 data/lyrics。
 它只把歌词放进缓存；下一次 GET /api/song 时载荷读到缓存，
-再按"有歌词"的流程自动落盘成 nhlrc。
+只在内存注音，不自动写 nhlrc。
+
+如果 nhlrc 是 disabled：
+  pending=false，不放缓存、不触发自动匹配。
+  只有用户保存/导入/pick/恢复才重新启用。
 ```
 
 ### 6.3 前端等待
 
 ```text
 POST match 是同步的：后端跑完 lazy_match 才返回。
-  返回后前端 GET /api/song/<idx> 一次：
+  返回后前端 GET /api/song/<uid> 一次：
     不再 pending → 重新 load，正常显示
     仍然 pending → toast 提示没匹配到；歌词区空白
   不再空轮询 60 秒
@@ -310,7 +314,7 @@ POST /api/pick {idx, id}
   ② valid_lrc 不通过 → 拒绝
      必须带时间轴、有效歌词行 ≥ 3
      与自动匹配的内容校验完全一致
-  ③ 把网络正文写进 data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc
+  ③ 把网络正文写进 data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc（用户明确 pick）
       · 旧文件先备份成 .bak
       · 旧读音全部丢弃
   ④ LIB.refresh → 重新生成 payload
@@ -318,7 +322,7 @@ POST /api/pick {idx, id}
 
 ```text
 之后下一次 GET /api/song：
-  读到新正文、没有尾部 → 自动按引擎重新注音 → 写回 nhlrc。
+  读到新正文、没有尾部 → 自动按引擎重新注音（只在内存）。
 
 即使选中的正文和当前完全一样，也会照常重写一次（可用来"重置读音"）。
 ```
@@ -340,18 +344,18 @@ import_paths(paths, pool)
   · 按文件名配对：去掉编号/后缀后比较
   · 同名词曲文件 .nhlrc 优先于 .lrc
   · 配不上 → 进"待匹配"
-  · .nhlrc 的读音先放进歌词缓存（nhlrc_annotations）
+  · 配对的 .nhlrc/.lrc 直接走权威写入 data/lyrics
   · 不读源目录之外的歌词，也不改源文件
 ```
 
 ```text
-首次打开这首歌时，缓存里的歌词/读音会落成 data/lyrics 的 nhlrc。
+导入直接写权威 nhlrc；缓存只作为无 nhlrc 时的单向回退。
 ```
 
 ### 8.2 导入单个歌词
 
 ```text
-POST /api/lrc {action:"import_lrc", idx, text}
+POST /api/lrc {action:"import_lrc", uid, version, text}
   · 正文写进当前音频的 nhlrc
   · .nhlrc 的读音按文本对齐保留
   · 不沿用来源身份（来源不参与查找）

@@ -53,8 +53,8 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False):
 
 
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
-                text=None) -> dict:
-    """唯一的歌词写入口：处理标注策略、写盘、同步 CACHE。
+                text=None, expected_version=None) -> dict:
+    """唯一的歌词权威写入口：锁内读改写 + 版本校验 + 原子替换。
 
     mode:
       align      正文没变的行保留旧读音，改字/新行重新注音
@@ -65,30 +65,38 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     uid = item.get("uid")
     title = item.get("title", "")
     artist = item.get("artist", "")
-    if mode == "replace" and text is not None:
-        with LRC.LOCK:
-            res = LRC.import_text(item["file"], text, uid, title, artist)
-    else:
-        doc = LRC.load(item["file"], uid, title, artist)
-        if mode == "align":
-            old = DOC.align_annotations(lines or [], doc.get("annotations") or {})
-            ann = _annotate_lines(lines or [], old, keep_unchanged=True)
-        elif mode == "annotated":
-            ann = annotations or {}
-        elif mode == "reset":
-            ann = _annotate_lines(lines or [])
-        elif mode == "replace":
-            ann = annotations or {}
+    with LRC.LOCK:
+        if mode == "replace" and text is not None:
+            res = LRC.import_text(item["file"], text, uid, title, artist,
+                                  expected_version=expected_version)
         else:
-            raise ValueError("未知歌词保存模式：" + str(mode))
-        with LRC.LOCK:
-            res = LRC.save(item["file"], lines or [], ann, uid, title, artist)
-    if uid:
-        res["library"] = LIB.refresh(uid)
-        for _, v in LIB.snapshot():
-            if v.get("uid") == uid:
-                v["has_lyric"] = True
-                break
+            doc = LRC.load(item["file"], uid, title, artist)
+            if mode == "align":
+                old = DOC.align_annotations(lines or [], doc.get("annotations") or {})
+                ann = _annotate_lines(lines or [], old, keep_unchanged=True)
+            elif mode == "annotated":
+                ann = annotations or {}
+            elif mode == "reset":
+                ann = _annotate_lines(lines or [])
+            elif mode == "replace":
+                ann = annotations or {}
+            else:
+                raise ValueError("未知歌词保存模式：" + str(mode))
+            res = LRC.save(item["file"], lines or [], ann, uid, title, artist,
+                           expected_version=expected_version)
+    if uid and res.get("ok"):
+        try:
+            res["library"] = LIB.refresh(uid)
+            for _, v in LIB.snapshot():
+                if v.get("uid") == uid:
+                    v["has_lyric"] = True
+                    break
+            res["refresh_ok"] = True
+        except Exception as e:
+            # 写入已经成功；刷新失败不能伪装成"歌词没保存"
+            diag.log("library", f"保存后刷新失败 uid={uid}: {e}")
+            res["refresh_ok"] = False
+            res["refresh_error"] = str(e)
     return res
 
 
@@ -100,34 +108,35 @@ def song_payload(ref, _item=None) -> dict:
     uid = item.get("uid")
     key = item["key"]
     doc, has_lines = load_lyrics(item)
+    if doc.get("disabled"):
+        item["has_lyric"] = False
+        return {"uid": uid, "idx": str(idx), "key": key, "title": item["title"],
+                "artist": item.get("artist", ""), "pending": False,
+                "disabled": True, "lines": [], "nhlrc": False,
+                "version": doc.get("version"),
+                "duration": LY.audio_duration(item["file"]),
+                "audio": f"/audio/{uid}"}
     if not has_lines:
         item["has_lyric"] = False
         return {"uid": uid, "idx": str(idx), "key": key, "title": item["title"],
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
+                "disabled": False, "nhlrc": doc.get("kind") == "nhlrc",
+                "version": doc.get("version"),
                 "duration": LY.audio_duration(item["file"]),
                 "audio": f"/audio/{uid}"}
     item["has_lyric"] = True
     lines = doc["lines"]
     stored = doc.get("annotations") or {}
-    changed = False
     for li, ln in enumerate(lines):
         if not ln["text"]:
             ln["ruby"], ln["rm"], ln["ky"] = "", "", ""
             continue
         fields = line_fields(ln["text"], stored.get(li))
-        if li not in stored:
-            changed = True
         ln.update(fields)
         ln["raw"] = ln["text"]
-    if any((ln.get("text") or "").strip() for ln in lines) and \
-            (changed or doc.get("kind") != "nhlrc"):
-        try:
-            ann = _annotate_lines(lines, stored)
-            save_lyrics(item, lines, "annotated", ann)
-        except Exception as e:
-            diag.log("nhlrc", f"自动落盘失败：{e}")
     return {"uid": uid, "idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
-            "lines": lines, "nhlrc": True,
+            "lines": lines, "nhlrc": doc.get("kind") == "nhlrc",
+            "disabled": False, "version": doc.get("version"),
         "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),
         "duration": LY.audio_duration(item["file"]),
         "audio": f"/audio/{uid}",
@@ -217,7 +226,9 @@ def pick(uid, song_id) -> dict:
             "lines": len(d.get("lines") or [])}
 
 def lazy_match(item: dict) -> None:
-    """按需抓歌词：MB 规范化 + 时长门槛那条流程。"""
+    """按需抓歌词；明确禁用歌词的歌不联网。"""
+    if LRC.load(item["file"], item.get("uid"), item.get("title"), item.get("artist", "")).get("disabled"):
+        return
     artist, title = LY.split_name(item["stem"])
     LY.get_lrc(title, artist, duration=LY.audio_duration(item["file"]), force=True)
     LIB.refresh(item.get("uid"))

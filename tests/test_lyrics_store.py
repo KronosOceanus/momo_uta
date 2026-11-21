@@ -155,8 +155,9 @@ class TestSaveAlignment(unittest.TestCase):
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                LRF.save(audio, rows()[:2], {})            # 先有正文
-                SONG.song_payload(LRF.uid_of(audio))
+                seed = {0: [["君", "きみ", "A"], ["の名前", None, None]],
+                        1: [["呼んで", None, None], ["くれた", None, None]]}
+                LRF.save(audio, rows()[:2], seed)
                 before = LRF.load(audio)["annotations"]
                 from nihonco_player.service import lrc as SVC
                 res = SVC.lrc_action({"action": "save", "uid": LRF.uid_of(audio), "lines": [
@@ -173,29 +174,26 @@ class TestSaveAlignment(unittest.TestCase):
 
 
 class TestDeleteStore(unittest.TestCase):
-    def test_delete_removes_nhlrc_backup_and_cache(self):
+    def test_delete_writes_disabled_and_keeps_backup(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60), \
-                 patch.object(LRF.LY, "write_local_lrc"):
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows(), {})
                 LRF.save(audio, rows()[:2], {})       # 第二次保存生成 .bak
                 store = LRF.store_path(audio)
                 bak = LRF.store_backup(audio)
-                self.assertEqual(bak.parent.name, "bak")
                 self.assertTrue(store.is_file() and bak.is_file())
                 res = LRF.delete_store(audio)
                 self.assertTrue(res["ok"])
-                self.assertFalse(store.exists())
-                self.assertFalse(bak.exists())
-                cache = LC.cache_path("曲", "歌手")
-                self.assertTrue(cache.is_file())
-                self.assertTrue(json.loads(cache.read_text(encoding="utf-8"))["miss"])
-                self.assertEqual(LRF.load(audio)["lines"], [])
+                self.assertTrue(store.is_file())       # disabled 文档仍在
+                self.assertTrue(bak.is_file())         # 备份保留，可恢复
+                doc = LRF.load(audio)
+                self.assertTrue(doc["disabled"])
+                self.assertEqual(doc["lines"], [])
 
 
 class TestSharedLyricsSource(unittest.TestCase):
@@ -206,13 +204,14 @@ class TestSharedLyricsSource(unittest.TestCase):
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
             CACHE.clear()
-            CACHE["0"] = {"key": "k", "uid": LRF.uid_of(audio), "file": str(audio),
-                          "stem": audio.stem, "orig": "曲", "title": "曲",
-                          "artist": "歌手", "has_lyric": False, "group": ""}
+            it = {"key": "k", "uid": LRF.uid_of(audio), "file": str(audio),
+                  "stem": audio.stem, "orig": "曲", "title": "曲",
+                  "artist": "歌手", "has_lyric": False, "group": ""}
+            CACHE["0"] = it
+            LIB.BY_UID[it["uid"]] = it
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60), \
-                 patch.object(LRF.LY, "write_local_lrc"):
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows(), {})
                 payload = SONG.song_payload(LRF.uid_of(audio))
                 lrc = SVC_LRC.lrc_action({"action": "load", "uid": LRF.uid_of(audio)})

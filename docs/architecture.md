@@ -275,6 +275,12 @@ refresh 与同内容副本：
   文件不存在或指纹不匹配的副本不能使用；
   没有 live 副本才移除旧 uid。
 
+歌词文档状态：
+  nhlrc 有正文 → 显示本地歌词
+  nhlrc disabled=true → 显示无歌词，跳过缓存和自动匹配
+  没有 nhlrc → 可读网络缓存或触发自动匹配
+  delete 写 disabled；save/import/pick/restore 重新启用。
+
 load_for_playlists()（启动用）：
   读 playlists.json 的所有成员 uid
   用指纹索引 / library_index.json 反查 uid → 路径
@@ -334,7 +340,7 @@ service 只做"把 core 的步骤串起来"，不实现具体规则：
 
 ```text
 song_payload(uid)
-  曲库条目 → 歌词（data/lyrics 或缓存）→ 逐行注音 → 必要时自动落盘
+  曲库条目 → 歌词（data/lyrics 或缓存）→ 内存逐行注音（不写 nhlrc）
   → {uid, idx, title, artist, lines, offset, audio, pending?}
 
 edit_line_action(req)  // req.uid 优先
@@ -347,7 +353,7 @@ pick(uid, id)
   网络歌词重写当前 nhlrc 正文（备份、读音重来）
 
 lazy_match(item)
-  强制联网取歌词 → 写缓存 → 刷新曲库
+  强制联网取歌词 → 只写歌词缓存 → 刷新曲库；disabled 时跳过
 ```
 
 ### 6.2 lrc
@@ -355,12 +361,12 @@ lazy_match(item)
 ```text
 lrc_action(req)：
   load      读当前歌词（rows + metadata）
-  save      对齐旧读音、重新注音、写 nhlrc
+  save      锁内读改写 + version 校验 + 备份 + 原子写 nhlrc
   backup    查 .bak 是否存在/时间/行数
-  restore   用 .bak 覆盖
+  restore   version 校验后用 .bak 原子覆盖（重新启用）
   export    生成 nhlrc 与纯 lrc 两种文本
-  import_lrc 导入文本（保留 nhlrc 读音）
-  delete    删除 nhlrc/.bak/歌词缓存
+  import_lrc 直接原子写 nhlrc（重新启用）
+  delete    原子写 disabled nhlrc；保留 .bak，可恢复
 ```
 
 ### 6.3 playlist
@@ -585,9 +591,11 @@ A 类阈值不走这里（见 §4）。
 
 ```text
 一致性策略：
-  · 歌词以 data/lyrics 的文件为唯一真相
-  · 自动落盘失败只记日志，不阻塞播放
-  · 保存失败保留 dirty，不假报成功
+  · nhlrc 是唯一权威；cache 只做单向回退
+  · GET /api/song 不写 nhlrc；自动注音只存在于响应
+  · 用户保存/导入/pick/恢复/删除走同一条原子写路径
+  · 保存失败保留 dirty；版本冲突不覆盖
+  · 写成功但曲库刷新失败时，二者分别报告
 ```
 
 ## 13. 新功能放哪

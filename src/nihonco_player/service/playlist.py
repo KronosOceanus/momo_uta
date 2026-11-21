@@ -71,7 +71,14 @@ def playlists_action(req) -> dict:
             return {"ok": False, "error": "歌曲已不可用，请重新加载", "lists": _lists()}
         doc = LRC.load(item["file"], item.get("uid"),
                        item["title"], item.get("artist", ""))
-        SONGS.save_lyrics(item, doc["lines"], "reset")
+        if doc.get("disabled"):
+            return {"ok": False, "error": "歌词已禁用，请重新匹配或导入",
+                    "lists": _lists()}
+        r = SONGS.save_lyrics(item, doc["lines"], "reset",
+                              expected_version=req.get("version"))
+        if not r.get("ok"):
+            return {**r, "lists": _lists()}
+        return {"ok": True, "lists": _lists(), "version": r.get("version")}
     elif act == "match":
         item = LIB.resolve(req.get("uid"))
         if not item:

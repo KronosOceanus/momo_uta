@@ -7,7 +7,7 @@ const NH = window.NH || (window.NH = {});
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
@@ -384,7 +384,7 @@ async function load(ref, autoplay, nextMode){
     }
     d=await api('/api/song/'+encodeURIComponent(ref));
     if(request!==NH.LOAD_REQUEST) return false;
-    NH.syncLyricMark(d.uid, !d.pending);
+    NH.syncLyricMark(d.uid, !d.pending && !d.disabled);
   }catch(e){
     if(request===NH.LOAD_REQUEST){
       NH.viewDispatch({type:'LOAD_FAILED', idx:ref, request, error:e.message});
@@ -998,8 +998,9 @@ loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一�
 
 document.getElementById('resetall').onclick=async()=>{
   if(!NH.S) return;
-  const r=await api('/api/pl',{action:'edit_clear', uid:NH.S.uid});
+  const r=await api('/api/pl',{action:'edit_clear', uid:NH.S.uid, version:NH.LRC_VERSION});
   if(r && r.ok===false){ done(r.error||'歌曲已不可用'); await loadLib(); return; }
+  if(r && r.version) NH.LRC_VERSION=r.version;
   toast('已恢复默认标注');
   load(NH.S.uid);
 };

@@ -323,14 +323,13 @@ body = sha1(整篇正文)[:8]
   · "恢复最初"用 data/lyrics/bak/ 下的 .nhlrc.bak
 ```
 
-### 6.3 自动落盘
+### 6.3 自动注音
 
 ```text
-所有歌：
-  打开时如果发现没有标注文件（或标注缺行）→ 注音后自动写
-  data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc
+打开歌曲时只在内存生成 ruby/rm/ky；
+不写 data/lyrics，也不把缓存歌词提升成 nhlrc。
 
-自动落盘只在"正文有非空歌词行"时发生；空歌词不写盘。
+只有用户保存、导入、pick、恢复备份才会写权威文件。
 ```
 
 ### 6.4 缓存里的标注
@@ -340,7 +339,8 @@ body = sha1(整篇正文)[:8]
   "nhlrc_annotations": {"0": [["君","きみ","A"], …], "1": …}
 
 结构 = 尾部 lines 的 i → seg（不带 h；读取时按拼接校验）
-用途 = 导入 nhlrc 时先把读音放进缓存，首次打开再落到 data/lyrics
+用途 = 网络缓存的可选读音副本；永远不能覆盖 nhlrc，
+       也不会因为打开歌曲被提升成 nhlrc。
 ```
 
 ### 6.5 手改读音
@@ -366,14 +366,14 @@ body = sha1(整篇正文)[:8]
 ```text
 规则：
   · 按文件名配对同目录的歌词（.nhlrc 优先于 .lrc）
-  · 读到 .nhlrc → 正文 + 读音一起进歌词缓存
+  · 读到 .nhlrc → 正文 + 读音直接写权威 data/lyrics
   · 只有音频没有歌词 → 进歌单，标记"待匹配"
   · 歌词少于 3 行 → 视为没有可用歌词
 ```
 
 ```text
-首次打开这首歌时，缓存里的读音会落到 data/lyrics（§6.3）。
 导入只读源文件，不改源文件、不往源目录写东西。
+导入完成后缓存清空也不会丢用户歌词。
 ```
 
 ### 7.2 导入歌词（LRC 工具栏「导入」）
@@ -518,7 +518,7 @@ body = sha1(整篇正文)[:8]
    增强型逐字时间、一行多时间戳不支持
 
 ⑦ 空文件保护
-   没有非空歌词行时：不自动写、保存被拒、打开视为"没有歌词"
+   没有非空歌词行时：不自动写、保存被拒；显式删除写 disabled 文档
 ```
 
 ## 12. 代码地图与测试
@@ -530,8 +530,8 @@ body = sha1(整篇正文)[:8]
 | 文件读写/备份 | `nihonco_player.core.lrc_files` | `store_path`、`load`、`save`、`import_text`、`restore_backup` |
 | 标注生成 | `nihonco_player.core.annotation` | 行文本 → `seg`（`segs_of` / `annotate_line_with_notes`） |
 | 保存编排 | `nihonco_player.service.lrc` | 沿用已有标注、重新注音、导出两种文本 |
-| 自动落盘 | `nihonco_player.service.song` | 首次注音后写盘/写缓存 |
-| 导入配对 | `nihonco_player.core.importing` | 按文件名配对、读音进缓存 |
+| 权威写入 | `nihonco_player.service.lrc` / `lrc_files` | 保存/导入/pick/恢复/禁用，锁内原子写 |
+| 导入配对 | `nihonco_player.core.importing` | 按文件名配对、直接写权威 nhlrc |
 | 缓存标注 | `nihonco_player.core.lyrics_cache` | `write_local_lrc(..., annotations=…)` |
 
 ```text

@@ -11,7 +11,9 @@ from pathlib import Path
 
 from nihonco_yomi.config import LB
 
+from . import fingerprint as FP
 from . import library as LIB
+from . import lrc_files as LRC
 from . import lrc_doc as DOC
 from . import lyrics as LY
 
@@ -145,9 +147,9 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
             pending.append(str(a))
             added.append(str(a))
             continue
-        ann = _annotations(lrc, text)
-        LY.write_local_lrc(title, artist, text, annotations=ann,
-                           duration=LY.audio_duration(a), name=title, by=artist)
+        raw = lrc.read_text(encoding="utf-8", errors="ignore")
+        LRC.import_text(str(a), raw, uid=FP.fingerprint(a),
+                        title=title, artist=artist)
         added.append(str(a))
 
     pool = [Path(x) for x in (pool_audio or [])]
@@ -167,10 +169,10 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
         if LY.content_lines(text) < MIN_LINES:
             unpaired += 1
             continue
-        had = LY._cached(title, artist) and LY.content_lines(
-            (LY.get_lrc(title, artist, use_cache=True) or {}).get("lrc") or "") >= MIN_LINES
-        LY.write_local_lrc(title, artist, text, annotations=_annotations(lrc, text),
-                           duration=LY.audio_duration(target), name=title, by=artist)
+        had = LRC.exists(target)
+        raw = lrc.read_text(encoding="utf-8", errors="ignore")
+        LRC.import_text(str(target), raw, uid=FP.fingerprint(target),
+                        title=title, artist=artist)
         used_lrc.add(lrc)
         if had:
             overwritten += 1

@@ -53,11 +53,15 @@ async function saveLrc(silent, force){
   const h=document.getElementById('savehint');
   NH.SAVE_PENDING=(async()=>{
     try{
-      const r=await NH.api('/api/lrc',{action:'save', uid:song.uid, lines:lrcPayload()});
+      const r=await NH.api('/api/lrc',{action:'save', uid:song.uid, version:NH.LRC_VERSION, lines:lrcPayload()});
       if(!r.ok) throw new Error(r.error||'保存失败');
+      if(r.version) NH.LRC_VERSION=r.version;
       if(NH.EDIT_REVISION===revision){
         NH.EDIRTY=false;
-        if(h){ h.textContent=`已保存 ${new Date().toLocaleTimeString().slice(0,8)}`; h.className='savehint ok'; }
+        if(h){ h.textContent=r.refresh_ok===false
+          ? '已保存，但曲库刷新失败；重启后仍以磁盘为准'
+          : `已保存 ${new Date().toLocaleTimeString().slice(0,8)}`;
+          h.className=r.refresh_ok===false?'savehint dirty':'savehint ok'; }
       }
       return true;
     }catch(e){
@@ -119,6 +123,7 @@ async function openLrcEditor(entering=false){
     syncModes();
   }
   // 编辑器保留文件顺序及未打点的行，播放视图只展示有时间戳的行。
+  NH.LRC_VERSION=d.version||null;
   NH.LRC_METADATA=d.metadata||[];
   NH.EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
   if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
@@ -361,6 +366,7 @@ document.getElementById('lrcsaveas').onclick=async()=>{
   }else NH.done('当前环境不支持导出');
 };
 async function replaceLrc(req, pending, success){
+  if(req && req.uid && req.version===undefined) req={...req, version:NH.LRC_VERSION};
   NH.LRC_REPLACING=true;
   setLrcLocked(true);
   NH.busy(pending);
@@ -395,16 +401,15 @@ document.getElementById('lrcfiledel').onclick=async()=>{
   if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED || !NH.S) return;
   const song=NH.S;
   if(!await NH.uiConfirm('删除这首歌的歌词文件？',
-      'nhlrc 和备份都会被删除，当前编辑内容也会丢弃。\n以后可以重新匹配。', true)) return;
+      '歌词将被禁用，备份会保留。\n这首歌仍可播放，但不会自动匹配歌词。\n以后可以通过重新匹配或保存新歌词重新启用。', true)) return;
   clearTimeout(NH.SAVE_T);
   NH.EDIRTY=false;
   try{
     if(NH.SAVE_PENDING) await NH.SAVE_PENDING;
-    const r=await NH.api('/api/lrc',{action:'delete', uid:song.uid});
+    const r=await NH.api('/api/lrc',{action:'delete', uid:song.uid, version:NH.LRC_VERSION});
     if(!r.ok) throw new Error(r.error||'删除失败');
-    NH.NO_MATCH.add(String(song.uid));
     await NH.load(song.uid,false,'normal');     // 退出 LRC，回到普通页
-    NH.done('已删除歌词文件');
+    NH.done('已禁用这首歌的歌词');
   }catch(err){ NH.done('删除失败：'+err.message); }
 };
 document.getElementById('lrcreset').onclick=async()=>{

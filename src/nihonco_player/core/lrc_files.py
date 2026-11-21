@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import threading
+import time
 from pathlib import Path
 
 from nihonco_yomi.paths import LYRICS
@@ -33,6 +35,41 @@ def uid_of(audio: str | Path) -> str:
 
 BAD_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 MAX_NAME_BYTES = 120
+
+
+def _version(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    """同目录临时文件 + os.replace；避免半写入。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}-{time.time_ns()}")
+    try:
+        with tmp.open("w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    finally:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _backup_once(sp: Path, bak: Path) -> bool:
+    if sp.is_file() and not bak.exists():
+        bak.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(sp, bak)
+        return True
+    return False
+
+
+def _disabled_text() -> str:
+    return (NHLRC_MARK + f" {NHLRC_VERSION}\n" +
+            json.dumps({"v": NHLRC_VERSION, "gen": GEN, "disabled": True},
+                       ensure_ascii=False, indent=1) + "\n")
 
 
 def _safe_name(text: str) -> str:
@@ -117,6 +154,8 @@ def store_has_text(uid: str) -> bool:
 
 def usable_doc(doc: dict) -> bool:
     """统一的“有没有可用歌词”判断。"""
+    if doc.get("disabled"):
+        return False
     lines = doc.get("lines") or []
     if not any((ln.get("text") or "").strip() for ln in lines):
         return False
@@ -127,16 +166,20 @@ def usable_doc(doc: dict) -> bool:
 def load(audio: str | Path, uid: str | None = None,
          title: str | None = None, artist: str | None = None,
          network: bool = False) -> dict:
-    """优先 data/lyrics 下的 nhlrc；没有就用歌词缓存。"""
+    """有 nhlrc 就只读 nhlrc（含 disabled）；没有才回退网络缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     from_cache = False
     tail = None
+    disabled = False
+    version = None
 
     if sp.is_file():
         full = sp.read_text(encoding="utf-8", errors="ignore")
         body, tail = _split_nhlrc(full)
+        disabled = bool(tail and tail.get("disabled"))
+        version = _version(full)
         path, kind, source = sp, "nhlrc", "nhlrc"
     else:
         artist, title = LY.split_name(audio.stem)
@@ -150,6 +193,13 @@ def load(audio: str | Path, uid: str | None = None,
         path, kind = sp, "cache"
         from_cache = bool(full)
 
+    if disabled:
+        return {"ok": True, "exists": True, "from_cache": False,
+                "path": str(path), "kind": "nhlrc", "source": "disabled",
+                "text": "", "lines": [], "metadata": [],
+                "annotations": {}, "nhlrc": True, "disabled": True,
+                "version": version}
+
     lines, metadata = _parse_document(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
     strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
@@ -157,7 +207,7 @@ def load(audio: str | Path, uid: str | None = None,
     return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
             "path": str(path), "kind": kind, "source": source, "text": body,
             "lines": lines, "metadata": metadata, "annotations": annotations,
-            "nhlrc": kind == "nhlrc"}
+            "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
 
 
 def backup_path(audio: str | Path, uid: str | None = None,
@@ -181,106 +231,94 @@ def backup_status(audio: str | Path, uid: str | None = None,
 
 
 def restore_backup(audio: str | Path, uid: str | None = None,
-                   title: str | None = None, artist: str | None = None) -> dict:
-    """把备份覆盖回 data/lyrics/<uid>.nhlrc（恢复最初版本），并同步歌词缓存。"""
+                   title: str | None = None, artist: str | None = None,
+                   expected_version: str | None = None) -> dict:
+    """用备份原子恢复权威文档；恢复成功即重新启用歌词。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
-    b = next((x for x in backup_candidates(audio, u, title, artist) if x.is_file()), None)
-    if not b:
-        return {"ok": False, "error": "没有备份文件"}
-    sp = store_path(audio, u, title, artist)
-    sp.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(b, sp)
-    artist, title = LY.split_name(audio.stem)
-    body, _ = _split_nhlrc(sp.read_text(encoding="utf-8", errors="ignore"))
-    LY.write_local_lrc(title, artist, body,
-                       duration=LY.audio_duration(audio), name=title, by=artist)
-    return {"ok": True, "path": str(sp), "lines": len(parse(sp.read_text(encoding="utf-8")))}
+    with LOCK:
+        b = next((x for x in backup_candidates(audio, u, title, artist) if x.is_file()), None)
+        if not b:
+            return {"ok": False, "error": "没有备份文件"}
+        sp = store_path(audio, u, title, artist)
+        current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
+        if expected_version is not None and _version(current) != str(expected_version):
+            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
+                    "version": _version(current)}
+        text = b.read_text(encoding="utf-8", errors="ignore")
+        _atomic_write(sp, text)
+        return {"ok": True, "path": str(sp), "lines": len(parse(text)),
+                "version": _version(text)}
 
 
 def delete_store(audio: str | Path, uid: str | None = None,
-                 title: str | None = None, artist: str | None = None) -> dict:
-    """删除当前歌曲的 nhlrc、备份和歌词缓存；写一个负缓存阻止立即回退联网。"""
+                 title: str | None = None, artist: str | None = None,
+                 expected_version: str | None = None) -> dict:
+    """把“不要歌词”写成权威 disabled 文档；保留备份，便于恢复。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
-    deleted: list[str] = []
     with LOCK:
-        for p in (sp, bak):
-            if p.is_file():
-                p.unlink()
-                deleted.append(str(p))
-        artist, title = LY.split_name(audio.stem)
-        cp = LY.cache_path(title, artist)
-        if cp.is_file():
-            cp.unlink()
-            deleted.append(str(cp))
-        cp.parent.mkdir(parents=True, exist_ok=True)
-        cp.write_text(json.dumps({"miss": True, "reason": "deleted"},
-                                 ensure_ascii=False), encoding="utf-8")
-    return {"ok": True, "deleted": deleted, "cache": str(cp)}
+        current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
+        if expected_version is not None and _version(current) != str(expected_version):
+            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
+                    "version": _version(current)}
+        if sp.is_file():
+            _backup_once(sp, bak)
+        text = _disabled_text()
+        _atomic_write(sp, text)
+        return {"ok": True, "disabled": True, "path": str(sp),
+                "version": _version(text), "backed_up": bak.is_file()}
 
 
 def import_text(audio: str | Path, text: str, uid: str | None = None,
-                title: str | None = None, artist: str | None = None) -> dict:
-    """用外部歌词文本覆盖当前歌词：写 data/lyrics/<uid>.nhlrc 的正文。"""
+                title: str | None = None, artist: str | None = None,
+                expected_version: str | None = None) -> dict:
+    """用户导入：直接原子写权威 nhlrc，不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
-    sp.parent.mkdir(parents=True, exist_ok=True)
-    backed = False
     bak = store_backup(audio, u, title, artist)
-    src = sp
-    if src.is_file() and not bak.exists():
-        bak.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, bak)
-        backed = True
-    body, tail = _split_nhlrc(text)
-    body = body if body.endswith("\n") else body + "\n"
-    lines, metadata = _parse_document(body)
-    # 导入别人的 nhlrc：正文 + 读音一起搬（读音按行内容对齐），
-    # 身份由当前音频的指纹决定，文件里不存来源信息
-    annotations = annotations_for(lines, tail) if tail else {}
-    out = render_nhlrc(lines, metadata, annotations) if annotations else body
-    sp.write_text(out, encoding="utf-8")
-    artist, title = LY.split_name(audio.stem)
-    LY.write_local_lrc(title, artist, body,
-                       duration=LY.audio_duration(audio), name=title, by=artist)
-    return {"ok": True, "path": str(sp), "lines": len(lines),
-            "annotated": len(annotations), "backed_up": backed}
+    with LOCK:
+        current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
+        if expected_version is not None and _version(current) != str(expected_version):
+            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
+                    "version": _version(current)}
+        backed = _backup_once(sp, bak)
+        body, tail = _split_nhlrc(text)
+        body = body if body.endswith("\n") else body + "\n"
+        lines, metadata = _parse_document(body)
+        annotations = annotations_for(lines, tail) if tail else {}
+        out = render_nhlrc(lines, metadata, annotations) if annotations else body
+        _atomic_write(sp, out)
+        return {"ok": True, "path": str(sp), "lines": len(lines),
+                "annotated": len(annotations), "backed_up": backed,
+                "version": _version(out)}
 
 
 def save(audio: str | Path, lines: list[dict],
          annotations: dict[int, list] | None = None,
          uid: str | None = None,
-         title: str | None = None, artist: str | None = None) -> dict:
-    """写 data/lyrics/<uid>.nhlrc（正文 + 尾部），首次备份成 .nhlrc.bak。"""
+         title: str | None = None, artist: str | None = None,
+         expected_version: str | None = None) -> dict:
+    """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
-    sp.parent.mkdir(parents=True, exist_ok=True)
-
-    artist, title = LY.split_name(audio.stem)
-    original = ""
-    backed = False
-    src = sp
-    if src.is_file():
-        original = src.read_text(encoding="utf-8", errors="ignore")
-        bak = store_backup(audio, u, title, artist)
-        if not bak.exists():
-            bak.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, bak)
-            backed = True
-    elif LY._cached(title, artist):
-        original = (LY.get_lrc(title, artist) or {}).get("lrc") or ""
-
-    body, _tail = _split_nhlrc(original)
-    _, metadata = _parse_document(body)
-    if annotations is None:
-        annotations = annotations_for(lines, _tail)
-    text = render_nhlrc(lines, metadata, annotations)
-    sp.write_text(text, encoding="utf-8")
-    LY.write_local_lrc(title, artist, render_body(lines, metadata),
-                       duration=LY.audio_duration(audio), name=title, by=artist)
-    return {"ok": True, "path": str(sp), "lines": len(lines), "backed_up": backed}
+    bak = store_backup(audio, u, title, artist)
+    with LOCK:
+        original = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
+        current_version = _version(original) if sp.is_file() else ""
+        if expected_version is not None and current_version != str(expected_version):
+            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
+                    "version": current_version}
+        backed = _backup_once(sp, bak)
+        body, _tail = _split_nhlrc(original)
+        _, metadata = _parse_document(body)
+        if annotations is None:
+            annotations = annotations_for(lines, _tail)
+        text = render_nhlrc(lines, metadata, annotations)
+        _atomic_write(sp, text)
+        return {"ok": True, "path": str(sp), "lines": len(lines),
+                "backed_up": backed, "version": _version(text)}

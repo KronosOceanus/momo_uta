@@ -234,3 +234,25 @@ test('view mode is a single mutually exclusive enum', () => {
   p.run("document.getElementById('edit').onclick()");
   assert.equal(p.run('VIEW_MODE'), 'normal');
 });
+
+test('save sends the loaded document version', async () => {
+  const p = player();
+  p.run("LRC_VERSION='v1'");
+  p.edit('changed');
+  const saving = p.run('saveLrc(false, true)');
+  assert.equal(p.calls[0].body.version, 'v1');
+  p.requests[0].resolve({ok: true, version: 'v2'});
+  assert.equal(await saving, true);
+  assert.equal(p.run('LRC_VERSION'), 'v2');
+});
+
+test('version conflict keeps the draft dirty', async () => {
+  const p = player();
+  p.run("LRC_VERSION='v1'");
+  p.edit('draft');
+  const saving = p.run('saveLrc(false, true)');
+  p.requests[0].resolve({ok: false, conflict: true, error: '歌词已更新'});
+  assert.equal(await saving, false);
+  assert.equal(p.run('EDIRTY'), true);
+  assert.equal(p.run("EROWS[0].text"), 'draft');
+});

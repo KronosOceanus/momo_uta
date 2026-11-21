@@ -11,7 +11,7 @@
   → 前端 GET /api/lrc?action=load，拿 rows（t + text）和 metadata
   → 表格里改时间 / 改文本 / 加行删行 / 粘贴 / 从波形绑时间
   → 每次改动 markDirty()：1.5 秒后自动保存
-  → POST /api/lrc {action:"save", lines:[{t,text}]}
+  → POST /api/lrc {action:"save", version, lines:[{t,text}]}
   → 后端按内容对齐旧读音，写 data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc
   → 返回后清 dirty，savehint 显示"已保存 HH:MM:SS"
 ```
@@ -274,7 +274,7 @@ service.lrc save：
   ① 读当前文件，拿 metadata 和旧标注
   ② 按内容对齐旧标注到新行序（文本相同的行沿用读音）
   ③ 逐行决定：对齐到 → 沿用；没对齐 / 改字 → 重新注音
-  ④ 写 data/lyrics/<歌名> - <歌手>.<指纹>.nhlrc
+  ④ 锁内校验 version → 备份 → 临时文件 + os.replace 写 nhlrc
   ⑤ 没有非空歌词行 → 拒绝保存（不写空文件）
 ```
 
@@ -455,4 +455,36 @@ SAVE_PENDING：
   tests/lrc_editor.test.cjs    前端时间/保存/锁定逻辑
   tests/test_lyrics_store.py   保存对齐、空文件保护、全部重置
   tests/test_player_http.py    接口层保存/导出
+```
+
+## 10. 权威写入与禁用状态
+
+```text
+data/lyrics/*.nhlrc = 用户资产
+data/cache/lyrics/  = 可重建缓存，只做单向回退
+```
+
+```text
+打开歌曲、自动注音都不写 nhlrc；
+只有保存、导入、pick、恢复备份、删除/禁用会改权威文件。
+```
+
+```text
+每次写入：
+  LRC.LOCK 覆盖读取旧文档、合并、备份和写入
+  version 不一致 → 保留草稿，返回冲突，不覆盖
+  同目录临时文件 + os.replace
+```
+
+```text
+删除歌词不再删除 nhlrc：
+  原子写入 disabled 文档，备份保留。
+  读取时 disabled 优先：
+    不走缓存、不自动匹配
+  保存新歌词、导入、pick、恢复备份会重新启用。
+```
+
+```text
+save 请求带 version；
+import_lrc / restore / delete 也带当前 version。
 ```
