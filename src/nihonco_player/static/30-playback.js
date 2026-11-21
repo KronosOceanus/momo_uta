@@ -36,6 +36,7 @@ function commitAudio(){
   NH.PLAYING_UID = NH.S.uid; markPlaying();
   NH.au.src = NH.S.audio || ('/audio/'+encodeURIComponent(NH.S.uid));
   NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
+  NH.paintTicks?.();                      // src 切换后旧时长/旧歌词不能留着
   document.getElementById('ttl').textContent = '▶ ' + NH.S.title + (NH.S.artist?' · '+NH.S.artist:'');
   syncPlayBtn(); syncPlayControls();
 }
@@ -212,6 +213,9 @@ function paintTransport(){
 }
 function paintTicks(){
   const box=document.getElementById('ticks'); box.innerHTML='';
+  // 只有正在查看的歌就是正在播放的歌，竖线才有意义。
+  if(!NH.S || NH.PLAYING_UID===null || NH.PLAYING_UID===undefined
+     || String(NH.PLAYING_UID)!==String(NH.S.uid)) return;
   const dur=isFinite(NH.au.duration)?NH.au.duration:0; if(!dur) return;
   // LRC 模式下 EROWS 才是正在编辑的歌词；普通模式读播放行。
   const rows=NH.VIEW_MODE==='lrc' ? (NH.EROWS||[]) : (NH.LINES||[]);

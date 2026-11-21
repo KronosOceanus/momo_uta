@@ -112,6 +112,13 @@ preload()
   · 切歌时 src setter 会丢掉旧 _buf，交给 GC
 ```
 
+```text
+播放条竖线只属于“正在查看且正在播放”的歌：
+  NH.S.uid === NH.PLAYING_UID → 画 NH.LINES / NH.EROWS
+  查看 B、播放 A → 清空竖线，不能拿 B 的歌词去画 A 的时长
+  切歌 commitAudio → 先清旧竖线，loadedmetadata 再按新歌重画
+```
+
 ### 2.3 播放 / 暂停 / 定位
 
 ```text
