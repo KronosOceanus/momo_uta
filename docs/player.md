@@ -383,7 +383,7 @@ VAD：
   完成 → 有人声 / 纯音乐
   失败 → 人声分离失败
 LRC 模式：分离完成后自动 loadWave(true) 换成人声波形
-无歌词歌曲：先等分离结果；判为纯音乐 → 跳过歌词匹配
+无歌词歌曲：分离和匹配并行；纯音乐只影响 chip/波形，不撤销已匹配歌词
 ```
 
 ## 7. 载入与自动匹配（pending）
@@ -392,14 +392,15 @@ LRC 模式：分离完成后自动 loadWave(true) 换成人声波形
 load(i)：
   有歌词 → 直接渲染
   没有歌词（pending）：
-    ① 清空歌词，显示"匹配歌词中…"
+    ① 清空歌词，toast“匹配歌词中…”
+       上方三个按钮禁用（NH.MATCHING=true）
     ② commitAudio（能播）；autoplay 则播
-    ③ 等人声分离（auto_start 开时）
-    ④ 纯音乐 → 不匹配，结束
-    ⑤ POST /api/pl {action:"match"} 触发抓取
-    ⑥ match 返回后 GET /api/song/i 一次；仍 pending 即失败
-       一旦不再 pending → 重新 load
-    ⑦ 超时 → toast 提示没匹配到；歌词区保持空白
+    ③ 人声分离和匹配并行：
+         后台 ensureVocals，chip 显示“人声分离中…”
+         同时 POST /api/pl {action:"match"}
+    ④ match 返回后 GET /api/song/i 一次；仍 pending 即失败
+       一旦不再 pending → 重新 load，恢复按钮
+    ⑤ 失败 → toast 提示没匹配到；歌词区空白，按钮恢复
 ```
 
 ```text

@@ -196,7 +196,7 @@ function drawWave(){
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
-NH.VSTAT = null; NH.VPOLL = 0;
+NH.VSTAT = null; NH.VPOLL = 0; NH.VSTAT_IDX = null;
 function paintVStatus(){
   const el=document.getElementById('vchip'); if(!el) return;
   if(!NH.VSTAT || NH.VSTAT.state==='none'){ el.hidden=true; return; }
@@ -211,6 +211,16 @@ function paintVStatus(){
     el.textContent = NH.VSTAT.state==='queued' ? '人声分离：排队' : '人声分离中…';
   }
 }
+function startVocals(idx){
+  if(VC.auto_start===false) return;
+  const st=NH.VSTAT;
+  if(NH.VSTAT_IDX===String(idx) && st && (st.state==='queued' || st.state==='running' || st.state==='done')) return;
+  NH.VSTAT_IDX=String(idx);
+  NH.VSTAT={state:'running'};
+  paintVStatus();
+  ensureVocals(idx).catch(()=>{});
+}
+
 async function ensureVocals(idx){
   try{ await api('/api/vocals',{action:'ensure', idx}); }catch(e){ return null; }
   return pollVocals(idx);
@@ -388,22 +398,14 @@ async function load(i, autoplay, nextEditMode){
       NH.au.playbackRate=+document.getElementById('rate').value;
       if(autoplay) NH.playFromStart?.();
     }
-    if(knownNoMatch){                             // 已确认没歌词：不再重跑分离/匹配
+    if(knownNoMatch){                             // 已确认没歌词：不再重跑匹配
       NH.syncModes?.();
       lyr.innerHTML='';
+      startVocals(d.idx);
       return true;
     }
     lyr.innerHTML='';
-    busy('分离人声，确认是否有人声…');
-    const v=(VC.auto_start===false) ? null : await ensureVocals(d.idx);
-    if(request!==NH.LOAD_REQUEST) return false;
-    if(v && v.state==='done' && v.has_vocals===false){
-      NH.NO_MATCH.add(String(d.idx));
-      NH.MATCHING=false; NH.syncModes?.();
-      lyr.innerHTML='';
-      done('这首是纯音乐，跳过歌词匹配');
-      return true;
-    }
+    startVocals(d.idx);
     busy('匹配歌词中…');
     try{
       await api('/api/pl',{action:'match',idx:d.idx});   // 后端同步跑完匹配才返回
@@ -446,9 +448,9 @@ async function load(i, autoplay, nextEditMode){
     if(autoplay){ NH.commitAudio(); NH.playFromStart?.(); }
     NH.au.playbackRate=+document.getElementById('rate').value;
   }
-  NH.VSTAT=null; paintVStatus();
+  NH.VSTAT=null; NH.VSTAT_IDX=null; paintVStatus();
   if(!NH.LRCEDIT) NH.WAVE=null;
-  if(VC.auto_start!==false) ensureVocals(d.idx);
+  startVocals(d.idx);
   return true;
 }
 function navIdx(n){ const k=NH.NAV.indexOf(n); return k<0?0:k; }

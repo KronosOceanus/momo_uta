@@ -14,7 +14,7 @@
 
 懒匹配（打开时发现没歌词）
   普通加载只读本地，不联网
-  先确认不是纯音乐 → POST /api/pl {action:"match"}
+  人声分离后台跑，匹配同时开始，不等待分离结果
   → get_lrc(force=True) 强制联网 → 写缓存
   → match 返回后前端再拉一次 /api/song
   → 还有歌词就重载，没有就显示没匹配到
@@ -242,9 +242,11 @@ force=True：完全跳过缓存，重新联网（懒匹配用）。
 GET /api/song/<idx> 只读本地（data/lyrics、歌词缓存、负缓存），不联网
 返回 pending=true（本地都没有歌词）
   → 前端先 commitAudio（能播），autoplay 则播
-  → 等人声分离结果（§7）
-     判定纯音乐 → 跳过匹配，toast 提示"纯音乐"；歌词区空白
-  → POST /api/pl {action:"match", idx}
+  → 三个上方按钮禁用，toast“匹配歌词中…”
+  → 人声分离和匹配并行：
+      · ensureVocals 后台跑，状态 chip 显示“人声分离中”
+      · 立即 POST /api/pl {action:"match", idx}，不等分离完成
+  → 匹配成功/失败后恢复按钮；分离结果只影响 chip/波形
 ```
 
 ### 6.2 后端
@@ -272,6 +274,7 @@ POST match 是同步的：后端跑完 lazy_match 才返回。
     不再 pending → 重新 load，正常显示
     仍然 pending → toast 提示没匹配到；歌词区空白
   不再空轮询 60 秒
+  匹配期间人声分离可以继续在后台跑，不阻塞按钮恢复
 ```
 
 ```text

@@ -439,19 +439,25 @@ document.addEventListener('keydown', e=>{
 
 function syncModes(){
   const e=document.getElementById('edit'), l=document.getElementById('lrcedit');
+  const rem=document.getElementById('rem');
+  const enabled=!!NH.S && !NH.MATCHING;
   const body=document.body;
   body.classList.toggle('fak', NH.EDITMODE);
   body.classList.toggle('lrcedit', NH.LRCEDIT);
 
   e.textContent='振假名编辑模式：'+(NH.EDITMODE?'开':'关');
   l.textContent='LRC 编辑模式：'+(NH.LRCEDIT?'开':'关');
-  l.disabled = !!NH.MATCHING || !NH.S;
+  l.disabled = !enabled;
+  e.disabled = !enabled;
+  if(rem){
+    rem.disabled = !enabled;
+    rem.title = NH.MATCHING ? '歌词匹配中' : '重新匹配当前歌曲的歌词';
+  }
   l.title = NH.MATCHING ? '歌词匹配中，稍后再编辑' : '编辑歌词时间轴';
   e.classList.toggle('on', NH.EDITMODE);
   l.classList.toggle('on', NH.LRCEDIT);
 
   e.title='编辑读音';
-  l.title='编辑歌词时间轴';
 
   const chip=document.getElementById('offchip');
   if(Math.abs(NH.OFFSET)>0.001){
