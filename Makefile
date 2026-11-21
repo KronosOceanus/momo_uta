@@ -121,8 +121,8 @@ render:
 	$(PY) -m tools.eval.render --songs アイドル 怪物
 
 clean-cache:
-	rm -rf data/cache/lyrics data/cache/wave
-	@echo "已清理：歌词缓存 / 波形（data/cache/app.log 保留；人声用 make clean-vocals）"
+	rm -rf data/cache/lyrics data/cache/wave data/cache/annotations
+	@echo "已清理：歌词缓存 / 波形 / 注音（data/cache/app.log 保留；人声用 make clean-vocals）"
 
 clean-vocals:
 	rm -rf data/vocals data/tmp/vocals

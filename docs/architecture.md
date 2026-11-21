@@ -118,6 +118,7 @@ src/
 │   │   ├── lrc_doc.py          LRC/nhlrc 格式（纯函数）
 │   │   ├── lrc_files.py        data/lyrics 读写、备份
 │   │   ├── annotation.py       行 → seg、对齐、渲染
+│   │   ├── annotation_cache.py 单行注音显示缓存
 │   │   ├── fingerprint.py      音频指纹 + 索引
 │   │   ├── song_meta.py        整体偏移/标签元数据
 │   │   ├── playlists.py        歌单文件
@@ -530,6 +531,7 @@ data/
 ├── vocals/            人声分离结果             不进 git（可重算但贵）
 ├── cache/             可重建缓存               不进 git
 │   ├── lyrics/        歌词抓取缓存
+│   ├── annotations/   单行注音显示缓存
 │   ├── wave/          波形峰值
 │   ├── fingerprints.json 路径→指纹索引
 │   └── app.log

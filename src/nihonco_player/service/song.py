@@ -9,6 +9,7 @@ import json
 import re
 import threading
 
+from ..core import annotation_cache as ANN_CACHE
 from ..core import library as LIB
 from ..core import lrc_files as LRC
 from ..core import lrc_doc as DOC
@@ -16,7 +17,7 @@ from ..core import diag
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
-                               annotate_line_with_notes, line_fields, ruby_html,
+                               annotate_line_with_notes, ruby_html,
                                segs_of, strip_paren_ruby, words_html_of)
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
@@ -133,7 +134,7 @@ def song_payload(ref, _item=None) -> dict:
         if not ln["text"]:
             ln["ruby"], ln["rm"], ln["ky"] = "", "", ""
             continue
-        fields = line_fields(ln["text"], stored.get(li))
+        fields = ANN_CACHE.line_fields(ln["text"], stored.get(li))
         ln.update(fields)
         ln["raw"] = ln["text"]
     return {"uid": uid, "idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
