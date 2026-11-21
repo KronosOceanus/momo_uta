@@ -65,6 +65,8 @@ B 是否就是 A：
 控件       条件            B==A 时                  B!=A 时
 ──────────────────────────────────────────────────────────────
 开始       S 存在          从 0 重播                切到 B，从 0 播
+上一首     S/A 存在        按歌单循环，从 0 播放      按 A 的歌单循环，切过去播放
+下一首     S/A 存在        按歌单循环，从 0 播放      按 A 的歌单循环，切过去播放
 上一句     PLAYING_UID 非空     A 上一句 seek            load(A) 后 A 上一句
 下一句     PLAYING_UID 非空     A 下一句 seek            load(A) 后 A 下一句
 播放/暂停  PLAYING_UID 非空     切 A 播放状态            切 A 播放状态
@@ -76,6 +78,11 @@ LRC 模式   S 存在           进入/退出 B 的编辑       进入/退出 B 
 ```
 
 ```text
+上一首/下一首：
+  按歌单循环顺序；优先正在播放 A 所在歌单
+  没有 A 时用正在查看 B 所在歌单
+  点击后 load(目标) 并从 0 播放，不保留上一首位置
+
 “禁用”统一看 PLAYING_UID：
   上一句、播放/暂停、下一句、单句循环、单曲循环
   播放条上的播放/暂停、±10 秒、进度条
@@ -362,13 +369,14 @@ B 不在播：
 ```text
 PLAYING_UID == null（从未播放过）：
   禁用：
-    #prev、#play、#next
+    #prev、#next
     #loop、#songloop
     #play2、#back10、#fwd10
     进度条 pointer-events:none
 
 不禁止：
   #start（S 存在时显式载入 B 并从头播）
+  #prevSong / #nextSong（无 S/A 时 no-op）
   重新匹配、LRC 模式、振假名编辑、音量、波形缩放
 
 PLAYING_UID 一旦被 commitAudio 设置：
