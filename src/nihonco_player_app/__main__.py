@@ -16,6 +16,7 @@ from webview import FileDialog
 from nihonco_yomi.config import APP
 
 from nihonco_player.core import library as LIB
+from nihonco_player.core import vocals as VOC
 from nihonco_player.http.server import make_server
 
 from . import logsetup
@@ -26,6 +27,7 @@ def main() -> None:
     sys.excepthook = logsetup.log_exception
     print(f"日志：{log_path}")
     LIB.load_cache_for_playlists()
+    VOC.cleanup(protected={v.get("uid") for v in LIB.CACHE.values()})
 
     srv = make_server(0)                     # 随机端口，不占 8766
     port = srv.server_address[1]

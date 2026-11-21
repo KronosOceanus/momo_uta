@@ -22,8 +22,10 @@ from pathlib import Path
 from queue import Queue
 
 from nihonco_yomi.config import VC
+from . import diag
 from nihonco_yomi.paths import VOCALS
 
+TMP_ROOT = VOCALS.parent / "tmp" / "vocals"
 MODEL = VC["model"]
 MIN_RATIO = VC["ratio_min"]          # 有唱帧占比超过它 → 认为有人声
 FRAME = VC["frame_sec"]              # VAD 帧长（秒）
@@ -38,6 +40,18 @@ _worker: threading.Thread | None = None
 def paths(uid: str) -> tuple[Path, Path, Path]:
     d = VOCALS / uid
     return d, d / "vocals.wav", d / "meta.json"
+
+
+def _touch(uid: str) -> None:
+    m = meta(uid)
+    if not m:
+        return
+    m["last_used"] = int(time.time())
+    try:
+        _, _, mp = paths(uid)
+        mp.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
+    except Exception:
+        pass
 
 
 def meta(uid: str) -> dict | None:
@@ -60,6 +74,7 @@ def status(uid: str) -> dict:
 def ensure(uid: str, audio: str) -> dict:
     """确保这首歌有人声轨：已有缓存直接返回；否则排队（幂等）。"""
     if meta(uid):
+        _touch(uid)
         return status(uid)
     with _lock:
         st = _states.get(uid)
@@ -107,37 +122,98 @@ def _separate(uid: str, audio: str) -> dict:
     if not installed():
         raise RuntimeError("未安装 demucs（pip install demucs）")
     d, wav, meta_path = paths(uid)
-    tmp = d / "tmp"
-    if tmp.exists():
-        shutil.rmtree(tmp, ignore_errors=True)
-    d.mkdir(parents=True, exist_ok=True)
-
-    cmd = [sys.executable, "-m", "demucs", "--two-stems=vocals",
-           "-n", MODEL, "-o", str(tmp), audio]
-    env = dict(os.environ)
-    env.setdefault("HF_ENDPOINT", VC["hf_endpoint"])   # 国内直连 HF 会卡住
-    r = subprocess.run(cmd, capture_output=True, text=True, env=env)
-    if r.returncode != 0:
-        raise RuntimeError((r.stderr or r.stdout or "demucs 失败")[-400:])
-
-    src = next(tmp.rglob("vocals.wav"), None) or next(tmp.rglob("vocals.*"), None)
-    if not src:
-        raise RuntimeError("demucs 没有产出 vocals 文件")
-
-    r = subprocess.run(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
-                        "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
-                       capture_output=True, text=True)
-    if r.returncode != 0 or not wav.is_file():
-        raise RuntimeError("转 16k 单声道失败")
-
-    stats = analyze(wav)
-    m = {"model": MODEL, "created": int(time.time()),
-         "duration": stats["duration"], "ratio": stats["ratio"],
-         "floor": stats["floor"], "threshold": stats["threshold"],
-         "has_vocals": stats["ratio"] >= MIN_RATIO}
-    meta_path.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
+    if (d / "tmp").exists():
+        shutil.rmtree(d / "tmp", ignore_errors=True)   # 旧版本残留
+    TMP_ROOT.mkdir(parents=True, exist_ok=True)
+    tmp = TMP_ROOT / f"{uid}-{os.getpid()}-{int(time.time() * 1000)}"
     shutil.rmtree(tmp, ignore_errors=True)
-    return m
+    tmp.mkdir(parents=True, exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
+    try:
+        cmd = [sys.executable, "-m", "demucs", "--two-stems=vocals",
+               "-n", MODEL, "-o", str(tmp), audio]
+        env = dict(os.environ)
+        env.setdefault("HF_ENDPOINT", VC["hf_endpoint"])   # 国内直连 HF 会卡住
+        r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout or "demucs 失败")[-400:])
+
+        src = next(tmp.rglob("vocals.wav"), None) or next(tmp.rglob("vocals.*"), None)
+        if not src:
+            raise RuntimeError("demucs 没有产出 vocals 文件")
+
+        r = subprocess.run(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
+                            "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
+                           capture_output=True, text=True)
+        if r.returncode != 0 or not wav.is_file():
+            raise RuntimeError("转 16k 单声道失败")
+
+        stats = analyze(wav)
+        now = int(time.time())
+        m = {"model": MODEL, "created": now, "last_used": now,
+             "duration": stats["duration"], "ratio": stats["ratio"],
+             "floor": stats["floor"], "threshold": stats["threshold"],
+             "has_vocals": stats["ratio"] >= MIN_RATIO}
+        meta_path.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
+        return m
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def cleanup(protected=None, max_bytes=None) -> dict:
+    """清理 vocals：孤儿、旧 tmp、超出容量时按 last_used 淘汰。"""
+    protected = {str(x) for x in (protected or [])}
+    max_bytes = int(max_bytes if max_bytes is not None else VC.get("max_bytes", 512 * 1024 * 1024))
+    removed_uids: list[str] = []
+    freed = 0
+
+    with _lock:
+        active = any(st.get("state") in ("queued", "running") for st in _states.values())
+        active_uids = {u for u, st in _states.items()
+                       if st.get("state") in ("queued", "running")}
+    if TMP_ROOT.is_dir() and not active:
+        for p in TMP_ROOT.iterdir():
+            if p.is_dir():
+                shutil.rmtree(p, ignore_errors=True)
+
+    rows: list[tuple[int, int, str, Path]] = []
+    if VOCALS.is_dir():
+        for d in list(VOCALS.iterdir()):
+            if not d.is_dir() or d.name in active_uids:
+                continue
+            legacy = d / "tmp"
+            if legacy.exists():
+                shutil.rmtree(legacy, ignore_errors=True)
+            wav, mp = d / "vocals.wav", d / "meta.json"
+            if not wav.is_file() or not mp.is_file():
+                shutil.rmtree(d, ignore_errors=True)
+                removed_uids.append(d.name)
+                continue
+            if d.name not in protected:
+                size = sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
+                shutil.rmtree(d, ignore_errors=True)
+                removed_uids.append(d.name)
+                freed += size
+                continue
+            try:
+                m = json.loads(mp.read_text(encoding="utf-8"))
+                used = int(m.get("last_used") or m.get("created") or 0)
+            except Exception:
+                used = 0
+            size = sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
+            rows.append((used, size, d.name, d))
+
+    total = sum(x[1] for x in rows)
+    for used, size, uid, d in sorted(rows):
+        if total <= max_bytes:
+            break
+        shutil.rmtree(d, ignore_errors=True)
+        total -= size
+        removed_uids.append(uid)
+        freed += size
+
+    diag.log("vocals", f"cleanup removed={len(removed_uids)} freed={freed} total={total}")
+    return {"ok": True, "removed": removed_uids, "freed": freed, "total": total}
 
 
 def analyze(wav_path: Path) -> dict:

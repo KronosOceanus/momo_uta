@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from nihonco_player.core import vocals
+from nihonco_player.core import vocals as vocals_mod
 
 
 def _write_wav(path: Path, segments):
@@ -53,6 +54,46 @@ class TestVocalStats(unittest.TestCase):
                 st = vocals.status(uid)
                 self.assertEqual(st["state"], "done")
                 self.assertTrue(st["has_vocals"])
+
+
+class TestVocalCleanup(unittest.TestCase):
+    def test_cleanup_removes_orphans_and_tmp_but_keeps_protected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vocals = root / "vocals"
+            job = root / "tmp" / "vocals" / "job"
+            job.mkdir(parents=True)
+            for uid in ("keep", "orphan"):
+                d = vocals / uid
+                d.mkdir(parents=True)
+                (d / "vocals.wav").write_bytes(b"x" * 10)
+                (d / "meta.json").write_text('{"created":1,"last_used":1}', encoding="utf-8")
+            with patch.object(vocals_mod, "VOCALS", vocals), \
+                 patch.object(vocals_mod, "TMP_ROOT", root / "tmp" / "vocals"), \
+                 patch.object(vocals_mod, "_states", {}):
+                res = vocals_mod.cleanup(protected={"keep"})
+            self.assertTrue((vocals / "keep" / "vocals.wav").is_file())
+            self.assertFalse((vocals / "orphan").exists())
+            self.assertFalse(job.exists())
+            self.assertIn("orphan", res["removed"])
+
+    def test_cleanup_cap_evicts_oldest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vocals = root / "vocals"
+            for uid, used in (("old", 1), ("new", 2)):
+                d = vocals / uid
+                d.mkdir(parents=True)
+                (d / "vocals.wav").write_bytes(b"x" * 100)
+                (d / "meta.json").write_text(
+                    '{"created":%d,"last_used":%d}' % (used, used), encoding="utf-8")
+            with patch.object(vocals_mod, "VOCALS", vocals), \
+                 patch.object(vocals_mod, "TMP_ROOT", root / "tmp" / "vocals"), \
+                 patch.object(vocals_mod, "_states", {}):
+                res = vocals_mod.cleanup(protected={"old", "new"}, max_bytes=150)
+            self.assertFalse((vocals / "old").exists())
+            self.assertTrue((vocals / "new" / "vocals.wav").is_file())
+            self.assertIn("old", res["removed"])
 
 
 if __name__ == "__main__":

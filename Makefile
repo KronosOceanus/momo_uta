@@ -5,7 +5,7 @@ PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
         build-tables build-resource build-holdout build-prose build-lyrics \
         eval-dummy eval eval-real eval-kanji eval-gen eval-test eval-llm \
         ceiling stats tables-check build-stats audit gold-audit audit-patches \
-        render clean-cache clean-vocals all serve api
+        render clean-cache clean-vocals clean-tmp all serve api
 
 help:
 	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
@@ -125,7 +125,11 @@ clean-cache:
 	@echo "已清理：歌词缓存 / 波形（data/cache/app.log 保留；人声用 make clean-vocals）"
 
 clean-vocals:
-	rm -rf data/vocals
-	@echo "已清理：data/vocals（下次点歌会重新分离）"
+	rm -rf data/vocals data/tmp/vocals
+	@echo "已清理：data/vocals + 临时分离目录（下次点歌会重新分离）"
+
+clean-tmp:
+	rm -rf data/tmp
+	@echo "已清理：data/tmp"
 
 all: test build-prose build-lyrics eval-dummy

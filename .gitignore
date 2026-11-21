@@ -8,6 +8,7 @@ data/sources/
 data/corpus/
 data/tables/
 data/cache/
+data/tmp/
 data/vocals/
 data/config.json
 data/curated/*.lock
