@@ -35,6 +35,7 @@ function markDirty(){
   if(h){ h.textContent='未保存…'; h.className='savehint dirty'; }
   clearTimeout(NH.SAVE_T);
   NH.SAVE_T=setTimeout(()=>saveLrc(true), NH.UI.autosave_ms||1500);   // 停止编辑后自动保存
+  NH.paintTicks?.();
 }
 function lrcPayload(){
   return NH.EROWS.map(x=>({t:x.t, text:x.text}));
@@ -131,6 +132,7 @@ async function openLrcEditor(entering=false){
   NH.UNDO=[]; NH.REDO=[];
   document.getElementById('savehint').textContent='';
   renderLrcTable();
+  NH.paintTicks?.();
   if(entering){ NH.measureCanvas(); NH.syncWaveLabels(); NH.syncFollow(); if(!NH.WAVE) NH.loadWave(); }
 }
 

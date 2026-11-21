@@ -213,8 +213,10 @@ function paintTransport(){
 function paintTicks(){
   const box=document.getElementById('ticks'); box.innerHTML='';
   const dur=isFinite(NH.au.duration)?NH.au.duration:0; if(!dur) return;
+  // LRC 模式下 EROWS 才是正在编辑的歌词；普通模式读播放行。
+  const rows=NH.VIEW_MODE==='lrc' ? (NH.EROWS||[]) : (NH.LINES||[]);
   const frag=document.createDocumentFragment();
-  (NH.LINES||[]).forEach(l=>{
+  rows.forEach(l=>{
     if(!l || l.t==null) return;
     const i=document.createElement('i');
     i.style.left=(l.t/dur*100)+'%';

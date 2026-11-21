@@ -413,6 +413,7 @@ async function load(ref, autoplay, nextMode){
     }
     NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CUR=-1; NH.NAV=[];
+    NH.paintTicks?.();
     NH.syncModes?.();   // 已有查看歌曲：开始可用，匹配中其他入口仍禁用
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
     document.getElementById('rmcol').innerHTML='';
@@ -453,6 +454,7 @@ async function load(ref, autoplay, nextMode){
     NH.viewDispatch({type:'LOAD_READY', idx:d.uid, request});
     NH.NO_MATCH.delete(String(d.uid));
     NH.S=d; NH.LINES=d.lines; NH.CUR=-1;
+    NH.paintTicks?.();
     if(String(NH.PLAYING_UID) !== String(d.uid)){
       document.querySelectorAll('.ln.on,.ln2.on').forEach(el=>el.classList.remove('on'));
     }
@@ -1006,7 +1008,9 @@ document.getElementById('resetall').onclick=async()=>{
   if(r && r.ok===false){ done(r.error||'歌曲已不可用'); await loadLib(); return; }
   if(r && r.version) NH.LRC_VERSION=r.version;
   toast('已恢复默认标注');
-  load(NH.S.uid);
+  const wasLrc=NH.VIEW_MODE==='lrc';
+  await load(NH.S.uid);
+  if(wasLrc && NH.VIEW_MODE==='lrc') await NH.openLrcEditor();
 };
 
 Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, waitJob, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});
