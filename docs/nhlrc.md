@@ -532,7 +532,7 @@ body = sha1(整篇正文)[:8]
 | 保存编排 | `nihonco_player.service.lrc` | 沿用已有标注、重新注音、导出两种文本 |
 | 权威写入 | `nihonco_player.service.lrc` / `lrc_files` | 保存/导入/pick/恢复/禁用，锁内原子写 |
 | 导入配对 | `nihonco_player.core.importing` | 按文件名配对、直接写权威 nhlrc |
-| 缓存标注 | `nihonco_player.core.lyrics_cache` | `write_local_lrc(..., annotations=…)` |
+| 缓存标注 | `nihonco_player.core.lyrics_cache` | 网络缓存；仅测试/旧路径可用，业务写入不再调用 |
 
 ```text
 测试：

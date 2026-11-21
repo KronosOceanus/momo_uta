@@ -79,7 +79,7 @@ text 是纯文本（不含时间戳，不含元数据）
 
 ```text
 再点一次「LRC 编辑模式」
-  → load(当前 idx, false, 'normal')
+  → load(当前 uid, false, 'normal')
   → load() 发现正在编辑：setLrcLocked(true) → flushLrc() → 取新载荷
   → VIEW_MODE='normal'，回到普通视图
 ```
@@ -249,7 +249,7 @@ saveLrc：
   ① 没有歌 / 不在编辑模式 / 正在替换 → 直接返回
   ② 等上一次 SAVE_PENDING 结束（避免旧内容后写覆盖新内容）
   ③ 不脏且不是强制保存 → 返回
-  ④ 记下 revision，POST /api/lrc {action:"save", idx, lines}
+  ④ 记下 revision，POST /api/lrc {action:"save", uid, version, lines}
   ⑤ 成功且 revision 没变 → EDIRTY=false，savehint="已保存 HH:MM:SS"
   ⑥ 失败 → 保持 dirty，silent 时不弹 toast，只改 savehint
 ```
@@ -317,7 +317,7 @@ setLrcLocked(true) 会先把焦点从表格移走（触发 change），再 inert
 ```text
 选文件（pywebview pick_lrc_text）
   → confirm 覆盖当前歌词
-  → replaceLrc({action:"import_lrc", idx, text})
+  → replaceLrc({action:"import_lrc", uid, version, text})
 ```
 
 ```text
@@ -340,7 +340,7 @@ replaceLrc：
 
 ```text
 点「导出」
-  → POST /api/lrc {action:"export", idx, lines} 拿两种文本：
+  → POST /api/lrc {action:"export", uid, lines} 拿两种文本：
       nhlrc：正文 + 尾部
       lrc：只有正文
   → pywebview save_text(默认名 <歌名>.nhlrc, nhlrc, lrc)
@@ -353,7 +353,7 @@ replaceLrc：
 点「恢复最初」
   → GET /api/lrc {action:"backup"} 查 .bak 是否存在/时间/行数
   → confirm 显示备份时间和行数
-  → replaceLrc({action:"restore", idx})
+  → replaceLrc({action:"restore", uid, version})
 ```
 
 ```text
