@@ -11,6 +11,7 @@ import threading
 
 from ..core import library as LIB
 from ..core import lrc_files as LRC
+from ..core import lrc_doc as DOC
 from ..core import diag
 from ..core import lyrics as LY
 from ..core import song_meta as META
@@ -35,6 +36,65 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
     allow_untimed = doc.get("kind") == "nhlrc" or doc.get("source") == "local-lrc"
     has_lines = has_text and (allow_untimed or LY.has_timed(doc.get("text") or ""))
     return doc, has_lines
+
+
+def _annotate_lines(lines, stored=None, keep_unchanged=False):
+    """按行生成读音；keep_unchanged 时正文没变的行沿用旧标注。"""
+    ann = {}
+    stored = stored or {}
+    for i, ln in enumerate(lines):
+        text = (ln.get("text") or "").strip()
+        if not text:
+            continue
+        st = stored.get(i)
+        if keep_unchanged and st and "".join(x[0] for x in st) == text:
+            ann[i] = st
+            continue
+        try:
+            ann[i] = segs_of(annotate_line_with_notes(text, stored=st))
+        except Exception as e:
+            diag.log("annotate", f"第 {i} 行注音失败：{e}")
+    return ann
+
+
+def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
+                text=None) -> dict:
+    """唯一的歌词写入口：处理标注策略、写盘、同步 CACHE。
+
+    mode:
+      align      正文没变的行保留旧读音，改字/新行重新注音
+      annotated  调用方已经算好 annotations
+      replace    换正文（text 或 lines+annotations），旧读音不保留
+      reset      正文不变，全部按默认引擎重新注音
+    """
+    uid = item.get("uid")
+    title = item.get("title", "")
+    artist = item.get("artist", "")
+    if mode == "replace" and text is not None:
+        with LRC.LOCK:
+            res = LRC.import_text(item["file"], text, uid, title, artist)
+    else:
+        doc = LRC.load(item["file"], uid, title, artist)
+        if mode == "align":
+            old = DOC.align_annotations(lines or [], doc.get("annotations") or {})
+            ann = _annotate_lines(lines or [], old, keep_unchanged=True)
+        elif mode == "annotated":
+            ann = annotations or {}
+        elif mode == "reset":
+            ann = _annotate_lines(lines or [])
+        elif mode == "replace":
+            ann = annotations or {}
+        else:
+            raise ValueError("未知歌词保存模式：" + str(mode))
+        with LRC.LOCK:
+            res = LRC.save(item["file"], lines or [], ann, uid, title, artist)
+    if uid:
+        res["library"] = LIB.refresh(uid)
+        for v in CACHE.values():
+            if v.get("uid") == uid:
+                v["has_lyric"] = True
+                break
+    return res
 
 
 def song_payload(idx: int) -> dict:
@@ -63,9 +123,8 @@ def song_payload(idx: int) -> dict:
     if any((ln.get("text") or "").strip() for ln in lines) and \
             (changed or doc.get("kind") != "nhlrc"):
         try:
-            ann = {i: segs_of(annotate_line_with_notes(ln["text"], stored=stored.get(i)))
-                   for i, ln in enumerate(lines) if (ln.get("text") or "").strip()}
-            LRC.save(item["file"], lines, ann, item.get("uid"), item["title"], item.get("artist", ""))
+            ann = _annotate_lines(lines, stored)
+            save_lyrics(item, lines, "annotated", ann)
         except Exception as e:
             diag.log("nhlrc", f"自动落盘失败：{e}")
     return {"idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
@@ -96,8 +155,7 @@ def edit_line(idx, li, start, reading):
         r = annotate_line_with_notes(text, stored=ann.get(li),
                                      extra_start=start, extra_reading=reading)
         ann[li] = segs_of(r)
-        LRC.save(item["file"], lines, ann, item.get("uid"),
-                 item["title"], item.get("artist", ""))
+        save_lyrics(item, lines, "annotated", ann)
     return {"line": li, "ruby": ruby_html(r), "rm": r.get("romaji", {}).get("text", ""),
             "ky": r.get("keys", {}).get("text", ""),
             "rmH": words_html_of(r, "romaji"), "kyH": words_html_of(r, "keys")}
@@ -149,11 +207,12 @@ def pick(idx, song_id) -> dict:
     if not LY.valid_lrc(lrc):
         return {"ok": False, "error": "这个候选没有带时间轴的可用歌词"}
     # 重写当前歌曲的 nhlrc 正文（备份旧文件），旧读音不保留
-    res = LRC.import_text(item["file"], lrc, item.get("uid"),
-                          item["title"], item.get("artist", ""))
+    try:
+        res = save_lyrics(item, mode="replace", text=lrc)
+    except Exception as e:
+        return {"ok": False, "error": "写歌词失败：" + str(e)}
     if not res.get("ok"):
         return {"ok": False, "error": res.get("error") or "写歌词失败"}
-    LIB.refresh(item["uid"])
     idx2 = next((k for k, v in CACHE.items() if v["file"] == item["file"]), str(idx))
     d = song_payload(int(idx2))
     return {"ok": True, "idx": idx2, "lines": len(d.get("lines") or [])}

@@ -6,10 +6,9 @@ import json
 
 from ..core import library as LIB
 from ..core import lrc_doc as DOC
-from ..core import diag
 from ..core import lrc_files as LRC
 from ..core.library import CACHE
-from .song import annotate_line_with_notes, load_lyrics, segs_of
+from .song import load_lyrics, save_lyrics
 
 def lrc_action(req):
     item = CACHE.get(str(req.get("idx")))
@@ -43,30 +42,11 @@ def lrc_action(req):
         text = str(req.get("text") or "")
         if not text.strip():
             return {"ok": False, "error": "文件是空的"}
-        res = LRC.import_text(item["file"], text, uid, title, artist)
-        LIB.refresh(uid)
-        return res
+        return save_lyrics(item, mode="replace", text=text)
     if act == "save":
         lines = req.get("lines") or []
         if not lines or not any((ln.get("text") or "").strip() for ln in lines):
             return {"ok": False, "error": "没有歌词行"}
-        doc = LRC.load(item["file"], uid, title, artist)
-        old = DOC.align_annotations(lines, doc.get("annotations") or {})
-        ann = {}
-        for i, ln in enumerate(lines):
-            text = (ln.get("text") or "").strip()
-            if not text:
-                continue
-            st = old.get(i)
-            if st and "".join(x[0] for x in st) == text:
-                ann[i] = st                     # 正文没动 → 沿用对齐后的标注
-            else:
-                try:
-                    ann[i] = segs_of(annotate_line_with_notes(text, stored=st))
-                except Exception as e:
-                    diag.log("annotate", f"保存时第 {i} 行注音失败：{e}")
-        res = LRC.save(item["file"], lines, ann, uid, title, artist)
-        res["library"] = LIB.refresh(uid)
-        return res
+        return save_lyrics(item, lines, "align")
     return {"ok": False, "error": "未知动作"}
 

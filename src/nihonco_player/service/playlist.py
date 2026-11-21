@@ -66,8 +66,7 @@ def playlists_action(req) -> dict:
         if item:
             doc = LRC.load(item["file"], item.get("uid"),
                            item["title"], item.get("artist", ""))
-            LRC.save(item["file"], doc["lines"], {}, item.get("uid"),
-                     item["title"], item.get("artist", ""))
+            SONGS.save_lyrics(item, doc["lines"], "reset")
     elif act == "match":
         item = CACHE.get(str(req.get("idx")))
         if item:
