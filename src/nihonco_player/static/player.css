@@ -94,6 +94,9 @@ audio{width:100%;margin:0;position:sticky;bottom:0}
   font-weight:400;font-size:12px;cursor:pointer}
 .it:hover .del{display:flex}
 .del:hover{background:#2a1216;color:#e06c75}
+.noly{position:absolute;right:34px;top:50%;transform:translateY(-50%);
+  font-size:9px;line-height:1;color:#6d737c;border:1px solid #2b313a;border-radius:3px;
+  padding:2px 3px;pointer-events:none;white-space:nowrap}
 .folder{display:flex;align-items:center;gap:8px;padding:11px 12px;border-bottom:1px solid #191d23;cursor:pointer}
 .folder:hover{background:#141a20}
 .folder .fi{color:#5b626c;font-size:11px}

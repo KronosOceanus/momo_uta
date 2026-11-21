@@ -362,6 +362,7 @@ async function load(i, autoplay, nextEditMode){
     }
     d=await api('/api/song/'+i);
     if(request!==NH.LOAD_REQUEST) return false;
+    NH.syncLyricMark(d.idx, !d.pending);
   }catch(e){
     if(request===NH.LOAD_REQUEST) done('加载歌曲失败：'+e.message);
     return false;
@@ -643,6 +644,7 @@ function renderList(){
           <div class="t1"><span class="orig">${x.orig||x.title}</span>
             ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${x.title}</span>`}</div>
           <div class="ar">${x.artist}</div>
+          ${x.has_lyric===false?'<span class="noly" title="无歌词">无词</span>':''}
           <b class="del" data-act="del-entry" data-u="${x.uid}" data-id="${g.id}" title="从歌单移除">✕</b>
         </div>`).join('')
       + `</div></div>`;
@@ -650,6 +652,20 @@ function renderList(){
   document.getElementById('list').innerHTML=html||'<div class="empty">没有歌</div>';
   NH.markPlaying?.();
 }
+
+function syncLyricMark(idx, has){
+  document.querySelectorAll(`.it[data-i="${idx}"]`).forEach(el=>{
+    el.dataset.hl = has ? '1' : '0';
+    const old = el.querySelector('.noly');
+    if(has){ if(old) old.remove(); return; }
+    if(old) return;
+    const b = document.createElement('span');
+    b.className = 'noly'; b.title = '无歌词'; b.textContent = '无词';
+    const del = el.querySelector('.del');
+    if(del) del.before(b); else el.appendChild(b);
+  });
+}
+NH.syncLyricMark = syncLyricMark;
 
 function paintSongSel(){
   document.querySelectorAll('.it').forEach(el=>{
