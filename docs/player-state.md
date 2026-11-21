@@ -13,7 +13,7 @@ B = 正在查看的歌
     NH.S / NH.LINES / 左侧歌词 / 右侧面板 / LRC 表格 / 波形 / header
 
 A = 正在播放的歌
-    NH.PLAYING / NH.au / 播放栏 / 播放条 / 时间 / 音量
+    NH.PLAYING_UID / NH.au / 播放栏 / 播放条 / 时间 / 音量
 ```
 
 ```text
@@ -27,7 +27,8 @@ A = 正在播放的歌
 ```text
 NH.S           查看的歌曲载荷（idx/title/artist/lines/offset/duration）
 NH.LINES       查看歌曲的歌词行
-NH.PLAYING     正在播放的歌曲 idx；null = 从未播放
+NH.PLAYING_UID 正在播放的歌曲 uid（稳定身份）
+NH.PLAYING    同歌的当前 idx，仅展示/兼容
 NH.au          AudioEngine，唯一出声的东西
 NH.loop        单句循环开关（只属于 A）
 NH.LOOP_ROW    单句循环锚定的行号
@@ -42,7 +43,7 @@ NH.ESEL        LRC 表格当前行
 ```text
 B 是否就是 A：
   NH.isSelfPlaying()
-  = NH.S 存在 且 String(NH.PLAYING) === String(NH.S.idx)
+  = NH.S 存在 且 String(NH.PLAYING_UID) === String(NH.S.uid)
 ```
 
 ## 2. 不变量
@@ -51,7 +52,7 @@ B 是否就是 A：
 1. 只有 NH.au 出声；NH.S 只是查看对象
 2. 上方按钮不 seek/pause/切 A
 3. 下方按钮只操作 A；唯一例外是会把页面 load 成 A
-4. 没有 PLAYING：下方控件禁用；“开始”在 S 存在时仍可用
+4. 没有 PLAYING_UID：下方控件禁用；“开始”在 S 存在时仍可用
 5. 单句循环只属于 A；查看别的歌时自动关闭
 6. 单曲循环只属于 A；换歌不关闭
 7. 开始/双击歌单永远从 0 播放
@@ -65,18 +66,18 @@ B 是否就是 A：
 控件       条件            B==A 时                  B!=A 时
 ──────────────────────────────────────────────────────────────
 开始       S 存在          从 0 重播                切到 B，从 0 播
-上一句     PLAYING 非空     A 上一句 seek            load(A) 后 A 上一句
-下一句     PLAYING 非空     A 下一句 seek            load(A) 后 A 下一句
-播放/暂停  PLAYING 非空     切 A 播放状态            切 A 播放状态
-单句循环   PLAYING 非空     切开关                   load(A) 后切开关
-单曲循环   PLAYING 非空     切开关                   只切开关，不跳页
+上一句     PLAYING_UID 非空     A 上一句 seek            load(A) 后 A 上一句
+下一句     PLAYING_UID 非空     A 下一句 seek            load(A) 后 A 下一句
+播放/暂停  PLAYING_UID 非空     切 A 播放状态            切 A 播放状态
+单句循环   PLAYING_UID 非空     切开关                   load(A) 后切开关
+单曲循环   PLAYING_UID 非空     切开关                   只切开关，不跳页
 重新匹配   S 存在           B 的候选；可能退出 LRC    B 的候选；不碰 A
 LRC 模式   S 存在           进入/退出 B 的编辑       进入/退出 B 的编辑
 振假名     S 存在           写 B 的 nhlrc            写 B 的 nhlrc
 ```
 
 ```text
-“禁用”统一看 PLAYING：
+“禁用”统一看 PLAYING_UID：
   上一句、播放/暂停、下一句、单句循环、单曲循环
   播放条上的播放/暂停、±10 秒、进度条
 
@@ -171,9 +172,9 @@ LRC 模式   S 存在           进入/退出 B 的编辑       进入/退出 B 
 ### 5.2 上一句 / 下一句
 
 ```text
-前置：PLAYING 非空
+前置：PLAYING_UID 非空
 步骤：
-  1) B != A → await load(PLAYING, false)   // 页面跳到 A
+  1) B != A → await load(PLAYING_UID, false)   // 页面跳到 A
   2) 在 A 的歌词里算上一句/下一句
   3) seekIdx(目标行)
   4) 高亮 A 的目标行
@@ -188,7 +189,7 @@ LRC 模式   S 存在           进入/退出 B 的编辑       进入/退出 B 
 ### 5.3 播放 / 暂停
 
 ```text
-前置：PLAYING 非空
+前置：PLAYING_UID 非空
 动作：只 toggle NH.au
 效果：
   · 不切歌
@@ -200,10 +201,10 @@ LRC 模式   S 存在           进入/退出 B 的编辑       进入/退出 B 
 ### 5.4 单句循环
 
 ```text
-前置：PLAYING 非空
+前置：PLAYING_UID 非空
 
 点击时：
-  B != A → await load(PLAYING, false)       // 跳回 A
+  B != A → await load(PLAYING_UID, false)       // 跳回 A
   切换 NH.loop
   打开时：LOOP_ROW = A 当前句或之后第一句
   关闭时：LOOP_ROW = -1
@@ -221,7 +222,7 @@ LRC 模式   S 存在           进入/退出 B 的编辑       进入/退出 B 
 ### 5.5 单曲循环
 
 ```text
-前置：PLAYING 非空
+前置：PLAYING_UID 非空
 默认：开
 
 点击时：
@@ -267,7 +268,7 @@ LRC 模式   S 存在           进入/退出 B 的编辑       进入/退出 B 
   播放/暂停、单曲循环、±10s、进度条
 
 跳转方式：
-  await load(PLAYING, autoplay=false)
+  await load(PLAYING_UID, autoplay=false)
   · 不重新 commitAudio
   · 不打断 A
   · 不改变 A 的播放位置
@@ -360,7 +361,7 @@ B 不在播：
 ## 8. 禁用状态
 
 ```text
-PLAYING == null（从未播放过）：
+PLAYING_UID == null（从未播放过）：
   禁用：
     #prev、#play、#next
     #loop、#songloop
@@ -371,7 +372,7 @@ PLAYING == null（从未播放过）：
   #start（S 存在时显式载入 B 并从头播）
   重新匹配、LRC 模式、振假名编辑、音量、波形缩放
 
-PLAYING 一旦被 commitAudio 设置：
+PLAYING_UID 一旦被 commitAudio 设置：
   以上控件全部恢复
 
 没有 S（刚启动/没打开任何歌）：
@@ -412,7 +413,7 @@ LRC_OPEN_REQUEST 多次进入编辑模式只认最后一次
 SAVE_PENDING     同一时刻最多一个 LRC 保存
 WAVE_SEQ         切歌后旧波形响应作废
 WMARK            按 idx 存，避免 A/B 互相污染
-PLAYING 判定     一律 String(...) 比较，避免数字/字符串
+PLAYING_UID 判定  一律 String(...) 比较
 ```
 
 ## 11. 实现映射

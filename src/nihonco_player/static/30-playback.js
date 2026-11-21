@@ -8,10 +8,10 @@ const PL=CFG.player||{};
 // 播放器 · 统一播放层与播放条
 function markPlaying(){
   document.querySelectorAll('.it').forEach(x=>{
-    x.dataset.playing = (String(x.dataset.i)===String(NH.PLAYING)) ? '1' : ''; });
+    x.dataset.playing = (String(x.dataset.u)===String(NH.PLAYING_UID)) ? '1' : ''; });
 }
 function syncPlayControls(){
-  const on = NH.PLAYING !== null && NH.PLAYING !== undefined;
+  const on = NH.PLAYING_UID !== null && NH.PLAYING_UID !== undefined;
   ['prev','play','next','loop','songloop','play2','back10','fwd10'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.disabled=!on;
   });
@@ -31,10 +31,10 @@ NH.syncPlayControls = syncPlayControls;
 
 function commitAudio(){
   if(!NH.S) return;
-  const prev=NH.PLAYING;
-  if(prev!==null && prev!==undefined && String(prev)!==String(NH.S.idx)) closeLineLoop();
-  NH.PLAYING = NH.S.idx; markPlaying();
-  NH.au.src = NH.S.audio || ('/audio/'+NH.S.idx);
+  const prev=NH.PLAYING_UID;
+  if(prev!==null && prev!==undefined && String(prev)!==String(NH.S.uid)) closeLineLoop();
+  NH.PLAYING_UID = NH.S.uid; NH.PLAYING = NH.S.idx; markPlaying();
+  NH.au.src = NH.S.audio || ('/audio/'+encodeURIComponent(NH.S.uid));
   NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
   document.getElementById('ttl').textContent = '▶ ' + NH.S.title + (NH.S.artist?' · '+NH.S.artist:'');
   syncPlayBtn(); syncPlayControls();
@@ -87,7 +87,7 @@ async function seekPrecise(t){
 function seekIdx(i, keepPlaying){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  if(NH.PLAYING!==NH.S.idx) commitAudio();
+  if(NH.PLAYING_UID!==NH.S.uid) commitAudio();
   const t=Math.max(0, lineT(l));
   seekPrecise(t);                              // 是否续播由 seekPrecise 自己判断
   highlight(i);
@@ -97,10 +97,10 @@ function seekIdx(i, keepPlaying){
 function selectLine(i){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  if(NH.S && String(NH.PLAYING) === String(NH.S.idx)){
+  if(NH.S && String(NH.PLAYING_UID) === String(NH.S.uid)){
     seekIdx(i, true);                   // 正在播这首：跳转，保持播放/暂停状态
   }else{
-    NH.WMARK[NH.S.idx]=lineT(l);        // 查看另一首：只移动波形头
+    NH.WMARK[NH.S.uid]=lineT(l);        // 查看另一首：只移动波形头
     highlight(i);                       // 只高亮，不碰音频
   }
 }
@@ -109,8 +109,8 @@ async function playLine(i){
   if(!NH.S) return;
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  NH.WMARK[NH.S.idx]=lineT(l);
-  if(NH.PLAYING!==NH.S.idx) NH.commitAudio();
+  NH.WMARK[NH.S.uid]=lineT(l);
+  if(NH.PLAYING_UID!==NH.S.uid) NH.commitAudio();
   await seekPrecise(Math.max(0, lineT(l)));
   await NH.au.play().catch(()=>{});
   highlight(i);
@@ -171,7 +171,7 @@ NH.LRC_CUR = -1;
 NH.LOOP_ROW = -1;
 
 NH.au.ontimeupdate=()=>{
-  if(!NH.S || String(NH.PLAYING) !== String(NH.S.idx)) return;
+  if(!NH.S || String(NH.PLAYING_UID) !== String(NH.S.uid)) return;
   const t=NH.au.currentTime;
   const i=idxAt(t);
   if(i>=0){
@@ -223,7 +223,7 @@ function paintTicks(){
   box.appendChild(frag);
 }
 function seekToClientX(x){
-  if(NH.PLAYING===null) return;
+  if(NH.PLAYING_UID===null) return;
   const r=document.getElementById('seek').getBoundingClientRect();
   const ratio=Math.max(0,Math.min(1,(x-r.left)/r.width));
   const dur=isFinite(NH.au.duration)?NH.au.duration:0;
@@ -237,8 +237,8 @@ function seekToClientX(x){
   document.addEventListener('mousemove', e=>{ if(dragging) seekToClientX(e.clientX); });
   document.addEventListener('mouseup', ()=>{ dragging=false; });
   document.getElementById('play2').onclick=togglePlayPause;
-  document.getElementById('back10').onclick=()=>{ if(NH.PLAYING===null) return; seekPrecise(Math.max(0, NH.au.currentTime-10)); };
-  document.getElementById('fwd10').onclick=()=>{ if(NH.PLAYING===null) return; seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
+  document.getElementById('back10').onclick=()=>{ if(NH.PLAYING_UID===null) return; seekPrecise(Math.max(0, NH.au.currentTime-10)); };
+  document.getElementById('fwd10').onclick=()=>{ if(NH.PLAYING_UID===null) return; seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
   document.getElementById('volume').oninput=e=>{ NH.au.volume=+e.target.value; NH.au.muted=NH.au.volume===0; paintTransport(); };
   document.getElementById('mute').onclick=()=>{ NH.au.muted=!NH.au.muted; paintTransport(); };
   ['timeupdate','loadedmetadata','durationchange','play','pause','volumechange'].forEach(ev=>
@@ -260,7 +260,7 @@ function togglePlayPause(){
   const now=performance.now();
   if(now-TOGGLE_AT<(UI.toggle_debounce_ms||320)) return;              // 防止 pointerdown + click 连发
   TOGGLE_AT=now;
-  if(NH.PLAYING===null || NH.PLAYING===undefined) return;
+  if(NH.PLAYING_UID===null || NH.PLAYING_UID===undefined) return;
   if(NH.au.paused) NH.au.play().catch(()=>{});
   else NH.au.pause();
 }
@@ -268,9 +268,9 @@ function syncPlayBtn(){ playBtn.textContent = NH.au.paused ? '播放' : '暂停'
 function playFromStart(){
   const song = NH.S;
   if(!song) return;
-  const idx = song.idx;
+  const uid = song.uid;
   NH.au.preload().then(() => {
-    if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+    if(!NH.S || String(NH.S.uid)!==String(uid)) return;
     NH.au.currentTime = 0;
     NH.au.play().catch(()=>{});
   }).catch(()=>{});
@@ -289,9 +289,9 @@ document.getElementById('play2').addEventListener('pointerdown', e=>{
 NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
 document.getElementById('rate').oninput=e=>{NH.au.playbackRate=+e.target.value;document.getElementById('rv').textContent=(+e.target.value).toFixed(2)+'×';};
 async function stepPlaying(dir){
-  if(NH.PLAYING===null) return;
+  if(NH.PLAYING_UID===null) return;
   if(!NH.isSelfPlaying()){
-    const ok=await NH.load(NH.PLAYING, false);   // 页面跳到 A，不打断 A
+    const ok=await NH.load(NH.PLAYING_UID, false);   // 页面跳到 A，不打断 A
     if(!ok) return;
   }
   const n=nextIdx(dir); if(n!==null) seekIdx(n,true);
@@ -302,13 +302,13 @@ document.getElementById('t-rm').onclick=e=>{NH.MODE='rm';e.target.classList.add(
 document.getElementById('t-ky').onclick=e=>{NH.MODE='ky';e.target.classList.add('on');document.getElementById('t-rm').classList.remove('on');const l=NH.LINES[NH.CUR];NH.renderSide();};
 document.getElementById('rem').onclick=async()=>{
   if(!NH.S || NH.BUSY) return;
-  if(NH.VIEW_MODE==='lrc' && !await NH.load(NH.S.idx, false, 'normal')) return;
+  if(NH.VIEW_MODE==='lrc' && !await NH.load(NH.S.uid, false, 'normal')) return;
   const song=NH.S;
   document.querySelectorAll('.menu').forEach(m=>m.remove());
   NH.busy('匹配中…'); NH.lock(this, true);
   let d;
   try{
-    d = await NH.api('/api/rematch',{action:'rematch', idx:song.idx,
+    d = await NH.api('/api/rematch',{action:'rematch', uid:song.uid,
       duration:(song.duration || (NH.isSelfPlaying()?NH.au.duration:0))});
   }catch(err){
     NH.done('匹配失败：'+err.message); NH.lock(null,false); return;
@@ -331,11 +331,11 @@ document.getElementById('rem').onclick=async()=>{
       box.remove();
       NH.busy('换歌词中…');
       try{
-        const d=await NH.api('/api/pick',{action:'pick', idx:song.idx, id:c.id});
+        const d=await NH.api('/api/pick',{action:'pick', uid:song.uid, id:c.id});
         if(!d.ok){ NH.done(d.error||'换歌词失败'); return; }
         if(NH.S!==song || NH.VIEW_MODE==='lrc') return;
-        NH.NO_MATCH.delete(String(d.idx || song.idx));
-        await NH.load(d.idx || song.idx);        // 重新拉这一首（已换新歌词）
+        NH.NO_MATCH.delete(String(d.uid || song.uid));
+        await NH.load(d.uid || song.uid);        // 重新拉这一首（已换新歌词）
         NH.loadLib();
         NH.done(`已换成 ${c.name}（${d.lines} 行歌词）`);
       }catch(err){ NH.done('换歌词失败：'+err.message); }
@@ -352,9 +352,9 @@ document.getElementById('rem').onclick=async()=>{
   box.style.left=left+'px'; box.style.top=top+'px';
 };
 document.getElementById('loop').onclick=async()=>{
-  if(NH.PLAYING===null) return;
+  if(NH.PLAYING_UID===null) return;
   if(!NH.isSelfPlaying()){
-    const ok=await NH.load(NH.PLAYING, false);
+    const ok=await NH.load(NH.PLAYING_UID, false);
     if(!ok) return;
   }
   NH.loop=!NH.loop;
@@ -376,7 +376,7 @@ function syncSongLoop(){
   songLoopBtn.classList.toggle('on', NH.loopSong);
 }
 if(songLoopBtn) songLoopBtn.onclick = () => {
-  if(NH.PLAYING===null) return;          // 只切播放器状态，不跳回 A
+  if(NH.PLAYING_UID===null) return;          // 只切播放器状态，不跳回 A
   NH.loopSong = !NH.loopSong; syncSongLoop();
 };
 syncSongLoop(); syncLoopBtn(); syncPlayControls();

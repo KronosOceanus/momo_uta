@@ -8,7 +8,6 @@ from nihonco_yomi.config import JOB
 from ..core import jobs as JOBS
 from ..core import library as LIB
 from ..core import vocals as VOC
-from ..core.library import CACHE
 from . import song as SONGS
 
 KINDS = {"vocals", "match", "rebuild"}
@@ -24,14 +23,15 @@ def start(kind: str, idx=None) -> dict:
 
         def run_rebuild():
             if not LIB.LAST_MISSING:
-                return {"library": len(CACHE), "missing": 0, "recovered": 0}
+                return {"library": len(LIB.snapshot()), "missing": 0, "recovered": 0}
             return LIB.rebuild_library()
 
         return JOBS.start(kind, key, run_rebuild)
 
-    item = CACHE.get(str(idx)) if idx is not None else None
+    item = LIB.resolve(idx) if idx is not None else None
     if not item:
         raise ValueError("没有这首歌")
+    idx = item.get("uid") or idx
 
     if kind == "vocals":
         uid = item["uid"]

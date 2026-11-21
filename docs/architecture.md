@@ -235,7 +235,9 @@ core 的特点：
 ### 5.2 曲库与 `CACHE`
 
 ```text
-CACHE：idx(str) → 条目
+CACHE：idx(str) → 条目（列表顺序）
+BY_UID：uid → 同一份条目（稳定身份）
+GENERATION：每次发布/增删 +1
   条目字段：
     key       md5(文件名主干)[:12]        用于标签/偏移等"按歌"的元数据
     uid       音频指纹                    用于歌词/歌单/人声
@@ -248,12 +250,25 @@ CACHE：idx(str) → 条目
 
 idx 是"当前会话里的位置"：
   每次全量扫库都可能变；不能持久化，不能当身份。
+
+发布：
+  _publish() 构建新 idx 表 + BY_UID；
+  加锁 update + 删除旧 key，不先 clear；
+  GENERATION += 1。
+
+读接口用 LIB.resolve(ref)：
+  uid 优先，idx 仅兼容 fallback。
 ```
 
 ```text
 refresh(uid)：
   uid 在 CACHE 里 → 只重算这一条（不扫全库、序号不变）
-  uid 不在 → 全量扫描并重建 CACHE
+  uid 不在 → 尝试索引/imports 补一条；找不到不扫全库
+
+重建/启动加载：
+  _publish() 一次性发布新 CACHE + BY_UID
+  并发读不会看到 clear 后的空表
+  旧 idx 仍可能指向新歌，所以写/播放只用 uid
 
 load_for_playlists()（启动用）：
   读 playlists.json 的所有成员 uid
@@ -280,9 +295,18 @@ scan_library()：
 ### 5.3 三个 id 不要混
 
 ```text
-idx    会话内位置：/api/song/<idx>、/audio/<idx>
-uid    音频指纹：歌词文件、歌单成员、人声缓存
+uid    音频指纹：所有读写/播放/任务的主身份
+idx    会话内位置：列表 data-i、兼容旧接口 fallback
 key    md5(文件名主干)：标签、整体偏移等按歌元数据
+```
+
+```text
+新前端传 uid：
+  /api/song/<uid>
+  /api/wave/<uid>
+  /audio/<uid>
+  /api/lrc、/api/line、/api/rematch、/api/pick、/api/jobs 用 body.uid
+  idx 只用于列表显示和 DOM
 ```
 
 ```text
@@ -302,17 +326,17 @@ service 只做"把 core 的步骤串起来"，不实现具体规则：
 ### 6.1 song
 
 ```text
-song_payload(idx)
+song_payload(uid)  // idx 兼容 fallback
   曲库条目 → 歌词（data/lyrics 或缓存）→ 逐行注音 → 必要时自动落盘
-  → {idx, title, artist, lines, offset, audio, pending?}
+  → {uid, idx, title, artist, lines, offset, audio, pending?}
 
-edit_line_action(req)
+edit_line_action(req)  // req.uid 优先
   改一处读音 → 重算该行 → 立即写 nhlrc → 返回新 ruby/rm/ky
 
-rematch(idx, duration)
+rematch(uid, duration)
   候选只来自网络（网易云）→ 返回前 10
 
-pick(idx, id)
+pick(uid, id)
   网络歌词重写当前 nhlrc 正文（备份、读音重来）
 
 lazy_match(item)
@@ -365,13 +389,13 @@ routes.py 只做三件事：
 GET
   /                       页面（注入 __CFG）
   /static/*               前端静态文件
-  /api/song/<idx>         单曲载荷
-  /api/pl、/api/playlists  歌单列表
-  /api/library            曲库列表
-  /api/wave/<idx>[?src=vocals]  波形峰值
-  /api/vocals/<idx>       人声状态（兼容）
+  /api/song/<uid>         单曲载荷（idx 兼容）
+  /api/pl、/api/playlists  歌单列表 + generation
+  /api/library            曲库列表 + uid
+  /api/wave/<uid>[?src=vocals]  波形峰值
+  /api/vocals/<uid>       人声状态（兼容）
   /api/jobs/<id>          统一任务状态
-  /audio/<idx>            音频流（Range）
+  /audio/<uid>            音频流（Range）
 
 POST
   /api/pl                 playlists_action
@@ -380,9 +404,10 @@ POST
   /api/rematch            重新匹配候选
   /api/pick               选中候选
   /api/import/one         导入
-  /api/lrc                LRC 编辑模式
+  /api/lrc                LRC 编辑（uid 优先）
   /api/vocals             人声分离 ensure（兼容）
   /api/jobs               启动 vocals / match / rebuild 任务
+  所有写请求可带 generation；不一致返回 409
   /api/log                前端未捕获错误写 app.log
 ```
 
@@ -400,8 +425,8 @@ HTTP 边界：
 ### 7.2 音频与静态
 
 ```text
-/audio/<idx>：
-  支持 Range（206），按 64KB 分块写
+/audio/<uid>：
+  按 uid 解析；支持 Range（206），按 64KB 分块写
   Content-Type 按扩展名映射
   前端 WebAudio 需要整文件 fetch，但 Range 仍保留给浏览器/调试
 

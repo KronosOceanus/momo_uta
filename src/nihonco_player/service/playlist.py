@@ -12,13 +12,12 @@ from ..core import fingerprint as FP
 from ..core import library as LIB
 from ..core import song_meta as META
 from ..core import playlists as PL
-from ..core.library import CACHE
 from . import song as SONGS
 
 
 def cached_items() -> list[dict]:
-    """CACHE 里的条目补上 idx。"""
-    return [dict(v, idx=k) for k, v in CACHE.items()]
+    """CACHE 里的条目补上 idx（快照，避免发布中读到半套）。"""
+    return [dict(v, idx=k) for k, v in LIB.snapshot()]
 
 def playlists_action(req) -> dict:
     """歌单动作：建/改名/删/清空/加/移除/导入。"""
@@ -58,31 +57,34 @@ def playlists_action(req) -> dict:
     elif act == "ui_open":
         PL.set_open([x for x in (req.get("ids") or []) if x])
     elif act == "ui_offset":
-        item = CACHE.get(str(req.get("idx")))
+        item = LIB.resolve(req.get("uid") or req.get("idx"))
         if item:
             META.put(item["key"], offset=round(float(req.get("offset") or 0), 3))
     elif act == "edit_clear":
-        item = CACHE.get(str(req.get("idx")))
+        item = LIB.resolve(req.get("uid") or req.get("idx"))
         if item:
             doc = LRC.load(item["file"], item.get("uid"),
                            item["title"], item.get("artist", ""))
             SONGS.save_lyrics(item, doc["lines"], "reset")
     elif act == "match":
-        item = CACHE.get(str(req.get("idx")))
+        item = LIB.resolve(req.get("uid") or req.get("idx"))
         if item:
             SONGS.lazy_match(item)
     elif act == "import":
         return import_to_list(req)
     elif act == "library_rebuild":
         if not LIB.LAST_MISSING:               # 没有缺失就不重建
-            return {"ok": True, "library": len(CACHE), "missing": 0, "recovered": 0,
-                    "lists": PL.build(cached_items()), "missing_count": 0}
+            return {"ok": True, "library": len(LIB.snapshot()), "missing": 0, "recovered": 0,
+                    "lists": PL.build(cached_items()), "missing_count": 0,
+                    "generation": LIB.generation()}
         r = LIB.rebuild_library()
         return {**r, "lists": PL.build(cached_items()),
-                "missing_count": len(LIB.LAST_MISSING)}
+                "missing_count": len(LIB.LAST_MISSING),
+                "generation": LIB.generation()}
     return {"ok": True, "lists": PL.build(cached_items()),
             "missing_count": len(LIB.LAST_MISSING),
-            "auto_rebuild": LIB.should_auto_rebuild()}
+            "auto_rebuild": LIB.should_auto_rebuild(),
+            "generation": LIB.generation()}
 
 
 def import_to_list(req) -> dict:
@@ -101,18 +103,19 @@ def import_to_list(req) -> dict:
         artist, title = LIB.LY.split_name(p.stem)
         LIB.save_import(str(p), title, artist)
     LIB.add_paths(res["added"], "导入")
-    library_n = len(CACHE)
+    library_n = len(LIB.snapshot())
     uids = [FP.fingerprint(f) for f in res["added"]]
     added_n = PL.add(lid, uids)
 
     # "待匹配" = 真正进了歌单、但当前还没有歌词的那些
     uids_set = set(uids)
-    pending_n = sum(1 for k, v in CACHE.items()
+    pending_n = sum(1 for k, v in LIB.snapshot()
                     if v["uid"] in uids_set and not v.get("has_lyric", True))
     res.update({"ok": True, "library": library_n, "imported": added_n,
                 "pending_count": pending_n,
                 "already": max(0, len(uids) - added_n)})
     res["lists"] = PL.build(cached_items())
+    res["generation"] = LIB.generation()
     return res
 
 # ── 路由表 ────────────────────────────────────────

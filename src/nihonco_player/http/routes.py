@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler
 
 from ..core import diag
 from ..core import lyrics as LY
-from ..core.library import CACHE
+from ..core import library as LIB
 from ..web import PAGE
 from ..service import jobs as SVC_JOBS
 from ..service import lrc as SVC_LRC
@@ -107,10 +107,18 @@ class H(BaseHTTPRequestHandler):
         fn = self.POST.get(p)
         if not fn:
             return self._send(404, "not found")
-        missing = [k for k in self.REQUIRED.get(p, ())
-                   if req.get(k) in (None, "", [], {})]
+        missing = []
+        for k in self.REQUIRED.get(p, ()):
+            if k == "idx":
+                if req.get("uid") in (None, "", [], {}) and req.get("idx") in (None, "", [], {}):
+                    missing.append("uid/idx")
+            elif req.get(k) in (None, "", [], {}):
+                missing.append(k)
         if missing:
             return self._json({"ok": False, "error": "缺少参数：" + "/".join(missing)}, 400)
+        if p != "/api/log" and req.get("generation") is not None:
+            if str(req.get("generation")) != str(LIB.generation()):
+                return self._json({"ok": False, "error": "曲库已更新，请重新加载"}, 409)
         try:
             return getattr(self, fn)(req)
         except Exception as e:
@@ -122,27 +130,29 @@ class H(BaseHTTPRequestHandler):
 
     # ── GET ──────────────────────────────────────────
     def _get_playlists(self):
-        lists = SVC_PL.playlists_action({"action": "noop"})["lists"]
-        return self._json({"lists": lists, "open": SVC_PL.playlists_open()})
+        d = SVC_PL.playlists_action({"action": "noop"})
+        return self._json({"lists": d["lists"], "open": SVC_PL.playlists_open(),
+                           "generation": LIB.generation()})
 
     def _get_library(self):
-        rows = [{"idx": k, "title": v["title"], "orig": v.get("orig") or v["title"],
-                 "artist": v["artist"], "key": v["key"], "group": v.get("group", "")}
-                for k, v in CACHE.items()]
+        rows = [{"idx": k, "uid": v.get("uid"), "title": v["title"],
+                 "orig": v.get("orig") or v["title"], "artist": v["artist"],
+                 "key": v["key"], "group": v.get("group", "")}
+                for k, v in LIB.snapshot()]
         return self._json(rows)
 
-    def _get_song(self, idx):
+    def _get_song(self, ref):
         try:
-            return self._json(SVC_SONG.song_payload(int(idx)))
+            return self._json(SVC_SONG.song_payload(ref))
         except Exception as e:
             return self._json({"error": str(e)}, 404)
 
-    def _get_wave(self, idx):
+    def _get_wave(self, ref):
         from ..core import waveform as WAVE
         from ..core import vocals as VOC
         q = urllib.parse.urlparse(self.path).query
         want = urllib.parse.parse_qs(q).get("src", ["mix"])[0]
-        item = CACHE.get(str(idx))
+        item = LIB.resolve(ref)
         if not item:
             return self._json({"error": "no such song"}, 404)
         if want == "vocals":
@@ -155,16 +165,16 @@ class H(BaseHTTPRequestHandler):
         out["source"] = "mix"
         return self._json(out)
 
-    def _get_vocals(self, idx):
+    def _get_vocals(self, ref):
         from ..core import vocals as VOC
-        item = CACHE.get(str(idx))
+        item = LIB.resolve(ref)
         if not item:
             return self._json({"error": "no such song"}, 404)
         return self._json(VOC.status(item["uid"]))
 
     def _post_vocals(self, req):
         from ..core import vocals as VOC
-        item = CACHE.get(str(req.get("idx")))
+        item = LIB.resolve(req.get("uid") or req.get("idx"))
         if not item:
             return self._json({"ok": False, "error": "no such song"}, 404)
         return self._json(VOC.ensure(item["uid"], item["file"]))
@@ -179,7 +189,7 @@ class H(BaseHTTPRequestHandler):
         if not kind:
             return self._json({"ok": False, "error": "缺少任务类型"}, 400)
         try:
-            job = SVC_JOBS.start(kind, req.get("idx"))
+            job = SVC_JOBS.start(kind, req.get("uid") or req.get("idx"))
         except ValueError as e:
             return self._json({"ok": False, "error": str(e)}, 400)
         except Exception as e:
@@ -208,8 +218,8 @@ class H(BaseHTTPRequestHandler):
         diag.log("js", f"{kind} {msg}\n{stack}\n{json.dumps(ctx, ensure_ascii=False)}")
         return self._json({"ok": True})
 
-    def _get_audio(self, idx):
-        item = CACHE.get(str(idx))
+    def _get_audio(self, ref):
+        item = LIB.resolve(ref)
         if not item:
             return self._send(404, "no such song")
         info = STATIC.audio_info(item["file"], self.headers.get("Range"))
@@ -245,10 +255,10 @@ class H(BaseHTTPRequestHandler):
         return self._json(SVC_SONG.edit_line_action(req))
 
     def _post_rematch(self, req):
-        return self._json(SVC_SONG.rematch(req.get("idx"), req.get("duration")))
+        return self._json(SVC_SONG.rematch(req.get("uid") or req.get("idx"), req.get("duration")))
 
     def _post_pick(self, req):
-        r = SVC_SONG.pick(req.get("idx"), req.get("id"))
+        r = SVC_SONG.pick(req.get("uid") or req.get("idx"), req.get("id"))
         return self._json(r, 200 if r.get("ok") else 400)
 
     def _post_lrc(self, req):

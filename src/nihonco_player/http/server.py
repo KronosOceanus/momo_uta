@@ -6,7 +6,6 @@ from http.server import ThreadingHTTPServer
 
 from ..core import library as LIB
 from ..core import vocals as VOC
-from ..core.library import CACHE
 from .routes import H
 
 
@@ -16,7 +15,7 @@ def make_server(port: int = 0) -> ThreadingHTTPServer:
 
 def main() -> None:
     n = LIB.load_cache_for_playlists()
-    VOC.cleanup(protected={v.get("uid") for v in CACHE.values()})
+    VOC.cleanup(protected={v.get("uid") for _, v in LIB.snapshot()})
     srv = make_server(8766)
     print(f"{n} 首有歌词 → http://127.0.0.1:{srv.server_address[1]}")
     srv.serve_forever()

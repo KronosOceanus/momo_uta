@@ -7,11 +7,10 @@ import json
 from ..core import library as LIB
 from ..core import lrc_doc as DOC
 from ..core import lrc_files as LRC
-from ..core.library import CACHE
 from .song import load_lyrics, save_lyrics
 
 def lrc_action(req):
-    item = CACHE.get(str(req.get("idx")))
+    item = LIB.resolve(req.get("uid") or req.get("idx"))
     if not item:
         return {"ok": False, "error": "没有这首歌"}
     act = req.get("action") or "load"

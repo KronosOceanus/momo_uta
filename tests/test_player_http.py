@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from nihonco_player.core import diag                  # noqa: E402
+from nihonco_player.core import library as LIB        # noqa: E402
 from nihonco_player.core import lyrics as LY         # noqa: E402
 from nihonco_player.core import lrc_files as LRF     # noqa: E402
 from nihonco_player.core.library import CACHE        # noqa: E402
@@ -25,7 +26,7 @@ FAKE_LRC = "\n".join([
 ])
 
 CACHE_ITEM = {
-    "key": "testkey000001", "file": "/tmp/fake.mp3", "stem": "テスト - テスト曲",
+    "key": "testkey000001", "uid": "uidtest000001", "file": "/tmp/fake.mp3", "stem": "テスト - テスト曲",
     "orig": "テスト曲", "title": "テスト曲", "artist": "テスト", "source": "netease",
     "lang": "ja", "suspect": False,
 }
@@ -39,6 +40,7 @@ class TestPlayerHttp(unittest.TestCase):
         cls._lyr_patch.start()
         CACHE.clear()
         CACHE["0"] = CACHE_ITEM
+        LIB.BY_UID[CACHE_ITEM["uid"]] = CACHE_ITEM
         # 让 song_payload 拿到固定歌词，不走网络
         cls._orig_get = LY.get_lrc
         LY.get_lrc = lambda *a, **k: {"lrc": FAKE_LRC, "tlyric": "", "name": "テスト曲",
@@ -53,6 +55,13 @@ class TestPlayerHttp(unittest.TestCase):
         cls._lyr_patch.stop()
         cls._lyr_tmp.cleanup()
         LY.get_lrc = cls._orig_get
+
+    def setUp(self):
+        # 每个用例重新放一份固定 CACHE，避免上一条写歌词/refresh 污染下一条。
+        CACHE.clear()
+        CACHE["0"] = dict(CACHE_ITEM)
+        LIB.BY_UID.clear()
+        LIB.BY_UID[CACHE_ITEM["uid"]] = CACHE["0"]
 
     def url(self, path):
         return f"http://127.0.0.1:{self.port}{path}"
@@ -86,6 +95,13 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertGreaterEqual(len(d["lines"]), 3)
         self.assertTrue(any(l["ruby"] for l in d["lines"]))
         self.assertIn("rmH", d["lines"][1])
+
+    def test_song_payload_by_uid(self):
+        d = json.loads(urllib.request.urlopen(
+            self.url("/api/song/" + CACHE_ITEM["uid"])).read())
+        self.assertEqual(d["uid"], CACHE_ITEM["uid"])
+        self.assertEqual(d["audio"], "/audio/" + CACHE_ITEM["uid"])
+        self.assertGreaterEqual(len(d["lines"]), 3)
 
     def test_edit_line(self):
         """改一处读音：返回新 ruby 且罗马音跟着变。"""
@@ -163,6 +179,16 @@ class TestPlayerHttp(unittest.TestCase):
                 delattr(ROUTES.H, "_test_boom_get")
             else:
                 ROUTES.H._test_boom_get = old_method
+
+    def test_stale_generation_rejected(self):
+        body = {"uid": CACHE_ITEM["uid"], "line": 1, "start": 2,
+                "reading": "か", "generation": -1}
+        req = urllib.request.Request(self.url("/api/line"), data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 409)
+        self.assertIn("曲库已更新", json.loads(cm.exception.read())["error"])
 
     def test_bad_json(self):
         req = urllib.request.Request(self.url("/api/line"), data=b"{oops",

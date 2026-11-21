@@ -19,7 +19,9 @@ from . import lyrics as LY
 
 MUSIC = Path.home() / "Music" / "网易云音乐"
 IMPORTS = ROOT / "data" / "curated" / "imports.json"     # 导入的音频路径（不在 music_dirs 里也能列）
-CACHE: dict = {}          # idx(str) -> 歌曲条目
+CACHE: dict = {}          # idx(str) -> 歌曲条目（列表顺序）
+BY_UID: dict = {}         # uid -> 歌曲条目（稳定身份）
+GENERATION = 0            # 每次发布/增删自增，用于拒绝过期列表引用
 LAST_MISSING: list[str] = []   # 最近一次加载未解析到的歌单 uid
 
 def music_dirs() -> list[Path]:
@@ -45,6 +47,56 @@ def save_import(audio: str, title: str, artist: str) -> None:
 
 
 _LOCK = threading.RLock()
+
+
+def _publish(entries: list[dict]) -> None:
+    """一次性发布新曲库：不先清空 CACHE，uid 索引同步更新。"""
+    global GENERATION
+    new = {str(i): e for i, e in enumerate(entries)}
+    by_uid = {str(e["uid"]): e for e in entries if e.get("uid")}
+    with _LOCK:
+        old = set(CACHE)
+        CACHE.update(new)
+        for k in old - set(new):
+            CACHE.pop(k, None)
+        BY_UID.clear()
+        BY_UID.update(by_uid)
+        GENERATION += 1
+
+
+def resolve(ref) -> dict | None:
+    """uid 优先，idx 仅作兼容 fallback。"""
+    if ref is None:
+        return None
+    ref = str(ref)
+    with _LOCK:
+        item = BY_UID.get(ref)
+        if item:
+            return item
+        return CACHE.get(ref)
+
+
+def idx_for(ref) -> str | None:
+    """uid/idx → 当前列表 idx；uid 优先。"""
+    if ref is None:
+        return None
+    ref = str(ref)
+    with _LOCK:
+        if ref in BY_UID:
+            for k, v in CACHE.items():
+                if v is BY_UID[ref] or str(v.get("uid")) == ref:
+                    return k
+        return ref if ref in CACHE else None
+
+
+def snapshot() -> list[tuple[str, dict]]:
+    with _LOCK:
+        return list(CACHE.items())
+
+
+def generation() -> int:
+    with _LOCK:
+        return GENERATION
 
 
 def _resolve_uid(uid: str) -> tuple[Path, str] | None:
@@ -77,6 +129,7 @@ def refresh(uid: str | None = None) -> int:
                     e = _entry(Path(v["file"]), v.get("group", ""))
                     if e:
                         CACHE[k] = e
+                        BY_UID[str(uid)] = e
                     LI.flush()
                     return len(CACHE)
             found = _resolve_uid(str(uid))
@@ -86,11 +139,11 @@ def refresh(uid: str | None = None) -> int:
                 if e:
                     nums = [int(k) for k in CACHE if str(k).isdigit()]
                     CACHE[str(max(nums) + 1 if nums else 0)] = e
+                    BY_UID[str(uid)] = e
             LI.flush()
             return len(CACHE)
         lib = scan_library()
-        CACHE.clear()
-        CACHE.update({str(i): x for i, x in enumerate(lib)})
+        _publish(lib)
         return len(CACHE)
 
 
@@ -111,9 +164,14 @@ def add_paths(paths, group: str = "导入") -> list[dict]:
             if not e or e["file"] in seen:
                 continue
             CACHE[str(nxt)] = e
+            BY_UID[str(e["uid"])] = e
             nxt += 1
             seen.add(e["file"])
             out.append(e)
+    if out:
+        global GENERATION
+        with _LOCK:
+            GENERATION += 1
     LI.flush()
     FP.flush()
     return out
@@ -239,8 +297,7 @@ def rebuild_library() -> dict:
     from . import playlists as PL
     old = set(LAST_MISSING)
     lib = scan_library()
-    CACHE.clear()
-    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    _publish(lib)
     loaded = {str(v.get("uid")) for v in CACHE.values()}
     LAST_MISSING = sorted(str(u) for u in (set(PL.all_uids()) - loaded))
     recovered = len(old - set(LAST_MISSING))
@@ -254,8 +311,7 @@ def rebuild_library() -> dict:
 
 def load_cache_for_playlists() -> int:
     lib = load_for_playlists()
-    CACHE.clear()
-    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    _publish(lib)
     return len(CACHE)
 
 

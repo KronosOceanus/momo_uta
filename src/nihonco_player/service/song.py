@@ -18,7 +18,6 @@ from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
                                annotate_line_with_notes, line_fields, ruby_html,
                                segs_of, strip_paren_ruby, words_html_of)
-from ..core.library import CACHE
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
 HAN_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -86,23 +85,27 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             res = LRC.save(item["file"], lines or [], ann, uid, title, artist)
     if uid:
         res["library"] = LIB.refresh(uid)
-        for v in CACHE.values():
+        for _, v in LIB.snapshot():
             if v.get("uid") == uid:
                 v["has_lyric"] = True
                 break
     return res
 
 
-def song_payload(idx: int) -> dict:
-    item = CACHE[str(idx)]
+def song_payload(ref) -> dict:
+    item = LIB.resolve(ref)
+    if not item:
+        raise KeyError("没有这首歌")
+    idx = LIB.idx_for(item.get("uid") or ref)
+    uid = item.get("uid")
     key = item["key"]
     doc, has_lines = load_lyrics(item)
     if not has_lines:
         item["has_lyric"] = False
-        return {"idx": str(idx), "key": key, "title": item["title"],
+        return {"uid": uid, "idx": str(idx), "key": key, "title": item["title"],
                 "artist": item.get("artist", ""), "pending": True, "lines": [],
                 "duration": LY.audio_duration(item["file"]),
-                "audio": f"/audio/{idx}"}
+                "audio": f"/audio/{uid}"}
     item["has_lyric"] = True
     lines = doc["lines"]
     stored = doc.get("annotations") or {}
@@ -123,17 +126,17 @@ def song_payload(idx: int) -> dict:
             save_lyrics(item, lines, "annotated", ann)
         except Exception as e:
             diag.log("nhlrc", f"自动落盘失败：{e}")
-    return {"idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
+    return {"uid": uid, "idx": idx, "key": key, "title": item["title"], "artist": item["artist"],
             "lines": lines, "nhlrc": True,
         "offset": float(META.get(item["key"], "offset", 0.0) or 0.0),
         "duration": LY.audio_duration(item["file"]),
-        "audio": f"/audio/{idx}",
+        "audio": f"/audio/{uid}",
 }
 
 
-def edit_line(idx, li, start, reading):
+def edit_line(ref, li, start, reading):
     """改一处的读音：重算该行、立即写回 nhlrc，返回新 HTML 与罗马音。"""
-    item = CACHE.get(str(idx))
+    item = LIB.resolve(ref)
     if not item or not reading:
         return None
     with LRC.LOCK:
@@ -157,9 +160,9 @@ def edit_line(idx, li, start, reading):
             "rmH": words_html_of(r, "romaji"), "kyH": words_html_of(r, "keys")}
 
 
-def rematch(idx, duration):
+def rematch(ref, duration):
     """重新匹配：候选只来自网络（网易云），不掺本地缓存。"""
-    item = CACHE.get(str(idx))
+    item = LIB.resolve(ref)
     if not item:
         return {"stem": "", "candidates": []}
     artist, title = LY.split_name(item["stem"])
@@ -193,9 +196,9 @@ def rematch(idx, duration):
     return {"stem": item["stem"], "candidates": rows[:int(LY.CFG["manual_limit"])]}
 
 
-def pick(idx, song_id) -> dict:
+def pick(ref, song_id) -> dict:
     """用户选定候选：用网络歌词替换当前歌词（重写 data/lyrics，读音全部重来）。"""
-    item = CACHE.get(str(idx))
+    item = LIB.resolve(ref)
     if not item or not song_id:
         return {"ok": False, "error": "缺少歌曲或候选 id"}
     artist, title = LY.split_name(item["stem"])
@@ -209,9 +212,9 @@ def pick(idx, song_id) -> dict:
         return {"ok": False, "error": "写歌词失败：" + str(e)}
     if not res.get("ok"):
         return {"ok": False, "error": res.get("error") or "写歌词失败"}
-    idx2 = next((k for k, v in CACHE.items() if v["file"] == item["file"]), str(idx))
-    d = song_payload(int(idx2))
-    return {"ok": True, "idx": idx2, "lines": len(d.get("lines") or [])}
+    d = song_payload(LIB.idx_for(item.get("uid")) or ref)
+    return {"ok": True, "uid": item.get("uid"), "idx": d.get("idx"),
+            "lines": len(d.get("lines") or [])}
 
 def lazy_match(item: dict) -> None:
     """按需抓歌词：MB 规范化 + 时长门槛那条流程。"""
@@ -226,7 +229,7 @@ def edit_line_action(req) -> dict:
     line = int(req.get("line", -1))
     start = int(req.get("start", -1))
     reading = str(req.get("reading") or "")
-    r = edit_line(req.get("idx"), line, start, reading)
+    r = edit_line(req.get("uid") or req.get("idx"), line, start, reading)
     if not r:
         return {"error": "读音保存失败"}
     return r

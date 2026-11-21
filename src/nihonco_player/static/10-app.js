@@ -7,8 +7,8 @@ const NH = window.NH || (window.NH = {});
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.VIEW_MODE = 'normal'; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
-NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING !== null && String(NH.PLAYING) === String(NH.S.idx));
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
+NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
 NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
@@ -35,7 +35,7 @@ function waveMarker(idx){
 }
 function waveTime(){
   if(NH.isSelfPlaying()) return NH.au.currentTime || 0;
-  const m=NH.WMARK[NH.S && NH.S.idx];
+  const m=NH.WMARK[NH.S && NH.S.uid];
   if(m!=null) return m;
   if(NH.VIEW_MODE==='lrc' && NH.ESEL >= 0){
     const l=NH.EROWS[NH.ESEL];
@@ -51,7 +51,7 @@ function setWaveMarker(t, select){
   if(!NH.S) return;
   const dur=(NH.WAVE && NH.WAVE.duration) || NH.S.duration || 0;
   t=Math.max(0, dur ? Math.min(dur, +t||0) : +t||0);
-  NH.WMARK[NH.S.idx]=t; NH.MARK=t;
+  NH.WMARK[NH.S.uid]=t; NH.MARK=t;
   if(select){
     const i=nearestWaveRow(t);
     if(i>=0){
@@ -64,10 +64,10 @@ function setWaveMarker(t, select){
 function waveStep(delta){
   if(!NH.S) return;
   const self=NH.isSelfPlaying();
-  const base=self ? (NH.au.currentTime||0) : waveMarker(NH.S.idx);
+  const base=self ? (NH.au.currentTime||0) : waveMarker(NH.S.uid);
   const dur=self ? (NH.au.duration||0) : ((NH.WAVE&&NH.WAVE.duration)||NH.S.duration||0);
   const t=Math.max(0, dur ? Math.min(dur, base+delta) : base+delta);
-  NH.WMARK[NH.S.idx]=t; NH.MARK=t;
+  NH.WMARK[NH.S.uid]=t; NH.MARK=t;
   if(self) NH.seekPrecise(t);
   else {
     const i=nearestWaveRow(t);
@@ -221,20 +221,20 @@ async function waitJob(id, onState){
   }
 }
 
-async function startVocals(idx){
+async function startVocals(uid){
   if(VC.auto_start===false) return;
   const st=NH.VSTAT;
-  if(NH.VSTAT_IDX===String(idx) && st && (st.state==='queued' || st.state==='running' || st.state==='done')) return;
-  NH.VSTAT_IDX=String(idx);
+  if(NH.VSTAT_IDX===String(uid) && st && (st.state==='queued' || st.state==='running' || st.state==='done')) return;
+  NH.VSTAT_IDX=String(uid);
   NH.VSTAT={state:'running'};
   paintVStatus();
   try{
-    const job=await api('/api/jobs',{kind:'vocals', idx});
+    const job=await api('/api/jobs',{kind:'vocals', uid});
     const done=await waitJob(job.id, (j)=>{
-      if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+      if(!NH.S || String(NH.S.uid)!==String(uid)) return;
       if(j.state==='running'){ NH.VSTAT={state:'running'}; paintVStatus(); }
     });
-    if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+    if(!NH.S || String(NH.S.uid)!==String(uid)) return;
     if(done.state==='done'){
       NH.VSTAT=done.result || {state:'done'};
       paintVStatus();
@@ -244,7 +244,7 @@ async function startVocals(idx){
       paintVStatus();
     }
   }catch(err){
-    if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+    if(!NH.S || String(NH.S.uid)!==String(uid)) return;
     NH.VSTAT={state:'failed', error:err.message};
     paintVStatus();
   }
@@ -253,18 +253,18 @@ async function startVocals(idx){
 async function loadWave(force){
   if(!NH.S) return;
   if(!force && NH.WAVE) return;
-  const idx=NH.S.idx, seq=++NH.WAVE_SEQ;
+  const uid=NH.S.uid, seq=++NH.WAVE_SEQ;
   NH.WAVE=null;
   try{
     const src=(NH.VSTAT && NH.VSTAT.state==='done' && NH.VSTAT.has_vocals) ? '?src=vocals' : '';
-    const d=await api('/api/wave/'+idx+src);
-    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.idx)!==String(idx)) return;
+    const d=await api('/api/wave/'+encodeURIComponent(uid)+src);
+    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.uid)!==String(uid)) return;
     if(d.error){ document.getElementById('wavehint').textContent='无法生成波形：'+d.error; return; }
     NH.WAVE=d;
     updateWaveHint();
     drawWave();
   }catch(e){
-    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.idx)!==String(idx)) return;
+    if(seq!==NH.WAVE_SEQ || !NH.S || String(NH.S.uid)!==String(uid)) return;
     document.getElementById('wavehint').textContent='波形加载失败';
   }
 }
@@ -335,7 +335,7 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   NH.syncModes(); drawWave();
   const i=NH.idxAt(NH.au.currentTime);
   if(i>=0) NH.highlight(i);
-  await api('/api/pl',{action:'ui_offset', idx:NH.S.idx, offset:NH.OFFSET});
+  await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
 });
 document.getElementById('offval').onclick=()=>{
   if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
@@ -346,7 +346,7 @@ document.getElementById('offval').onclick=()=>{
     el.textContent=NH.OFFSET.toFixed(2)+'s';
     NH.syncModes(); drawWave();
     const i=NH.idxAt(NH.au.currentTime); if(i>=0) NH.highlight(i);
-    if(NH.S) await api('/api/pl',{action:'ui_offset', idx:NH.S.idx, offset:NH.OFFSET});
+    if(NH.S) await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
   }});
 };
 
@@ -356,15 +356,15 @@ function saveOpen(){
 }
 
 NH.LOAD_REQUEST = 0;
-async function load(i, autoplay, nextMode){
+async function load(ref, autoplay, nextMode){
   if(NH.LRC_REPLACING) return false;
   clearToast();                                   // 换歌前不留下上一首的提示
   const request=++NH.LOAD_REQUEST;
-  NH.viewDispatch({type:'LOAD_START', idx:i, request});
+  NH.viewDispatch({type:'LOAD_START', idx:ref, request});
   NH.syncModes?.();
   const editing=NH.VIEW_MODE==='lrc';
   if(!editing){                                  // 点击后立即切换标题，别等接口
-    const it=NH.LIB.find(x=>String(x.idx)===String(i));
+    const it=NH.LIB.find(x=>String(x.uid)===String(ref) || String(x.idx)===String(ref));
     if(it){
       document.getElementById('vtitle').textContent=it.title+(it.artist?' · '+it.artist:'');
       lyr.innerHTML='';
@@ -378,12 +378,13 @@ async function load(i, autoplay, nextMode){
       if(!await NH.flushLrc()) return false;
       if(request!==NH.LOAD_REQUEST) return false;
     }
-    d=await api('/api/song/'+i);
+    d=await api('/api/song/'+encodeURIComponent(ref));
     if(request!==NH.LOAD_REQUEST) return false;
-    NH.syncLyricMark(d.idx, !d.pending);
+    if(d && d.uid == null) d.uid = String(d.idx);   // 兼容旧载荷
+    NH.syncLyricMark(d.uid, !d.pending);
   }catch(e){
     if(request===NH.LOAD_REQUEST){
-      NH.viewDispatch({type:'LOAD_FAILED', idx:i, request, error:e.message});
+      NH.viewDispatch({type:'LOAD_FAILED', idx:ref, request, error:e.message});
       NH.syncModes?.();
       done('加载歌曲失败：'+e.message);
     }
@@ -391,27 +392,27 @@ async function load(i, autoplay, nextMode){
   }finally{
     if(editing && request===NH.LOAD_REQUEST) NH.setLrcLocked(false);
   }
-  if(NH.loop && (NH.PLAYING===null || String(NH.PLAYING)!==String(d.idx))) NH.closeLineLoop?.();
-  const changedSong=!NH.S || String(NH.S.idx)!==String(d.idx);
+  if(NH.loop && (NH.PLAYING_UID===null || String(NH.PLAYING_UID)!==String(d.uid))) NH.closeLineLoop?.();
+  const changedSong=!NH.S || String(NH.S.uid)!==String(d.uid);
   if(changedSong) NH.WAVE_SEQ=(NH.WAVE_SEQ||0)+1;   // 旧波形请求作废
   if(changedSong || nextMode!==undefined){
     NH.VIEW_MODE=nextMode || 'normal';
     NH.syncModes();
   }
   if(d.pending){                               // 没有歌词 → 先能播，再后台匹配
-    const knownNoMatch=NH.NO_MATCH.has(String(d.idx));
-    NH.viewDispatch({type:'LOAD_PENDING', idx:d.idx, request});
+    const knownNoMatch=NH.NO_MATCH.has(String(d.uid));
+    NH.viewDispatch({type:'LOAD_PENDING', idx:d.uid, request});
     if(knownNoMatch){
-      NH.viewDispatch({type:'LOAD_FAILED', idx:d.idx, request, error:'no lyrics'});
+      NH.viewDispatch({type:'LOAD_FAILED', idx:d.uid, request, error:'no lyrics'});
     }else{
-      NH.viewDispatch({type:'MATCH_START', idx:d.idx, request});
+      NH.viewDispatch({type:'MATCH_START', idx:d.uid, request});
     }
     NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CUR=-1; NH.NAV=[];
     NH.syncModes?.();   // 已有查看歌曲：开始可用，匹配中其他入口仍禁用
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
     document.getElementById('rmcol').innerHTML='';
-    if(autoplay || NH.PLAYING===null){            // 单击只换 UI，不打断旧音频
+    if(autoplay || NH.PLAYING_UID===null){            // 单击只换 UI，不打断旧音频
       NH.commitAudio();
       NH.au.playbackRate=+document.getElementById('rate').value;
       if(autoplay) NH.playFromStart?.();
@@ -419,36 +420,36 @@ async function load(i, autoplay, nextMode){
     if(knownNoMatch){                             // 已确认没歌词：不再重跑匹配
       NH.syncModes?.();
       lyr.innerHTML='';
-      startVocals(d.idx);
+      startVocals(d.uid);
       return true;
     }
     lyr.innerHTML='';
-    startVocals(d.idx);
+    startVocals(d.uid);
     busy('匹配歌词中…');
     try{
-      const job=await api('/api/jobs',{kind:'match', idx:d.idx});
+      const job=await api('/api/jobs',{kind:'match', uid:d.uid});
       const st=await waitJob(job.id);
       if(request!==NH.LOAD_REQUEST) return false;
       if(st.state==='failed') throw new Error(st.error || '匹配失败');
-      const d2=await api('/api/song/'+i);
+      const d2=await api('/api/song/'+encodeURIComponent(d.uid));
       if(request!==NH.LOAD_REQUEST) return false;
-      if(!d2.pending) return load(i, autoplay, nextMode);
+      if(!d2.pending) return load(d.uid, autoplay, nextMode);
     }catch(e){
       if(request!==NH.LOAD_REQUEST) return false;
     }
     if(request!==NH.LOAD_REQUEST) return false;
-    NH.NO_MATCH.add(String(d.idx));
-    NH.viewDispatch({type:'MATCH_FAILED', idx:d.idx, request, error:'no match'});
+    NH.NO_MATCH.add(String(d.uid));
+    NH.viewDispatch({type:'MATCH_FAILED', idx:d.uid, request, error:'no match'});
     NH.syncModes?.();
     lyr.innerHTML='';
     done('这首歌没匹配到歌词，仍可播放');
     return true;
   }
   {
-    NH.viewDispatch({type:'LOAD_READY', idx:d.idx, request});
-    NH.NO_MATCH.delete(String(d.idx));
+    NH.viewDispatch({type:'LOAD_READY', idx:d.uid, request});
+    NH.NO_MATCH.delete(String(d.uid));
     NH.S=d; NH.LINES=d.lines; NH.CUR=-1;
-    if(String(NH.PLAYING) !== String(d.idx)){
+    if(String(NH.PLAYING_UID) !== String(d.uid)){
       document.querySelectorAll('.ln.on,.ln2.on').forEach(el=>el.classList.remove('on'));
     }
     NH.NAV=NH.LINES.map((l,i)=>l.meta?-1:i).filter(i=>i>=0);
@@ -465,14 +466,14 @@ async function load(i, autoplay, nextMode){
     NH.syncModes();
     if(NH.VIEW_MODE==='lrc') NH.renderLrcTable();
     else NH.WAVE=null;
-    if(NH.PLAYING===null) NH.commitAudio();                 // 第一次载入才绑定音频
+    if(NH.PLAYING_UID===null) NH.commitAudio();                 // 第一次载入才绑定音频
 
     if(autoplay){ NH.commitAudio(); NH.playFromStart?.(); }
     NH.au.playbackRate=+document.getElementById('rate').value;
   }
   NH.VSTAT=null; NH.VSTAT_IDX=null; paintVStatus();
   if(NH.VIEW_MODE!=='lrc') NH.WAVE=null;
-  startVocals(d.idx);
+  startVocals(d.uid);
   return true;
 }
 function navIdx(n){ const k=NH.NAV.indexOf(n); return k<0?0:k; }
@@ -525,6 +526,7 @@ function busy(msg){ toast(msg, 0); }
 function done(msg){ toast(msg, UI.toast_ms||4200); }
 
 async function api(path, body){
+  if(body && body.generation === undefined && NH.GENERATION != null) body = {...body, generation: NH.GENERATION};
   const r=await fetch(path, body?{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)}:undefined);
   if(!r.ok){
@@ -543,6 +545,7 @@ async function api(path, body){
 async function loadLib(){
   const d = await api('/api/pl');
   NH.PLS = d.lists || d;
+  if(d.generation != null) NH.GENERATION = d.generation;
   if(d.open && d.open.length) NH.OPEN = new Set(d.open);
   NH.LIB = NH.PLS.flatMap(g=>g.items);
   renderList();
@@ -554,7 +557,7 @@ function scheduleAutoRebuild(){
   NH.AUTO_REBUILD=true;
   const run=async()=>{
     if(NH.VIEW_MODE==='lrc' || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, UI.busy_retry_ms||5000); return; }
-    if(NH.PLAYING!==null && NH.au && !NH.au.paused){ setTimeout(run, UI.busy_retry_ms||5000); return; }
+    if(NH.PLAYING_UID!==null && NH.au && !NH.au.paused){ setTimeout(run, UI.busy_retry_ms||5000); return; }
     busy('发现缺失歌曲，正在重建索引…');
     try{
       const job=await api('/api/jobs',{kind:'rebuild'});
@@ -572,6 +575,7 @@ function scheduleAutoRebuild(){
 
 function applyLists(r){
   if(!r || !r.lists) return;
+  if(r.generation != null) NH.GENERATION = r.generation;
   NH.PLS = r.lists;
   NH.LIB = NH.PLS.flatMap(g => g.items);
   renderList();
@@ -685,7 +689,7 @@ function renderList(){
         <span class="car">${open?'▾':'▸'}</span><span class="pln">${g.name}</span>
         <span class="plc">${its.length}</span></div>
       <div class="plb" ${open?'':'hidden'}>`
-      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING)===String(x.idx)?'1':''}" draggable="true">
+      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING_UID)===String(x.uid)?'1':''}" draggable="true">
           <div class="t1"><span class="orig">${x.orig||x.title}</span>
             ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${x.title}</span>`}</div>
           <div class="ar">${x.artist}</div>
@@ -698,8 +702,8 @@ function renderList(){
   NH.markPlaying?.();
 }
 
-function syncLyricMark(idx, has){
-  document.querySelectorAll(`.it[data-i="${idx}"]`).forEach(el=>{
+function syncLyricMark(uid, has){
+  document.querySelectorAll('.it').forEach(el=>{ if(el.dataset.u!==String(uid)) return;
     el.dataset.hl = has ? '1' : '0';
     const old = el.querySelector('.noly');
     if(has){ if(old) old.remove(); return; }
@@ -855,12 +859,12 @@ document.getElementById('list').addEventListener('click', async e=>{
     }
     clearSongSel();
     NH.SEL_LIST=lid; NH.SEL_ANCHOR=uid;
-    load(row.dataset.i);
+    load(row.dataset.u);
   }
 });
 document.getElementById('list').addEventListener('dblclick', e=>{
   const row=e.target.closest('.it');
-  if(row) load(row.dataset.i, true);
+  if(row) load(row.dataset.u, true);
 });
 document.getElementById('list').addEventListener('dragstart', e=>{
   const row=e.target.closest('.it'), head=e.target.closest('.plh');
@@ -934,6 +938,7 @@ async function doImport(listId, btn){
   busy('导入中…');
   try{
     const r = await api('/api/pl',{action:'import', list:listId, paths});
+    if(r.generation != null) NH.GENERATION=r.generation;
     if(r.lists) NH.PLS=r.lists; NH.LIB=NH.PLS.flatMap(g=>g.items); renderList();
     if(r.ok===false){ done(r.error||'导入失败'); return; }
     const bits=[`新增 ${r.imported} 首`];
@@ -994,9 +999,9 @@ loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一�
 
 document.getElementById('resetall').onclick=async()=>{
   if(!NH.S) return;
-  await api('/api/pl',{action:'edit_clear', idx:NH.S.idx});
+  await api('/api/pl',{action:'edit_clear', uid:NH.S.uid});
   toast('已恢复默认标注');
-  load(NH.S.idx);
+  load(NH.S.uid);
 };
 
 Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, waitJob, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});

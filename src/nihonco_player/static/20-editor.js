@@ -53,7 +53,7 @@ async function saveLrc(silent, force){
   const h=document.getElementById('savehint');
   NH.SAVE_PENDING=(async()=>{
     try{
-      const r=await NH.api('/api/lrc',{action:'save', idx:song.idx, lines:lrcPayload()});
+      const r=await NH.api('/api/lrc',{action:'save', uid:song.uid, lines:lrcPayload()});
       if(!r.ok) throw new Error(r.error||'保存失败');
       if(NH.EDIT_REVISION===revision){
         NH.EDIRTY=false;
@@ -110,7 +110,7 @@ NH.LRC_OPEN_REQUEST = 0;
 async function openLrcEditor(entering=false){
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
   const song=NH.S, request=NH.LOAD_REQUEST, opening=++NH.LRC_OPEN_REQUEST;
-  const d=await NH.api('/api/lrc',{action:'load', idx:song.idx});
+  const d=await NH.api('/api/lrc',{action:'load', uid:song.uid});
   if(NH.S!==song || request!==NH.LOAD_REQUEST || opening!==NH.LRC_OPEN_REQUEST || (!entering && NH.VIEW_MODE!=='lrc')) return;
   if(!d.ok) throw new Error(d.error||'无法读取歌词');
   if(entering){
@@ -156,7 +156,7 @@ function renderLrcTable(){
         for(let k=Math.min(NH.ESEL,i);k<=Math.max(NH.ESEL,i);k++) NH.SEL.add(k); }
       else { NH.SEL.clear(); }
       const r=NH.EROWS[i];
-      if(!NH.isSelfPlaying() && r && r.t!==null) NH.WMARK[NH.S.idx]=NH.lineT(r);
+      if(!NH.isSelfPlaying() && r && r.t!==null) NH.WMARK[NH.S.uid]=NH.lineT(r);
       NH.ESEL=i; paintSelection();
       if(!mod && NH.isSelfPlaying() && r && r.t!==null) NH.seekIdx(i, true);
     };
@@ -354,7 +354,7 @@ document.getElementById('lrcsaveas').onclick=async()=>{
   const name=(NH.S&&NH.S.title?NH.S.title:'lyrics')+'.nhlrc';
   if(window.pywebview && window.pywebview.api && window.pywebview.api.save_text){
     let ex={ok:false};
-    try{ ex=await NH.api('/api/lrc',{action:'export', idx:NH.S.idx, lines:lrcPayload()}); }catch(e){}
+    try{ ex=await NH.api('/api/lrc',{action:'export', uid:NH.S.uid, lines:lrcPayload()}); }catch(e){}
     if(!ex.ok){ NH.done('导出失败：'+(ex.error||'未知错误')); return; }
     const p=await window.pywebview.api.save_text(name, ex.nhlrc, ex.lrc);
     NH.done(p ? '已导出 '+p.split('/').pop() : '已取消');
@@ -387,7 +387,7 @@ document.getElementById('lrcimport').onclick=async()=>{
     const r=await picker.pick_lrc_text();
     if(!r?.text || NH.S!==song || NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
     if(!await NH.uiConfirm('覆盖当前歌词？', `用「${r.name}」覆盖当前歌词，当前内容会被替换`, true)) return;
-    await replaceLrc({action:'import_lrc', idx:song.idx, text:r.text}, '导入中…',
+    await replaceLrc({action:'import_lrc', uid:song.uid, text:r.text}, '导入中…',
       res=>`已导入 ${res.lines} 行${res.backed_up?'（已备份原文件）':''}`);
   }catch(err){ NH.done('导入失败：'+err.message); }
 };
@@ -400,10 +400,10 @@ document.getElementById('lrcfiledel').onclick=async()=>{
   NH.EDIRTY=false;
   try{
     if(NH.SAVE_PENDING) await NH.SAVE_PENDING;
-    const r=await NH.api('/api/lrc',{action:'delete', idx:song.idx});
+    const r=await NH.api('/api/lrc',{action:'delete', uid:song.uid});
     if(!r.ok) throw new Error(r.error||'删除失败');
-    NH.NO_MATCH.add(String(song.idx));
-    await NH.load(song.idx,false,'normal');     // 退出 LRC，回到普通页
+    NH.NO_MATCH.add(String(song.uid));
+    await NH.load(song.uid,false,'normal');     // 退出 LRC，回到普通页
     NH.done('已删除歌词文件');
   }catch(err){ NH.done('删除失败：'+err.message); }
 };
@@ -411,12 +411,12 @@ document.getElementById('lrcreset').onclick=async()=>{
   if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED || !NH.S) return;
   const song=NH.S;
   try{
-    const st=await NH.api('/api/lrc',{action:'backup', idx:song.idx});
+    const st=await NH.api('/api/lrc',{action:'backup', uid:song.uid});
     if(NH.S!==song || NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
     if(!st.exists){ NH.done('没有备份（首次保存时才会生成）'); return; }
     const when=new Date(st.mtime*1000).toLocaleString();
     if(!await NH.uiConfirm('恢复到这个备份？', `${when} · ${st.lines} 行\n当前编辑内容会丢失`, true)) return;
-    await replaceLrc({action:'restore', idx:song.idx}, '恢复中…',
+    await replaceLrc({action:'restore', uid:song.uid}, '恢复中…',
       res=>`已恢复最初版本（${res.lines} 行）`);
   }catch(err){ NH.done('恢复失败：'+err.message); }
 };
@@ -469,7 +469,7 @@ function syncModes(){
 document.getElementById('lrcedit').onclick=async e=>{
   if(!NH.S) return;
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
-  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.idx, false, 'normal');
+  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.uid || NH.S.idx, false, 'normal');
   const button=e.currentTarget;
   button.disabled=true;
   try{ await openLrcEditor(true); }
@@ -482,11 +482,11 @@ document.getElementById('offchip').onclick=async()=>{
   document.getElementById('offval').textContent='0.00s';
   syncModes();
   { const i=NH.idxAt(NH.au.currentTime); if(i>=0) NH.highlight(i); }
-  await NH.api('/api/pl',{action:'ui_offset', idx:NH.S?.idx, offset:0});
+  await NH.api('/api/pl',{action:'ui_offset', uid:NH.S?.uid, offset:0});
 };
 
 document.getElementById('edit').onclick=()=>{
-  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.idx, false, 'kana');
+  if(NH.VIEW_MODE==='lrc') return NH.load(NH.S.uid || NH.S.idx, false, 'kana');
   NH.LRC_OPEN_REQUEST++;   // 如果正在读取 LRC，保留用户最后选择的模式
   NH.VIEW_MODE = NH.VIEW_MODE==='kana' ? 'normal' : 'kana';
   syncModes();
@@ -498,7 +498,7 @@ document.addEventListener('click', async e=>{
     openPicker(ew, [], async v => {
       const lineEl=ew.closest('.ln'); const li=+lineEl.dataset.n; const start=+ew.dataset.start;
       try{
-        const d=await NH.api('/api/line',{idx:NH.S.idx,line:li,start,reading:v});
+        const d=await NH.api('/api/line',{uid:NH.S.uid,line:li,start,reading:v});
         applyEdit(d);
         flashAt(li, ew.dataset.base);
       }catch(err){ NH.done('改读音失败：'+err.message); }
@@ -556,7 +556,7 @@ function openPicker(el, cands, onPick, allowInput=true){
 async function doEdit(bc, reading){
   const lineEl = bc.closest('.ln'); const li = +lineEl.dataset.n; const start = +bc.dataset.start;
   try{
-    const d = await NH.api('/api/line',{idx:NH.S.idx, line:li, start, reading});
+    const d = await NH.api('/api/line',{uid:NH.S.uid, line:li, start, reading});
     applyEdit(d);
     flashAt(li, bc.dataset.base);
   }catch(err){ NH.done('改读音失败：'+err.message); }
