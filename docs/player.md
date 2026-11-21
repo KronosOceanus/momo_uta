@@ -116,8 +116,11 @@ preload()
 
 ```text
 play()
+  · 记下当前 _loadSeq + src
   · 没解码就先 await preload()
-  · _startSrc()：新建 source，buffer=_buf，rate=_rate，
+  · 等待结束后再校验 _loadSeq/src；
+    已切歌 → 直接返回，不能拿新 buffer 启动旧请求
+  · 校验通过才 _startSrc()：新建 source，buffer=_buf，rate=_rate，
     start(0, min(_offset, dur-0.001))
   · 发 play / playing，启动 20Hz 的 timeupdate 循环
 
@@ -363,7 +366,8 @@ ensure(uid, audio)
 一次分离：
   ① demucs --two-stems=vocals -n htdemucs
      （子进程；默认 HF_ENDPOINT 指镜像，避免国内卡死）
-  ② 超过 vocals.run_timeout_s → kill 子进程 → failed
+  ② 超过 vocals.run_timeout_s → kill 整个独立进程组 → failed
+     （demucs 会拉起 ffmpeg 辅助进程，不能只杀直接子进程）
   ③ 取 vocals.wav → ffmpeg 转 16k 单声道
   ④ 删临时目录
   ⑤ VAD 统计 → meta.json

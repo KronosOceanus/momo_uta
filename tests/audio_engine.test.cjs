@@ -18,6 +18,9 @@ function makeEngine() {
   class FakeCtx {
     constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
     createGain() { return {gain: {value: 1}, connect() {}}; }
+    createBufferSource() {
+      return {buffer: null, playbackRate: {value: 1}, connect() {}, start() {}, stop() {}, disconnect() {}};
+    }
     decodeAudioData(ab) {
       const d = pending.get(ab.url);
       return d ? d.promise : Promise.reject(new Error('no pending ' + ab.url));
@@ -52,6 +55,23 @@ test('late decode cannot overwrite the current source', async () => {
   await oldLoad;
   assert.equal(engine._buf.name, 'b');
   assert.equal(engine.duration, 2);
+});
+
+test('old play does not start the new source after switching', async () => {
+  const {engine, pending} = makeEngine();
+  pending.set('a', deferred());
+  pending.set('b', deferred());
+  engine.src = 'a';
+  const oldPlay = engine.play();
+  engine.src = 'b';
+  const newLoad = engine.preload();
+
+  pending.get('b').resolve({name: 'b', duration: 2});
+  await newLoad;
+  pending.get('a').resolve({name: 'a', duration: 9});
+  await oldPlay;
+  assert.equal(engine._playing, false);
+  assert.equal(engine._buf.name, 'b');
 });
 
 test('late load failure does not touch the current source', async () => {

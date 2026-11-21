@@ -13,6 +13,7 @@ import json
 import math
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -125,6 +126,35 @@ def installed() -> bool:
         return False
 
 
+def _run_process(cmd: list[str], *, timeout: float, env: dict | None = None,
+                 timeout_message: str = "人声分离执行超时"):
+    """在独立进程组运行；超时杀整组，包含 demucs 拉起的 ffmpeg。"""
+    if os.name != "posix":
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, env=env,
+                                  timeout=timeout)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(timeout_message)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         text=True, env=env, start_new_session=True)
+    try:
+        out, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except Exception:
+            try:
+                p.kill()
+            except Exception:
+                pass
+        try:
+            p.communicate(timeout=5)
+        except Exception:
+            pass
+        raise RuntimeError(timeout_message)
+    return subprocess.CompletedProcess(cmd, p.returncode, out, err)
+
+
 def _separate(uid: str, audio: str) -> dict:
     if not installed():
         raise RuntimeError("未安装 demucs（pip install demucs）")
@@ -141,11 +171,8 @@ def _separate(uid: str, audio: str) -> dict:
                "-n", MODEL, "-o", str(tmp), audio]
         env = dict(os.environ)
         env.setdefault("HF_ENDPOINT", VC["hf_endpoint"])   # 国内直连 HF 会卡住
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, env=env,
-                               timeout=float(VC["run_timeout_s"]))
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("人声分离执行超时")
+        r = _run_process(cmd, env=env, timeout=float(VC["run_timeout_s"]),
+                         timeout_message="人声分离执行超时")
         if r.returncode != 0:
             raise RuntimeError((r.stderr or r.stdout or "demucs 失败")[-400:])
 
@@ -153,13 +180,10 @@ def _separate(uid: str, audio: str) -> dict:
         if not src:
             raise RuntimeError("demucs 没有产出 vocals 文件")
 
-        try:
-            r = subprocess.run(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
-                                "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
-                               capture_output=True, text=True,
-                               timeout=float(VC["run_timeout_s"]))
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("人声分离转码超时")
+        r = _run_process(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
+                          "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
+                         timeout=float(VC["run_timeout_s"]),
+                         timeout_message="人声分离转码超时")
         if r.returncode != 0 or not wav.is_file():
             raise RuntimeError("转 16k 单声道失败")
 

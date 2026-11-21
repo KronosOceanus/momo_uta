@@ -58,18 +58,47 @@ class TestVocalStats(unittest.TestCase):
 
 class TestVocalTimeout(unittest.TestCase):
     def test_demucs_timeout_kills_and_cleans_tmp(self):
-        import subprocess
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             with patch.object(vocals_mod, "VOCALS", root / "vocals"), \
                  patch.object(vocals_mod, "TMP_ROOT", root / "tmp" / "vocals"), \
                  patch.object(vocals_mod, "installed", return_value=True), \
-                 patch.object(vocals_mod.subprocess, "run",
-                              side_effect=subprocess.TimeoutExpired(["demucs"], 1)):
+                 patch.object(vocals_mod, "_run_process",
+                              side_effect=RuntimeError("人声分离执行超时")):
                 with self.assertRaises(RuntimeError) as cm:
                     vocals_mod._separate("uid-timeout", str(root / "a.mp3"))
             self.assertIn("超时", str(cm.exception))
             self.assertEqual(list((root / "tmp" / "vocals").glob("*")), [])
+
+    def test_timeout_kills_child_process_group(self):
+        import os
+        import subprocess
+        import sys
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            pidfile = Path(tmp) / "child.pid"
+            child = "import time; time.sleep(30)"
+            parent = ("import subprocess,sys,time;"
+                      "p=subprocess.Popen([sys.executable,'-c',%r]);"
+                      "open(%r,'w').write(str(p.pid));time.sleep(30)"
+                      % (child, str(pidfile)))
+            with self.assertRaises(RuntimeError) as cm:
+                vocals_mod._run_process([sys.executable, "-c", parent],
+                                        timeout=0.6)
+            self.assertIn("超时", str(cm.exception))
+            deadline = time.time() + 3
+            while time.time() < deadline:
+                try:
+                    pid = int(pidfile.read_text())
+                except Exception:
+                    time.sleep(0.05); continue
+                ps = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)],
+                                    capture_output=True, text=True)
+                if not ps.stdout.strip() or ps.stdout.strip().startswith("Z"):
+                    break
+                time.sleep(0.05)
+            else:
+                self.fail("辅助子进程仍然存活")
 
 
 class TestVocalCleanup(unittest.TestCase):

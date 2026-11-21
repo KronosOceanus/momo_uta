@@ -84,8 +84,10 @@ class AudioEngine {
   async play(){
     this._ctxGet();
     if(this._playing) return;
-    if(!this._buf && this._url) await this.preload();
-    if(!this._buf) return;
+    const seq=this._loadSeq, url=this._url;
+    if(!this._buf && url) await this.preload();
+    // 等待期间切歌：旧的 play 请求不能拿新 buffer 启动
+    if(seq!==this._loadSeq || url!==this._url || !this._buf) return;
     this._ended=false;
     this._startSrc();
     this._emit('play'); this._emit('playing'); this._watchStart();
