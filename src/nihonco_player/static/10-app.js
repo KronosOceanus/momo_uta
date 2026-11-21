@@ -221,9 +221,14 @@ function renderVTasks(){
     const rank=x=>x.state==='running'?0:x.state==='canceling'?1:2;
     return rank(a)-rank(b) || (a.id>b.id?1:-1);
   });
-  if(!jobs.length){ box.hidden=true; NH.VLIST_PIN=false; return; }
-  list.innerHTML='';
+  if(!jobs.length){ closeVTasks(true); return; }
   const cur=vCurrentJob();
+  // 只更新内容；显示/隐藏由 open/close 决定，避免轮询把列表强行打开。
+  const sig=jobs.map(j=>`${j.id}:${j.state}:${j.uid}:${vJobTitle(j)}`).join('|')+
+            '|cur:'+(cur?cur.id:'');
+  if(sig===NH.VLIST_SIG) return;
+  NH.VLIST_SIG=sig;
+  list.innerHTML='';
   jobs.forEach(j=>{
     const row=document.createElement('div'); row.className='vrow';
     const nm=document.createElement('span'); nm.className='vnm';
@@ -239,17 +244,11 @@ function renderVTasks(){
   const pending=jobs.some(j=>j.state==='queued' || j.state==='running');
   all.disabled=!pending;
   all.textContent=pending?`取消全部人声 (${jobs.length})`:'正在取消…';
-  box.hidden=false;
 }
 function paintVCancel(){
-  const cb=document.getElementById('vcancel'), bg=document.getElementById('vbackground');
-  if(!cb || !bg) return;
+  const bg=document.getElementById('vbackground');
+  if(!bg) return;
   const cur=vCurrentJob(), jobs=vJobs();
-  if(cur){
-    cb.hidden=false;
-    cb.disabled=cur.state==='canceling';
-    cb.textContent=cur.state==='canceling'?'正在取消…':'取消';
-  }else cb.hidden=true;
   const others=jobs.filter(j=>!cur || j.id!==cur.id);
   if(others.length){
     bg.hidden=false;
@@ -260,7 +259,7 @@ function paintVCancel(){
 function openVTasks(pin){
   if(!vJobs().length) return;
   clearTimeout(NH.VLIST_T);
-  NH.VLIST_PIN=!!pin;
+  if(pin) NH.VLIST_PIN=true;
   renderVTasks();
   const box=document.getElementById('vtasks'); if(box) box.hidden=false;
 }
@@ -275,7 +274,7 @@ function scheduleCloseVTasks(){
   clearTimeout(NH.VLIST_T);
   NH.VLIST_T=setTimeout(()=>{ if(!NH.VLIST_PIN) closeVTasks(true); },180);
 }
-NH.VLIST_PIN=false; NH.VLIST_T=null;
+NH.VLIST_PIN=false; NH.VLIST_T=null; NH.VLIST_SIG=null;
 
 function paintVStatus(){
   const el=document.getElementById('vchip');
@@ -374,8 +373,6 @@ async function startVocals(uid){
 }
 async function cancelVJob(rec){
   if(!vActive(rec) || rec.state==='canceling') return;
-  if(rec.state==='running' &&
-     !await NH.uiConfirm('取消人声分离？', '会终止当前正在执行的 demucs/ffmpeg 进程。', true)) return;
   const old=rec.state;
   rec.state='canceling';
   if(vCurrentJob()===rec) NH.VSTAT={state:'canceling'};
@@ -391,13 +388,8 @@ async function cancelVJob(rec){
   }
   paintVStatus();
 }
-async function cancelCurrentVocals(){
-  const cur=vCurrentJob(); if(cur) await cancelVJob(cur);
-}
 async function cancelAllVocals(){
   const jobs=vJobs(); if(!jobs.length) return;
-  if(jobs.some(j=>j.state==='running') &&
-     !await NH.uiConfirm('取消全部人声分离？', '会终止所有正在执行的人声分离任务。', true)) return;
   try{
     const r=await api('/api/jobs/cancel_all',{kind:'vocals'});
     if(!r || !r.ok) throw new Error((r&&r.error)||'取消失败');
@@ -408,7 +400,6 @@ async function cancelAllVocals(){
     NH.done('取消失败：'+err.message);
   }
 }
-document.getElementById('vcancel').onclick=cancelCurrentVocals;
 document.getElementById('vcancelall').onclick=cancelAllVocals;
 (function bindVList(){
   const chip=document.getElementById('vchip'), bg=document.getElementById('vbackground'),
@@ -419,7 +410,8 @@ document.getElementById('vcancelall').onclick=cancelAllVocals;
     el.addEventListener('mouseleave',scheduleCloseVTasks);
     el.addEventListener('click',e=>{ e.stopPropagation();
       if(!vJobs().length) return;
-      const pin=!NH.VLIST_PIN; openVTasks(pin); if(!pin) closeVTasks(true);
+      if(NH.VLIST_PIN) closeVTasks(true);
+      else openVTasks(true);
     });
   });
   box.addEventListener('mouseenter',()=>clearTimeout(NH.VLIST_T));

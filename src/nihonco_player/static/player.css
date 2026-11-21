@@ -257,9 +257,6 @@ body.lrcedit #wavebar{display:grid}
 #vchip.vdone{border-color:#2f4a3d;color:#7fbfa6}
 #vchip.vinst{border-color:#3a4450;color:#8a9099}
 .vtaskwrap{position:relative;display:inline-flex;align-items:center;gap:4px}
-.hdr .vx{cursor:pointer;background:none;font-family:inherit;padding:2px 7px}
-.hdr .vx:hover:enabled{border-color:var(--a);color:var(--a)}
-.hdr .vx:disabled{opacity:.55;cursor:default}
 .hdr .vbg{border-color:#3a4450;color:#8a919b;cursor:pointer}
 .vtasks{position:absolute;right:0;top:calc(100% + 6px);width:360px;max-width:calc(100vw - 32px);
   background:#171b21;border:1px solid #2b313a;border-radius:9px;padding:8px;
