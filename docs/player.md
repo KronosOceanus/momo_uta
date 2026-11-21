@@ -409,6 +409,7 @@ VAD：
   hover 预览，click 锁定；Esc/点外部关闭
   单曲/全部取消都不弹确认框
 LRC 模式：分离完成后自动 loadWave(true) 换成人声波形
+纯音乐：meta.has_vocals=false；删除 vocals.wav，只保留 meta；波形继续用原曲
 人声缓存清理：启动时清孤儿，超过 vocals.max_bytes 按 last_used 淘汰；
 临时分离文件在 data/tmp/vocals/，任务结束即删。
 无歌词歌曲：分离和匹配并行；纯音乐只影响 chip/波形，不撤销已匹配歌词

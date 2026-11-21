@@ -324,6 +324,14 @@ def _separate(uid: str, audio: str) -> dict:
              "floor": stats["floor"], "threshold": stats["threshold"],
              "has_vocals": stats["ratio"] >= MIN_RATIO}
         meta_path.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
+        if not m["has_vocals"]:
+            # 纯音乐不需要 vocals.wav；保留 meta 即可，波形继续用原曲。
+            try:
+                wav.unlink()
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
         return m
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -354,10 +362,27 @@ def cleanup(protected=None, max_bytes=None) -> dict:
             if legacy.exists():
                 shutil.rmtree(legacy, ignore_errors=True)
             wav, mp = d / "vocals.wav", d / "meta.json"
-            if not wav.is_file() or not mp.is_file():
+            if not mp.is_file():
                 shutil.rmtree(d, ignore_errors=True)
                 removed_uids.append(d.name)
                 continue
+            try:
+                m = json.loads(mp.read_text(encoding="utf-8"))
+            except Exception:
+                shutil.rmtree(d, ignore_errors=True)
+                removed_uids.append(d.name)
+                continue
+            # 纯音乐可以只有 meta；有人声的缓存必须有 wav。
+            if m.get("has_vocals", True) and not wav.is_file():
+                shutil.rmtree(d, ignore_errors=True)
+                removed_uids.append(d.name)
+                continue
+            if m.get("has_vocals") is False and wav.is_file():
+                try:
+                    freed += wav.stat().st_size
+                    wav.unlink()
+                except Exception:
+                    pass
             if d.name not in protected:
                 size = sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
                 shutil.rmtree(d, ignore_errors=True)
@@ -365,7 +390,6 @@ def cleanup(protected=None, max_bytes=None) -> dict:
                 freed += size
                 continue
             try:
-                m = json.loads(mp.read_text(encoding="utf-8"))
                 used = int(m.get("last_used") or m.get("created") or 0)
             except Exception:
                 used = 0
