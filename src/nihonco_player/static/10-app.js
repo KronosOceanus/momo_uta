@@ -205,23 +205,78 @@ function vCurrentJob(){
   if(!NH.S) return null;
   return vJobs().find(j=>String(j.uid)===String(NH.S.uid)) || null;
 }
+function vJobTitle(j){
+  if(NH.S && String(NH.S.uid)===String(j.uid)) return NH.S.title || j.uid;
+  const it=(NH.LIB||[]).find(x=>String(x.uid)===String(j.uid));
+  return it ? (it.title || it.orig || j.uid) : j.uid;
+}
+function vStateText(s){
+  return s==='running'?'执行中':s==='queued'?'排队':s==='canceling'?'正在取消…':'';
+}
+function renderVTasks(){
+  const box=document.getElementById('vtasks'), list=document.getElementById('vtasklist'),
+        all=document.getElementById('vcancelall');
+  if(!box || !list || !all) return;
+  const jobs=vJobs().slice().sort((a,b)=>{
+    const rank=x=>x.state==='running'?0:x.state==='canceling'?1:2;
+    return rank(a)-rank(b) || (a.id>b.id?1:-1);
+  });
+  if(!jobs.length){ box.hidden=true; NH.VLIST_PIN=false; return; }
+  list.innerHTML='';
+  const cur=vCurrentJob();
+  jobs.forEach(j=>{
+    const row=document.createElement('div'); row.className='vrow';
+    const nm=document.createElement('span'); nm.className='vnm';
+    nm.textContent=(cur && cur.id===j.id ? '当前 · ' : '') + vJobTitle(j);
+    const st=document.createElement('span'); st.className='vst '+(j.state==='running'?'run':j.state==='queued'?'que':'');
+    st.textContent=vStateText(j.state);
+    const b=document.createElement('button'); b.dataset.vcancel=j.id;
+    b.textContent=j.state==='canceling'?'取消中':'取消'; b.disabled=j.state==='canceling';
+    row.append(nm,st,b); list.appendChild(row);
+  });
+  const showAll=jobs.length>1 || !cur;
+  all.hidden=!showAll;
+  const pending=jobs.some(j=>j.state==='queued' || j.state==='running');
+  all.disabled=!pending;
+  all.textContent=pending?`取消全部人声 (${jobs.length})`:'正在取消…';
+  box.hidden=false;
+}
 function paintVCancel(){
-  const cb=document.getElementById('vcancel'), ab=document.getElementById('vcancelall');
-  if(!cb || !ab) return;
+  const cb=document.getElementById('vcancel'), bg=document.getElementById('vbackground');
+  if(!cb || !bg) return;
   const cur=vCurrentJob(), jobs=vJobs();
   if(cur){
     cb.hidden=false;
     cb.disabled=cur.state==='canceling';
     cb.textContent=cur.state==='canceling'?'正在取消…':'取消';
-  }else{
-    cb.hidden=true;
-  }
-  // B 方案：只有当前歌曲没有任务，或后台还有其他任务时，才显示“全部取消”
-  const showAll=jobs.length>0 && !(jobs.length===1 && cur);
-  ab.hidden=!showAll;
-  ab.disabled=jobs.some(j=>j.state==='canceling');
-  ab.textContent=ab.disabled?'正在取消…':`取消全部人声 (${jobs.length})`;
+  }else cb.hidden=true;
+  const others=jobs.filter(j=>!cur || j.id!==cur.id);
+  if(others.length){
+    bg.hidden=false;
+    bg.textContent=`后台人声 ${others.length}`;
+  }else bg.hidden=true;
+  renderVTasks();
 }
+function openVTasks(pin){
+  if(!vJobs().length) return;
+  clearTimeout(NH.VLIST_T);
+  NH.VLIST_PIN=!!pin;
+  renderVTasks();
+  const box=document.getElementById('vtasks'); if(box) box.hidden=false;
+}
+function closeVTasks(force){
+  if(!force && NH.VLIST_PIN) return;
+  NH.VLIST_PIN=false;
+  clearTimeout(NH.VLIST_T);
+  const box=document.getElementById('vtasks'); if(box) box.hidden=true;
+}
+function scheduleCloseVTasks(){
+  if(NH.VLIST_PIN) return;
+  clearTimeout(NH.VLIST_T);
+  NH.VLIST_T=setTimeout(()=>{ if(!NH.VLIST_PIN) closeVTasks(true); },180);
+}
+NH.VLIST_PIN=false; NH.VLIST_T=null;
+
 function paintVStatus(){
   const el=document.getElementById('vchip');
   if(el){
@@ -317,20 +372,27 @@ async function startVocals(uid){
     paintVStatus();
   }
 }
-async function cancelCurrentVocals(){
-  const cur=vCurrentJob(); if(!cur) return;
-  if(cur.state==='running' &&
+async function cancelVJob(rec){
+  if(!vActive(rec) || rec.state==='canceling') return;
+  if(rec.state==='running' &&
      !await NH.uiConfirm('取消人声分离？', '会终止当前正在执行的 demucs/ffmpeg 进程。', true)) return;
-  NH.VSTAT={state:'canceling'}; paintVStatus();
+  const old=rec.state;
+  rec.state='canceling';
+  if(vCurrentJob()===rec) NH.VSTAT={state:'canceling'};
+  paintVStatus();
   try{
-    const r=await api('/api/jobs/'+encodeURIComponent(cur.id)+'/cancel', {});
+    const r=await api('/api/jobs/'+encodeURIComponent(rec.id)+'/cancel', {});
     if(!r || !r.ok) throw new Error((r&&r.error)||'取消失败');
-    cur.state=(r.job&&r.job.state)||'canceling';
-    paintVCancel();
+    rec.state=(r.job&&r.job.state)||'canceling';
   }catch(err){
-    NH.VSTAT={state:cur.state, error:err.message}; paintVStatus();
+    rec.state=old;
+    if(vCurrentJob()===rec) NH.VSTAT={state:old, error:err.message};
     NH.done('取消失败：'+err.message);
   }
+  paintVStatus();
+}
+async function cancelCurrentVocals(){
+  const cur=vCurrentJob(); if(cur) await cancelVJob(cur);
 }
 async function cancelAllVocals(){
   const jobs=vJobs(); if(!jobs.length) return;
@@ -348,6 +410,28 @@ async function cancelAllVocals(){
 }
 document.getElementById('vcancel').onclick=cancelCurrentVocals;
 document.getElementById('vcancelall').onclick=cancelAllVocals;
+(function bindVList(){
+  const chip=document.getElementById('vchip'), bg=document.getElementById('vbackground'),
+        box=document.getElementById('vtasks'), wrap=document.getElementById('vtaskwrap');
+  if(!chip || !bg || !box || !wrap) return;
+  [chip,bg].forEach(el=>{
+    el.addEventListener('mouseenter',()=>{ if(vJobs().length) openVTasks(false); });
+    el.addEventListener('mouseleave',scheduleCloseVTasks);
+    el.addEventListener('click',e=>{ e.stopPropagation();
+      if(!vJobs().length) return;
+      const pin=!NH.VLIST_PIN; openVTasks(pin); if(!pin) closeVTasks(true);
+    });
+  });
+  box.addEventListener('mouseenter',()=>clearTimeout(NH.VLIST_T));
+  box.addEventListener('mouseleave',scheduleCloseVTasks);
+  box.addEventListener('click',e=>e.stopPropagation());
+  document.getElementById('vtasklist').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-vcancel]'); if(!b) return;
+    const rec=NH.VJOBS.get(b.dataset.vcancel); if(rec) cancelVJob(rec);
+  });
+  document.addEventListener('click',e=>{ if(!e.target.closest('#vtaskwrap')) closeVTasks(true); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeVTasks(true); });
+})();
 
 async function loadWave(force){
   if(!NH.S) return;
@@ -1114,5 +1198,5 @@ document.getElementById('resetall').onclick=async()=>{
   if(wasLrc && NH.VIEW_MODE==='lrc') await NH.openLrcEditor();
 };
 
-Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, paintVCancel, waitJob, refreshActiveVJobs, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});
+Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, paintVCancel, renderVTasks, openVTasks, closeVTasks, waitJob, refreshActiveVJobs, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});
 })();

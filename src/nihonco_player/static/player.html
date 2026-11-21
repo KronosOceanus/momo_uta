@@ -5,9 +5,17 @@
   <div id="list"></div></aside>
 <main>
  <div class="hdr"><button id="start">开始</button><span id="vtitle">—</span>
-  <span class="chip" id="offchip" hidden></span><span class="chip" id="vchip" hidden></span>
-  <button class="chip vx" id="vcancel" hidden title="取消当前歌曲的人声分离">取消</button>
-  <button class="chip vx" id="vcancelall" hidden title="取消所有歌曲的人声分离">取消全部人声</button>
+  <span class="chip" id="offchip" hidden></span>
+  <div class="vtaskwrap" id="vtaskwrap">
+    <span class="chip" id="vchip" hidden></span>
+    <button class="chip vx" id="vcancel" hidden title="取消当前歌曲的人声分离">取消</button>
+    <span class="chip vbg" id="vbackground" hidden></span>
+    <div class="vtasks" id="vtasks" hidden role="dialog" aria-label="人声分离任务">
+      <div class="vtt">人声分离任务</div>
+      <div id="vtasklist"></div>
+      <button class="vcall" id="vcancelall" hidden>取消全部人声</button>
+    </div>
+  </div>
   <button id="rem" title="重新匹配当前查看歌曲的歌词">重新匹配歌词</button>
   <span class="modes">
    <button id="edit">振假名编辑模式：关</button><button id="lrcedit">LRC 编辑模式：关</button>

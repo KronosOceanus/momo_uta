@@ -256,9 +256,29 @@ body.lrcedit #wavebar{display:grid}
 /* 人声分离状态 chip */
 #vchip.vdone{border-color:#2f4a3d;color:#7fbfa6}
 #vchip.vinst{border-color:#3a4450;color:#8a9099}
+.vtaskwrap{position:relative;display:inline-flex;align-items:center;gap:4px}
 .hdr .vx{cursor:pointer;background:none;font-family:inherit;padding:2px 7px}
 .hdr .vx:hover:enabled{border-color:var(--a);color:var(--a)}
 .hdr .vx:disabled{opacity:.55;cursor:default}
+.hdr .vbg{border-color:#3a4450;color:#8a919b;cursor:pointer}
+.vtasks{position:absolute;right:0;top:calc(100% + 6px);width:360px;max-width:calc(100vw - 32px);
+  background:#171b21;border:1px solid #2b313a;border-radius:9px;padding:8px;
+  box-shadow:0 10px 28px rgba(0,0,0,.55);z-index:60}
+.vtasks[hidden]{display:none}
+.vtasks .vtt{font-size:11px;color:#878c95;padding:2px 6px 6px}
+.vrow{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px}
+.vrow:hover{background:#1e252e}
+.vrow .vnm{flex:1;min-width:0;font-size:12px;color:#dfe3e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vrow .vst{font-size:10px;color:#8a9099;white-space:nowrap}
+.vrow .vst.run{color:#7fbfa6}.vrow .vst.que{color:#c8843f}
+.vrow button{background:none;border:1px solid #2b313a;color:#cfd3d8;border-radius:5px;
+  padding:2px 7px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.vrow button:hover:enabled{border-color:#e06c75;color:#e06c75}
+.vrow button:disabled{opacity:.45;cursor:default}
+.vcall{width:100%;margin-top:6px;background:#2a1216;border:1px solid #5a2b32;color:#e3a0a8;
+  border-radius:6px;padding:6px;font-size:11px;cursor:pointer;font-family:inherit}
+.vcall:hover:enabled{border-color:#e06c75;color:#ffd2d7}
+.vcall:disabled{opacity:.45;cursor:default}
 
 /* 防止任何标签在窄窗口下竖排 */
 button{white-space:nowrap}
