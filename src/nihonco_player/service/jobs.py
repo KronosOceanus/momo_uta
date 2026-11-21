@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from nihonco_yomi.config import JOB
 from ..core import jobs as JOBS
 from ..core import library as LIB
 from ..core import vocals as VOC
@@ -38,13 +39,14 @@ def start(kind: str, idx=None) -> dict:
 
         def run_vocals():
             VOC.ensure(uid, audio)
-            for _ in range(400):
+            deadline = time.monotonic() + float(JOB["vocals_timeout_s"])
+            while time.monotonic() < deadline:
                 st = VOC.status(uid)
                 if st.get("state") == "done":
                     return st
                 if st.get("state") == "failed":
                     raise RuntimeError(st.get("error") or "人声分离失败")
-                time.sleep(1.5)
+                time.sleep(float(JOB["vocals_poll_ms"]) / 1000)
             raise TimeoutError("人声分离超时")
 
         return JOBS.start(kind, uid, run_vocals)

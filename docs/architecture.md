@@ -188,7 +188,7 @@ A 类：设计阈值
 
 B 类：运行参数
   位置：config/defaults.json + data/config.json
-  例子：时长差、波形采样率、人声阈值、窗口尺寸
+  例子：时长差、搜索上限、job 超时、波形采样率、窗口尺寸
   含义：不改判定规则，只调行为
   改了重启（或刷新页面）生效
 
@@ -514,17 +514,18 @@ data/
 ## 11. 配置
 
 ```text
-config/defaults.json   仓库默认值（六组）
+config/defaults.json   仓库默认值（七组）
 data/config.json       本机覆盖（同结构，深层合并）
 window.__CFG           注入前端
 
-六组：
-  lyrics    匹配与打分
-  player    播放器通用 + ui
+七组：
+  lyrics    匹配与打分 + 搜索上限/超时
+  player    播放器通用 + ui 节奏
   waveform  波形
   vocals    人声分离
   library   扫描/导入
   app       桌面壳/日志
+  jobs      job 轮询/超时/保留条数
 ```
 
 ```text

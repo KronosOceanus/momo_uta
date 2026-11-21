@@ -14,11 +14,13 @@ import threading
 import time
 import uuid
 
+from nihonco_yomi.config import JOB
+
 from . import diag
 
 _lock = threading.RLock()
 _jobs: dict[str, dict] = {}
-MAX_DONE = 200
+MAX_DONE = int(JOB["keep_done"])
 
 
 def _copy(job: dict) -> dict:

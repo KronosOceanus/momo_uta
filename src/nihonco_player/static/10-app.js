@@ -18,6 +18,7 @@ NH.WAVE_SEQ = 0;  // 波形请求序号，切歌/重载时丢弃旧响应
 // ── 波形与整体偏移 ────────────────────────────────
 const CFG=(window.__CFG)||{};
 const UI=(CFG.player&&CFG.player.ui)||{};
+const JOB=(CFG.jobs)||{};
 const VC=(CFG.vocals)||{};
 NH.WAVE = null; NH.VIEW = {span:UI.wave_span||5}; NH.OFFSET = 0; NH.FOLLOW = true; NH.DRAWN = null;
 const cv=document.getElementById('wave'), cx=cv.getContext('2d');
@@ -216,7 +217,7 @@ async function waitJob(id, onState){
     const st=await api('/api/jobs/'+id);
     if(onState) onState(st);
     if(st.state==='done' || st.state==='failed') return st;
-    await new Promise(r=>setTimeout(r,1000));
+    await new Promise(r=>setTimeout(r, JOB.poll_ms||1000));
   }
 }
 
@@ -270,7 +271,7 @@ async function loadWave(force){
 (function waveLoop(){
   let last=0;
   function tick(ts){
-    if(NH.WAVE && NH.VIEW_MODE==='lrc' && NH.isSelfPlaying() && !NH.au.paused && ts-last>=32){ drawWave(); last=ts; }
+    if(NH.WAVE && NH.VIEW_MODE==='lrc' && NH.isSelfPlaying() && !NH.au.paused && ts-last>=(UI.wave_draw_ms||32)){ drawWave(); last=ts; }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -552,8 +553,8 @@ function scheduleAutoRebuild(){
   if(NH.AUTO_REBUILD) return;
   NH.AUTO_REBUILD=true;
   const run=async()=>{
-    if(NH.VIEW_MODE==='lrc' || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, 5000); return; }
-    if(NH.PLAYING!==null && NH.au && !NH.au.paused){ setTimeout(run, 5000); return; }
+    if(NH.VIEW_MODE==='lrc' || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, UI.busy_retry_ms||5000); return; }
+    if(NH.PLAYING!==null && NH.au && !NH.au.paused){ setTimeout(run, UI.busy_retry_ms||5000); return; }
     busy('发现缺失歌曲，正在重建索引…');
     try{
       const job=await api('/api/jobs',{kind:'rebuild'});
@@ -566,7 +567,7 @@ function scheduleAutoRebuild(){
       done('重建索引失败：'+err.message);
     }
   };
-  setTimeout(run, 8000);
+  setTimeout(run, UI.auto_rebuild_ms||8000);
 }
 
 function applyLists(r){

@@ -2,6 +2,9 @@
 (function(){
 'use strict';
 const NH = window.NH || (window.NH = {});
+const CFG=(window.__CFG)||{};
+const UI=(CFG.player&&CFG.player.ui)||{};
+const PL=CFG.player||{};
 // 播放器 · 统一播放层与播放条
 function markPlaying(){
   document.querySelectorAll('.it').forEach(x=>{
@@ -59,7 +62,7 @@ function onceEvent(name, ms){
 }
 function audioReady(){
   if(NH.au.readyState>=1 && isFinite(NH.au.duration)) return Promise.resolve();
-  return onceEvent('loadedmetadata', 900);
+  return onceEvent('loadedmetadata', UI.canplay_wait_ms||900);
 }
 NH.SEEK_SEQ = 0; NH.SEEK_WAS_PLAYING = false;
 async function seekPrecise(t){
@@ -69,12 +72,12 @@ async function seekPrecise(t){
   if(NH.SEEK_WAS_PLAYING) NH.au.pause();         // 画面与旧声音都在此停下
   await audioReady();
   if(seq!==NH.SEEK_SEQ) return;
-  const seeked=onceEvent('seeked', 900);
+  const seeked=onceEvent('seeked', UI.canplay_wait_ms||900);
   NH.au.currentTime=t;
   paintTransport();
   await seeked;
   if(seq!==NH.SEEK_SEQ) return;
-  if(NH.au.readyState<3) await onceEvent('canplay', 900);
+  if(NH.au.readyState<3) await onceEvent('canplay', UI.canplay_wait_ms||900);
   if(seq!==NH.SEEK_SEQ) return;
   if(NH.SEEK_WAS_PLAYING) await NH.au.play().catch(()=>{});
   paintTransport();
@@ -242,13 +245,12 @@ function seekToClientX(x){
     NH.au.addEventListener(ev, ()=>{ paintTransport(); if(ev==='loadedmetadata') paintTicks(); }));
 })();
 
-const PL=(window.__CFG&&window.__CFG.player)||{};
 (function initRate(){
   const el=document.getElementById('rate');
   if(!el) return;
   el.min=PL.speed_min ?? 0.5;
   el.max=PL.speed_max ?? 1.25;
-  el.step=0.05;
+  el.step=PL.speed_step ?? 0.05;
   const v=Math.min(+el.max, Math.max(+el.min, +el.value||1));
   el.value=v; if(typeof el.dispatchEvent==='function') el.dispatchEvent(new Event('input'));
 })();
@@ -256,7 +258,7 @@ const playBtn=document.getElementById('play');
 let TOGGLE_AT=0;
 function togglePlayPause(){
   const now=performance.now();
-  if(now-TOGGLE_AT<320) return;              // 防止 pointerdown + click 连发
+  if(now-TOGGLE_AT<(UI.toggle_debounce_ms||320)) return;              // 防止 pointerdown + click 连发
   TOGGLE_AT=now;
   if(NH.PLAYING===null || NH.PLAYING===undefined) return;
   if(NH.au.paused) NH.au.play().catch(()=>{});

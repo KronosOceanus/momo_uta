@@ -190,7 +190,7 @@ def rematch(idx, duration):
             r["current"] = True
 
     rows.sort(key=lambda r: (not r.get("current"), -r["score"]))
-    return {"stem": item["stem"], "candidates": rows[:10]}
+    return {"stem": item["stem"], "candidates": rows[:int(LY.CFG["manual_limit"])]}
 
 
 def pick(idx, song_id) -> dict:

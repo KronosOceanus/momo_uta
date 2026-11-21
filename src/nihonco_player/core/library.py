@@ -128,7 +128,7 @@ def _has_lyric(title: str, artist: str, uid=None, stored=None) -> bool:
     lrc = hit.get("lrc") or ""
     if hit.get("source") == "local-lrc":
         return bool(lrc.strip())
-    return (LY.content_lines(lrc) >= 3 and LY.has_timed(lrc))
+    return (LY.content_lines(lrc) >= int(LY.CFG["min_content_lines"]) and LY.has_timed(lrc))
 
 
 def _entry(p: Path, group: str, stored=None) -> dict | None:

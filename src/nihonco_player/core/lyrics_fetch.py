@@ -16,18 +16,20 @@ from .lyrics_text import (_match, content_lines, has_timed, is_excluded,
                           is_likely_song, lang_guess, split_name)
 
 UA = {"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"}
-def _get(url: str, timeout: int = 10) -> str:
+def _get(url: str, timeout: float | None = None) -> str:
+    timeout = float(CFG["http_timeout_s"]) if timeout is None else timeout
     try:
         return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout).read().decode("utf-8", "ignore")
     except Exception:
         return ""
 
 
-def search_candidates(title: str, artist: str, limit: int = 8) -> list[dict]:
+def search_candidates(title: str, artist: str, limit: int | None = None) -> list[dict]:
     """多路搜索 + 详情，返回带时长的候选。"""
+    limit = int(CFG["search_limit"]) if limit is None else limit
     ids: list[int] = []
     for q in (f"{title} {artist}".strip(), title, f"{artist} {title}".strip()):
-        r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode({"s": q, "type": 1, "limit": 8}))
+        r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode({"s": q, "type": 1, "limit": limit}))
         try:
             for x in json.loads(r)["result"]["songs"]:
                 if x["id"] not in ids:
@@ -36,7 +38,7 @@ def search_candidates(title: str, artist: str, limit: int = 8) -> list[dict]:
             continue
         if len(ids) >= limit * 2:
             break
-    ids = ids[:20]
+    ids = ids[:int(CFG["max_ids"])]
     if not ids:
         return []
     r = _get("https://music.163.com/api/song/detail?ids=" + json.dumps(ids, separators=(",", ":")))   # 方括号不能转义
@@ -116,7 +118,7 @@ def auto_match(title: str, artist: str, duration: float) -> dict | None:
     for c in cands:
         c["score"] = score_candidate(c, title, artist, duration)
     cands.sort(key=lambda c: -c["score"])
-    for c in cands[:10]:
+    for c in cands[:int(CFG["auto_try"])]:
         if not accept_candidate(c, title, artist, duration):
             continue
         hit = fetch_candidate(c)
@@ -175,7 +177,7 @@ def scan(folder: Path, force: bool = False, only_cached: bool = False) -> None:
         hit = get_lrc(title, artist, duration=dur, force=force)
         (hits if hit else miss).append((stem, hit))
         print(f"{i:3d}/{len(songs)} {'✓' if hit else '✗'} {stem[:46]}", flush=True)
-        time.sleep(0.2)
+        time.sleep(float(CFG["scan_sleep"]))
     rep = ROOT / "eval" / "reports" / "lyrics_coverage.md"
     rep.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# 歌词获取覆盖\n", f"疑似歌曲 {len(songs)}，拿到 LRC {len(hits)}（{len(hits)/len(songs):.0%}）\n",

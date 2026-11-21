@@ -17,12 +17,16 @@ _FALLBACK = {
     "lyrics": {"fallback_max_delta": 30.0, "min_content_lines": 3,
                "name_min_len": 4, "kana_ratio_min": 0.10, "lang_min_chars": 20,
                "weights": {"title": 40, "artist": 20, "duration": 40},
-               "delta_tiers": [3, 10, 30]},
+               "delta_tiers": [3, 10, 30],
+               "search_limit": 8, "max_ids": 20, "auto_try": 10,
+               "manual_limit": 10, "http_timeout_s": 10, "scan_sleep": 0.2},
     "player": {"coverage_warn": 0.7, "merge_same_ts": 0.05,
-               "speed_min": 0.5, "speed_max": 1.25, "music_dirs": [],
+               "speed_min": 0.5, "speed_max": 1.25, "speed_step": 0.05, "music_dirs": [],
                "ui": {"wave_span": 5, "wave_span_min": 2, "wave_span_max": 10,
                       "wave_height": 120, "autosave_ms": 1500, "undo_steps": 50,
-                      "toast_ms": 4200, "follow_default": True}},
+                      "toast_ms": 4200, "follow_default": True,
+                      "wave_draw_ms": 32, "auto_rebuild_ms": 8000, "busy_retry_ms": 5000,
+                      "toggle_debounce_ms": 320, "canplay_wait_ms": 900, "timeupdate_ms": 50}},
     "waveform": {"rate": 8000, "step": 0.02},
     "vocals": {"model": "htdemucs", "auto_start": True,
                "hf_endpoint": "https://hf-mirror.com", "sample_rate": 16000,
@@ -32,6 +36,8 @@ _FALLBACK = {
                 "auto_pair_lrc": True},
     "app": {"window_width": 1280, "window_height": 820, "window_min": [960, 600],
             "log_max_bytes": 2097152},
+    "jobs": {"poll_ms": 1000, "vocals_poll_ms": 1500,
+             "vocals_timeout_s": 600, "keep_done": 200},
 }
 
 
@@ -61,6 +67,7 @@ WV = CFG["waveform"]         # 波形峰值
 VC = CFG["vocals"]           # 人声分离
 LB = CFG["library"]          # 曲库扫描/导入
 APP = CFG["app"]             # 桌面壳/日志
+JOB = CFG["jobs"]            # 统一任务
 
 
 def show() -> str:

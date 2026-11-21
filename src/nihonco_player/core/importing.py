@@ -18,6 +18,7 @@ from . import lyrics as LY
 AUDIO_EXT = set(LB["extensions"])
 PAIR_LRC = bool(LB["auto_pair_lrc"])
 LYRIC_EXT = {".lrc", ".nhlrc"}
+MIN_LINES = int(LY.CFG["min_content_lines"])
 
 
 def _pick(cands: list[Path]) -> Path | None:
@@ -82,7 +83,7 @@ def _pair(audios: list[Path], lrcs: list[Path], root: Path | None = None) -> dic
             "title": title, "artist": artist,
             "duration": round(LY.audio_duration(a), 1),
             "lines": lines,
-            "status": ("就绪" if lines >= 3 else f"歌词只有 {lines} 行"),
+            "status": ("就绪" if lines >= MIN_LINES else f"歌词只有 {lines} 行"),
         })
 
     ready = [i for i in items if i["status"] in ("就绪", "需联网匹配")]
@@ -140,7 +141,7 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
         used_lrc.add(lrc)
         artist, title = LY.split_name(a.stem)
         text = _body(lrc)
-        if LY.content_lines(text) < 3:
+        if LY.content_lines(text) < MIN_LINES:
             pending.append(str(a))
             added.append(str(a))
             continue
@@ -163,11 +164,11 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
             continue
         artist, title = LY.split_name(target.stem)
         text = _body(lrc)
-        if LY.content_lines(text) < 3:
+        if LY.content_lines(text) < MIN_LINES:
             unpaired += 1
             continue
         had = LY._cached(title, artist) and LY.content_lines(
-            (LY.get_lrc(title, artist, use_cache=True) or {}).get("lrc") or "") >= 3
+            (LY.get_lrc(title, artist, use_cache=True) or {}).get("lrc") or "") >= MIN_LINES
         LY.write_local_lrc(title, artist, text, annotations=_annotations(lrc, text),
                            duration=LY.audio_duration(target), name=title, by=artist)
         used_lrc.add(lrc)
