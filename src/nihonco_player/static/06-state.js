@@ -26,7 +26,8 @@ function initial(){
 
 function reduceView(state, ev){
   if(!state || !ev) return state;
-  if(ev.request !== undefined && String(ev.request) !== String(state.request)) return state;
+  if(ev.type !== 'LOAD_START' && ev.request !== undefined
+     && String(ev.request) !== String(state.request)) return state;
   const to = NEXT[state.phase] && NEXT[state.phase][ev.type];
   if(!to) return state;
   return {
@@ -39,12 +40,12 @@ function reduceView(state, ev){
 }
 
 NH.VIEW_PHASES = PHASES;
-NH.VIEW = initial();
+NH.VSTATE = initial();
 NH.reduceView = reduceView;
-NH.viewDispatch = ev => (NH.VIEW = reduceView(NH.VIEW, ev));
-NH.viewPhase = () => NH.VIEW.phase;
-NH.viewMatching = () => NH.VIEW.phase === PHASES.MATCHING;
-NH.viewReady = () => NH.VIEW.phase === PHASES.READY;
-NH.viewFailed = () => NH.VIEW.phase === PHASES.FAILED;
-NH.viewCanUse = () => NH.VIEW.phase === PHASES.READY || NH.VIEW.phase === PHASES.FAILED;
+NH.viewDispatch = ev => (NH.VSTATE = reduceView(NH.VSTATE, ev));
+NH.viewPhase = () => NH.VSTATE.phase;
+NH.viewMatching = () => NH.VSTATE.phase === PHASES.MATCHING;
+NH.viewReady = () => NH.VSTATE.phase === PHASES.READY;
+NH.viewFailed = () => NH.VSTATE.phase === PHASES.FAILED;
+NH.viewCanUse = () => NH.VSTATE.phase === PHASES.READY || NH.VSTATE.phase === PHASES.FAILED;
 })();

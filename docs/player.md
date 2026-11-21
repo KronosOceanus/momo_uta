@@ -395,7 +395,7 @@ load(i)：
   有歌词 → 直接渲染
   没有歌词（pending）：
     ① 清空歌词，toast“匹配歌词中…”
-       上方三个按钮禁用（NH.MATCHING=true）
+       上方三个按钮禁用（NH.VSTATE.phase='matching'）
     ② commitAudio（能播）；autoplay 则播
     ③ 人声分离和匹配并行：
          后台 ensureVocals，chip 显示“人声分离中…”
