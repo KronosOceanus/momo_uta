@@ -85,7 +85,7 @@ audio{width:100%;margin:0;position:sticky;bottom:0}
 .plh:hover{background:#141a20}
 .plh .car{color:#5b626c;font-size:11px;width:10px}
 .plh .pln{flex:1;color:#dfe3e8;font-size:13.5px}
-.plh .plc{color:#6d737c;font-size:12px}
+.plh .plc{color:#6d737c;font-size:12px;margin-right:6px}
 .plb{padding-left:4px}
 .it{position:relative}
 .it.picked{background:#1b232d}
