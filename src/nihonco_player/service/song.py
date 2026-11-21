@@ -77,7 +77,9 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             elif mode == "annotated":
                 ann = annotations or {}
             elif mode == "reset":
-                ann = _annotate_lines(lines or [])
+                if lines is None:
+                    lines = doc.get("lines") or []
+                ann = _annotate_lines(lines)
             elif mode == "replace":
                 ann = annotations or {}
             else:

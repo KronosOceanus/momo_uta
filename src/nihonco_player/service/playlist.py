@@ -74,7 +74,7 @@ def playlists_action(req) -> dict:
         if doc.get("disabled"):
             return {"ok": False, "error": "歌词已禁用，请重新匹配或导入",
                     "lists": _lists()}
-        r = SONGS.save_lyrics(item, doc["lines"], "reset",
+        r = SONGS.save_lyrics(item, None, "reset",
                               expected_version=req.get("version"))
         if not r.get("ok"):
             return {**r, "lists": _lists()}
