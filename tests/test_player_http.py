@@ -93,6 +93,7 @@ class TestPlayerHttp(unittest.TestCase):
     def test_song_payload(self):
         d = json.loads(urllib.request.urlopen(self.url("/api/song/" + CACHE_ITEM["uid"])).read())
         self.assertGreaterEqual(len(d["lines"]), 3)
+        self.assertIs(d.get("ok"), True)
         self.assertTrue(any(l["ruby"] for l in d["lines"]))
         self.assertIn("rmH", d["lines"][1])
         self.assertEqual(d["idx"], "0")
@@ -121,6 +122,23 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertIn("<rt>か</rt>", d["ruby"])
         self.assertIn("ka", d["rm"])
         self.assertTrue(d.get("version"))
+
+    def test_lrc_version_conflict_is_409(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"):
+                path = LRF.store_path(CACHE_ITEM["file"], CACHE_ITEM["uid"],
+                                      CACHE_ITEM["title"], CACHE_ITEM["artist"])
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("[00:01.00]君の名前\n", encoding="utf-8")
+                with self.assertRaises(urllib.error.HTTPError) as cm:
+                    self.post("/api/lrc", {
+                        "action": "save", "uid": CACHE_ITEM["uid"],
+                        "version": "stale",
+                        "lines": [{"t": 1.0, "text": "君の名前"}]})
+                self.assertEqual(cm.exception.code, 409)
+                err = json.loads(cm.exception.read())
+                self.assertFalse(err["ok"])
+                self.assertTrue(err.get("conflict"))
 
     def test_client_log_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:

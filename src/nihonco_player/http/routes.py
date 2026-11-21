@@ -50,6 +50,13 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(b)
 
     def _json(self, obj, code=200):
+        # 所有 JSON 响应统一带 ok 字段；版本冲突映射 409，前端可单独处理。
+        if isinstance(obj, dict):
+            obj = dict(obj)
+            if "ok" not in obj:
+                obj["ok"] = False if obj.get("error") else True
+            if code == 200 and obj.get("ok") is False and obj.get("conflict"):
+                code = 409
         return self._send(code, json.dumps(obj, ensure_ascii=False))
 
     # ── 分发 ─────────────────────────────────────────

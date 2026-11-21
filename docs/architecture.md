@@ -398,6 +398,12 @@ routes.py 只做三件事：
   ① 解析路径/JSON
   ② 校验必填字段（缺失 400）
   ③ 转发给 service，JSON 返回
+
+JSON 统一带 ok：
+  成功 {ok:true,...}
+  业务失败 {ok:false,error,...}
+  版本冲突 → 409 + {ok:false,conflict:true,...}
+  协议错误 → 400/500
 ```
 
 ### 7.1 路由

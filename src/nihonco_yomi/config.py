@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """运行参数（B 类阈值）的读取。
 
-查找顺序：data/config.json（本机覆盖）→ config/defaults.json（仓库默认）
+默认值只来自 config/defaults.json；data/config.json 做本机覆盖。
 A 类设计常量不放这里 —— 它们在 thresholds.py，改完必须重跑评测。
 """
 from __future__ import annotations
@@ -12,35 +12,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULTS = ROOT / "config" / "defaults.json"
 LOCAL = ROOT / "data" / "config.json"
-
-_FALLBACK = {
-    "lyrics": {"fallback_max_delta": 30.0, "min_content_lines": 3,
-               "name_min_len": 4, "kana_ratio_min": 0.10, "lang_min_chars": 20,
-               "weights": {"title": 40, "artist": 20, "duration": 40},
-               "delta_tiers": [3, 10, 30],
-               "search_limit": 8, "max_ids": 20, "auto_try": 10,
-               "manual_limit": 10, "http_timeout_s": 10, "scan_sleep": 0.2},
-    "player": {"coverage_warn": 0.7, "merge_same_ts": 0.05,
-               "speed_min": 0.5, "speed_max": 1.25, "speed_step": 0.05, "music_dirs": [],
-               "ui": {"wave_span": 5, "wave_span_min": 2, "wave_span_max": 10,
-                      "wave_height": 120, "autosave_ms": 1500, "undo_steps": 50,
-                      "toast_ms": 4200, "follow_default": True,
-                      "wave_draw_ms": 32, "auto_rebuild_ms": 8000, "busy_retry_ms": 5000,
-                      "toggle_debounce_ms": 320, "canplay_wait_ms": 900, "timeupdate_ms": 50}},
-    "waveform": {"rate": 8000, "step": 0.02},
-    "vocals": {"model": "htdemucs", "auto_start": True,
-               "hf_endpoint": "https://hf-mirror.com", "sample_rate": 16000,
-               "frame_sec": 0.02, "ratio_min": 0.05, "abs_threshold": 200,
-               "floor_mult": 3, "max_bytes": 536870912,
-               "queue_timeout_s": 600, "run_timeout_s": 600},
-    "library": {"extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"],
-                "auto_pair_lrc": True},
-    "app": {"window_width": 1280, "window_height": 820, "window_min": [960, 600],
-            "log_max_bytes": 2097152},
-    "jobs": {"poll_ms": 1000, "vocals_poll_ms": 1500,
-             "keep_done": 200},
-}
-
 
 def _load(path: Path) -> dict:
     try:
@@ -59,7 +30,9 @@ def _merge(base: dict, over: dict) -> dict:
     return out
 
 
-CFG = _merge(_merge(_FALLBACK, _load(DEFAULTS)), _load(LOCAL))
+CFG = _merge(_load(DEFAULTS), _load(LOCAL))
+if not CFG:
+    raise RuntimeError(f"缺少默认配置：{DEFAULTS}")
 
 LY = CFG["lyrics"]           # 歌词匹配
 PL = CFG["player"]           # 播放器通用
