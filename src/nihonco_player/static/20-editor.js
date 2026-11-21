@@ -496,11 +496,11 @@ document.addEventListener('click', async e=>{
     e.stopPropagation();
     openPicker(ew, [], async v => {
       const lineEl=ew.closest('.ln'); const li=+lineEl.dataset.n; const start=+ew.dataset.start;
-      const r=await fetch('/api/line',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({idx:NH.S.idx,line:li,start,reading:v})});
-      if(!r.ok) return;
-      applyEdit(await r.json());
-      flashAt(li, ew.dataset.base);
+      try{
+        const d=await NH.api('/api/line',{idx:NH.S.idx,line:li,start,reading:v});
+        applyEdit(d);
+        flashAt(li, ew.dataset.base);
+      }catch(err){ NH.done('改读音失败：'+err.message); }
     });
     return;
   }
@@ -554,11 +554,11 @@ function openPicker(el, cands, onPick, allowInput=true){
 
 async function doEdit(bc, reading){
   const lineEl = bc.closest('.ln'); const li = +lineEl.dataset.n; const start = +bc.dataset.start;
-  const r = await fetch('/api/line',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({idx:NH.S.idx, line:li, start, reading})});
-  if(!r.ok) return;
-  const d = await r.json(); applyEdit(d);
-  flashAt(li, bc.dataset.base);
+  try{
+    const d = await NH.api('/api/line',{idx:NH.S.idx, line:li, start, reading});
+    applyEdit(d);
+    flashAt(li, bc.dataset.base);
+  }catch(err){ NH.done('改读音失败：'+err.message); }
 }
 function flashAt(li, word){
   const lineEl=document.querySelectorAll('.ln')[li];

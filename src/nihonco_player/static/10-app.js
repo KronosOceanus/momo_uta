@@ -344,8 +344,7 @@ document.getElementById('offval').onclick=()=>{
 
 NH.OPEN = new Set();
 function saveOpen(){
-  fetch('/api/pl',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'ui_open', ids:[...NH.OPEN]})});
+  api('/api/pl',{action:'ui_open', ids:[...NH.OPEN]}).catch(()=>{});
 }
 
 NH.LOAD_REQUEST = 0;

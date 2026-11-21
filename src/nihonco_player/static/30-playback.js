@@ -306,9 +306,8 @@ document.getElementById('rem').onclick=async()=>{
   NH.busy('匹配中…'); NH.lock(this, true);
   let d;
   try{
-    const r = await fetch('/api/rematch',{method:'POST',headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({action:'rematch', idx:song.idx, duration:(song.duration || (NH.isSelfPlaying()?NH.au.duration:0))})});
-    d = await r.json();
+    d = await NH.api('/api/rematch',{action:'rematch', idx:song.idx,
+      duration:(song.duration || (NH.isSelfPlaying()?NH.au.duration:0))});
   }catch(err){
     NH.done('匹配失败：'+err.message); NH.lock(null,false); return;
   }
@@ -330,10 +329,8 @@ document.getElementById('rem').onclick=async()=>{
       box.remove();
       NH.busy('换歌词中…');
       try{
-        const r=await fetch('/api/pick',{method:'POST',headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({action:'pick', idx:song.idx, id:c.id})});
-        const d=await r.json();
-        if(!r.ok || !d.ok){ NH.done(d.error||'换歌词失败'); return; }
+        const d=await NH.api('/api/pick',{action:'pick', idx:song.idx, id:c.id});
+        if(!d.ok){ NH.done(d.error||'换歌词失败'); return; }
         if(NH.S!==song || NH.LRCEDIT) return;
         NH.NO_MATCH.delete(String(d.idx || song.idx));
         await NH.load(d.idx || song.idx);        // 重新拉这一首（已换新歌词）
