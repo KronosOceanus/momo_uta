@@ -7,7 +7,7 @@ const NH = window.NH || (window.NH = {});
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false; NH.MATCHING = false; NH.NO_MATCH = new Set();
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.ids = []; NH.MODE = 'rm'; NH.PLAYING = null; NH.EDITMODE = false; NH.MATCHING = false; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING !== null && String(NH.PLAYING) === String(NH.S.idx));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
@@ -521,6 +521,25 @@ async function loadLib(){
   if(d.open && d.open.length) NH.OPEN = new Set(d.open);
   NH.LIB = NH.PLS.flatMap(g=>g.items);
   renderList();
+  if(d.auto_rebuild) scheduleAutoRebuild();
+}
+
+function scheduleAutoRebuild(){
+  if(NH.AUTO_REBUILD) return;
+  NH.AUTO_REBUILD=true;
+  const run=async()=>{
+    if(NH.LRCEDIT || NH.BUSY){ setTimeout(run, 5000); return; }
+    if(NH.PLAYING!==null && NH.au && !NH.au.paused){ setTimeout(run, 5000); return; }
+    busy('发现缺失歌曲，正在重建索引…');
+    try{
+      const r=await api('/api/pl',{action:'library_rebuild'});
+      if(r.lists) applyLists(r);
+      done(r.recovered>0 ? `索引已重建，找回 ${r.recovered} 首` : '索引已重建，仍有缺失歌曲');
+    }catch(err){
+      done('重建索引失败：'+err.message);
+    }
+  };
+  setTimeout(run, 8000);
 }
 
 function applyLists(r){

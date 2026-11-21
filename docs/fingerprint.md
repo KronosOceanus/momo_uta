@@ -160,6 +160,8 @@ _v 不匹配 → 整个索引当空（算法升级时自动重建）
   路径 → { uid, size, mtime, title, artist, ... }
   size/mtime 有效时跳过指纹重算和文件名解析；
   不存 idx、不把 has_lyric 当最终真相。
+  全量扫描后会裁剪已不存在的路径；
+  meta 记录 last_missing / last_recovered，避免对补不回来的缺失反复重建。
 ```
 
 ### 3.2 什么时候写盘

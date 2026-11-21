@@ -59,6 +59,19 @@ def paths_for_uids(uids) -> dict[str, list[str]]:
     return out
 
 
+def prune(valid_paths) -> None:
+    """全量扫描后删掉不再存在的路径记录。"""
+    global _DIRTY
+    valid = {str(p) for p in valid_paths}
+    with _LOCK:
+        idx = _load()
+        for path in list(idx):
+            if path == "_v" or path in valid:
+                continue
+            idx.pop(path, None)
+            _DIRTY = True
+
+
 def flush() -> None:
     global _DIRTY
     with _LOCK:

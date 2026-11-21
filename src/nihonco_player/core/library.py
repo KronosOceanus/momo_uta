@@ -5,18 +5,21 @@ from __future__ import annotations
 import hashlib
 import threading
 import json
+import time
 from pathlib import Path
 
 from nihonco_yomi.config import LB
 from nihonco_yomi.paths import ROOT
 
+from . import diag
 from . import fingerprint as FP
 from . import library_index as LI
 from . import lyrics as LY
 
 MUSIC = Path.home() / "Music" / "网易云音乐"
 IMPORTS = ROOT / "data" / "curated" / "imports.json"     # 导入的音频路径（不在 music_dirs 里也能列）
-CACHE: dict = {}          # idx(str) -> 歌曲条目，启动时由 scan_library 填充
+CACHE: dict = {}          # idx(str) -> 歌曲条目
+LAST_MISSING: list[str] = []   # 最近一次加载未解析到的歌单 uid
 
 def music_dirs() -> list[Path]:
     from nihonco_yomi.config import PL
@@ -43,12 +46,29 @@ def save_import(audio: str, title: str, artist: str) -> None:
 _LOCK = threading.RLock()
 
 
-def refresh(uid: str | None = None) -> int:
-    """重建 CACHE。
+def _resolve_uid(uid: str) -> tuple[Path, str] | None:
+    """按已有索引/imports 找 uid；找不到返回 None，绝不扫全库。"""
+    from . import playlists as PL
+    paths = []
+    for p in (FP.paths_for_uids([uid]).get(uid) or []) + (LI.paths_by_uid().get(uid) or []):
+        paths.append(Path(p))
+    for row in load_imports():
+        if row.get("audio"):
+            paths.append(Path(str(row["audio"])).expanduser())
+    seen = set()
+    for p in paths:
+        if str(p) in seen or not p.is_file():
+            continue
+        seen.add(str(p))
+        e = _entry(p, "导入" if p in [Path(str(r.get("audio") or "")).expanduser()
+                                     for r in load_imports() if r.get("audio")] else (p.parent.name or "曲库"))
+        if e and str(e["uid"]) == str(uid):
+            return p, e.get("group", "")
+    return None
 
-    uid 在索引里 → 只重算这一条（不扫全库、不改其它条目的序号）；
-    uid 不在索引里（新导入的歌）→ 全量重建。
-    """
+
+def refresh(uid: str | None = None) -> int:
+    """重建 CACHE。uid 不在 CACHE 时只尝试已有索引，不扫全库。"""
     with _LOCK:
         if uid is not None:
             for k, v in list(CACHE.items()):
@@ -58,6 +78,15 @@ def refresh(uid: str | None = None) -> int:
                         CACHE[k] = e
                     LI.flush()
                     return len(CACHE)
+            found = _resolve_uid(str(uid))
+            if found:
+                p, group = found
+                e = _entry(p, group)
+                if e:
+                    nums = [int(k) for k in CACHE if str(k).isdigit()]
+                    CACHE[str(max(nums) + 1 if nums else 0)] = e
+            LI.flush()
+            return len(CACHE)
         lib = scan_library()
         CACHE.clear()
         CACHE.update({str(i): x for i, x in enumerate(lib)})
@@ -139,6 +168,7 @@ def _entry(p: Path, group: str) -> dict | None:
 
 def load_for_playlists() -> list[dict]:
     """启动只加载歌单引用的歌，不再加载无关 imports。"""
+    global LAST_MISSING
     from . import playlists as PL
 
     uids = list(dict.fromkeys(PL.all_uids()))
@@ -169,9 +199,6 @@ def load_for_playlists() -> list[dict]:
                 chosen[str(e["uid"])] = p
                 missing.discard(str(e["uid"]))
 
-    if missing:
-        return scan_library()                    # 仍解析不到 → 一次全量兜底
-
     out: list[dict] = []
     seen: set[str] = set()
     import_paths = {str(Path(str(r.get("audio") or "")).expanduser())
@@ -181,9 +208,40 @@ def load_for_playlists() -> list[dict]:
         if e and e["file"] not in seen:
             seen.add(e["file"])
             out.append(e)
+    LAST_MISSING = sorted(str(u) for u in missing)
+    diag.log("library", f"loaded {len(out)}/{len(uids)} missing={len(missing)}")
     LI.flush()
     FP.flush()
     return out
+
+
+def should_auto_rebuild() -> bool:
+    """有缺失才重建；同一缺失集合且上次没找回，就不再自动重试。"""
+    if not LAST_MISSING:
+        return False
+    m = LI.meta()
+    if m.get("last_missing") == LAST_MISSING:
+        return False
+    return True
+
+
+def rebuild_library() -> dict:
+    """全量扫描并裁剪索引；只由缺失触发的自动维护调用。"""
+    global LAST_MISSING
+    from . import playlists as PL
+    old = set(LAST_MISSING)
+    lib = scan_library()
+    CACHE.clear()
+    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    loaded = {str(v.get("uid")) for v in CACHE.values()}
+    LAST_MISSING = sorted(str(u) for u in (set(PL.all_uids()) - loaded))
+    recovered = len(old - set(LAST_MISSING))
+    LI.set_meta({"last_missing": LAST_MISSING, "last_rebuild": time.time(),
+                 "last_recovered": recovered})
+    LI.flush()
+    diag.log("library", f"rebuild loaded={len(CACHE)} missing={len(LAST_MISSING)} recovered={recovered}")
+    return {"ok": True, "library": len(CACHE), "missing": len(LAST_MISSING),
+            "recovered": recovered}
 
 
 def load_cache_for_playlists() -> int:
@@ -214,6 +272,10 @@ def scan_library(folder: Path | None = None) -> list[dict]:
         if p.exists():
             add(p, "导入")
 
+    if folder is None:                         # 显式扫临时目录不裁剪全局索引
+        valid = {e["file"] for e in out}
+        LI.prune(valid)
+        FP.prune(valid)
     LI.flush()
     FP.flush()
     return out

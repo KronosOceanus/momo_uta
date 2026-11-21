@@ -32,12 +32,12 @@ class TestCacheRefresh(unittest.TestCase):
         self.assertEqual(CACHE["0"]["title"], "A2")
         self.assertEqual(CACHE["1"]["title"], "B")     # 其它条目没动
 
-    def test_unknown_uid_falls_back_to_full_refresh(self):
-        # 新出现的歌（uid 不在 CACHE 里）→ 全量重建
-        with patch.object(LIB, "scan_library", return_value=[item("u2", "B2")]):
+    def test_unknown_uid_does_not_scan(self):
+        with patch.object(LIB, "_resolve_uid", return_value=None), \
+             patch.object(LIB, "scan_library", side_effect=AssertionError("不该全库扫描")):
             n = LIB.refresh("nope")
-        self.assertEqual(n, 1)
-        self.assertEqual(CACHE["0"]["title"], "B2")
+        self.assertEqual(n, 2)
+        self.assertEqual(CACHE["0"]["title"], "A")
 
     def test_add_paths_appends_without_scan(self):
         with tempfile.TemporaryDirectory() as tmp:

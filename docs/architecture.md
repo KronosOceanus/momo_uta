@@ -258,13 +258,21 @@ load_for_playlists()（启动用）：
   用指纹索引 / library_index.json 反查 uid → 路径
   只加载歌单引用到的 imports，不加载无关 imports
   只对这些路径建 CACHE；不递归 music_dirs
-  索引缺失/有 uid 解析不到 → 退回一次 scan_library()
+  缺失 uid 只记入 LAST_MISSING，不在此处全量扫
+
+自动重建：
+  启动后前端看到 auto_rebuild（有缺失）→ 空闲 8 秒后
+  POST /api/pl {action:"library_rebuild"}
+  → scan_library() 全量扫一次 + 裁剪索引
+  → 记录 last_missing / last_rebuild / last_recovered
+  → 同一缺失集合且上次没找回，不再自动重试
 
 scan_library()：
   按 music_dirs 递归；扩展名来自 library.extensions
   + data/curated/imports.json 里登记的导入文件
   用指纹索引避免每次重算
-  仍用于测试、显式全量重建和首次兜底
+  全量扫描后裁剪 library_index / fingerprints 的失效路径
+  仍用于测试、显式全量重建和自动重建
 ```
 
 ### 5.3 三个 id 不要混

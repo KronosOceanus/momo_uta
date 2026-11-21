@@ -73,7 +73,16 @@ def playlists_action(req) -> dict:
             SONGS.lazy_match(item)
     elif act == "import":
         return import_to_list(req)
-    return {"ok": True, "lists": PL.build(cached_items())}
+    elif act == "library_rebuild":
+        if not LIB.LAST_MISSING:               # 没有缺失就不重建
+            return {"ok": True, "library": len(CACHE), "missing": 0, "recovered": 0,
+                    "lists": PL.build(cached_items()), "missing_count": 0}
+        r = LIB.rebuild_library()
+        return {**r, "lists": PL.build(cached_items()),
+                "missing_count": len(LIB.LAST_MISSING)}
+    return {"ok": True, "lists": PL.build(cached_items()),
+            "missing_count": len(LIB.LAST_MISSING),
+            "auto_rebuild": LIB.should_auto_rebuild()}
 
 
 def import_to_list(req) -> dict:

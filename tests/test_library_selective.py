@@ -12,11 +12,14 @@ from nihonco_player.core.library import CACHE
 class TestSelectiveLibrary(unittest.TestCase):
     def setUp(self):
         self.old = dict(CACHE)
+        self.old_missing = list(LIB.LAST_MISSING)
         CACHE.clear()
+        LIB.LAST_MISSING = []
 
     def tearDown(self):
         CACHE.clear()
         CACHE.update(self.old)
+        LIB.LAST_MISSING = self.old_missing
 
     def test_only_playlist_uids_loaded(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -103,13 +106,13 @@ class TestSelectiveLibrary(unittest.TestCase):
                     PL.set_file(old)
             self.assertEqual([x["file"] for x in lib], [str(b)])
 
-    def test_unresolved_uid_falls_back_to_full_scan(self):
+    def test_unresolved_uid_is_marked_without_scan(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             a = root / "X - A.mp3"; a.touch()
             with patch.object(LIB, "load_imports", return_value=[]), \
                  patch.object(FP, "paths_for_uids", return_value={}), \
-                 patch.object(LIB, "scan_library", return_value=[{"uid": "u1", "file": str(a)}]) as scan:
+                 patch.object(LIB, "scan_library", side_effect=AssertionError("不该全量扫描")) as scan:
                 from nihonco_player.core import playlists as PL
                 old = PL.FILE
                 PL.set_file(root / "playlists.json")
@@ -118,8 +121,43 @@ class TestSelectiveLibrary(unittest.TestCase):
                     lib = LIB.load_for_playlists()
                 finally:
                     PL.set_file(old)
-            scan.assert_called_once()
-            self.assertEqual(lib[0]["uid"], "u1")
+            scan.assert_not_called()
+            self.assertEqual(lib, [])
+            self.assertEqual(LIB.LAST_MISSING, ["u1"])
+
+    def test_rebuild_library_recovers_missing(self):
+        old_missing = list(LIB.LAST_MISSING)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            a = root / "X - A.mp3"; a.touch()
+            entry = {"uid": "u1", "file": str(a), "title": "A", "artist": "X",
+                     "stem": a.stem, "key": "k", "group": "g", "has_lyric": False}
+            LIB.LAST_MISSING = ["u1"]
+            try:
+                with patch.object(LIB, "scan_library", return_value=[entry]), \
+                     patch("nihonco_player.core.playlists.all_uids", return_value=["u1"]), \
+                     patch.object(LIB.LI, "meta", return_value={}), \
+                     patch.object(LIB.LI, "set_meta") as set_meta, \
+                     patch.object(LIB.LI, "flush"):
+                    r = LIB.rebuild_library()
+                self.assertEqual(r["recovered"], 1)
+                self.assertEqual(r["missing"], 0)
+                set_meta.assert_called_once()
+            finally:
+                LIB.LAST_MISSING = old_missing
+
+    def test_auto_rebuild_only_for_changed_or_unseen_missing(self):
+        old_missing = list(LIB.LAST_MISSING)
+        try:
+            LIB.LAST_MISSING = ["u1"]
+            with patch.object(LIB.LI, "meta", return_value={}):
+                self.assertTrue(LIB.should_auto_rebuild())
+            with patch.object(LIB.LI, "meta", return_value={"last_missing": ["u1"]}):
+                self.assertFalse(LIB.should_auto_rebuild())
+            with patch.object(LIB.LI, "meta", return_value={"last_missing": ["u2"]}):
+                self.assertTrue(LIB.should_auto_rebuild())
+        finally:
+            LIB.LAST_MISSING = old_missing
 
 
 if __name__ == "__main__":

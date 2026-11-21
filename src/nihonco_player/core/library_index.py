@@ -26,7 +26,8 @@ def _load() -> dict:
     if _data is None:
         try:
             raw = json.loads(INDEX.read_text(encoding="utf-8"))
-            _data = raw.get("records", {}) if raw.get("_v") == VERSION else {}
+            _data = ({"_meta": raw.get("meta") or {}, **raw.get("records", {})}
+                     if raw.get("_v") == VERSION else {})
         except Exception:
             _data = {}
     return _data
@@ -59,10 +60,38 @@ def put(entry: dict) -> None:
         _dirty = True
 
 
+def meta() -> dict:
+    with _lock:
+        return dict((_load().get("_meta") or {}))
+
+
+def set_meta(data: dict) -> None:
+    global _dirty
+    with _lock:
+        recs = _load()
+        recs["_meta"] = dict(data)
+        _dirty = True
+
+
+def prune(valid_paths) -> None:
+    """全量扫描后删掉不再存在的路径记录。"""
+    global _dirty
+    valid = {str(p) for p in valid_paths}
+    with _lock:
+        recs = _load()
+        for path in list(recs):
+            if path.startswith("_") or path in valid:
+                continue
+            recs.pop(path, None)
+            _dirty = True
+
+
 def paths_by_uid() -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     with _lock:
         for path, rec in _load().items():
+            if path.startswith("_") or not isinstance(rec, dict):
+                continue
             if rec.get("uid"):
                 out.setdefault(str(rec["uid"]), []).append(path)
     for paths in out.values():
@@ -78,8 +107,9 @@ def flush() -> None:
         try:
             INDEX.parent.mkdir(parents=True, exist_ok=True)
             tmp = INDEX.with_suffix(".tmp")
-            tmp.write_text(json.dumps({"_v": VERSION, "records": _data},
-                                      ensure_ascii=False), encoding="utf-8")
+            recs = {k: v for k, v in _data.items() if not k.startswith("_")}
+            tmp.write_text(json.dumps({"_v": VERSION, "meta": _data.get("_meta") or {},
+                                       "records": recs}, ensure_ascii=False), encoding="utf-8")
             tmp.replace(INDEX)
             _dirty = False
         except Exception:
