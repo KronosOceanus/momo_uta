@@ -14,7 +14,7 @@ def make_server(port: int = 0) -> ThreadingHTTPServer:
 
 
 def main() -> None:
-    n = LIB.refresh()
+    n = LIB.load_cache_for_playlists()
     srv = make_server(8766)
     print(f"{n} 首有歌词 → http://127.0.0.1:{srv.server_address[1]}")
     srv.serve_forever()

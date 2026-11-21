@@ -112,6 +112,58 @@ def _entry(p: Path, group: str) -> dict | None:
             "suspect": (hit.get("lang") == "other" and bool(LY.JP.search(stem)))}
 
 
+def load_for_playlists() -> list[dict]:
+    """只加载歌单成员和 imports，不递归扫 music_dirs。
+
+    索引缺失/有 uid 解析不到时，退回一次全量扫描，保证不丢歌。
+    """
+    from . import playlists as PL
+
+    uids = PL.all_uids()
+    resolved = FP.paths_for_uids(uids)
+    imports = [Path(r["audio"]).expanduser() for r in load_imports()
+               if r.get("audio") and Path(r["audio"]).expanduser().is_file()]
+
+    chosen: dict[str, Path] = {}
+    for uid in uids:
+        paths = resolved.get(uid) or []
+        if paths:
+            chosen[uid] = Path(paths[0])       # 同一 uid 多份拷贝时取第一份
+    out: list[dict] = []
+    seen_files: set[str] = set()
+    loaded_uids: set[str] = set()
+
+    def add(p: Path, group: str) -> None:
+        p = p.expanduser()
+        if not p.is_file() or str(p) in seen_files:
+            return
+        e = _entry(p, group)
+        if not e or e["file"] in seen_files:
+            return
+        seen_files.add(e["file"])
+        loaded_uids.add(str(e["uid"]))
+        out.append(e)
+
+    for uid, p in sorted(chosen.items(), key=lambda x: str(x[1])):
+        add(p, p.parent.name or "曲库")
+    for p in imports:
+        if str(p) not in seen_files:
+            add(p, "导入")
+
+    missing = {str(u) for u in uids} - loaded_uids
+    if missing:
+        return scan_library()                 # 索引缺失/文件移动 → 一次兜底
+    FP.flush()
+    return out
+
+
+def load_cache_for_playlists() -> int:
+    lib = load_for_playlists()
+    CACHE.clear()
+    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    return len(CACHE)
+
+
 def scan_library(folder: Path | None = None) -> list[dict]:
     out: list[dict] = []
     seen: set[str] = set()

@@ -69,6 +69,15 @@ def save(d: dict) -> None:
     FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+def all_uids() -> list[str]:
+    """所有歌单成员 uid（去重，保持出现顺序）。"""
+    d = load()
+    out: list[str] = []
+    for seq in d.get("members", {}).values():
+        out.extend(x for x in seq if x)
+    return list(dict.fromkeys(out))
+
+
 def build(lib: list[dict]) -> list[dict]:
     d = load()
     open_ids = d.get("open", [])

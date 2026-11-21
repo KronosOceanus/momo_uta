@@ -39,6 +39,26 @@ def _load() -> dict:
     return _CACHE
 
 
+def paths_for_uids(uids) -> dict[str, list[str]]:
+    """从路径→指纹索引反查 uid→仍存在的路径（启动按需加载用）。"""
+    wanted = {str(u) for u in uids if u}
+    out: dict[str, list[str]] = {}
+    with _LOCK:
+        idx = _load()
+        for path, rec in idx.items():
+            if path == "_v" or not isinstance(rec, dict):
+                continue
+            uid = rec.get("fp")
+            if uid not in wanted:
+                continue
+            p = Path(path).expanduser()
+            if p.is_file():
+                out.setdefault(str(uid), []).append(str(p))
+    for paths in out.values():
+        paths.sort()
+    return out
+
+
 def flush() -> None:
     global _DIRTY
     with _LOCK:

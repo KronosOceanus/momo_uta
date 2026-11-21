@@ -253,10 +253,18 @@ refresh(uid)：
   uid 在 CACHE 里 → 只重算这一条（不扫全库、序号不变）
   uid 不在 → 全量扫描并重建 CACHE
 
+load_for_playlists()（启动用）：
+  读 playlists.json 的所有成员 uid
+  + imports.json 的路径
+  用指纹索引反查 uid → 路径
+  只对这些路径建 CACHE；不递归 music_dirs
+  索引缺失/有 uid 解析不到 → 退回一次 scan_library()
+
 scan_library()：
   按 music_dirs 递归；扩展名来自 library.extensions
   + data/curated/imports.json 里登记的导入文件
   用指纹索引避免每次重算
+  仍用于测试、显式全量重建和首次兜底
 ```
 
 ### 5.3 三个 id 不要混
@@ -400,7 +408,7 @@ service 层：
 ```text
 启动顺序：
   ① logsetup.setup()：日志文件 + sys.excepthook
-  ② scan_library() → 填 CACHE
+  ② load_cache_for_playlists() → 只加载歌单成员 + imports
   ③ make_server(0)：随机端口，只绑 127.0.0.1
   ④ 后台线程 serve_forever
   ⑤ webview.create_window + start

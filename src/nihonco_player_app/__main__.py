@@ -16,7 +16,6 @@ from webview import FileDialog
 from nihonco_yomi.config import APP
 
 from nihonco_player.core import library as LIB
-from nihonco_player.core.library import CACHE
 from nihonco_player.http.server import make_server
 
 from . import logsetup
@@ -26,8 +25,7 @@ def main() -> None:
     log_path = logsetup.setup()
     sys.excepthook = logsetup.log_exception
     print(f"日志：{log_path}")
-    lib = LIB.scan_library()
-    CACHE.update({str(i): x for i, x in enumerate(lib)})
+    LIB.load_cache_for_playlists()
 
     srv = make_server(0)                     # 随机端口，不占 8766
     port = srv.server_address[1]
