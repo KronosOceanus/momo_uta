@@ -198,29 +198,83 @@ function drawWave(){
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
 NH.VSTAT = null; NH.VSTAT_IDX = null;
-function paintVStatus(){
-  const el=document.getElementById('vchip'); if(!el) return;
-  if(!NH.VSTAT || NH.VSTAT.state==='none'){ el.hidden=true; return; }
-  el.hidden=false;
-  if(NH.VSTAT.state==='done'){
-    el.textContent = NH.VSTAT.has_vocals ? '有人声' : '纯音乐';
-    el.classList.toggle('vdone', true);
-    el.classList.toggle('vinst', !NH.VSTAT.has_vocals);
-  }else if(NH.VSTAT.state==='failed'){
-    el.textContent='人声分离失败';
+NH.VJOBS = new Map();                 // id -> {id, uid, state}
+function vActive(j){ return !!j && (j.state==='queued' || j.state==='running' || j.state==='canceling'); }
+function vJobs(){ return [...NH.VJOBS.values()].filter(vActive); }
+function vCurrentJob(){
+  if(!NH.S) return null;
+  return vJobs().find(j=>String(j.uid)===String(NH.S.uid)) || null;
+}
+function paintVCancel(){
+  const cb=document.getElementById('vcancel'), ab=document.getElementById('vcancelall');
+  if(!cb || !ab) return;
+  const cur=vCurrentJob(), jobs=vJobs();
+  if(cur){
+    cb.hidden=false;
+    cb.disabled=cur.state==='canceling';
+    cb.textContent=cur.state==='canceling'?'正在取消…':'取消';
   }else{
-    el.textContent = NH.VSTAT.state==='queued' ? '人声分离：排队' : '人声分离中…';
+    cb.hidden=true;
   }
+  // B 方案：只有当前歌曲没有任务，或后台还有其他任务时，才显示“全部取消”
+  const showAll=jobs.length>0 && !(jobs.length===1 && cur);
+  ab.hidden=!showAll;
+  ab.disabled=jobs.some(j=>j.state==='canceling');
+  ab.textContent=ab.disabled?'正在取消…':`取消全部人声 (${jobs.length})`;
+}
+function paintVStatus(){
+  const el=document.getElementById('vchip');
+  if(el){
+    if(!NH.VSTAT || NH.VSTAT.state==='none') el.hidden=true;
+    else{
+      el.hidden=false;
+      if(NH.VSTAT.state==='done'){
+        el.textContent = NH.VSTAT.has_vocals ? '有人声' : '纯音乐';
+        el.classList.toggle('vdone', true);
+        el.classList.toggle('vinst', !NH.VSTAT.has_vocals);
+      }else if(NH.VSTAT.state==='failed'){
+        el.textContent='人声分离失败';
+      }else if(NH.VSTAT.state==='canceled'){
+        el.textContent='已取消';
+      }else if(NH.VSTAT.state==='canceling'){
+        el.textContent='正在取消…';
+      }else if(NH.VSTAT.state==='queued'){
+        el.textContent='人声分离：排队';
+      }else{
+        el.textContent='人声分离中…';
+      }
+    }
+  }
+  paintVCancel();
 }
 async function waitJob(id, onState){
   for(;;){
     const st=await api('/api/jobs/'+id);
     if(onState) onState(st);
-    if(st.state==='done' || st.state==='failed') return st;
+    if(st.state==='done' || st.state==='failed' || st.state==='canceled') return st;
     await new Promise(r=>setTimeout(r, JOB.poll_ms||1000));
   }
 }
-
+async function refreshActiveVJobs(){
+  try{
+    const r=await api('/api/jobs/active');
+    if(!r || !r.ok) return;
+    const ids=new Set();
+    for(const j of (r.jobs||[])){
+      ids.add(j.id);
+      NH.VJOBS.set(j.id, {id:j.id, uid:String(j.key||''), state:j.state});
+    }
+    for(const id of [...NH.VJOBS.keys()]) if(!ids.has(id)) NH.VJOBS.delete(id);
+    if(NH.S){
+      const cur=vCurrentJob();
+      if(cur && (!NH.VSTAT || NH.VSTAT_IDX!==String(NH.S.uid))){
+        NH.VSTAT={state:cur.state};
+        NH.VSTAT_IDX=String(NH.S.uid);
+      }
+    }
+    paintVStatus();
+  }catch(e){}
+}
 async function startVocals(uid){
   if(VC.auto_start===false) return;
   const st=NH.VSTAT;
@@ -228,27 +282,72 @@ async function startVocals(uid){
   NH.VSTAT_IDX=String(uid);
   NH.VSTAT={state:'running'};
   paintVStatus();
+  let job=null;
   try{
-    const job=await api('/api/jobs',{kind:'vocals', uid});
+    job=await api('/api/jobs',{kind:'vocals', uid});
+    const rec={id:job.id, uid:String(uid), state:job.state||'queued'};
+    NH.VJOBS.set(rec.id, rec);
+    if(NH.S && String(NH.S.uid)===String(uid)){ NH.VSTAT={state:rec.state}; paintVStatus(); }
     const done=await waitJob(job.id, (j)=>{
-      if(!NH.S || String(NH.S.uid)!==String(uid)) return;
-      if(j.state==='running'){ NH.VSTAT={state:'running'}; paintVStatus(); }
+      rec.state=j.state;
+      if(NH.S && String(NH.S.uid)===String(uid)){
+        NH.VSTAT = (j.state==='done') ? (j.result || {state:'done'})
+          : (j.state==='canceled') ? {state:'canceled', error:j.error||'已取消'}
+          : (j.state==='failed') ? {state:'failed', error:j.error||'人声分离失败'}
+          : {state:j.state};
+        paintVStatus();
+      }
+      paintVCancel();
     });
-    if(!NH.S || String(NH.S.uid)!==String(uid)) return;
+    NH.VJOBS.delete(job.id);
+    if(!NH.S || String(NH.S.uid)!==String(uid)){ paintVCancel(); return; }
     if(done.state==='done'){
       NH.VSTAT=done.result || {state:'done'};
       paintVStatus();
       if(NH.VIEW_MODE==='lrc') loadWave(true);
     }else{
-      NH.VSTAT={state:'failed', error:done.error || '人声分离失败'};
+      NH.VSTAT={state:done.state==='canceled'?'canceled':'failed',
+                error:done.error || (done.state==='canceled'?'已取消':'人声分离失败')};
       paintVStatus();
     }
   }catch(err){
-    if(!NH.S || String(NH.S.uid)!==String(uid)) return;
+    if(job) NH.VJOBS.delete(job.id);
+    if(!NH.S || String(NH.S.uid)!==String(uid)){ paintVCancel(); return; }
     NH.VSTAT={state:'failed', error:err.message};
     paintVStatus();
   }
 }
+async function cancelCurrentVocals(){
+  const cur=vCurrentJob(); if(!cur) return;
+  if(cur.state==='running' &&
+     !await NH.uiConfirm('取消人声分离？', '会终止当前正在执行的 demucs/ffmpeg 进程。', true)) return;
+  NH.VSTAT={state:'canceling'}; paintVStatus();
+  try{
+    const r=await api('/api/jobs/'+encodeURIComponent(cur.id)+'/cancel', {});
+    if(!r || !r.ok) throw new Error((r&&r.error)||'取消失败');
+    cur.state=(r.job&&r.job.state)||'canceling';
+    paintVCancel();
+  }catch(err){
+    NH.VSTAT={state:cur.state, error:err.message}; paintVStatus();
+    NH.done('取消失败：'+err.message);
+  }
+}
+async function cancelAllVocals(){
+  const jobs=vJobs(); if(!jobs.length) return;
+  if(jobs.some(j=>j.state==='running') &&
+     !await NH.uiConfirm('取消全部人声分离？', '会终止所有正在执行的人声分离任务。', true)) return;
+  try{
+    const r=await api('/api/jobs/cancel_all',{kind:'vocals'});
+    if(!r || !r.ok) throw new Error((r&&r.error)||'取消失败');
+    for(const j of jobs) j.state='canceling';
+    if(vCurrentJob()) NH.VSTAT={state:'canceling'};
+    paintVStatus();
+  }catch(err){
+    NH.done('取消失败：'+err.message);
+  }
+}
+document.getElementById('vcancel').onclick=cancelCurrentVocals;
+document.getElementById('vcancelall').onclick=cancelAllVocals;
 
 async function loadWave(force){
   if(!NH.S) return;
@@ -399,6 +498,7 @@ async function load(ref, autoplay, nextMode){
   if(NH.loop && (NH.PLAYING_UID===null || String(NH.PLAYING_UID)!==String(d.uid))) NH.closeLineLoop?.();
   const changedSong=!NH.S || String(NH.S.uid)!==String(d.uid);
   if(changedSong) NH.WAVE_SEQ=(NH.WAVE_SEQ||0)+1;   // 旧波形请求作废
+  if(changedSong){ NH.VSTAT=null; NH.VSTAT_IDX=null; paintVStatus(); }
   if(changedSong || nextMode!==undefined){
     NH.VIEW_MODE=nextMode || 'normal';
     NH.syncModes();
@@ -994,6 +1094,7 @@ window.addEventListener('unhandledrejection', e=>{
   reportClientError('js_rejection', (r&&r.message)||String(r||'unhandled rejection'), r&&r.stack);
 });
 
+refreshActiveVJobs().catch(()=>{});
 loadLib().catch(async()=>{            // 启动偶发失败 → 延迟重试一次
   await new Promise(r=>setTimeout(r,600));
   loadLib().catch(e=>{ toast('加载歌单失败：'+e.message); reportClientError('load_lib', e.message, e.stack); });
@@ -1013,5 +1114,5 @@ document.getElementById('resetall').onclick=async()=>{
   if(wasLrc && NH.VIEW_MODE==='lrc') await NH.openLrcEditor();
 };
 
-Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, waitJob, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});
+Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, paintVCancel, waitJob, refreshActiveVJobs, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});
 })();

@@ -9,7 +9,7 @@ def wait(job_id, timeout=3):
     end = time.time() + timeout
     while time.time() < end:
         job = JOBS.get(job_id)
-        if job and job["state"] in ("done", "failed"):
+        if job and job["state"] in ("done", "failed", "canceled"):
             return job
         time.sleep(0.01)
     raise AssertionError("job timeout: " + str(JOBS.get(job_id)))
@@ -38,6 +38,24 @@ class TestJobs(unittest.TestCase):
         done = wait(job["id"])
         self.assertEqual(done["state"], "failed")
         self.assertIn("nope", done["error"])
+
+    def test_cancel_running_job(self):
+        import threading
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow():
+            started.set()
+            release.wait(2)
+            return True
+
+        job = JOBS.start("test", "cancel", slow)
+        self.assertTrue(started.wait(2))
+        out = JOBS.cancel(job["id"])
+        self.assertEqual(out["state"], "canceling")
+        release.set()
+        done = wait(job["id"])
+        self.assertEqual(done["state"], "canceled")
 
     def test_unknown_id(self):
         self.assertIsNone(JOBS.get("missing"))

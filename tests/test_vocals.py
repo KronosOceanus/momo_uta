@@ -56,6 +56,25 @@ class TestVocalStats(unittest.TestCase):
                 self.assertTrue(st["has_vocals"])
 
 
+class TestVocalCancel(unittest.TestCase):
+    def test_cancel_queued_task_and_retry(self):
+        from queue import Queue
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(vocals_mod, "VOCALS", Path(tmp) / "vocals"), \
+                 patch.object(vocals_mod, "_queue", Queue()), \
+                 patch.object(vocals_mod, "_states", {}), \
+                 patch.object(vocals_mod, "_canceled", set()), \
+                 patch.object(vocals_mod, "_start_worker", lambda: None):
+                vocals_mod.ensure("u-cancel", str(Path(tmp) / "a.mp3"))
+                self.assertEqual(vocals_mod.status("u-cancel")["state"], "queued")
+                out = vocals_mod.cancel("u-cancel")
+                self.assertEqual(out["state"], "canceled")
+                self.assertEqual(vocals_mod.status("u-cancel")["state"], "canceled")
+                # 重新 ensure 必须允许重试，不被 canceled 卡住
+                vocals_mod.ensure("u-cancel", str(Path(tmp) / "a.mp3"))
+                self.assertEqual(vocals_mod.status("u-cancel")["state"], "queued")
+
+
 class TestVocalTimeout(unittest.TestCase):
     def test_demucs_timeout_kills_and_cleans_tmp(self):
         with tempfile.TemporaryDirectory() as tmp:

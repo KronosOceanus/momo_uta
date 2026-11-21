@@ -395,8 +395,16 @@ VAD：
 顶栏 chip：
   排队 → 人声分离：排队
   运行 → 人声分离中…
+  canceling → 正在取消…
+  canceled → 已取消
   完成 → 有人声 / 纯音乐
   失败 → 人声分离失败
+
+取消按钮：
+  当前歌曲 queued/running → “取消”
+  当前歌曲 canceling → “正在取消…”（禁用）
+  只要后台还有其他 vocals 任务 → “取消全部人声 (N)”
+  只有当前这一首任务 → 不显示全部取消
 LRC 模式：分离完成后自动 loadWave(true) 换成人声波形
 人声缓存清理：启动时清孤儿，超过 vocals.max_bytes 按 last_used 淘汰；
 临时分离文件在 data/tmp/vocals/，任务结束即删。

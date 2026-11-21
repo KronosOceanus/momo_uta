@@ -34,8 +34,15 @@ SAMPLE_RATE = VC["sample_rate"]
 
 _queue: Queue = Queue()
 _states: dict[str, dict] = {}
+_canceled: set[str] = set()
+_current: dict[str, subprocess.Popen] = {}
 _lock = threading.Lock()
+_proc_lock = threading.Lock()
 _worker: threading.Thread | None = None
+
+
+class Cancelled(RuntimeError):
+    """用户或任务编排主动取消，不是分离失败。"""
 
 
 def paths(uid: str) -> tuple[Path, Path, Path]:
@@ -79,12 +86,80 @@ def ensure(uid: str, audio: str) -> dict:
         return status(uid)
     with _lock:
         st = _states.get(uid)
-        if st and st.get("state") in ("queued", "running"):
+        if st and st.get("state") in ("queued", "running", "canceling"):
             return dict(st)
+        _canceled.discard(uid)
         _states[uid] = {"state": "queued", "since": time.time()}
         _queue.put((uid, str(audio)))
         _start_worker()
         return dict(_states[uid])
+
+
+def active() -> list[dict]:
+    with _lock:
+        return [{"uid": u, **dict(st)} for u, st in _states.items()
+                if st.get("state") in ("queued", "running", "canceling")]
+
+
+def _is_canceled(uid: str | None) -> bool:
+    if not uid:
+        return False
+    with _lock:
+        return uid in _canceled
+
+
+def _kill_proc(uid: str) -> None:
+    with _proc_lock:
+        p = _current.get(uid)
+    if not p:
+        return
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+    except Exception:
+        try:
+            p.kill()
+        except Exception:
+            pass
+
+
+def cancel(uid: str, include_running: bool = True) -> dict:
+    """取消一首歌的人声任务；queued 直接丢弃，running 杀进程组。"""
+    uid = str(uid)
+    with _lock:
+        st = dict(_states.get(uid) or {})
+        state = st.get("state")
+        if state not in ("queued", "running", "canceling"):
+            return {"ok": True, "uid": uid, "state": state or "none"}
+        _canceled.add(uid)
+        if state == "queued":
+            _states[uid] = {"state": "canceled", "error": "已取消",
+                            "since": time.time()}
+            return {"ok": True, "uid": uid, "state": "canceled"}
+        if state == "running" and not include_running:
+            _canceled.discard(uid)
+            return {"ok": False, "uid": uid, "state": state,
+                    "error": "任务正在执行"}
+        _states[uid] = {"state": "canceling", "since": time.time()}
+    _kill_proc(uid)
+    return {"ok": True, "uid": uid, "state": "canceling"}
+
+
+def cancel_all(include_running: bool = True) -> list[dict]:
+    with _lock:
+        uids = [u for u, st in _states.items()
+                if st.get("state") in ("queued", "running", "canceling")]
+    return [cancel(u, include_running=include_running) for u in uids]
+
+
+def _discard_outputs(uid: str) -> None:
+    _d, wav, meta = paths(uid)
+    for p in (wav, meta):
+        try:
+            p.unlink()
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
 
 
 def _start_worker() -> None:
@@ -101,6 +176,12 @@ def _run() -> None:
         with _lock:
             st = _states.get(uid)
             if not st or st.get("state") != "queued":
+                _canceled.discard(uid)
+                continue
+            if uid in _canceled:
+                _canceled.discard(uid)
+                _states[uid] = {"state": "canceled", "error": "已取消",
+                                "since": time.time()}
                 continue
             if time.time() - float(st.get("since") or 0) > float(VC["queue_timeout_s"]):
                 _states[uid] = {"state": "failed", "error": "人声分离排队超时",
@@ -110,12 +191,30 @@ def _run() -> None:
         try:
             m = _separate(uid, audio)
             with _lock:
-                _states.pop(uid, None)
+                if uid in _canceled:
+                    _canceled.discard(uid)
+                    _states[uid] = {"state": "canceled", "error": "已取消",
+                                    "since": time.time()}
+                    _discard_outputs(uid)
+                else:
+                    _states.pop(uid, None)
             m  # 已写盘
+        except Cancelled:
+            with _lock:
+                _canceled.discard(uid)
+                _states[uid] = {"state": "canceled", "error": "已取消",
+                                "since": time.time()}
+            _discard_outputs(uid)
         except Exception as e:                     # 失败保留原因，下次点歌会重试
             with _lock:
-                _states[uid] = {"state": "failed", "error": str(e)[:300],
-                                "since": time.time()}
+                canceled = uid in _canceled
+                _canceled.discard(uid)
+                _states[uid] = ({"state": "canceled", "error": "已取消",
+                                 "since": time.time()} if canceled
+                                else {"state": "failed", "error": str(e)[:300],
+                                      "since": time.time()})
+            if canceled:
+                _discard_outputs(uid)
 
 
 def installed() -> bool:
@@ -127,17 +226,27 @@ def installed() -> bool:
 
 
 def _run_process(cmd: list[str], *, timeout: float, env: dict | None = None,
-                 timeout_message: str = "人声分离执行超时"):
-    """在独立进程组运行；超时杀整组，包含 demucs 拉起的 ffmpeg。"""
+                 timeout_message: str = "人声分离执行超时", uid: str | None = None):
+    """在独立进程组运行；超时或取消时杀整组，包含辅助进程。"""
+    if _is_canceled(uid):
+        raise Cancelled()
     if os.name != "posix":
         try:
-            return subprocess.run(cmd, capture_output=True, text=True, env=env,
-                                  timeout=timeout)
+            r = subprocess.run(cmd, capture_output=True, text=True, env=env,
+                               timeout=timeout)
         except subprocess.TimeoutExpired:
             raise RuntimeError(timeout_message)
+        if _is_canceled(uid):
+            raise Cancelled()
+        return r
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          text=True, env=env, start_new_session=True)
+    if uid:
+        with _proc_lock:
+            _current[uid] = p
     try:
+        if _is_canceled(uid):
+            _kill_proc(uid)
         out, err = p.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         try:
@@ -151,7 +260,18 @@ def _run_process(cmd: list[str], *, timeout: float, env: dict | None = None,
             p.communicate(timeout=5)
         except Exception:
             pass
+        if _is_canceled(uid):
+            raise Cancelled()
         raise RuntimeError(timeout_message)
+    except Cancelled:
+        raise
+    finally:
+        if uid:
+            with _proc_lock:
+                if _current.get(uid) is p:
+                    _current.pop(uid, None)
+    if _is_canceled(uid):
+        raise Cancelled()
     return subprocess.CompletedProcess(cmd, p.returncode, out, err)
 
 
@@ -172,7 +292,9 @@ def _separate(uid: str, audio: str) -> dict:
         env = dict(os.environ)
         env.setdefault("HF_ENDPOINT", VC["hf_endpoint"])   # 国内直连 HF 会卡住
         r = _run_process(cmd, env=env, timeout=float(VC["run_timeout_s"]),
-                         timeout_message="人声分离执行超时")
+                         timeout_message="人声分离执行超时", uid=uid)
+        if _is_canceled(uid):
+            raise Cancelled()
         if r.returncode != 0:
             raise RuntimeError((r.stderr or r.stdout or "demucs 失败")[-400:])
 
@@ -180,14 +302,22 @@ def _separate(uid: str, audio: str) -> dict:
         if not src:
             raise RuntimeError("demucs 没有产出 vocals 文件")
 
+        if _is_canceled(uid):
+            raise Cancelled()
         r = _run_process(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
                           "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
                          timeout=float(VC["run_timeout_s"]),
-                         timeout_message="人声分离转码超时")
+                         timeout_message="人声分离转码超时", uid=uid)
+        if _is_canceled(uid):
+            raise Cancelled()
         if r.returncode != 0 or not wav.is_file():
             raise RuntimeError("转 16k 单声道失败")
 
+        if _is_canceled(uid):
+            raise Cancelled()
         stats = analyze(wav)
+        if _is_canceled(uid):
+            raise Cancelled()
         now = int(time.time())
         m = {"model": MODEL, "created": now, "last_used": now,
              "duration": stats["duration"], "ratio": stats["ratio"],
@@ -207,9 +337,9 @@ def cleanup(protected=None, max_bytes=None) -> dict:
     freed = 0
 
     with _lock:
-        active = any(st.get("state") in ("queued", "running") for st in _states.values())
+        active = any(st.get("state") in ("queued", "running", "canceling") for st in _states.values())
         active_uids = {u for u, st in _states.items()
-                       if st.get("state") in ("queued", "running")}
+                       if st.get("state") in ("queued", "running", "canceling")}
     if TMP_ROOT.is_dir() and not active:
         for p in TMP_ROOT.iterdir():
             if p.is_dir():

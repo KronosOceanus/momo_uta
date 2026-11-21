@@ -24,7 +24,7 @@ MAX_DONE = int(JOB["keep_done"])
 
 
 def _copy(job: dict) -> dict:
-    return dict(job)
+    return {k: v for k, v in job.items() if not k.startswith("_")}
 
 
 def get(job_id: str) -> dict | None:
@@ -42,7 +42,7 @@ def find_active(kind: str, key: str) -> dict | None:
     return None
 
 
-def start(kind: str, key, runner) -> dict:
+def start(kind: str, key, runner, cancel=None) -> dict:
     """启动后台任务；runner 返回结果，异常转为 failed。"""
     active = find_active(kind, str(key))
     if active:
@@ -51,34 +51,81 @@ def start(kind: str, key, runner) -> dict:
     now = time.time()
     job = {"id": job_id, "kind": kind, "key": str(key), "state": "queued",
            "stage": "", "error": None, "result": None,
-           "since": now, "updated": now}
+           "since": now, "updated": now, "_cancel": cancel,
+           "_cancel_requested": False}
     with _lock:
         _jobs[job_id] = job
         _prune_locked()
 
     def run():
         with _lock:
+            if job.get("_cancel_requested"):
+                job["state"] = "canceled"
+                job["error"] = "已取消"
+                job["updated"] = time.time()
+                return
             job["state"] = "running"
             job["updated"] = time.time()
         try:
             result = runner()
             with _lock:
-                job["state"] = "done"
-                job["result"] = result
+                if job.get("_cancel_requested"):
+                    job["state"] = "canceled"
+                    job["error"] = "已取消"
+                else:
+                    job["state"] = "done"
+                    job["result"] = result
                 job["updated"] = time.time()
         except Exception as e:
-            diag.exception("job", e, kind=kind, key=key)
             with _lock:
-                job["state"] = "failed"
-                job["error"] = str(e)[:500]
+                canceled = bool(job.get("_cancel_requested"))
+                job["state"] = "canceled" if canceled else "failed"
+                job["error"] = "已取消" if canceled else str(e)[:500]
                 job["updated"] = time.time()
+            if not canceled:
+                diag.exception("job", e, kind=kind, key=key)
 
     threading.Thread(target=run, daemon=True, name=f"job-{kind}").start()
     return _copy(job)
 
 
+def active(kind: str | None = None) -> list[dict]:
+    with _lock:
+        return [_copy(j) for j in _jobs.values()
+                if j["state"] in ("queued", "running", "canceling")
+                and (kind is None or j["kind"] == kind)]
+
+
+def cancel(job_id: str) -> dict | None:
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return None
+        if job["state"] in ("done", "failed", "canceled"):
+            return _copy(job)
+        job["_cancel_requested"] = True
+        job["state"] = "canceling"
+        job["updated"] = time.time()
+        cb = job.get("_cancel")
+        out = _copy(job)
+    if callable(cb):
+        try:
+            cb()
+        except Exception as e:
+            diag.exception("job.cancel", e, job=job_id)
+    return out
+
+
+def cancel_all(kind: str | None = None) -> list[dict]:
+    with _lock:
+        ids = [j["id"] for j in _jobs.values()
+               if j["state"] in ("queued", "running", "canceling")
+               and (kind is None or j["kind"] == kind)]
+    return [j for j in (cancel(i) for i in ids) if j]
+
+
 def _prune_locked() -> None:
-    done = [j for j in _jobs.values() if j["state"] in ("done", "failed")]
+    done = [j for j in _jobs.values() if j["state"] in ("done", "failed", "canceled")]
     if len(done) <= MAX_DONE:
         return
     done.sort(key=lambda j: j["updated"])

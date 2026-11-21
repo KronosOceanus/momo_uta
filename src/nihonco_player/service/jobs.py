@@ -31,7 +31,7 @@ def start(kind: str, uid=None) -> dict:
     item = LIB.resolve(uid) if uid is not None else None
     if not item:
         raise ValueError("没有这首歌")
-    idx = item.get("uid")
+    uid = item.get("uid")
 
     if kind == "vocals":
         uid = item["uid"]
@@ -45,14 +45,29 @@ def start(kind: str, uid=None) -> dict:
                 st = VOC.status(uid)
                 if st.get("state") == "done":
                     return st
-                if st.get("state") == "failed":
-                    raise RuntimeError(st.get("error") or "人声分离失败")
+                if st.get("state") in ("failed", "canceled"):
+                    raise VOC.Cancelled(st.get("error") or "已取消")
                 time.sleep(float(JOB["vocals_poll_ms"]) / 1000)
 
-        return JOBS.start(kind, uid, run_vocals)
+        return JOBS.start(kind, uid, run_vocals,
+                          cancel=lambda: VOC.cancel(uid))
 
     def run_match():
         SONGS.lazy_match(item)
-        return {"idx": str(idx)}
+        return {"uid": str(uid)}
 
-    return JOBS.start(kind, str(idx), run_match)
+    return JOBS.start(kind, str(uid), run_match)
+
+
+def active_vocals() -> list[dict]:
+    return JOBS.active("vocals")
+
+
+def cancel_job(job_id: str) -> dict | None:
+    return JOBS.cancel(job_id)
+
+
+def cancel_all_vocals() -> list[dict]:
+    jobs = JOBS.cancel_all("vocals")
+    VOC.cancel_all(include_running=True)      # 兼容旧 /api/vocals 直接启动的任务
+    return jobs

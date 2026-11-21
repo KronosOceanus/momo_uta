@@ -35,6 +35,7 @@ class H(BaseHTTPRequestHandler):
         "/api/lrc": "_post_lrc",
         "/api/vocals": "_post_vocals",
         "/api/jobs": "_post_jobs",
+        "/api/jobs/cancel_all": "_post_cancel_all_jobs",
         "/api/log": "_post_log",
     }
 
@@ -80,6 +81,8 @@ class H(BaseHTTPRequestHandler):
             return self._get_wave(p[len("/api/wave/"):])
         if p.startswith("/api/vocals/"):
             return self._get_vocals(p[len("/api/vocals/"):])
+        if p == "/api/jobs/active":
+            return self._get_active_jobs()
         if p.startswith("/api/jobs/"):
             return self._get_job(p[len("/api/jobs/"):])
         fn = self.GET.get(p)
@@ -104,6 +107,8 @@ class H(BaseHTTPRequestHandler):
             req = json.loads(self.rfile.read(length) or b"{}")
         except Exception:
             return self._json({"ok": False, "error": "请求不是合法 JSON"}, 400)
+        if p.startswith("/api/jobs/") and p.endswith("/cancel"):
+            return self._post_cancel_job(p[len("/api/jobs/"):-len("/cancel")])
         fn = self.POST.get(p)
         if not fn:
             return self._send(404, "not found")
@@ -174,6 +179,21 @@ class H(BaseHTTPRequestHandler):
         from ..core import jobs as JOBS
         job = JOBS.get(job_id)
         return self._json(job, 200 if job else 404)
+
+    def _get_active_jobs(self):
+        return self._json({"ok": True, "jobs": SVC_JOBS.active_vocals()})
+
+    def _post_cancel_job(self, job_id):
+        job = SVC_JOBS.cancel_job(job_id)
+        if not job:
+            return self._json({"ok": False, "error": "任务不存在"}, 404)
+        return self._json({"ok": True, "job": job})
+
+    def _post_cancel_all_jobs(self, req):
+        kind = str(req.get("kind") or "vocals")
+        if kind != "vocals":
+            return self._json({"ok": False, "error": "只支持取消人声任务"}, 400)
+        return self._json({"ok": True, "jobs": SVC_JOBS.cancel_all_vocals()})
 
     def _post_jobs(self, req):
         kind = req.get("kind")

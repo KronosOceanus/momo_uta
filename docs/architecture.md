@@ -410,6 +410,7 @@ GET
   /api/wave/<uid>[?src=vocals]  波形峰值
   /api/vocals/<uid>       人声状态（兼容）
   /api/jobs/<id>          统一任务状态
+  /api/jobs/active        当前活动 vocals 任务
   /audio/<uid>            音频流（Range）
 
 POST
@@ -422,6 +423,8 @@ POST
   /api/lrc                LRC 编辑（uid）
   /api/vocals             人声分离 ensure（兼容）
   /api/jobs               启动 vocals / match / rebuild 任务
+  /api/jobs/<id>/cancel   取消单个 vocals 任务
+  /api/jobs/cancel_all    取消所有 vocals 任务
   /api/log                前端未捕获错误写 app.log
 ```
 
