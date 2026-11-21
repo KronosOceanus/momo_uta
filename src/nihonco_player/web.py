@@ -6,7 +6,7 @@ from pathlib import Path
 
 import json
 
-from nihonco_yomi.config import CFG
+from nihonco_yomi.config import CFG, PUI
 
 STATIC = Path(__file__).parent / "static"
 
@@ -14,6 +14,9 @@ STATIC = Path(__file__).parent / "static"
 def page() -> str:
     html = (STATIC / "player.html").read_text(encoding="utf-8")
     cfg = json.dumps(CFG, ensure_ascii=False).replace("</", "<\\/")
+    theme = "light" if PUI.get("theme") == "light" else "dark"
+    html = html.replace('<html lang="ja" data-theme="dark">',
+                        f'<html lang="ja" data-theme="{theme}">', 1)
     inject = f'<script>window.__CFG = {cfg};</script>\n'
     return html.replace("<head>", "<head>\n" + inject, 1)
 

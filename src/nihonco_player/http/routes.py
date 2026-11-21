@@ -11,10 +11,11 @@ from http.server import BaseHTTPRequestHandler
 from ..core import diag
 from ..core import lyrics as LY
 from ..core import library as LIB
-from ..web import PAGE
+from ..web import page
 from ..service import jobs as SVC_JOBS
 from ..service import lrc as SVC_LRC
 from ..service import playlist as SVC_PL
+from ..service import settings as SVC_SETTINGS
 from ..service import song as SVC_SONG
 from . import static as STATIC
 
@@ -34,6 +35,7 @@ class H(BaseHTTPRequestHandler):
         "/api/jobs": "_post_jobs",
         "/api/jobs/cancel_all": "_post_cancel_all_jobs",
         "/api/log": "_post_log",
+        "/api/theme": "_post_theme",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -73,7 +75,7 @@ class H(BaseHTTPRequestHandler):
     def _do_GET(self):
         p = urllib.parse.urlparse(self.path).path
         if p == "/":
-            return self._send(200, PAGE, "text/html; charset=utf-8")
+            return self._send(200, page(), "text/html; charset=utf-8")
         if p.startswith("/static/"):
             it = STATIC.static_file(p)
             return self._send(200, it[0], it[1]) if it else self._send(404, "not found")
@@ -98,6 +100,7 @@ class H(BaseHTTPRequestHandler):
         "/api/pick": ("uid", "id"),
         "/api/import/one": ("paths",),
         "/api/lrc": ("uid",),
+        "/api/theme": ("theme",),
     }
 
     def do_POST(self):
@@ -263,4 +266,7 @@ class H(BaseHTTPRequestHandler):
 
     def _post_lrc(self, req):
         return self._json(SVC_LRC.lrc_action(req))
+
+    def _post_theme(self, req):
+        return self._json(SVC_SETTINGS.set_theme(req))
 

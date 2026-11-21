@@ -1,8 +1,10 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>nihonco uta</title><link rel="stylesheet" href="/static/player.css"></head><body>
+<!doctype html><html lang="ja" data-theme="dark"><head><meta charset="utf-8"><title>nihonco uta</title><link rel="stylesheet" href="/static/player.css"></head><body>
 <aside>
   <div class="top"><input id="q" placeholder="搜索歌名 / 歌手">
     <div class="improw"><button id="newlist" title="新建歌单">＋ 新建歌单</button></div></div>
-  <div id="list"></div></aside>
+  <div id="list"></div>
+  <div class="asidefoot"><button id="theme" title="切换日间/夜间">🌙 夜间</button></div>
+ </aside>
 <main>
  <div class="hdr"><button id="start">开始</button><span id="vtitle">—</span>
   <span class="chip" id="offchip" hidden></span>
@@ -19,7 +21,7 @@
   <span class="modes">
    <button id="edit">振假名编辑模式：关</button><button id="lrcedit">LRC 编辑模式：关</button>
   </span></div>
- <div class="bar" id="fakbar" hidden><span class="legend" id="legend">A <span style="color:#7fbfa6">●</span> AB <span style="color:#c8843f">●</span> B <span style="color:#6d737c">●</span> C <span style="opacity:.5">●</span></span><button id="resetall">全部重置</button></div>
+ <div class="bar" id="fakbar" hidden><span class="legend" id="legend">A <span style="color:var(--accent-soft)">●</span> AB <span style="color:var(--amber)">●</span> B <span style="color:var(--muted-2)">●</span> C <span style="opacity:.5">●</span></span><button id="resetall">全部重置</button></div>
  <div class="bar lrcrow" id="lrcrow2" hidden>
   <span class="left"><button id="lrcselall" title="选中所有行（⌘A）">全选</button>
    <button id="lrcadd" title="在选中行下面加一行">加行</button>

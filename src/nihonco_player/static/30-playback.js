@@ -344,7 +344,7 @@ document.getElementById('rem').onclick=async()=>{
   if(!d.candidates || !d.candidates.length){ NH.done('没找到候选，可以试试手动导入 lrc'); NH.lock(null,false); return; }
   NH.done(`找到 ${d.candidates.length} 个候选`); NH.lock(null,false);
   const box=document.createElement('div'); box.className='menu'; box.style.maxWidth='520px';
-  box.innerHTML='<div style="font-size:12px;color:#878c95;padding:4px 8px">选一个（分数越高越可能是同一版）· 候选来自网络，不读本地缓存</div>';
+  box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:4px 8px">选一个（分数越高越可能是同一版）· 候选来自网络，不读本地缓存</div>';
   d.candidates.forEach(c=>{
     const b=document.createElement('button');
     const mm=Math.floor(c.duration/60), ss=String(Math.round(c.duration%60)).padStart(2,'0');

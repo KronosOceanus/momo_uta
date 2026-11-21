@@ -548,7 +548,7 @@ function openPicker(el, cands, onPick, allowInput=true){
     if(cands.length){ const sep=document.createElement('div'); sep.className='sep'; m.appendChild(sep); }
     inp=document.createElement('input'); inp.placeholder='手动输入'; inp.value=cur; inp.className='kin';
     const submit=()=>{ const v=inp.value.trim();
-      if(!/^[ぁ-んー]+$/.test(v)){ inp.style.borderColor='#c06060'; return; }
+      if(!/^[ぁ-んー]+$/.test(v)){ inp.style.borderColor='var(--danger)'; return; }
       m.remove(); onPick(v); };
     inp.onkeydown=ev=>{
       if(ev.isComposing || ev.keyCode===229) return;   // 输入法组词中，别抢 Enter

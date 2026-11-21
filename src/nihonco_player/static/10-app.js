@@ -24,6 +24,13 @@ const cv=document.getElementById('wave'), cx=cv.getContext('2d');
 if(cv.style) cv.style.height=(UI.wave_height||120)+'px';
 const SPAN_MIN=UI.wave_span_min||2, SPAN_MAX=UI.wave_span_max||10;   // 秒
 
+function themeColor(name, fallback){
+  try{
+    const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }catch(e){ return fallback; }
+}
+
 NH.PAN_START = 0;
 function clampStart(st, span){
   const dur=(NH.WAVE && NH.WAVE.duration) || 0;
@@ -168,7 +175,7 @@ function drawWave(){
   const {step, peaks}=NH.WAVE;
   const perPx=span/w, mid=h/2;
   const i0=Math.max(0,Math.floor(start/step)), i1=Math.min(peaks.length, Math.ceil((start+span)/step));
-  cx.strokeStyle='#4a7f6b'; cx.beginPath();
+  cx.strokeStyle=themeColor('--wave-fill','#4a7f6b'); cx.beginPath();
   for(let i=i0;i<i1;i++){
     const x=Math.round((i*step-start)/perPx);
     const [mn,mx]=peaks[i];
@@ -179,7 +186,7 @@ function drawWave(){
   // 只要"每一句开头的线"，其他辅助线一律不画
   {
     const ls = NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES;
-    cx.strokeStyle='rgba(200,132,63,0.62)';   // 暖橙色，和绿色波形、亮绿播放头区分开
+    cx.strokeStyle=themeColor('--amber','#c8843f'); cx.globalAlpha=.62;   // 暖橙色，和绿色波形、亮绿播放头区分开
     cx.lineWidth=1; cx.beginPath();
     (ls||[]).forEach(l=>{
       if(!l || l.t==null) return;
@@ -189,10 +196,11 @@ function drawWave(){
       cx.moveTo(lx,0); cx.lineTo(lx,h);
     });
     cx.stroke();
+    cx.globalAlpha=1;
   }
   // 播放头：B 在播跟音频，否则跟选中行
   const x=Math.round((waveTime()-start)/perPx);
-  cx.strokeStyle='#7fbfa6'; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
+  cx.strokeStyle=themeColor('--accent-soft','#7fbfa6'); cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
@@ -946,7 +954,7 @@ function openPlMenu(x, y, g){
   box.className='menu'; box.id='ctxmenu'; box.style.minWidth='150px';
   const mk=(label, fn, danger)=>{
     const b=document.createElement('button'); b.textContent=label;
-    if(danger) b.style.color='#e06c75';
+    if(danger) b.style.color='var(--danger)';
     b.onclick=ev=>{ ev.stopPropagation(); closeCtx(); fn(); };
     box.appendChild(b);
   };
@@ -979,7 +987,7 @@ function openSongMenu(x, y, lid, uids){
   const n=uids.length;
   const b=document.createElement('button');
   b.textContent = n===1 ? '从歌单移除' : `移除选中的 ${n} 首`;
-  b.style.color='#e06c75';
+  b.style.color='var(--danger)';
   b.onclick=async ev=>{
     ev.stopPropagation(); closeCtx();
     const ok=await uiConfirm(n===1?'从歌单移除？':`移除选中的 ${n} 首？`, '歌本身不会丢', true);
@@ -1195,5 +1203,29 @@ document.getElementById('resetall').onclick=async()=>{
   if(wasLrc && NH.VIEW_MODE==='lrc') await NH.openLrcEditor();
 };
 
-Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, paintVCancel, renderVTasks, openVTasks, closeVTasks, waitJob, refreshActiveVJobs, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError});
+function applyTheme(theme, persist){
+  const light = theme === 'light';
+  const root=document.documentElement;
+  if(root && root.dataset) root.dataset.theme = light ? 'light' : 'dark';
+  const b=document.getElementById('theme');
+  if(b) b.textContent = light ? '☀️ 日间' : '🌙 夜间';
+  if(NH.WAVE && typeof drawWave==='function') drawWave();
+  if(typeof paintTicks==='function') paintTicks();
+  if(typeof paintTransport==='function') paintTransport();
+  if(persist){
+    api('/api/theme',{theme:light?'light':'dark'}).then(r=>{
+      if(r && r.ok===false) done(r.error||'主题保存失败');
+    }).catch(e=>done('主题保存失败：'+e.message));
+  }
+}
+const initialTheme=(CFG.player&&CFG.player.ui&&CFG.player.ui.theme)==='light'?'light':'dark';
+applyTheme(initialTheme,false);
+const themeBtn=document.getElementById('theme');
+if(themeBtn) themeBtn.onclick=()=>{
+  const cur=document.documentElement && document.documentElement.dataset
+    ? document.documentElement.dataset.theme : 'dark';
+  applyTheme(cur==='light'?'dark':'light',true);
+};
+
+Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, paintVCancel, renderVTasks, openVTasks, closeVTasks, waitJob, refreshActiveVJobs, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport, reportClientError, themeColor, applyTheme});
 })();

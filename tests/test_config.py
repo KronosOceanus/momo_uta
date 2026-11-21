@@ -10,6 +10,9 @@ class TestConfig(unittest.TestCase):
             self.assertIn(key, CFG)
             self.assertIsInstance(CFG[key], dict)
 
+    def test_default_theme(self):
+        self.assertIn(CFG["player"]["ui"].get("theme"), ("dark", "light"))
+
     def test_vocals_timeouts(self):
         self.assertGreater(CFG["vocals"]["queue_timeout_s"], 0)
         self.assertGreater(CFG["vocals"]["run_timeout_s"], 0)

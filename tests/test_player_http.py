@@ -14,6 +14,8 @@ from nihonco_player.core import diag                  # noqa: E402
 from nihonco_player.core import library as LIB        # noqa: E402
 from nihonco_player.core import lyrics as LY         # noqa: E402
 from nihonco_player.core import lrc_files as LRF     # noqa: E402
+from nihonco_player.core import user_config as UC    # noqa: E402
+from nihonco_yomi.config import PUI                  # noqa: E402
 from nihonco_player.core.library import CACHE        # noqa: E402
 from nihonco_player.http import routes as ROUTES      # noqa: E402
 from nihonco_player.http.server import make_server   # noqa: E402
@@ -139,6 +141,23 @@ class TestPlayerHttp(unittest.TestCase):
                 err = json.loads(cm.exception.read())
                 self.assertFalse(err["ok"])
                 self.assertTrue(err.get("conflict"))
+
+    def test_theme_endpoint_persists_and_page_uses_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            old = (UC.FILE, UC.LOCK, PUI.get("theme"))
+            UC.FILE, UC.LOCK = p, p.with_suffix(".lock")
+            try:
+                d = json.loads(self.post("/api/theme", {"theme": "light"}).read())
+                self.assertTrue(d["ok"])
+                self.assertEqual(d["theme"], "light")
+                self.assertEqual(json.loads(p.read_text(encoding="utf-8")),
+                                 {"player": {"ui": {"theme": "light"}}})
+                page = urllib.request.urlopen(self.url("/")).read().decode()
+                self.assertIn('data-theme="light"', page)
+            finally:
+                UC.FILE, UC.LOCK = old[0], old[1]
+                PUI["theme"] = old[2]
 
     def test_client_log_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
