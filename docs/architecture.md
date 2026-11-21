@@ -207,6 +207,7 @@ paths.py 只放路径常量，不放逻辑。
 歌词来源
   lyrics.py       门面：fetch + cache + text 的聚合
   lyrics_fetch.py 网易云候选 / 过滤 / 抓取
+  jobs.py         统一任务表（vocals/match/rebuild）
   lyrics_text.py  名称归一、语言、打分、排除
   lyrics_cache.py 缓存文件
 
@@ -367,7 +368,8 @@ GET
   /api/pl、/api/playlists  歌单列表
   /api/library            曲库列表
   /api/wave/<idx>[?src=vocals]  波形峰值
-  /api/vocals/<idx>       人声状态
+  /api/vocals/<idx>       人声状态（兼容）
+  /api/jobs/<id>          统一任务状态
   /audio/<idx>            音频流（Range）
 
 POST
@@ -378,7 +380,8 @@ POST
   /api/pick               选中候选
   /api/import/one         导入
   /api/lrc                LRC 编辑模式
-  /api/vocals             人声分离 ensure
+  /api/vocals             人声分离 ensure（兼容）
+  /api/jobs               启动 vocals / match / rebuild 任务
 ```
 
 ```text

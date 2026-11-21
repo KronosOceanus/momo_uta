@@ -399,7 +399,7 @@ load(i)：
     ② commitAudio（能播）；autoplay 则播
     ③ 人声分离和匹配并行：
          后台 ensureVocals，chip 显示“人声分离中…”
-         同时 POST /api/pl {action:"match"}
+         同时 POST /api/jobs {kind:"match", idx}
     ④ match 返回后 GET /api/song/i 一次；仍 pending 即失败
        一旦不再 pending → 重新 load，恢复按钮
     ⑤ 失败 → toast 提示没匹配到；歌词区空白，按钮恢复

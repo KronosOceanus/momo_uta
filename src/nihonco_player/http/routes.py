@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler
 from ..core import lyrics as LY
 from ..core.library import CACHE
 from ..web import PAGE
+from ..service import jobs as SVC_JOBS
 from ..service import lrc as SVC_LRC
 from ..service import playlist as SVC_PL
 from ..service import song as SVC_SONG
@@ -30,6 +31,7 @@ class H(BaseHTTPRequestHandler):
         "/api/import/one": "_post_import",
         "/api/lrc": "_post_lrc",
         "/api/vocals": "_post_vocals",
+        "/api/jobs": "_post_jobs",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -64,6 +66,8 @@ class H(BaseHTTPRequestHandler):
             return self._get_wave(p[len("/api/wave/"):])
         if p.startswith("/api/vocals/"):
             return self._get_vocals(p[len("/api/vocals/"):])
+        if p.startswith("/api/jobs/"):
+            return self._get_job(p[len("/api/jobs/"):])
         fn = self.GET.get(p)
         return getattr(self, fn)() if fn else self._send(404, "not found")
 
@@ -143,6 +147,23 @@ class H(BaseHTTPRequestHandler):
         if not item:
             return self._json({"ok": False, "error": "no such song"}, 404)
         return self._json(VOC.ensure(item["uid"], item["file"]))
+
+    def _get_job(self, job_id):
+        from ..core import jobs as JOBS
+        job = JOBS.get(job_id)
+        return self._json(job, 200 if job else 404)
+
+    def _post_jobs(self, req):
+        kind = req.get("kind")
+        if not kind:
+            return self._json({"ok": False, "error": "缺少任务类型"}, 400)
+        try:
+            job = SVC_JOBS.start(kind, req.get("idx"))
+        except ValueError as e:
+            return self._json({"ok": False, "error": str(e)}, 400)
+        except Exception as e:
+            return self._json({"ok": False, "error": str(e)}, 500)
+        return self._json(job)
 
     def _get_audio(self, idx):
         item = CACHE.get(str(idx))

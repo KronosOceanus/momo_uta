@@ -196,7 +196,7 @@ function drawWave(){
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
-NH.VSTAT = null; NH.VPOLL = 0; NH.VSTAT_IDX = null;
+NH.VSTAT = null; NH.VSTAT_IDX = null;
 function paintVStatus(){
   const el=document.getElementById('vchip'); if(!el) return;
   if(!NH.VSTAT || NH.VSTAT.state==='none'){ el.hidden=true; return; }
@@ -211,35 +211,42 @@ function paintVStatus(){
     el.textContent = NH.VSTAT.state==='queued' ? '人声分离：排队' : '人声分离中…';
   }
 }
-function startVocals(idx){
+async function waitJob(id, onState){
+  for(;;){
+    const st=await api('/api/jobs/'+id);
+    if(onState) onState(st);
+    if(st.state==='done' || st.state==='failed') return st;
+    await new Promise(r=>setTimeout(r,1000));
+  }
+}
+
+async function startVocals(idx){
   if(VC.auto_start===false) return;
   const st=NH.VSTAT;
   if(NH.VSTAT_IDX===String(idx) && st && (st.state==='queued' || st.state==='running' || st.state==='done')) return;
   NH.VSTAT_IDX=String(idx);
   NH.VSTAT={state:'running'};
   paintVStatus();
-  ensureVocals(idx).catch(()=>{});
-}
-
-async function ensureVocals(idx){
-  try{ await api('/api/vocals',{action:'ensure', idx}); }catch(e){ return null; }
-  return pollVocals(idx);
-}
-async function pollVocals(idx){
-  const seq=++NH.VPOLL;
-  for(let k=0;k<400;k++){
-    if(seq!==NH.VPOLL || !NH.S || String(NH.S.idx)!==String(idx)) return null;
-    let st=null;
-    try{ st=await api('/api/vocals/'+idx); }catch(e){ return null; }
-    NH.VSTAT=st; paintVStatus();
-    if(st.state==='done'){
-      if(NH.LRCEDIT) loadWave(true);          // 分离完成 → 换成人声波形
-      return st;
+  try{
+    const job=await api('/api/jobs',{kind:'vocals', idx});
+    const done=await waitJob(job.id, (j)=>{
+      if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+      if(j.state==='running'){ NH.VSTAT={state:'running'}; paintVStatus(); }
+    });
+    if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+    if(done.state==='done'){
+      NH.VSTAT=done.result || {state:'done'};
+      paintVStatus();
+      if(NH.LRCEDIT) loadWave(true);
+    }else{
+      NH.VSTAT={state:'failed', error:done.error || '人声分离失败'};
+      paintVStatus();
     }
-    if(st.state==='failed') return st;
-    await new Promise(r=>setTimeout(r,1500));
+  }catch(err){
+    if(!NH.S || String(NH.S.idx)!==String(idx)) return;
+    NH.VSTAT={state:'failed', error:err.message};
+    paintVStatus();
   }
-  return null;
 }
 
 async function loadWave(force){
@@ -407,8 +414,10 @@ async function load(i, autoplay, nextEditMode){
     startVocals(d.idx);
     busy('匹配歌词中…');
     try{
-      await api('/api/pl',{action:'match',idx:d.idx});   // 后端同步跑完匹配才返回
+      const job=await api('/api/jobs',{kind:'match', idx:d.idx});
+      const st=await waitJob(job.id);
       if(request!==NH.LOAD_REQUEST) return false;
+      if(st.state==='failed') throw new Error(st.error || '匹配失败');
       const d2=await api('/api/song/'+i);
       if(request!==NH.LOAD_REQUEST) return false;
       if(!d2.pending) return load(i, autoplay, nextEditMode);
@@ -534,8 +543,11 @@ function scheduleAutoRebuild(){
     if(NH.PLAYING!==null && NH.au && !NH.au.paused){ setTimeout(run, 5000); return; }
     busy('发现缺失歌曲，正在重建索引…');
     try{
-      const r=await api('/api/pl',{action:'library_rebuild'});
-      if(r.lists) applyLists(r);
+      const job=await api('/api/jobs',{kind:'rebuild'});
+      const st=await waitJob(job.id);
+      if(st.state==='failed') throw new Error(st.error || '重建失败');
+      await loadLib();
+      const r=st.result || {};
       done(r.recovered>0 ? `索引已重建，找回 ${r.recovered} 首` : '索引已重建，仍有缺失歌曲');
     }catch(err){
       done('重建索引失败：'+err.message);
@@ -921,5 +933,5 @@ document.getElementById('resetall').onclick=async()=>{
   load(NH.S.idx);
 };
 
-Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, ensureVocals, pollVocals, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport});
+Object.assign(NH, {lyr, CFG, UI, VC, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, paintVStatus, waitJob, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, loadLib, renderList, closeCtx, openPlMenu, doImport});
 })();
