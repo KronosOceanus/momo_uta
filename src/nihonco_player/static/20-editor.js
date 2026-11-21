@@ -439,7 +439,9 @@ document.addEventListener('keydown', e=>{
 function syncModes(){
   const e=document.getElementById('edit'), l=document.getElementById('lrcedit');
   const rem=document.getElementById('rem');
+  const start=document.getElementById('start');
   const enabled=!!NH.S && !NH.viewMatching();
+  if(start) start.disabled=!NH.S;
   const body=document.body;
   body.classList.toggle('fak', NH.VIEW_MODE==='kana');
   body.classList.toggle('lrcedit', NH.VIEW_MODE==='lrc');
@@ -621,4 +623,5 @@ function paint2(n){
 }
 
 Object.assign(NH, {setLrcLocked, snapshot, markDirty, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
+syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

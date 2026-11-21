@@ -407,6 +407,7 @@ async function load(i, autoplay, nextMode){
     }
     NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CUR=-1; NH.NAV=[];
+    NH.syncModes?.();   // 已有查看歌曲：开始可用，匹配中其他入口仍禁用
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
     document.getElementById('rmcol').innerHTML='';
     if(autoplay || NH.PLAYING===null){            // 单击只换 UI，不打断旧音频
