@@ -112,7 +112,7 @@ src/
 │   ├── core/                   数据与规则
 │   │   ├── library.py          扫库、CACHE、refresh、标签
 │   │   ├── lyrics.py           歌词门面（fetch/cache/text 的聚合）
-│   │   ├── lyrics_fetch.py     网易云 / MB / lrclib
+│   │   ├── lyrics_fetch.py     网易云候选 / 过滤 / 抓取
 │   │   ├── lyrics_text.py      名称/语言/打分/排除
 │   │   ├── lyrics_cache.py     歌词缓存读写
 │   │   ├── lrc_doc.py          LRC/nhlrc 格式（纯函数）
@@ -206,7 +206,7 @@ paths.py 只放路径常量，不放逻辑。
 
 歌词来源
   lyrics.py       门面：fetch + cache + text 的聚合
-  lyrics_fetch.py 网易云 / MusicBrainz / lrclib
+  lyrics_fetch.py 网易云候选 / 过滤 / 抓取
   lyrics_text.py  名称归一、语言、打分、排除
   lyrics_cache.py 缓存文件
 

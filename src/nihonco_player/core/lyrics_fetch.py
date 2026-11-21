@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import time
 import urllib.parse
 import urllib.request
@@ -12,8 +11,8 @@ from pathlib import Path
 from nihonco_yomi.config import LY as CFG
 from nihonco_yomi.paths import CACHE, ROOT
 
-from .lyrics_cache import cache_path, _cached, write_local_lrc
-from .lyrics_text import (_match, _norm, content_lines, has_timed, is_excluded,
+from .lyrics_cache import cache_path
+from .lyrics_text import (_match, content_lines, has_timed, is_excluded,
                           is_likely_song, lang_guess, split_name)
 
 UA = {"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"}
@@ -22,30 +21,6 @@ def _get(url: str, timeout: int = 10) -> str:
         return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout).read().decode("utf-8", "ignore")
     except Exception:
         return ""
-
-
-def netease(title: str, artist: str) -> dict | None:
-    q = f"{title} {artist}".strip()
-    r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode({"s": q, "type": 1, "limit": 5}))
-    try:
-        songs = json.loads(r)["result"]["songs"]
-    except Exception:
-        return None
-    for s in songs:
-        if not _match(title, s.get("name", "")) or is_excluded(s.get("name", "")):
-            continue
-        lr = _get(f"https://music.163.com/api/song/lyric?id={s['id']}&lv=-1&kv=-1&tv=-1")
-        try:
-            j = json.loads(lr)
-            lyr = j.get("lrc", {}).get("lyric", "") or ""
-            tl = j.get("tlyric", {}).get("lyric", "") or ""   # 中文翻译，一行一句
-        except Exception:
-            continue
-        if TS.search(lyr) and content_lines(lyr) >= CFG["min_content_lines"]:
-            lang, ratio = lang_guess(lyr)
-            return {"source": "netease", "lang": lang, "kana_ratio": ratio, "tlyric": tl, "id": s["id"], "name": s.get("name", ""),
-                    "artist": ", ".join(a["name"] for a in s.get("artists", [])), "lrc": lyr}
-    return None
 
 
 def search_candidates(title: str, artist: str, limit: int = 8) -> list[dict]:
@@ -85,55 +60,6 @@ def score_candidate(c: dict, title: str, artist: str, duration: float) -> float:
         t3, t10, t30 = CFG["delta_tiers"]
         s += CFG["weights"]["duration"] * (1.0 if d <= t3 else 0.7 if d <= t10 else 0.3 if d <= t30 else 0.0)
     return round(s, 1)
-
-
-def mb_canonical(title: str, artist: str, duration: float, max_delta: float | None = None) -> dict | None:
-    max_delta = CFG["mb_max_delta"] if max_delta is None else max_delta
-    """用 MusicBrainz 把歌名规范化：取分数最高、且时长与本地吻合的录音。"""
-    if not duration:
-        return None
-    r = None
-    for attempt in range(2):                  # 失败重试一次（扫描时间长，偶发超时）
-        try:
-            import musicbrainzngs as mb
-            mb.set_useragent("nihonco-uta", "0.1", "local")
-            r = mb.search_recordings(recording=title, artist=artist or None, limit=8)
-            break
-        except Exception:
-            r = None
-            time.sleep(2)
-    if r is None:
-        return None
-    cands = []
-    for rec in r.get("recording-list", []):
-        L = int(rec.get("length", 0) or 0) / 1000.0
-        if not L or abs(L - duration) > max_delta:
-            continue
-        name = rec.get("title", "")
-        if is_excluded(name) or not _match(title, name):   # 名字对不上 = 不是同一首
-            continue
-        a = ", ".join(x["artist"]["name"] for x in rec.get("artist-credit", [])
-                      if isinstance(x, dict) and "artist" in x)
-        cands.append({"title": name, "artist": a, "length": L,
-                      "score": int(rec.get("ext:score", 0) or 0)})
-    if not cands:
-        return None
-    cands.sort(key=lambda c: (-c["score"], abs(c["length"] - duration)))
-    return cands[0]
-
-
-def lrclib(title: str, artist: str) -> dict | None:
-    r = _get("https://lrclib.net/api/search?" + urllib.parse.urlencode({"track_name": title, "artist_name": artist}))
-    try:
-        rows = json.loads(r)
-    except Exception:
-        return None
-    for x in rows:
-        if x.get("syncedLyrics") and _match(title, x.get("trackName", "")):
-            lang, ratio = lang_guess(x["syncedLyrics"])
-            return {"source": "lrclib", "lang": lang, "kana_ratio": ratio, "id": x.get("id"), "name": x.get("trackName", ""),
-                    "artist": x.get("artistName", ""), "lrc": x["syncedLyrics"]}
-    return None
 
 
 def audio_duration(path) -> float:
@@ -197,12 +123,6 @@ def auto_match(title: str, artist: str, duration: float) -> dict | None:
         if hit:
             return hit
     return None
-
-
-def best_by_duration(title: str, artist: str, duration: float,
-                     max_delta: float | None = None) -> dict | None:
-    """兼容旧调用：自动匹配。"""
-    return auto_match(title, artist, duration)
 
 
 def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0.0,

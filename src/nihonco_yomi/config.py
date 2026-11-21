@@ -14,7 +14,7 @@ DEFAULTS = ROOT / "config" / "defaults.json"
 LOCAL = ROOT / "data" / "config.json"
 
 _FALLBACK = {
-    "lyrics": {"mb_max_delta": 3.0, "fallback_max_delta": 30.0, "min_content_lines": 3,
+    "lyrics": {"fallback_max_delta": 30.0, "min_content_lines": 3,
                "name_min_len": 4, "kana_ratio_min": 0.10, "lang_min_chars": 20,
                "weights": {"title": 40, "artist": 20, "duration": 40},
                "delta_tiers": [3, 10, 30]},

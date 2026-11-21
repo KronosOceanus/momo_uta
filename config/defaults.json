@@ -3,7 +3,6 @@
 
   "lyrics": {
     "_note": "歌词匹配与打分。影响「自动挑哪一条歌词」，不影响注音。",
-    "mb_max_delta": 3.0,
     "fallback_max_delta": 30.0,
     "min_content_lines": 3,
     "name_min_len": 4,
