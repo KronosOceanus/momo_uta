@@ -9,7 +9,6 @@ from pathlib import Path
 
 from nihonco_yomi.paths import ROOT
 
-from .lyrics_text import lang_guess
 
 CACHE = ROOT / "data" / "cache" / "lyrics"
 
@@ -44,21 +43,4 @@ def _cached(title: str, artist: str) -> bool:
     except Exception:
         return False
     return not d.get("miss")
-
-
-def write_local_lrc(title: str, artist: str, lrc: str, duration: float = 0.0,
-                    name: str | None = None, by: str | None = None,
-                    annotations: dict | None = None) -> Path:
-    """把本地 .lrc 写进缓存（导入用）。不联网，不改原文件。"""
-    p = cache_path(title, artist)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({
-        "source": "local-lrc", "id": None,
-        "name": name or title, "artist": by or artist,
-        "duration": duration, "lrc": lrc, "lang": lang_guess(lrc)[0],
-        "title": title, "artist_q": artist,
-        **({"nhlrc_annotations": annotations} if annotations else {}),
-    }, ensure_ascii=False), encoding="utf-8")
-    return p
-
 

@@ -44,8 +44,7 @@ class TestLrcDrafts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             with patch.object(lrcio, "LYRICS", Path(tmp) / "lyrics"), \
-                 patch.object(lrcio.LY, "audio_duration", return_value=60), \
-                 patch.object(lrcio.LY, "write_local_lrc") as cache_write:
+                 patch.object(lrcio.LY, "audio_duration", return_value=60):
                 store = lrcio.store_path(audio)
                 store.parent.mkdir(parents=True, exist_ok=True)
                 store.write_text(raw, encoding="utf-8")
@@ -68,8 +67,7 @@ class TestLrcDrafts(unittest.TestCase):
              patch.object(lrcio, "LYRICS", Path(tmp) / "lyrics"), \
              patch.object(lrcio.LY, "_cached", return_value=True), \
              patch.object(lrcio.LY, "get_lrc", return_value={"lrc": raw}), \
-             patch.object(lrcio.LY, "audio_duration", return_value=60), \
-             patch.object(lrcio.LY, "write_local_lrc"):
+             patch.object(lrcio.LY, "audio_duration", return_value=60):
             audio = Path(tmp) / "歌手 - 曲.mp3"
             draft = lrcio.load(audio)
             self.assertTrue(draft["from_cache"])

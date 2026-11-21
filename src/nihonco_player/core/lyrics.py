@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from nihonco_yomi.config import LY as CFG  # noqa: F401
 
-from .lyrics_cache import _cached, cache_path, set_cache_dir, write_local_lrc  # noqa: F401
+from .lyrics_cache import _cached, cache_path, set_cache_dir  # noqa: F401
 from .lyrics_fetch import (audio_duration, auto_match, accept_candidate,  # noqa: F401
                            fetch_candidate, fetch_lrc_by_id, get_lrc, scan,
                            score_candidate, search_candidates, valid_lrc)

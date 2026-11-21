@@ -84,8 +84,7 @@ class TestStoreUsesFingerprint(unittest.TestCase):
             ann = {0: [["君", "きみ", "A"]]}
             with patch.object(FP, "INDEX", root / "fp.json"), \
                  patch.object(LRF, "LYRICS", root / "lyrics"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=1.0), \
-                 patch.object(LRF.LY, "write_local_lrc"):
+                 patch.object(LRF.LY, "audio_duration", return_value=1.0):
                 LRF.save(audio, [{"t": 1.0, "text": "君"}], ann)
                 fp = LRF.uid_of(audio)
                 store = LRF.store_path(audio)

@@ -41,8 +41,7 @@ class TestImportPreferNhlrc(unittest.TestCase):
             text = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
                                        {0: [["君", "きみ", "A"]]})
             with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60), \
-                 patch.object(LRF.LY, "write_local_lrc"):
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 res = LRF.import_text(audio, text)
                 self.assertTrue(res["ok"])
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")

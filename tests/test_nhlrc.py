@@ -40,8 +40,7 @@ class TestNhlrc(unittest.TestCase):
             audio.touch()
             ann = {0: [["君", "きみ", "A"], ["の名前", "のなまえ", "B"]]}
             with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60), \
-                 patch.object(LRF.LY, "write_local_lrc"):
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 res = LRF.save(audio, rows(), ann)
                 self.assertTrue(res["ok"])
                 p = LRF.store_path(audio)
@@ -58,8 +57,7 @@ class TestNhlrc(unittest.TestCase):
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
             with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60), \
-                 patch.object(LRF.LY, "write_local_lrc"):
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows())                 # 第一次：没有旧文件
                 uid = LRF.uid_of(audio)
                 first = LRF.store_path(audio).read_text(encoding="utf-8")

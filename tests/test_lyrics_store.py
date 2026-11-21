@@ -27,8 +27,7 @@ class TestStoreLocation(unittest.TestCase):
             audio.touch()
             ann = {0: [["君", "きみ", "A"], ["の名前", None, None]]}
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60), \
-                 patch.object(LRF.LY, "write_local_lrc"):
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.save(audio, rows(), ann)
                 self.assertTrue(LRF.store_path(audio).is_file())
                 doc = LRF.load(audio)
