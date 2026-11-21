@@ -3,6 +3,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,6 +44,13 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(with_lyric[0]["title"], "曲A")
         self.assertEqual(len(with_lyric[0]["key"]), 12)
         self.assertEqual(len(with_lyric[0]["uid"]), 12)
+
+    def test_scan_no_folder_uses_music_dirs(self):
+        with patch.object(LIB, "music_dirs", return_value=[self.dir]), \
+             patch.object(LIB, "load_imports", return_value=[]):
+            rows = LIB.scan_library()
+        self.assertTrue(rows)
+        self.assertTrue(all(str(x["file"]).startswith(str(self.dir)) for x in rows))
 
     def test_metadata_only_lyrics_counts_as_no_lyric(self):
         """只有作词/作曲的行 → 当没歌词。"""
