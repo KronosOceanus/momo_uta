@@ -31,16 +31,20 @@ def cache_path(audio: str, source: str = "mix") -> Path:
 
 def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:
     """返回 {duration, step, peaks:[[min,max],...]}；失败返回 {"error": ...}。"""
+    wav = Path(audio)
+    try:
+        st = wav.stat()
+    except OSError:
+        return {"error": "音频文件不存在"}
     p = cache_path(audio, source)
     if p.exists() and not force:
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            cached = json.loads(p.read_text(encoding="utf-8"))
+            if (cached.get("audio_size") == st.st_size
+                    and cached.get("audio_mtime") == st.st_mtime_ns):
+                return cached
         except Exception:
             pass
-
-    wav = Path(audio)
-    if not wav.is_file():
-        return {"error": "音频文件不存在"}
 
     per = int(RATE * STEP)
     peaks: list[list[int]] = []
@@ -74,6 +78,7 @@ def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:
         peaks.append([cur_min / 32768.0, cur_max / 32768.0])
 
     out = {"duration": round(total / RATE, 2), "step": STEP,
+           "audio_size": st.st_size, "audio_mtime": st.st_mtime_ns,
            "peaks": [[round(a, 4), round(b, 4)] for a, b in peaks]}
     FS.atomic_write_json(p, out, indent=None)
     return out

@@ -5,12 +5,14 @@ PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
         build-tables build-resource build-holdout build-prose build-lyrics \
         eval-dummy eval eval-real eval-kanji eval-gen eval-test eval-llm \
         ceiling stats tables-check build-stats audit gold-audit audit-patches \
-        clean-cache clean-vocals clean-tmp all api
+        clean-cache clean-index clean-vocals clean-tmp all api
 
 help:
 	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
 	@echo "make test-python     # Python 架构检查与测试"
 	@echo "make app             # 桌面应用（唯一入口）"
+	@echo "make clean-cache      # 清歌词缓存 / 波形 / 注音"
+	@echo "make clean-index      # 清曲库索引 / 指纹索引"
 	@echo "make api             # 命令行跑一次接口，验证可用"
 	@echo ""
 	@echo "make build-tables    # JMdict → data/tables/*.json"
@@ -116,7 +118,11 @@ audit-patches:
 
 clean-cache:
 	rm -rf data/cache/lyrics data/cache/wave data/cache/annotations
-	@echo "已清理：歌词缓存 / 波形 / 注音（data/cache/app.log 保留；人声用 make clean-vocals）"
+	@echo "已清理：歌词缓存 / 波形 / 注音（索引/指纹用 make clean-index；app.log 保留）"
+
+clean-index:
+	rm -f data/cache/library_index.json data/cache/fingerprints.json
+	@echo "已清理：曲库索引 / 指纹索引（下次扫描重建）"
 
 clean-vocals:
 	rm -rf data/vocals data/tmp/vocals
