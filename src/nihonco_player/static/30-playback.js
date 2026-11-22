@@ -425,5 +425,8 @@ document.onkeydown=e=>{
   if(e.code==='ArrowRight')document.getElementById('next').click();
 };
 
-Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, syncPlayBtn, stepPlaying});
+NH.mediaPrev = () => stepSong(-1);
+NH.mediaNext = () => stepSong(1);
+NH.mediaToggle = () => togglePlayPause();
+Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, syncPlayBtn, stepPlaying});
 })();
