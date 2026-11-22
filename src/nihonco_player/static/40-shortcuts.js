@@ -7,29 +7,50 @@ function helpEl(){
   let el=document.getElementById('shortcuthelp');
   if(el) return el;
   el=document.createElement('div'); el.id='shortcuthelp'; el.hidden=true;
+  const k = (...keys) => keys.map(x => `<kbd>${x}</kbd>`).join(' ');
+  const sep = ' <span class="sk-sep">/</span> ';
+  const sections = [
+    ['播放', [
+      [k('Space'), '播放 / 暂停'],
+      [k('←') + sep + k('→'), '上一句 / 下一句'],
+      [k('Alt') + sep + k('←') + sep + k('Alt') + sep + k('→'), '上一首 / 下一首'],
+      [k('Shift') + sep + k('←') + sep + k('Shift') + sep + k('→'), '后退 / 前进 10 秒'],
+      [k('M'), '静音'],
+      [k('[') + sep + k(']'), '速度 − / +'],
+      [k('L'), '单句循环'],
+      [k('Shift') + sep + k('L'), '单曲循环'],
+    ]],
+    ['LRC 编辑', [
+      [k('Cmd') + sep + k('S'), '保存'],
+      [k('T'), '翻译列开关'],
+      [k('Enter'), '新增一行'],
+      [k('Delete'), '删除选中行'],
+      [k('Cmd') + sep + k('A'), '全选行'],
+      [k('Cmd') + sep + k('Z') + sep + k('Shift') + sep + k('Cmd') + sep + k('Z'), '撤销 / 重做'],
+    ]],
+    ['全局 / 后台', [
+      [k('⌃') + sep + k('⌥') + sep + k('←') + sep + k('⌃') + sep + k('⌥') + sep + k('→'), '上一首 / 下一首'],
+      [k('⌃') + sep + k('⌥') + sep + k('P'), '播放 / 暂停'],
+    ]],
+    ['界面', [
+      [k('?'), '打开快捷键帮助'],
+      [k('Esc'), '关闭帮助'],
+    ]],
+  ];
+  const body = sections.map(([title, rows]) => `
+    <section class="sk-section">
+      <h4>${title}</h4>
+      ${rows.map(([keys, desc]) => `<div class="sk-row"><div class="sk-key">${keys}</div><div class="sk-desc">${desc}</div></div>`).join('')}
+    </section>`).join('');
   el.innerHTML=`<div class="sk-box" role="dialog" aria-label="快捷键">
     <div class="sk-title">快捷键 <span>Esc 关闭</span></div>
-    <div class="sk-grid">
-      <b>播放</b>
-      <div><kbd>Space</kbd> 播放 / 暂停</div>
-      <div><kbd>←</kbd> <kbd>→</kbd> 上一句 / 下一句</div>
-      <div><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd> 上一首 / 下一首</div>
-      <div><kbd>Shift</kbd>+<kbd>←</kbd> / <kbd>Shift</kbd>+<kbd>→</kbd> 后退 / 前进 10 秒</div>
-      <div><kbd>M</kbd> 静音　<kbd>[</kbd> / <kbd>]</kbd> 速度</div>
-      <div><kbd>L</kbd> 单句循环　<kbd>Shift</kbd>+<kbd>L</kbd> 单曲循环</div>
-      <b>LRC 编辑</b>
-      <div><kbd>Cmd</kbd>+<kbd>S</kbd> 保存　<kbd>T</kbd> 翻译列</div>
-      <div><kbd>Enter</kbd> 加行　<kbd>Delete</kbd> 删行</div>
-      <div><kbd>Cmd</kbd>+<kbd>A</kbd> 全选　<kbd>Cmd</kbd>+<kbd>Z</kbd> 撤销 / 重做</div>
-      <b>后台</b>
-      <div><kbd>⌃</kbd>+<kbd>⌥</kbd>+<kbd>←</kbd> / <kbd>→</kbd> 上一首 / 下一首</div>
-      <div><kbd>⌃</kbd>+<kbd>⌥</kbd>+<kbd>P</kbd> 播放 / 暂停</div>
-    </div>
+    ${body}
   </div>`;
   el.addEventListener('click', e=>{ if(e.target===el) closeHelp(); });
   document.body.appendChild(el);
   return el;
 }
+
 function closeHelp(){ const el=document.getElementById('shortcuthelp'); if(el) el.hidden=true; }
 function toggleHelp(){ const el=helpEl(); el.hidden=!el.hidden; }
 
