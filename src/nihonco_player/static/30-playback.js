@@ -418,12 +418,6 @@ NH.au.addEventListener('ended', () => {
   }, 0);
 });
 
-document.onkeydown=e=>{
-  if(e.target.tagName==='INPUT' || e.isComposing || e.keyCode===229) return;
-  if(e.code==='Space'){e.preventDefault();NH.au.paused?NH.au.play():NH.au.pause();}
-  if(e.code==='ArrowLeft')document.getElementById('prev').click();
-  if(e.code==='ArrowRight')document.getElementById('next').click();
-};
 
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);

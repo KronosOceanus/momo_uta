@@ -5,7 +5,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const staticDir = process.env.NIHONCO_TEST_STATIC || join(__dirname, '../src/nihonco_player/static');
-const scripts = ['05-audio', '06-state', '10-app', '11-vocals', '12-library', '20-editor', '30-playback'].map(name =>
+const scripts = ['05-audio', '06-state', '10-app', '11-vocals', '12-library', '20-editor', '30-playback', '40-shortcuts'].map(name =>
   readFileSync(join(staticDir, name + '.js'), 'utf8')
 );
 

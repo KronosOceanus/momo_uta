@@ -467,16 +467,6 @@ document.getElementById('lrcsave').onclick=()=>{
   saveLrc(false, true);          // 主动保存：总是写一次
 };
 
-document.addEventListener('keydown', e=>{
-  if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
-  const ins=e.target.tagName==='INPUT';
-  if(ins) return;                       // 输入框里的 Enter 走"拆行"
-  if(e.key==='Enter'){ e.preventDefault(); addRow(); return; }
-  if((e.metaKey||e.ctrlKey) && (e.key==='a'||e.key==='A')){ e.preventDefault(); selectAll(); return; }
-  if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); delRows(); return; }
-  if((e.metaKey||e.ctrlKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); e.shiftKey?redo():undo(); }
-});
-
 function syncModes(){
   const e=document.getElementById('edit'), l=document.getElementById('lrcedit');
   const rem=document.getElementById('rem');

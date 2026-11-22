@@ -352,3 +352,19 @@ button{white-space:nowrap}
 .dialog-actions button.danger{color:var(--danger);border-color:var(--danger-line)}
 .dialog-actions button.danger:hover{background:var(--danger-bg);border-color:var(--danger)}
 .dialog-actions button:disabled{opacity:.35;cursor:not-allowed}
+
+/* 快捷键帮助 */
+#shortcuthelp{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;
+  background:var(--backdrop);padding:20px}
+#shortcuthelp[hidden]{display:none}
+#shortcuthelp .sk-box{width:min(560px,calc(100vw - 40px));max-height:calc(100vh - 40px);overflow:auto;
+  background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:18px 20px;
+  box-shadow:0 20px 60px var(--shadow)}
+#shortcuthelp .sk-title{display:flex;justify-content:space-between;font-size:15px;font-weight:600;
+  color:var(--fg);margin-bottom:14px}
+#shortcuthelp .sk-title span{font-size:11px;font-weight:400;color:var(--muted-2)}
+#shortcuthelp .sk-grid{display:grid;grid-template-columns:72px 1fr;gap:7px 12px;font-size:12px;line-height:1.55}
+#shortcuthelp .sk-grid b{color:var(--amber);font-weight:500;padding-top:8px}
+#shortcuthelp .sk-grid b:first-child{padding-top:0}
+#shortcuthelp kbd{display:inline-block;min-width:16px;padding:1px 5px;border:1px solid var(--line-strong);
+  border-radius:4px;background:var(--panel-2);color:var(--fg-2);font:11px ui-monospace,monospace;text-align:center}
