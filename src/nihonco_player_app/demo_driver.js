@@ -47,9 +47,12 @@
   const cursor = document.createElement('div');
   cursor.id = 'demo-cursor';
   document.body.appendChild(cursor);
+  const moveTo = (x, y) => {
+    cursor.style.transform = `translate(${Math.round(x - 9)}px,${Math.round(y - 9)}px)`;
+  };
   const move = el => {
     const r = el.getBoundingClientRect();
-    cursor.style.transform = `translate(${Math.round(r.left + r.width/2 - 9)}px,${Math.round(r.top + r.height/2 - 9)}px)`;
+    moveTo(r.left + r.width/2, r.top + r.height/2);
   };
   const click = async el => {
     if (!el) throw new Error('demo: 找不到目标元素');
@@ -65,7 +68,14 @@
     document.body.appendChild(rip);
     setTimeout(() => rip.remove(), 500);
     el.click();
-    await sleep(280);
+    await sleep(180);
+    // 点完按钮后把光标挪到按钮上方/下方，避免压住按钮或滑到相邻按钮。
+    const sideX = r.left + r.width / 2;
+    const sideY = (r.top > innerHeight * 0.58)
+      ? Math.max(14, r.top - 24)
+      : Math.min(innerHeight - 14, r.bottom + 24);
+    moveTo(sideX, sideY);
+    await sleep(120);
   };
 
   const panel = document.createElement('div');
@@ -151,7 +161,6 @@
       await wait(() => NH.VIEW_MODE === 'kana');
       await click(document.getElementById('resetall'));
       await sleep(1200);
-      await sleep(1000);
 
       // 下滑到这一行，把鼠标移到「何」上，不点击。
       const afterReset = lineEl(why);
