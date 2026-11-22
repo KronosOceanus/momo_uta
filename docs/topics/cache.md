@@ -221,7 +221,7 @@ clean-cache 不清理索引/指纹，避免启动突然变慢。
 
 | 项 | 规则 |
 |---|---|
-| annotation `VERSION` | 自动取引擎/词典/渲染源码 hash |
+| annotation `VERSION` | 自动取引擎/词典/渲染源码 + 语料档位统计 hash |
 | library_index `_v` | 自动取索引源码 hash |
 | fingerprint `_v` | 自动取指纹源码 hash |
 | wave `rate/step` | 自动进缓存路径 |

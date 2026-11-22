@@ -21,6 +21,7 @@ datas = [
     (str(ROOT / "data" / "curated" / "lyrics_exclude.json"), "data/curated"),
     (str(ROOT / "data" / "curated" / "glossary_lyrics.json"), "data/curated"),
     (str(ROOT / "data" / "curated" / "counters.json"), "data/curated"),
+    (str(ROOT / "data" / "corpus" / "ndl_reading_stats.json"), "data/corpus"),
     (str(ROOT / "src" / "nihonco_player" / "static"), "nihonco_player/static"),
 ]
 datas += collect_data_files("sudachidict_core")

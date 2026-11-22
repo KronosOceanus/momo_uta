@@ -11,7 +11,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from nihonco_yomi.paths import CACHE
+from nihonco_yomi.paths import CACHE, CORPUS
 
 from . import fsio as FS
 
@@ -30,9 +30,11 @@ def _source_version() -> str:
             "annotate.py", "kana.py", "romaji.py", "render.py",
             "thresholds.py", "counters.py", "invariants.py")]
         files.append(_P(__file__).with_name("annotation.py"))
+        files.append(CORPUS / "ndl_reading_stats.json")
         h = hashlib.sha1()
         for f in files:
-            h.update(f.read_bytes())
+            if f.is_file():
+                h.update(f.read_bytes())
         return h.hexdigest()[:12]
     except Exception:
         return "1"

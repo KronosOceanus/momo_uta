@@ -78,6 +78,7 @@ data/tables/jmdict_*.json
 data/curated/glossary_lyrics.json
 data/curated/counters.json
 data/curated/lyrics_exclude.json
+data/corpus/ndl_reading_stats.json
 assets/nihonco-uta-logo.icns
 ```
 
