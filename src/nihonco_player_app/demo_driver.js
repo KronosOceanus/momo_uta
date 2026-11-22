@@ -151,7 +151,7 @@
       await click(loop);
       await sleep(6000);
       await click(document.getElementById('prev'));
-      await sleep(6000);
+      await sleep(8000);
       await click(document.getElementById('next'));
       await sleep(6000);
       NH.au.pause();
