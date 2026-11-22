@@ -122,24 +122,47 @@ def align_translations(lines: list[dict], old_lines: list[dict],
 
 
 def translations_from_lrc(trans_text: str, lines: list[dict],
-                          tol: float = 0.05) -> dict[int, str]:
-    """把 tlyric 一类独立 LRC 翻译按时间戳配到原文行。"""
+                          tol: float = 0.05, loose: float = 0.2) -> dict[int, str]:
+    """把 tlyric 一类独立 LRC 翻译配到原文行。
+
+    1. 精确/±tol 时间戳
+    2. ±loose 时间戳
+    3. 两边行数相同才按行序一对一补齐
+    """
     timed = parse_timed(trans_text)
-    if not timed:
+    candidates = [(i, ln) for i, ln in enumerate(lines or []) if ln.get("t") is not None]
+    if not timed or not candidates:
         return {}
     used: set[int] = set()
+    assigned: dict[int, int] = {}
     out: dict[int, str] = {}
-    for tr in timed:
-        best = None
-        for i, ln in enumerate(lines or []):
-            if i in used or ln.get("t") is None:
+
+    def by_time(limit: float) -> None:
+        for ti, tr in enumerate(timed):
+            if ti in assigned:
                 continue
-            d = abs(float(ln["t"]) - tr["t"])
-            if d <= tol and (best is None or d < best[0]):
-                best = (d, i)
-        if best:
-            used.add(best[1])
-            out[best[1]] = tr["text"]
+            best = None
+            for li, ln in candidates:
+                if li in used:
+                    continue
+                d = abs(float(ln["t"]) - tr["t"])
+                if d <= limit and (best is None or d < best[0]):
+                    best = (d, li)
+            if best:
+                li = best[1]
+                used.add(li)
+                assigned[ti] = li
+                out[li] = tr["text"]
+
+    by_time(tol)
+    by_time(loose)
+    if len(timed) == len(candidates):
+        for ti, (li, _) in enumerate(candidates):
+            if ti in assigned or li in used:
+                continue
+            used.add(li)
+            assigned[ti] = li
+            out[li] = timed[ti]["text"]
     return out
 
 

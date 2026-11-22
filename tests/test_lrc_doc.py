@@ -93,6 +93,12 @@ class TestTranslations(unittest.TestCase):
         self.assertEqual(D.translations_from_lrc(
             "[00:01.00]你\n[00:02.00]花\n", lines), {0: "你", 1: "花"})
 
-    def test_tlyric_without_exact_timestamp_is_ignored(self):
+    def test_tlyric_loose_timestamp(self):
         lines = [{"t": 1.0, "text": "君"}]
-        self.assertEqual(D.translations_from_lrc("[00:01.50]你\n", lines), {})
+        self.assertEqual(D.translations_from_lrc("[00:01.10]你\n", lines), {0: "你"})
+
+    def test_tlyric_order_fallback_only_when_counts_match(self):
+        one = [{"t": 1.0, "text": "君"}]
+        self.assertEqual(D.translations_from_lrc("[00:02.00]你\n", one), {0: "你"})
+        two = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
+        self.assertEqual(D.translations_from_lrc("[00:03.00]你\n", two), {})
