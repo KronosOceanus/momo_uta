@@ -202,10 +202,20 @@ if __name__ == "__main__":
 # ── LRC 解析（从播放器挪过来，归数据层）──────────────────
 
 
+_TLYRIC_CACHE: dict[str, str] = {}
+
+
 def fetch_lrc_by_id(song_id) -> str:
     """按网易云歌曲 id 取 LRC 文本（用户手动选择候选时用）。"""
     lr = _get(f"https://music.163.com/api/song/lyric?id={song_id}&lv=-1&kv=-1&tv=-1")
     try:
-        return json.loads(lr).get("lrc", {}).get("lyric", "") or ""
+        j = json.loads(lr)
+        _TLYRIC_CACHE[str(song_id)] = j.get("tlyric", {}).get("lyric", "") or ""
+        return j.get("lrc", {}).get("lyric", "") or ""
     except Exception:
+        _TLYRIC_CACHE.pop(str(song_id), None)
         return ""
+
+
+def tlyric_by_id(song_id) -> str:
+    return _TLYRIC_CACHE.get(str(song_id), "")

@@ -182,7 +182,7 @@ test('opening the editor keeps untimed file rows absent from playback', async ()
   const p = player();
   p.run(`LINES=[{t:1,text:'timed'}]`);
   const opening = p.run('openLrcEditor()');
-  const rows = [{t: null, text: 'draft'}, {t: 1, text: 'timed'}];
+  const rows = [{t: null, text: 'draft', trans: ''}, {t: 1, text: 'timed', trans: ''}];
   p.requests[0].resolve({ok: true, exists: true, lines: rows});
   await opening;
   assert.equal(p.run('JSON.stringify(EROWS)'), JSON.stringify(rows));
@@ -199,7 +199,7 @@ test('export includes metadata outside the rows sent to save', async () => {
   assert.equal(p.run('lrcText()'), '[ar:歌手]\n[Chorus]\n [offset:500] \n');
   p.edit('new verse');
   const saving = p.run('saveLrc(true)');
-  assert.deepEqual(p.calls[1].body.lines, [{t: null, text: 'new verse'}]);
+  assert.deepEqual(p.calls[1].body.lines, [{t: null, text: 'new verse', trans: ''}]);
   p.requests[1].resolve({ok: true});
   await saving;
 });
@@ -314,4 +314,15 @@ test('reset response does not cancel a switch already in flight', async () => {
   await loading;
   await resetting;
   assert.equal(p.run('S.uid'), 'u1');
+});
+
+test('translation column is opt-in and keeps the second input', () => {
+  const p = player();
+  p.run("TRANS_EDIT=false");
+  const off = p.run("rowHtml({t:1,text:'原文',trans:'译文'},0)");
+  assert.ok(!off.includes('tx trans'));
+  p.run("TRANS_EDIT=true");
+  const on = p.run("rowHtml({t:1,text:'原文',trans:'译文'},0)");
+  assert.ok(on.includes('tx trans'));
+  assert.ok(on.includes('译文'));
 });

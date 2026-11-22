@@ -19,7 +19,7 @@ function syncPlayControls(){
 }
 function syncLoopBtn(){
   const b=document.getElementById('loop'); if(!b) return;
-  b.textContent = NH.loop ? '单句循环：开' : '单句循环';
+  b.textContent = '单句循环：' + (NH.loop ? '开' : '关');
   b.classList.toggle('on', NH.loop);
 }
 function closeLineLoop(){

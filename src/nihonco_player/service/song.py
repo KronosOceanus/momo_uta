@@ -55,7 +55,7 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False):
 
 
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
-                text=None, expected_version=None) -> dict:
+                text=None, expected_version=None, translations=None) -> dict:
     """唯一的歌词权威写入口：锁内读改写 + 版本校验 + 原子替换。
 
     mode:
@@ -70,7 +70,8 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     with LRC.LOCK, FS.locked(LRC.lock_path()):
         if mode == "replace" and text is not None:
             res = LRC.import_text(item["file"], text, uid, title, artist,
-                                  expected_version=expected_version)
+                                  expected_version=expected_version,
+                                  translations=translations)
         else:
             doc = LRC.load(item["file"], uid, title, artist)
             if mode == "align":
@@ -86,8 +87,17 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 ann = annotations or {}
             else:
                 raise ValueError("未知歌词保存模式：" + str(mode))
-            res = LRC.save(item["file"], lines or [], ann, uid, title, artist,
-                           expected_version=expected_version)
+            if translations is None:
+                if any("trans" in x for x in (lines or [])):
+                    translations = {i: x.get("trans") or ""
+                                    for i, x in enumerate(lines or [])}
+                else:
+                    translations = doc.get("translations") or {}
+            trans = DOC.align_translations(lines or [], doc.get("lines") or [],
+                                           translations)
+            res = LRC.save(item["file"], lines or [], ann, uid=uid, title=title,
+                           artist=artist, expected_version=expected_version,
+                           translations=trans)
     if uid and res.get("ok"):
         try:
             res["library"] = LIB.refresh(uid)
@@ -145,6 +155,7 @@ def song_payload(ref, _item=None) -> dict:
         fields = ANN_CACHE.line_fields(ln["text"], stored.get(li))
         ln.update(fields)
         ln["raw"] = ln["text"]
+        ln["trans"] = ((doc.get("translations") or {}).get(li) or "")
     return {**base, "pending": False, "lines": lines,
             "nhlrc": doc.get("kind") == "nhlrc", "disabled": False}
 
@@ -223,9 +234,10 @@ def pick(uid, song_id) -> dict:
     lrc = LY.fetch_lrc_by_id(song_id)
     if not LY.valid_lrc(lrc):
         return {"ok": False, "error": "这个候选没有带时间轴的可用歌词"}
+    trans = DOC.translations_from_lrc(LY.tlyric_by_id(song_id), DOC.parse(lrc))
     # 重写当前歌曲的 nhlrc 正文（备份旧文件），旧读音不保留
     try:
-        res = save_lyrics(item, mode="replace", text=lrc)
+        res = save_lyrics(item, mode="replace", text=lrc, translations=trans)
     except Exception as e:
         return {"ok": False, "error": "写歌词失败：" + str(e)}
     if not res.get("ok"):

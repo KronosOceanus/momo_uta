@@ -64,3 +64,35 @@ class TestTailFormat(unittest.TestCase):
         tail["body"] = "00000000"
         tail["lines"][0]["h"] = "00000000"
         self.assertEqual(D.annotations_for(D.parse(body), tail, strict=True), {})
+
+
+class TestTranslations(unittest.TestCase):
+    def test_nhlrc_roundtrip_translation(self):
+        rows = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
+        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]},
+                              {0: "你", 1: "花"})
+        body, tail = D._split_nhlrc(text)
+        self.assertEqual(D.translations_for(D.parse(body), tail), {0: "你", 1: "花"})
+
+    def test_translation_only_still_writes_tail(self):
+        rows = [{"t": 1.0, "text": "君"}]
+        text = D.render_nhlrc(rows, [], None, {0: "你"})
+        body, tail = D._split_nhlrc(text)
+        self.assertIsNotNone(tail)
+        self.assertEqual(D.translations_for(D.parse(body), tail), {0: "你"})
+
+    def test_align_translation_follows_text(self):
+        old = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
+        new = [{"t": None, "text": "新增"}, {"t": 1.0, "text": "君"},
+               {"t": 2.0, "text": "花"}]
+        self.assertEqual(D.align_translations(new, old, {0: "你", 1: "花"}),
+                         {1: "你", 2: "花"})
+
+    def test_tlyric_timestamp_pairing(self):
+        lines = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
+        self.assertEqual(D.translations_from_lrc(
+            "[00:01.00]你\n[00:02.00]花\n", lines), {0: "你", 1: "花"})
+
+    def test_tlyric_without_exact_timestamp_is_ignored(self):
+        lines = [{"t": 1.0, "text": "君"}]
+        self.assertEqual(D.translations_from_lrc("[00:01.50]你\n", lines), {})

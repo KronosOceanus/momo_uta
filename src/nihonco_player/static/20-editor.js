@@ -7,6 +7,7 @@ NH.VIEW_MODE = 'normal';
 
 // ── LRC 编辑表格 ────────────────────────────────
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
+NH.TRANS_EDIT = false;
 NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false;
 
 function setLrcLocked(locked){
@@ -38,7 +39,12 @@ function markDirty(){
   NH.paintTicks?.();
 }
 function lrcPayload(){
-  return NH.EROWS.map(x=>({t:x.t, text:x.text}));
+  return NH.EROWS.map(x=>({t:x.t, text:x.text, trans:x.trans||''}));
+}
+function syncTransBtn(){
+  const b=document.getElementById('lrctrans'); if(!b) return;
+  b.textContent='翻译：'+(NH.TRANS_EDIT?'开':'关');
+  b.classList.toggle('on', NH.TRANS_EDIT);
 }
 async function saveLrc(silent, force){
   if(!NH.S || NH.VIEW_MODE!=='lrc' || NH.LRC_REPLACING) return false;
@@ -125,7 +131,8 @@ async function openLrcEditor(entering=false){
   // 编辑器保留文件顺序及未打点的行，播放视图只展示有时间戳的行。
   NH.LRC_VERSION=d.version||null;
   NH.LRC_METADATA=d.metadata||[];
-  NH.EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text}));
+  NH.EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text, trans:x.trans||''}));
+  NH.TRANS_EDIT=false; syncTransBtn();
   if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
   NH.ESEL=0; NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
   NH.UNDO=[]; NH.REDO=[];
@@ -141,6 +148,7 @@ function rowHtml(r,i){
     <input class="ts${r.t===null?' none':''}" data-i="${i}" value="${r.t===null?'':lrcFmt(r.t)}" placeholder="mm:ss.xx">
     <span class="bind" data-i="${i}" title="把标记时间写进这一行">↤</span>
     <input class="tx" data-i="${i}" value="${(r.text||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">
+    ${NH.TRANS_EDIT?`<input class="tx trans" data-i="${i}" placeholder="翻译（可选）" value="${(r.trans||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">`:''}
     <span class="del" data-i="${i}" title="删除这一行">✕</span>
   </div>`;
 }
@@ -185,7 +193,7 @@ function renderLrcTable(){
     el.onkeydown=ev=>{ if(ev.isComposing||ev.keyCode===229) return;
       if(ev.key==='Enter'){ ev.preventDefault(); el.blur(); } };
   });
-  box.querySelectorAll('input.tx').forEach(el=>{
+  box.querySelectorAll('input.tx:not(.trans)').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
     el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
     el.oninput=()=>{
@@ -204,6 +212,7 @@ function renderLrcTable(){
         const joinAt=(prev.text||'').length;
         snapshot();
         prev.text=(prev.text||'')+(cur.text||'');
+        prev.trans=[prev.trans||'', cur.trans||''].filter(x=>x).join(' ');
         NH.EROWS.splice(i,1);
         NH.ESEL=i-1; NH.SEL.clear();
         renderLrcTable();
@@ -218,7 +227,7 @@ function renderLrcTable(){
         const left=v.slice(0,pos), right=v.slice(pos);
         snapshot();
         NH.EROWS[i].text=left;
-        NH.EROWS.splice(i+1, 0, {t:null, text:right});
+        NH.EROWS.splice(i+1, 0, {t:null, text:right, trans:''});
         NH.ESEL=i+1; NH.SEL.clear(); NH.EDIRTY=true;
         renderLrcTable();
         const nx=document.querySelector(`.lerow[data-i="${i+1}"] input.tx`);
@@ -237,14 +246,28 @@ function renderLrcTable(){
       const at=Math.max(0,+el.dataset.i+1);
       const fresh=lines.map(x=>{
         const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
-        return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3]}
-                 : {t:null, text:x};
+        return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:''}
+                 : {t:null, text:x, trans:''};
       });
       NH.EROWS.splice(at,0,...fresh);
       NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
       NH.done(`粘贴了 ${fresh.length} 行`);
     };
   });
+  box.querySelectorAll('input.tx.trans').forEach(el=>{
+    el.onclick=e=>e.stopPropagation();
+    el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
+    el.oninput=()=>{
+      if(NH.LRC_LOCKED) return;
+      NH.EROWS[+el.dataset.i].trans=el.value;
+      markDirty();
+    };
+    el.onkeydown=ev=>{
+      if(NH.LRC_LOCKED || ev.isComposing||ev.keyCode===229) return;
+      if(ev.key==='Enter'){ ev.preventDefault(); el.blur(); }
+    };
+  });
+
   box.querySelectorAll('.bind').forEach(el=>{
     el.onclick=e=>{ e.stopPropagation(); if(!NH.LRC_LOCKED) bindMark(+el.dataset.i); };
   });
@@ -307,8 +330,8 @@ function insertLines(text){
   const at=insertPos();
   const fresh=lines.map(x=>{
     const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
-    return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3]}
-             : {t:null, text:x};
+    return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:''}
+             : {t:null, text:x, trans:''};
   });
   NH.EROWS.splice(at,0,...fresh);
   NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
@@ -318,7 +341,7 @@ function insertLines(text){
 function addRow(at){
   snapshot();
   const pos = (at===undefined) ? insertPos() : at;
-  NH.EROWS.splice(pos,0,{t:null,text:''});
+  NH.EROWS.splice(pos,0,{t:null,text:'',trans:''});
   NH.ESEL=pos; NH.SEL.clear(); renderLrcTable();
   document.querySelector(`.lerow[data-i="${pos}"]`)?.scrollIntoView({block:'center'});
 }
@@ -355,6 +378,7 @@ document.addEventListener('paste', e=>{
 document.getElementById('lrcadd').onclick=()=>{ if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED) addRow(); };
 document.getElementById('lrcdel').onclick=()=>{ if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED) delRows(); };
 document.getElementById('lrcselall').onclick=()=>{ if(NH.VIEW_MODE==='lrc') selectAll(); };
+document.getElementById('lrctrans').onclick=()=>{ NH.TRANS_EDIT=!NH.TRANS_EDIT; syncTransBtn(); renderLrcTable(); };
 document.getElementById('lrcsaveas').onclick=async()=>{
   if(NH.VIEW_MODE!=='lrc') return;
   const name=(NH.S&&NH.S.title?NH.S.title:'lyrics')+'.nhlrc';

@@ -17,7 +17,10 @@ def lrc_action(req):
     uid, title, artist = item.get("uid"), item["title"], item.get("artist", "")
     if act == "load":
         doc, has_lines = load_lyrics(item)
-        return {**doc, "pending": not has_lines and not doc.get("disabled")}
+        trans = doc.get("translations") or {}
+        lines = [{**ln, "trans": trans.get(i, "")} for i, ln in enumerate(doc.get("lines") or [])]
+        return {**doc, "lines": lines,
+                "pending": not has_lines and not doc.get("disabled")}
     if act == "backup":
         return LRC.backup_status(item["file"], uid, title, artist)
     if act == "restore":
@@ -48,7 +51,13 @@ def lrc_action(req):
         if not lines:
             lines = doc["lines"]
         ann = doc.get("annotations") or {}
-        return {"ok": True, "nhlrc": DOC.render_nhlrc(lines, doc["metadata"], ann),
+        trans = doc.get("translations") or {}
+        if lines and any("trans" in x for x in lines):
+            trans = {i: x.get("trans") or "" for i, x in enumerate(lines)
+                     if (x.get("trans") or "").strip()}
+        elif req.get("translations"):
+            trans = {int(k): str(v) for k, v in req["translations"].items() if str(v or "").strip()}
+        return {"ok": True, "nhlrc": DOC.render_nhlrc(lines, doc["metadata"], ann, trans),
                 "lrc": DOC.render_body(lines, doc["metadata"])}
     if act == "import_lrc":
         text = str(req.get("text") or "")
@@ -60,6 +69,11 @@ def lrc_action(req):
         lines = req.get("lines") or []
         if not lines or not any((ln.get("text") or "").strip() for ln in lines):
             return {"ok": False, "error": "没有歌词行"}
-        return save_lyrics(item, lines, "align", expected_version=req.get("version"))
+        trans = req.get("translations")
+        if trans is None:
+            trans = {i: ln.get("trans") or "" for i, ln in enumerate(lines)
+                     if "trans" in ln}
+        return save_lyrics(item, lines, "align", expected_version=req.get("version"),
+                           translations=trans)
     return {"ok": False, "error": "未知动作"}
 

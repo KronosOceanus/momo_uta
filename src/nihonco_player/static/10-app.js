@@ -421,7 +421,10 @@ async function load(ref, autoplay, nextMode){
     }
     NH.NAV=NH.LINES.map((l,i)=>l.meta?-1:i).filter(i=>i>=0);
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
-    lyr.innerHTML=NH.LINES.map((l,n)=>`<div class="ln" data-n="${n}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}</div>`).join('');
+    lyr.innerHTML=NH.LINES.map((l,n)=>{
+      const tr=l.trans ? `<div class="lntrans">${String(l.trans).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
+      return `<div class="ln" data-n="${n}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}${tr}</div>`;
+    }).join('');
     document.querySelectorAll('.ln').forEach(el=>{
       const n=+el.dataset.n;
       el.onclick=e=>{ if(e.detail>1) return; NH.selectLine(n); };

@@ -21,7 +21,7 @@ from . import fingerprint as FP
 from . import lyrics as LY
 from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
                       _parse_document, _split_nhlrc, annotations_for, parse,
-                      render, render_body, render_nhlrc)
+                      render, render_body, render_nhlrc, translations_for, translations_from_lrc)
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
 LOCK = threading.RLock()
@@ -193,16 +193,21 @@ def load(audio: str | Path, uid: str | None = None,
         return {"ok": True, "exists": True, "from_cache": False,
                 "path": str(path), "kind": "nhlrc", "source": "disabled",
                 "text": "", "lines": [], "metadata": [],
-                "annotations": {}, "nhlrc": True, "disabled": True,
+                "annotations": {}, "translations": {}, "nhlrc": True, "disabled": True,
                 "version": version}
 
     lines, metadata = _parse_document(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
     strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
     annotations = annotations_for(lines, tail, strict=strict)
+    if from_cache:
+        translations = translations_from_lrc((hit or {}).get("tlyric") or "", lines)
+    else:
+        translations = translations_for(lines, tail, strict=strict)
     return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
             "path": str(path), "kind": kind, "source": source, "text": body,
             "lines": lines, "metadata": metadata, "annotations": annotations,
+            "translations": translations,
             "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
 
 
@@ -276,7 +281,8 @@ def delete_store(audio: str | Path, uid: str | None = None,
 
 def import_text(audio: str | Path, text: str, uid: str | None = None,
                 title: str | None = None, artist: str | None = None,
-                expected_version: str | None = None) -> dict:
+                expected_version: str | None = None,
+                translations: dict[int, str] | None = None) -> dict:
     """用户导入：直接原子写权威 nhlrc，不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -293,7 +299,9 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
         body = body if body.endswith("\n") else body + "\n"
         lines, metadata = _parse_document(body)
         annotations = annotations_for(lines, tail) if tail else {}
-        out = render_nhlrc(lines, metadata, annotations) if annotations else body
+        if translations is None:
+            translations = translations_for(lines, tail) if tail else {}
+        out = render_nhlrc(lines, metadata, annotations, translations) if (annotations or translations) else body
         _atomic_write(sp, out)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "annotated": len(annotations), "backed_up": backed,
@@ -302,6 +310,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
 
 def save(audio: str | Path, lines: list[dict],
          annotations: dict[int, list] | None = None,
+         translations: dict[int, str] | None = None,
          uid: str | None = None,
          title: str | None = None, artist: str | None = None,
          expected_version: str | None = None) -> dict:
@@ -321,7 +330,9 @@ def save(audio: str | Path, lines: list[dict],
         _, metadata = _parse_document(body)
         if annotations is None:
             annotations = annotations_for(lines, _tail)
-        text = render_nhlrc(lines, metadata, annotations)
+        if translations is None:
+            translations = translations_for(lines, _tail)
+        text = render_nhlrc(lines, metadata, annotations, translations)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}

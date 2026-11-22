@@ -215,7 +215,12 @@ force=True：完全跳过缓存，重新联网（懒匹配用）。
   search_candidates / accept_candidate / fetch_candidate / valid_lrc
 ```
 
-### 5.4 缓存内容
+### 5.4 翻译
+
+`tlyric.lyric` 是独立 LRC，只在导入时按时间戳配对。
+存入 nhlrc 尾部 `trans`，正文仍只放原文。
+
+### 5.5 缓存内容
 
 ```text
 成功：

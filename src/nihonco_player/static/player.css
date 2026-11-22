@@ -202,6 +202,9 @@ body.lrcedit .lrcwrap{display:flex}
 .lerow input{flex:1;background:transparent;border:0;color:var(--text-soft);font-size:15px;
   font-family:inherit;padding:3px 0;outline:none}
 .lerow input:focus{background:var(--bg-soft);border-radius:4px;box-shadow:0 0 0 1px var(--line-strong)}
+.lerow input.tx.trans{color:var(--muted);font-size:13px}
+.lntrans{padding-left:2.2em;margin-top:1px;font-size:12px;line-height:1.55;
+  color:var(--muted);font-weight:400;white-space:pre-wrap}
 .lerow .del{color:var(--muted-2);cursor:pointer;padding:0 4px}
 .lerow .del:hover{color:var(--danger)}
 body.lrcedit .lyr{padding:0}
@@ -268,6 +271,9 @@ body.lrcedit .lyr{flex:1 1 100%;border-right:0}
 
 #lrcrow2,#lrcrow3{display:none;padding-top:5px;padding-bottom:5px}
 body.lrcedit #lrcrow2,body.lrcedit #lrcrow3{display:flex}
+#lrcrow2{grid-template-columns:1fr auto 1fr;align-items:center}
+body.lrcedit #lrcrow2{display:grid}
+#lrcrow2 .mid{justify-self:center}
 .lrcrow{justify-content:space-between}
 .lrcrow .left,.lrcrow .right{display:flex;align-items:center;gap:6px}
 .lrcrow .right{margin-left:auto}
