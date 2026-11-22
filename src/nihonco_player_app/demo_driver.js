@@ -150,9 +150,9 @@
       // 第 17 行循环一次后：关闭循环，等 2 秒再点下一句。
       await click(loop);
       await sleep(6000);
-      await click(document.getElementById('next'));
-      await sleep(6000);
       await click(document.getElementById('prev'));
+      await sleep(6000);
+      await click(document.getElementById('next'));
       await sleep(6000);
       NH.au.pause();
 
