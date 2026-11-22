@@ -57,6 +57,13 @@
     #demo-caption .capstep .n{color:#c8843f;font-size:10px;letter-spacing:.12em;min-width:38px}
     #demo-caption .capstep .t{color:#5f5a51;font-size:13px;white-space:nowrap}
     #demo-caption .capstep.active .t{color:#f4f2ed;font-size:15px}
+    #demo-done{position:fixed;left:10px;bottom:310px;width:250px;z-index:99997;
+      padding:10px 12px;border:1px solid #ffffff2e;border-radius:9px;
+      background:#101318ee;color:#f4f2ed;pointer-events:none;
+      font:14px/1.4 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;
+      opacity:0;transform:translateY(6px);transition:opacity .25s,transform .25s;
+      box-shadow:0 8px 24px #0005}
+    #demo-done.show{opacity:1;transform:none}
   `;
   document.head.appendChild(style);
 
@@ -97,6 +104,17 @@
     });
     capTrack.style.transform = `translateY(${-(i * 58 - (230 - 58) / 2)}px)`;
     requestAnimationFrame(() => cap.classList.add('show'));
+  };
+
+  const endToast = () => {
+    let t = document.getElementById('demo-done');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'demo-done';
+      t.textContent = '演示结束';
+      document.body.appendChild(t);
+    }
+    requestAnimationFrame(() => t.classList.add('show'));
   };
 
   const click = async el => {
@@ -207,6 +225,7 @@
       caption('下一句', 7);
       await sleep(7500);
       NH.au.pause();
+      endToast();
 
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
     } catch (e) {
