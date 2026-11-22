@@ -175,6 +175,38 @@ fetch_candidate(candidate)
 不通过 → 候选作废，继续下一个。
 ```
 
+### 6.1 tlyric 与翻译
+
+```text
+tlyric 是另一个 LRC 字段
+不是 lrc 正文的一部分
+```
+
+```text
+fetch_candidate / fetch_lyrics_by_id 同时返回 lrc + tlyric
+```
+
+```text
+translations_from_lrc
+  → 先 ±0.05s
+  → 再 ±0.2s
+  → 两边行数一致才按行序补齐
+  → 仍配不上就丢弃
+```
+
+```text
+trans 是稀疏行属性，不存时间戳。
+```
+
+```text
+自动/懒匹配只把 tlyric 放进歌词缓存；
+用户 pick 或保存 LRC 时才写进 nhlrc trans。
+```
+
+```text
+普通页在原文下显示译文；LRC 编辑器的翻译列见 lrc-editor.md。
+```
+
 ## 7. 自动匹配
 
 ```python

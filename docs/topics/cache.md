@@ -285,6 +285,7 @@ waveform 的 size/mtime 失效已经补齐。
 
 ```text
 nhlrc 格式 → nhlrc.md
-翻译对齐 → translation.md（待写）
-播放器状态 → player-state.md（待写）
+翻译来源/配对 → lyrics-matching.md
+翻译列编辑 → lrc-editor.md
+播放器状态 → player-state.md
 ```

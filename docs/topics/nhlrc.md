@@ -462,6 +462,7 @@ v = 1
 ## 16. 相关专题
 
 ```text
-翻译如何从 tlyric 配对 → translation.md
+tlyric 来源/时间配对 → lyrics-matching.md
+翻译列编辑 → lrc-editor.md
 播放器状态机 → player-state.md
 ```
