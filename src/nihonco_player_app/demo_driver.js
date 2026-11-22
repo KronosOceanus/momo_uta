@@ -121,7 +121,7 @@
         if (a.length < 2) return false;
         return NH.idxAt(NH.au.currentTime) >= a[1];
       }, 20000);
-      await sleep(7700);  // 第二句进入播放途中，再留 7 秒
+      await sleep(6000);  // 第二句进入播放途中，再留 6 秒
 
       // 跳到第 15 行；继续播放。
       await click(lineEl(14));
@@ -149,11 +149,11 @@
 
       // 第 17 行循环一次后：关闭循环，等 2 秒再点下一句。
       await click(loop);
-      await sleep(7000);
+      await sleep(6000);
       await click(document.getElementById('next'));
-      await sleep(7000);
+      await sleep(6000);
       await click(document.getElementById('prev'));
-      await sleep(7000);
+      await sleep(6000);
       NH.au.pause();
 
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
