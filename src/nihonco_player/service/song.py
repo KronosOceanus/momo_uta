@@ -233,10 +233,11 @@ def pick(uid, song_id) -> dict:
     if not item or not song_id:
         return {"ok": False, "error": "缺少歌曲或候选 id"}
     artist, title = LY.split_name(item["stem"])
-    lrc = LY.fetch_lrc_by_id(song_id)
+    hit = LY.fetch_lyrics_by_id(song_id)
+    lrc = hit.get("lrc") or ""
     if not LY.valid_lrc(lrc):
         return {"ok": False, "error": "这个候选没有带时间轴的可用歌词"}
-    trans = DOC.translations_from_lrc(LY.tlyric_by_id(song_id), DOC.parse(lrc))
+    trans = DOC.translations_from_lrc(hit.get("tlyric") or "", DOC.parse(lrc))
     # 重写当前歌曲的 nhlrc 正文（备份旧文件），旧读音不保留
     try:
         res = save_lyrics(item, mode="replace", text=lrc, translations=trans)
