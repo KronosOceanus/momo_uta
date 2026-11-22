@@ -97,7 +97,7 @@
         if (a.length < 2) return false;
         return NH.idxAt(NH.au.currentTime) >= a[1];
       }, 20000);
-      await sleep(5700);  // 第二句进入播放途中，再留 5 秒
+      await sleep(7700);  // 第二句进入播放途中，再留 7 秒
 
       // 跳到第 15 行；继续播放。
       await click(lineEl(14));
