@@ -41,7 +41,7 @@
       border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer}
     #demo-panel button:disabled{opacity:.4;cursor:default}
     body.demo-running{cursor:none}
-    #demo-caption{position:fixed;left:18px;bottom:78px;width:286px;z-index:99997;
+    #demo-caption{position:fixed;left:104px;bottom:108px;width:286px;z-index:99997;
       padding:12px 14px;border:1px solid #ffffff2e;border-radius:10px;
       background:#101318e8;color:#f4f2ed;pointer-events:none;
       box-shadow:0 8px 28px #0005;opacity:0;transform:translateY(6px);
