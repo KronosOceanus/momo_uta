@@ -15,15 +15,34 @@ from webview import FileDialog
 from webview.menu import Menu, MenuAction
 
 from nihonco_yomi.config import APP
+from nihonco_yomi.paths import BUNDLE, bootstrap
 
 from nihonco_player.core import library as LIB
 from nihonco_player.core import vocals as VOC
 from nihonco_player.http.server import make_server
 
-from . import logsetup
+from nihonco_player_app import logsetup
+
+
+def _bundle_path() -> None:
+    """让 full 包里的 ffmpeg 优先于系统 PATH。"""
+    import os
+    b = BUNDLE / "bin"
+    if b.is_dir():
+        os.environ["PATH"] = str(b) + os.pathsep + os.environ.get("PATH", "")
+
+
+def _run_demucs() -> None:
+    """full 包内 demucs 子进程入口，不启动窗口。"""
+    import importlib
+    demucs_main = importlib.import_module("demucs.separate").main
+    sys.argv = ["demucs", *sys.argv[2:]]
+    demucs_main()
 
 
 def main() -> None:
+    _bundle_path()
+    bootstrap()
     log_path = logsetup.setup()
     sys.excepthook = logsetup.log_exception
     print(f"日志：{log_path}")
@@ -155,7 +174,7 @@ def main() -> None:
         threading.Thread(target=run, daemon=True).start()
 
     try:
-        from . import hotkeys as GLOBAL_KEYS
+        from nihonco_player_app import hotkeys as GLOBAL_KEYS
         GLOBAL_KEYS.install(on_hotkey)
     except Exception:
         pass
@@ -164,4 +183,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--nihonco-demucs":
+        _run_demucs()
+    else:
+        main()

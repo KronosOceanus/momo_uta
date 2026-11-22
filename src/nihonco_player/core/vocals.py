@@ -217,10 +217,26 @@ def _run() -> None:
 
 def installed() -> bool:
     try:
-        import demucs  # noqa: F401
+        import importlib
+        importlib.import_module("demucs")
         return True
     except Exception:
-        return False
+        return bool(shutil.which("demucs"))
+
+
+def _demucs_cmd() -> list[str]:
+    """打包后不能再用 python -m demucs；全量包走 app 子命令，薄壳走外部命令。"""
+    try:
+        import importlib
+        importlib.import_module("demucs")
+        if getattr(sys, "frozen", False):
+            return [sys.executable, "--nihonco-demucs"]
+    except Exception:
+        pass
+    found = shutil.which("demucs")
+    if found:
+        return [found]
+    return [sys.executable, "-m", "demucs"]
 
 
 def _run_process(cmd: list[str], *, timeout: float, env: dict | None = None,
@@ -283,8 +299,8 @@ def _separate(uid: str, audio: str) -> dict:
     tmp.mkdir(parents=True, exist_ok=True)
     d.mkdir(parents=True, exist_ok=True)
     try:
-        cmd = [sys.executable, "-m", "demucs", "--two-stems=vocals",
-               "-n", MODEL, "-o", str(tmp), audio]
+        cmd = _demucs_cmd() + ["--two-stems=vocals",
+                                "-n", MODEL, "-o", str(tmp), audio]
         env = dict(os.environ)
         env.setdefault("HF_ENDPOINT", VC["hf_endpoint"])   # 国内直连 HF 会卡住
         r = _run_process(cmd, env=env, timeout=float(VC["run_timeout_s"]),

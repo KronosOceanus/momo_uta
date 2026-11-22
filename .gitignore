@@ -31,3 +31,7 @@ music_test/
 
 # 歌单/数据的本地备份
 data/curated/*.bak-*
+
+# 打包产物
+build/
+dist/

@@ -11,9 +11,25 @@
 ```
 
 ```text
-正式 .app：
-  尚未配置 PyInstaller / py2app
-  尚未签名 / 公证
+已配置 PyInstaller onedir，三种 .app 都能构建：
+  base  基础版
+  thin  薄壳版
+  full  完整版
+```
+
+```bash
+./packaging/build.sh base|thin|full
+```
+
+```text
+产物：
+  dist/base/nihonco-uta-base.app   ~230 MB
+  dist/thin/nihonco-uta-thin.app   ~230 MB
+  dist/full/nihonco-uta-full.app   ~859 MB
+```
+
+```text
+尚未签名 / 公证。
 ```
 
 ## 1. 运行结构
@@ -82,13 +98,20 @@ demucs / torch 是包体大头。
 ffmpeg 是外部二进制，需要单独处理。
 ```
 
-## 5. 体积估算
+## 5. 体积
 
-基础版（不含人声分离）：
+当前实际产物：
 
 ```text
-.app 解压后  约 300–400 MB
-.dmg 压缩后  约 150–220 MB
+base.app    ~230 MB
+thin.app    ~230 MB
+full.app    ~859 MB
+```
+
+```text
+base.zip    ~88 MB
+thin.zip    ~88 MB
+full.zip    ~284 MB
 ```
 
 主要占用：
@@ -99,19 +122,13 @@ Sudachi 词典        ~193 MB
 PyObjC / pywebview  ~5–10 MB
 JMDict 表           ~10 MB
 应用/前端           ~1 MB
-```
-
-完整版（带 demucs）：
-
-```text
-.app 解压后  约 1.0–1.3 GB
-.dmg 压缩后  约 500–800 MB
+full 额外 torch/ffmpeg
 ```
 
 ```text
-torch 约 626 MB，是主要变量。
-以上是估算，实际以 PyInstaller 产物为准。
+full 的体积主要来自 torch、torch 依赖和 ffmpeg。
 ```
+
 
 ## 6. 打包方式
 
@@ -226,14 +243,13 @@ Dock 重新显示
 ## 12. 已知未做
 
 ```text
-1. 没有 PyInstaller spec
-2. 没有资源拷贝规则
-3. 没有用户数据目录重定向
-4. 没有签名/公证
-5. 没有自动更新
-6. 没有 .dmg 构建脚本
-7. demucs/torch 是否随包未定
-8. ffmpeg 分发未定
+1. 没有签名 / 公证
+2. 没有 .dmg 构建脚本
+3. 没有自动更新
+4. thin 的外部 demucs 需要用户自己安装
+5. 三个版本共享同一份 Application Support 数据
+6. 尚未做 Intel / universal2
+7. 尚未做正式首启迁移
 ```
 
 ## 13. 相关

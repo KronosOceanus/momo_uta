@@ -13,6 +13,7 @@ import traceback
 from pathlib import Path
 
 from nihonco_yomi.config import APP
+from nihonco_yomi.paths import CACHE
 
 MAX_BYTES = int(APP["log_max_bytes"])
 
@@ -40,8 +41,7 @@ class _Tee(io.TextIOBase):
 
 def setup() -> Path:
     """开始记录，返回日志路径。重复调用只会记录一次。"""
-    root = Path(__file__).resolve().parents[2]
-    logdir = root / "data" / "cache"
+    logdir = CACHE
     logdir.mkdir(parents=True, exist_ok=True)
     log = logdir / "app.log"
     if log.exists() and log.stat().st_size > MAX_BYTES:      # 简单轮转
