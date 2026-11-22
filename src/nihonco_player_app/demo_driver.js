@@ -41,6 +41,14 @@
       border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer}
     #demo-panel button:disabled{opacity:.4;cursor:default}
     body.demo-running{cursor:none}
+    #demo-caption{position:fixed;left:18px;bottom:78px;width:286px;z-index:99997;
+      padding:12px 14px;border:1px solid #ffffff2e;border-radius:10px;
+      background:#101318e8;color:#f4f2ed;pointer-events:none;
+      box-shadow:0 8px 28px #0005;opacity:0;transform:translateY(6px);
+      transition:opacity .25s ease,transform .25s ease;
+      font:15px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}
+    #demo-caption.show{opacity:1;transform:none}
+    #demo-caption .step{color:#c8843f;font-size:11px;letter-spacing:.12em;margin-bottom:3px}
   `;
   document.head.appendChild(style);
 
@@ -54,6 +62,19 @@
     const r = el.getBoundingClientRect();
     moveTo(r.left + r.width/2, r.top + r.height/2);
   };
+  let cap = null;
+  const caption = (text, step) => {
+    if (!cap) {
+      cap = document.createElement('div');
+      cap.id = 'demo-caption';
+      cap.innerHTML = '<div class="step"></div><div class="text"></div>';
+      document.body.appendChild(cap);
+    }
+    cap.querySelector('.step').textContent = step ? String(step).padStart(2, '0') + ' / 07' : '';
+    cap.querySelector('.text').textContent = text;
+    requestAnimationFrame(() => cap.classList.add('show'));
+  };
+
   const click = async el => {
     if (!el) throw new Error('demo: 找不到目标元素');
     el.scrollIntoView({block:'center', behavior:'smooth'});
@@ -101,6 +122,7 @@
       NH.au.currentTime = 0;
       await sleep(1000);  // 播放前停顿 1 秒
       await NH.au.play().catch(() => {});
+      caption('歌词页', 1);
 
       // 播放开头：光标先停在左侧歌词栏，3 秒后移到右侧罗马音栏。
       const lyricPane = document.getElementById('lyr');
@@ -110,6 +132,7 @@
         moveTo(lr.right - 18, lr.top + 70);
       }
       await sleep(3000);
+      caption('罗马音', 2);
       if (romajiPane) {
         const rr = romajiPane.getBoundingClientRect();
         moveTo(rr.right - 18, rr.top + 70);
@@ -122,6 +145,7 @@
         return NH.idxAt(NH.au.currentTime) >= a[1];
       }, 20000);
       await sleep(6000);  // 第二句进入播放途中，再留 6 秒
+      caption('跳转', 3);
 
       // 跳到第 15 行；继续播放。
       await click(lineEl(14));
@@ -134,6 +158,7 @@
       const loop = document.getElementById('loop');
       if (!loop) throw new Error('找不到单句循环');
       if (loop.textContent.includes('开')) await click(loop);
+      caption('单句循环：开', 4);
       await click(loop);
 
       // 等到第 17 行确实循环一次：先看到它走过起点，再看到时间回卷。
@@ -147,11 +172,14 @@
         return passed && t < start17 + 0.7;
       }, 12000);
 
-      // 第 17 行循环一次后：关闭循环，等 2 秒再点下一句。
+      // 第 17 行循环一次后：关闭循环，等 8 秒再点上一句。
+      caption('单句循环：关', 5);
       await click(loop);
       await sleep(8000);
+      caption('上一句', 6);
       await click(document.getElementById('prev'));
       await sleep(6000);
+      caption('下一句', 7);
       await click(document.getElementById('next'));
       await sleep(6000);
       NH.au.pause();
