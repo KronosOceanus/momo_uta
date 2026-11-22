@@ -7,30 +7,32 @@ function helpEl(){
   let el=document.getElementById('shortcuthelp');
   if(el) return el;
   el=document.createElement('div'); el.id='shortcuthelp'; el.hidden=true;
-  const k = (...keys) => keys.map(x => `<kbd>${x}</kbd>`).join(' ');
+  const k = (...keys) => keys.map(x => `<kbd>${x}</kbd>`).join('');
+  const plus = '<span class="sk-plus">+</span>';
+  const combo = (...keys) => keys.map(x => `<kbd>${x}</kbd>`).join(plus);
   const sep = ' <span class="sk-sep">/</span> ';
   const sections = [
     ['播放', [
       [k('Space'), '播放 / 暂停'],
-      [k('←') + sep + k('→'), '上一句 / 下一句'],
-      [k('Alt') + sep + k('←') + sep + k('Alt') + sep + k('→'), '上一首 / 下一首'],
-      [k('Shift') + sep + k('←') + sep + k('Shift') + sep + k('→'), '后退 / 前进 10 秒'],
+      [combo('←') + sep + combo('→'), '上一句 / 下一句'],
+      [combo('Alt','←') + sep + combo('Alt','→'), '上一首 / 下一首'],
+      [combo('Shift','←') + sep + combo('Shift','→'), '后退 / 前进 10 秒'],
       [k('M'), '静音'],
-      [k('[') + sep + k(']'), '速度 − / +'],
+      [combo('[') + sep + combo(']'), '速度 − / +'],
       [k('L'), '单句循环'],
-      [k('Shift') + sep + k('L'), '单曲循环'],
+      [combo('Shift','L'), '单曲循环'],
     ]],
     ['LRC 编辑', [
-      [k('Cmd') + sep + k('S'), '保存'],
+      [combo('Cmd','S'), '保存'],
       [k('T'), '翻译列开关'],
       [k('Enter'), '新增一行'],
       [k('Delete'), '删除选中行'],
-      [k('Cmd') + sep + k('A'), '全选行'],
-      [k('Cmd') + sep + k('Z') + sep + k('Shift') + sep + k('Cmd') + sep + k('Z'), '撤销 / 重做'],
+      [combo('Cmd','A'), '全选行'],
+      [combo('Cmd','Z') + sep + combo('Shift','Cmd','Z'), '撤销 / 重做'],
     ]],
     ['全局 / 后台', [
-      [k('⌃') + sep + k('⌥') + sep + k('←') + sep + k('⌃') + sep + k('⌥') + sep + k('→'), '上一首 / 下一首'],
-      [k('⌃') + sep + k('⌥') + sep + k('P'), '播放 / 暂停'],
+      [combo('⌃','⌥','←') + sep + combo('⌃','⌥','→'), '上一首 / 下一首'],
+      [combo('⌃','⌥','P'), '播放 / 暂停'],
     ]],
     ['界面', [
       [k('?'), '打开快捷键帮助'],

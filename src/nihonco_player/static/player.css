@@ -372,7 +372,8 @@ button{white-space:nowrap}
 #shortcuthelp .sk-desc{color:var(--fg-2)}
 #shortcuthelp kbd{display:inline-block;min-width:18px;padding:1px 5px;border:1px solid var(--line-strong);
   border-radius:4px;background:var(--panel-2);color:var(--fg-2);font:11px ui-monospace,monospace;text-align:center}
-#shortcuthelp .sk-sep{color:var(--muted-2);padding:0 1px}
+#shortcuthelp .sk-sep{color:var(--muted-2);padding:0 2px}
+#shortcuthelp .sk-plus{color:var(--muted-2);padding:0 1px;font-size:11px}
 @media (max-width:620px){
   #shortcuthelp .sk-row{grid-template-columns:1fr;gap:2px}
   #shortcuthelp .sk-key{text-align:left;white-space:normal}
