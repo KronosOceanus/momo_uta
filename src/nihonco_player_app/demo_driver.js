@@ -144,7 +144,7 @@
   const panel = document.createElement('div');
   panel.id = 'demo-panel';
   panel.innerHTML = `<b>nihonco uta · demo 1</b>
-    <small>从头播放 → 第 2 句后 6 秒 → 跳第 15 行 → 播到第 17 行 → 循环一次 → 关循环 8 秒 → 上一句 7 秒 → 下一句 7.5 秒 → 暂停。</small>
+    <small>从头播放 → 第 2 句后 3 秒 → 跳第 15 行 → 播到第 17 行 → 循环一次 → 关循环 8 秒 → 上一句 7 秒 → 下一句 7.5 秒 → 暂停。</small>
     <button id="demo-start">开始第一段</button>`;
   document.body.appendChild(panel);
 
@@ -186,7 +186,7 @@
         if (a.length < 2) return false;
         return NH.idxAt(NH.au.currentTime) >= a[1];
       }, 20000);
-      await sleep(6000);  // 第二句进入播放途中，再留 6 秒
+      await sleep(3000);  // 第二句进入播放途中，再留 3 秒
 
       // 跳到第 15 行；继续播放。
       await click(lineEl(14));
