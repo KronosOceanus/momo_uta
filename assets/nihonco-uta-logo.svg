@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <style>.clef{font-family:"Apple Symbols","Bravura","Noto Music","Times New Roman",serif;font-weight:400}</style>
+  </defs>
+  <rect x="52" y="52" width="920" height="920" rx="212" fill="#F4F2ED"/>
+  <rect x="86" y="86" width="852" height="852" rx="182" fill="#0F1115"/>
+
+  <g transform="translate(160 160) scale(.88)">
+    <!-- N：比 H 宽 -->
+    <path fill="#63C6A3" d="M0 0 H50 L150 150 V0 H200 V203 H150 L50 53 V203 H0 Z"/>
+    <!-- H：居中，细黑描边让叠字在缩小后仍能分开 -->
+    <path fill="#C8843F"
+          d="M16 20 H34 V91 H166 V20 H184 V183 H166 V109 H34 V183 H16 Z"/>
+  </g>
+
+  <!-- 更大的白色高音谱号 -->
+  <text x="512" y="715" text-anchor="middle" class="clef" font-size="720" fill="#FFFFFF">𝄞</text>
+</svg>
