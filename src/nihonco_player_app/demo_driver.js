@@ -54,6 +54,19 @@
     const r = el.getBoundingClientRect();
     moveTo(r.left + r.width/2, r.top + r.height/2);
   };
+  // 不按住、不点击，只让光标从上往下滑。
+  const slide = async (x, y1, y2, ms=2200) => {
+    cursor.style.transition = 'none';
+    const t0 = performance.now();
+    while (true) {
+      const p = Math.min(1, (performance.now() - t0) / ms);
+      const e = 1 - Math.pow(1 - p, 3);
+      moveTo(x, y1 + (y2 - y1) * e);
+      if (p >= 1) break;
+      await sleep(16);
+    }
+    cursor.style.transition = '';
+  };
   const click = async el => {
     if (!el) throw new Error('demo: 找不到目标元素');
     el.scrollIntoView({block:'center', behavior:'smooth'});
@@ -102,17 +115,22 @@
       await sleep(1000);  // 播放前停顿 1 秒
       await NH.au.play().catch(() => {});
 
-      // 播放开头：光标先停在左侧歌词栏，3 秒后移到右侧罗马音栏。
+      // 播放开头：光标在左侧歌词栏从上往下滑，再移到右侧罗马音栏下滑。
       const lyricPane = document.getElementById('lyr');
       const romajiPane = document.getElementById('rmcol');
       if (lyricPane) {
         const lr = lyricPane.getBoundingClientRect();
-        moveTo(lr.right - 18, lr.top + 70);
+        const x = lr.right - 18;
+        moveTo(x, lr.top + 30);
+        await sleep(250);
+        await slide(x, lr.top + 30, lr.bottom - 30, 2400);
       }
-      await sleep(3000);
       if (romajiPane) {
         const rr = romajiPane.getBoundingClientRect();
-        moveTo(rr.right - 18, rr.top + 70);
+        const x = rr.right - 18;
+        moveTo(x, rr.top + 30);
+        await sleep(250);
+        await slide(x, rr.top + 30, rr.bottom - 30, 2400);
       }
 
       // 第一句放完、第二句播放途中：用 NAV 的第二个实际歌词行判断。
