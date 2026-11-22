@@ -168,7 +168,12 @@
       await sleep(500);
       const target = afterReset && (afterReset.querySelector('.bc[data-base="何"]')
         || afterReset.querySelector('[data-base="何"]'));
-      if (target) move(target);
+      if (target) {
+        // 停在「何」同一行、歌词栏右侧空白处，不压住任何字。
+        const tr = target.getBoundingClientRect();
+        const lr = document.getElementById('lyr').getBoundingClientRect();
+        moveTo(lr.right - 18, tr.top + tr.height / 2);
+      }
 
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
     } catch (e) {
