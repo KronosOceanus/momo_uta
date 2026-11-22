@@ -149,7 +149,7 @@
 
       // 第 17 行循环一次后：关闭循环，等 2 秒再点下一句。
       await click(loop);
-      await sleep(2000);
+      await sleep(5000);
       await click(document.getElementById('next'));
       await sleep(5000);
       await click(document.getElementById('prev'));
