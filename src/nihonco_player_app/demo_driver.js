@@ -99,7 +99,21 @@
       await NH.load(song.uid, false);
       await wait(() => NH.S && String(NH.S.uid) === String(song.uid) && !NH.viewMatching());
       NH.au.currentTime = 0;
+      await sleep(1000);  // 播放前停顿 1 秒
       await NH.au.play().catch(() => {});
+
+      // 播放开头：光标先停在左侧歌词栏，3 秒后移到右侧罗马音栏。
+      const lyricPane = document.getElementById('lyr');
+      const romajiPane = document.getElementById('rmcol');
+      if (lyricPane) {
+        const lr = lyricPane.getBoundingClientRect();
+        moveTo(lr.right - 18, lr.top + 70);
+      }
+      await sleep(3000);
+      if (romajiPane) {
+        const rr = romajiPane.getBoundingClientRect();
+        moveTo(rr.right - 18, rr.top + 70);
+      }
 
       // 第一句放完、第二句播放途中：用 NAV 的第二个实际歌词行判断。
       await wait(() => {
