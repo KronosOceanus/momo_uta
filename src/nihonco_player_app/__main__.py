@@ -40,7 +40,7 @@ def _run_demucs() -> None:
     demucs_main()
 
 
-def main() -> None:
+def main(demo: bool = False, demo_auto: bool = False) -> None:
     from nihonco_player.core import diag
     diag.log("app", f"frozen={getattr(sys, 'frozen', False)} exe={sys.executable} bundle={BUNDLE}")
     _bundle_path()
@@ -170,6 +170,9 @@ def main() -> None:
         min_size=tuple(APP["window_min"]), js_api=Api(),
     )
     window_ref["window"] = window
+    if demo:
+        from nihonco_player_app import demo as DEMO
+        DEMO.install(window, auto=demo_auto)
 
     def on_hotkey(name):
         js = {"prev": "NH.mediaPrev && NH.mediaPrev()",
@@ -203,4 +206,4 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--nihonco-demucs":
         _run_demucs()
     else:
-        main()
+        main(demo="--demo" in sys.argv, demo_auto="--demo-auto" in sys.argv)
