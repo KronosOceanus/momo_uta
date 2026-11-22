@@ -69,6 +69,11 @@ def annotate_line_with_notes(text: str, extra_start: int | None = None,
     base = AN.annotate(clean)
     segs = base["lines"][0]["segments"]
     ov = {}
+    # 文件里的旧读音先铺底；本次用户选择必须最后覆盖它。
+    if stored:
+        got = _stored_overrides(clean, segs, stored)
+        if got is not None:
+            ov.update({k: v for k, v in got.items() if v})
     for start, kana in notes.items():
         seg = next((x for x in segs if x["start"] == start), None)
         if seg:
@@ -81,10 +86,6 @@ def annotate_line_with_notes(text: str, extra_start: int | None = None,
         seg = next((x for x in segs if x["start"] == start), None)
         if seg:
             ov[f"o:0-{seg['word']}"] = kana
-    if stored:
-        got = _stored_overrides(clean, segs, stored)
-        if got is not None:
-            ov.update({k: v for k, v in got.items() if v})
     return AN.annotate(clean, ov) if ov else base
 
 

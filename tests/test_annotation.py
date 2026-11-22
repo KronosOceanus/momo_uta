@@ -21,6 +21,13 @@ class TestAnnotation(unittest.TestCase):
         self.assertIn("kimi", f["rm"])
         self.assertIn("<ruby", f["ruby"])
 
+    def test_manual_reading_overrides_stored_segments(self):
+        stored = A.segs_of(A.annotate_line_with_notes("君の名前"))
+        r = A.annotate_line_with_notes("君の名前", stored=stored,
+                                       extra_start=0, extra_reading="きみだ")
+        self.assertIn("きみだ", A.ruby_html(r))
+        self.assertIn("kimi", A.words_html_of(r, "romaji"))
+
     def test_stored_segments_match_engine(self):
         clean, _ = A.strip_paren_ruby("君の名前")
         segs = A.AN.annotate(clean)["lines"][0]["segments"]
