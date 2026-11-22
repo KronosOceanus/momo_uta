@@ -1,667 +1,454 @@
-# 架构
+# 架构与边界
 
-> 读者：要加功能、改数据流、判断"这段代码该放哪"的人。
-> 定位：分层、目录、边界规则、一次请求怎么走。
-> 自成一体：不依赖其它文档；具体的格式/算法细节由各模块文档展开。
+> 当前代码快照。读者：要加功能、改数据流、判断“这段代码该放哪”的维护者。
+> 本文只写边界和流程；字段格式、翻译规则、播放器状态机放专题文档。
 
 ## 0. 三十秒版本
 
 ```text
 桌面应用 = pywebview 窗口 + 本机 HTTP 服务
 
-请求方向：
-  前端（window.NH） → HTTP（routes） → service（编排） → core（数据/规则）
-                                                        ↘ nihonco_yomi（纯计算）
+依赖向下：
+  app → http → service → core → yomi
 
-依赖只能向下，不能反向。
-scripts/check_arch.py 用 AST 检查，`make test` 会跑。
+请求：
+  NH → HTTP → service → core / yomi → data/
+
+三条硬约束：
+  1. 数据有唯一归属
+  2. 异步结果必须能判断归属
+  3. 权威文件和可重建缓存不能混写
+```
+
+## 1. 分层与依赖规则
+
+### 1.1 依赖图
+
+```text
+nihonco_player_app        桌面壳：起服务、开窗口、文件对话框、全局热键
+        │
+        ▼
+nihonco_player.http       路由、静态文件、Range、页面装配
+        │
+        ▼
+nihonco_player.service    单曲、歌词、歌单、任务、主题的编排
+        │
+        ▼
+nihonco_player.core       数据、文件、缓存、网络、进程
+        │
+        ▼
+nihonco_yomi              注音计算与运行时资源
 ```
 
 ```text
-五个包：
-  nihonco_yomi        纯计算：注音、罗马音、词表、不变式
-  nihonco_player.core 数据与规则：曲库、歌词、指纹、歌单、人声、波形
-  nihonco_player.service 编排：单曲、LRC、歌单
-  nihonco_player.http 协议：路由、静态文件、音频流
-  nihonco_player_app  桌面壳：起服务、开窗口、文件对话框
+允许向下跨层，不允许反向。
 ```
 
-## 1. 目标与边界
+`scripts/check_arch.py` 实际检查的禁止前缀：
 
 ```text
-是什么：
-  · 本地优先的日语歌词练习播放器
-  · 一个进程、一个窗口、一个本机端口
-  · 数据在 data/；歌词标注是用户资产
-
-不是什么：
-  · 不是多用户服务（没有登录、没有数据库、没有远程 API 暴露）
-  · 不是前端框架项目（没有打包器，五个 classic script）
-  · 不是流式音频服务（整首解码进内存）
+nihonco_yomi       × nihonco_player* / nihonco_player_app
+core               × service / http / app
+service            × http / app
+http               × app
 ```
 
+检查器只做 Python 静态 import 前缀检查：
+
 ```text
-三条设计约束：
-① 纯计算与 IO 分开
-   引擎不知道文件、网络、HTTP；core 不知道 HTTP；service 不知道窗口
-② 数据有单一归属
-   曲库/歌词/歌单/人声/波形各自有明确的读写模块
-③ 前端只有一个全局
-   window.NH；五个脚本按顺序加载，共享这个命名空间
+· 不检查运行时动态 import
+· 不检查行为
+· 不检查前端
 ```
 
-## 2. 分层与依赖规则
+团队约定比检查器更细：
 
 ```text
-┌──────────────────────────────┐
-│ nihonco_player_app（桌面壳）  │  webview、文件对话框、日志
-└──────────────┬───────────────┘
-               │ 调用
-┌──────────────▼───────────────┐
-│ nihonco_player.http           │  路由、静态文件、Range
-└──────────────┬───────────────┘
-               │ 调用
-┌──────────────▼───────────────┐
-│ nihonco_player.service        │  song / lrc / playlist
-└──────────────┬───────────────┘
-               │ 调用
-┌──────────────▼───────────────┐
-│ nihonco_player.core           │  数据、文件、网络、缓存
-└──────────────┬───────────────┘
-               │ 调用
-┌──────────────▼───────────────┐
-│ nihonco_yomi                  │  纯计算，无 IO
-└──────────────────────────────┘
+HTTP 直接 import core 是允许的；
+routes 中确实有 library / diag 这类只读辅助引用。
+默认仍优先 service，直接引用 core 只用于协议层辅助。
 ```
 
+### 1.2 请求链
+
 ```text
-硬规则（check_arch.py）：
-  1. nihonco_yomi 不能 import 任何 nihonco_player*
-  2. core 不能 import service / http
-  3. service 不能 import http
-  4. http 不能 import nihonco_player_app
+前端 window.NH
+  → /api/*
+  → http.routes
+  → service.*
+  → core.*
+  → nihonco_yomi 或 data/
 ```
 
+`nihonco_player_app` 不参与请求链。它只负责启动 HTTP 服务、创建窗口、提供本地文件对话框和系统级热键。
+
+### 1.3 yomi 的定位
+
+准确说法：
+
 ```text
-违反时：make test 直接失败，输出"哪一行 import 了谁"。
-目的不是洁癖，而是保证：
-  · 引擎可以单独跑评测/命令行
-  · core 可以在没有服务端的情况下被测试
-  · service 可以被脚本直接调用
+注音引擎与运行时资源
 ```
 
-## 3. 目录
+不是严格的无 IO 纯函数包：
 
 ```text
-src/
-├── nihonco_yomi/               纯计算
-│   ├── annotate.py             分词 → 片段 → 档位
-│   ├── kana.py                 假名/汉字判定
-│   ├── romaji.py               罗马音
-│   ├── render.py               键位/展示
-│   ├── invariants.py           I1–I8 不变式
-│   ├── counters.py             覆盖率/档位统计
-│   ├── llm.py                  LLM 辅助（可选）
-│   ├── thresholds.py           设计阈值（A 类）
-│   ├── config.py              运行参数（B 类）
-│   ├── paths.py                路径常量
-│   ├── common.py               共享小工具
-│
-├── nihonco_player/
-│   ├── core/                   数据与规则
-│   │   ├── library.py          扫库、CACHE、refresh、标签
-│   │   ├── lyrics.py           歌词门面（fetch/cache/text 的聚合）
-│   │   ├── lyrics_fetch.py     网易云候选 / 过滤 / 抓取
-│   │   ├── lyrics_text.py      名称/语言/打分/排除
-│   │   ├── lyrics_cache.py     歌词缓存读写
-│   │   ├── lrc_doc.py          LRC/nhlrc 格式（纯函数）
-│   │   ├── lrc_files.py        data/lyrics 读写、备份
-│   │   ├── fsio.py             原子写 / JSON / 文件锁
-│   │   ├── annotation.py       行 → seg、对齐、渲染
-│   │   ├── annotation_cache.py 单行注音显示缓存
-│   │   ├── fingerprint.py      音频指纹 + 索引
-│   │   ├── song_meta.py        整体偏移/标签元数据
-│   │   ├── playlists.py        歌单文件
-│   │   ├── importing.py        导入配对
-│   │   ├── vocals.py           demucs 队列 + VAD
-│   │   ├── waveform.py         峰值
-│   │   └── diag.py             诊断日志（含 traceback）
-│   │
-│   ├── service/                编排
-│   │   ├── song.py             载荷、改读音、匹配、选候选
-│   │   ├── lrc.py              编辑模式读写、导入导出、备份
-│   │   └── playlist.py         歌单增删改、导入、打标
-│   │
-│   ├── http/
-│   │   ├── routes.py           路由与参数校验
-│   │   ├── server.py           ThreadingHTTPServer
-│   │   └── static.py           静态文件 + Range
-│   │
-│   ├── static/                 前端（无构建）
-│   │   ├── player.html
-│   │   ├── player.css
-│   │   ├── 05-audio.js         音频引擎
-│   │   ├── 06-state.js         查看歌曲的加载/匹配状态机
-│   │   ├── 10-app.js           状态/载入/波形/人声/提示
-│   │   ├── 20-editor.js        LRC 打轴
-│   │   └── 30-playback.js      时间语义/播放条/高亮
-│   │
-│   └── web.py                  页面装配 + 注入 __CFG
-│
-├── nihonco_player_app/         桌面壳
-│   ├── __main__.py             起服务、开窗口、文件对话框
-│   └── logsetup.py             日志文件/异常钩子
-│
-config/defaults.json            仓库默认运行参数
-data/                           运行数据（见 §10）
-docs/                           文档
-scripts/check_arch.py           分层检查
-scripts/check_js.py             前端完整性检查
-tests/                          Python + Node 测试
-tools/                          建表/评测/演示
+config.py     读 config/defaults.json + data/config.json
+paths.py      路径常量
+annotate.py   延迟加载 Sudachi 词典
+llm.py        可选的 LLM 网络调用
 ```
 
-## 4. 引擎层 `nihonco_yomi`
+计算核心仍然是：
 
 ```text
-输入：日文歌词行（字符串）
-输出：片段序列 [{base, ruby, level}]、罗马音、键位、覆盖率
+annotate / romaji / render / kana / counters / invariants / thresholds
+```
 
-不碰：
-  · 文件系统（除了 paths 常量）
-  · 网络
-  · 曲库/歌单/HTTP
+## 2. 数据归属
 
-所以它可以：
-  · 在命令行单独跑（stdio）
-  · 在评测里批量跑（eval/）
-  · 在 core 里被 annotation.py 调用
+### 2.1 权威数据
+
+| 数据 | 身份键 | 写入者 | 删除后的行为 |
+|---|---|---|---|
+| `data/lyrics/*.nhlrc` | uid | `lrc_files`（经 service） | 写 disabled 文档，仍是用户选择 |
+| `data/curated/playlists.json` | list id | `playlists` | 默认歌单仍存在 |
+| `data/curated/song_meta.json` | uid | `song_meta` | offset 回到 0 |
+| `data/curated/imports.json` | 音频路径 | `library` | 导入历史丢失 |
+| `data/config.json` | 配置路径 | `user_config` | 回到 `config/defaults.json` |
+
+### 2.2 可重建缓存
+
+| 数据 | 身份键 | 写入者 | 删除后的行为 |
+|---|---|---|---|
+| `data/cache/lyrics/*.json` | 标题 + 歌手 | `lyrics_fetch` | 重新联网匹配 |
+| `data/cache/annotations/*.json` | 版本 + 行文本 + stored | `annotation_cache` | 重新注音 |
+| `data/cache/wave/*.json` | 音频 + source + 参数 | `waveform` | 重新算峰值 |
+| `data/cache/library_index.json` | 文件路径 | `library_index` | 重新扫库 |
+| `data/cache/fingerprints.json` | 文件路径 | `fingerprint` | 重新算指纹 |
+| `data/vocals/<uid>/` | uid | `vocals` | 重新分离（很贵） |
+
+```text
+data/cache 可随时删。
+data/vocals 可重建，但成本高。
+data/tables、data/sources、data/corpus、eval/ 是仓库/评测数据，不是播放器运行数据。
+```
+
+### 2.3 `.nhlrc` 内部
+
+```text
+正文       原文，权威
+lines      读音，i + h
+trans      翻译，i + h + text
+trans_lang 翻译语言，当前默认 zh
+disabled   持久化的“用户删除了这首歌的歌词”
 ```
 
 ```text
-两类参数要分清：
-
-A 类：设计阈值
-  位置：nihonco_yomi/thresholds.py
-  例子：MIN_CORPUS_N、SINGLE_READING_SHARE、语料统计下限
-  含义：决定 A/AB/B 的切法
-  改了必须重跑 make stats 和三套评测
-
-B 类：运行参数
-  位置：config/defaults.json + data/config.json
-  例子：时长差、搜索上限、人声队列/执行超时、波形采样率、窗口尺寸
-  含义：不改判定规则，只调行为
-  改了重启（或刷新页面）生效
-
-paths.py 只放路径常量，不放逻辑。
+正文、读音、翻译都属于权威歌词文档。
+disabled 也是持久化用户选择，不是缓存。
 ```
 
-## 5. `core`：数据与规则
-
-### 5.1 模块分组
+### 2.4 身份
 
 ```text
-曲库
-  library.py      扫目录、条目、CACHE、标签
-  fingerprint.py  音频身份（uid）
-  song_meta.py    整体偏移、展示用元数据
-
-歌词来源
-  lyrics.py       门面：fetch + cache + text 的聚合
-  lyrics_fetch.py 网易云候选 / 过滤 / 抓取
-  jobs.py         统一任务表（vocals/match/rebuild）
-  lyrics_text.py  名称归一、语言、打分、排除
-  lyrics_cache.py 缓存文件
-
-歌词文件
-  lrc_doc.py      纯格式：解析/渲染/校验/对齐
-  lrc_files.py    data/lyrics 路径、读写、备份
-  annotation.py   行文本 → seg（调用引擎）
-
-播放器数据
-  playlists.py    歌单 JSON
-  importing.py    文件配对
-  vocals.py       人声分离队列
-  waveform.py     波形峰值
-  diag.py         诊断日志（log / exception）
+uid   歌曲身份，也是 offset 的键
+idx   曲库展示位置，不是身份
+key   历史字段，不再作为 offset / 身份
 ```
 
+### 2.5 歌词缓存与翻译
+
 ```text
-core 的特点：
-  · 可以直接被脚本/测试调用，不需要 HTTP
-  · 不返回 HTML；只返回数据/路径/状态
-  · 文件写入集中在少数模块（lrc_files / playlists / cache / meta）
+data/cache/lyrics 里的 tlyric 只是抓取结果。
+没有 .nhlrc 时，tlyric 可用于显示。
+pick / 保存后，翻译才进入 .nhlrc 的 trans。
+有 .nhlrc 但没有 trans 时，不自动回填缓存翻译。
 ```
 
-### 5.2 曲库与 `CACHE`
+## 3. 模块地图
+
+### nihonco_yomi
 
 ```text
-CACHE：idx(str) → 条目（只负责列表顺序）
-BY_UID：uid → 同一份条目（唯一歌曲身份）
-  条目字段：
-    key       md5(文件名主干)[:12]        用于标签/偏移等"按歌"的元数据
-    uid       音频指纹                    用于歌词/歌单/人声
-    file      绝对路径
-    stem      文件名主干
-    title/artist/orig
-    has_lyric 是否有可用歌词（nhlrc 优先，其次缓存；网络歌词需时间轴）
-    source/lang/suspect
-    group     所在目录
-
-idx 是"当前会话里的位置"：
-  每次全量扫库都可能变；不能持久化，不能当身份。
-
-发布：
-  _publish() 构建新 idx 表 + BY_UID；
-  加锁 update + 删除旧 key，不先 clear。
-
-读/写接口只用 LIB.resolve(uid)：
-  只查 BY_UID；idx 不是身份。
+annotate       分词 → 片段 → 档位 → 整行注音
+romaji         罗马音 / IME 键位
+render         片段 → HTML
+kana           假名判定
+counters       数词读音
+invariants     不变式
+thresholds     设计阈值
+config         运行参数
+paths          路径常量
+llm            可选 LLM 消歧
 ```
 
+### core
+
 ```text
-refresh(uid)：
-  uid 在 CACHE 里 → 只重算这一条（不扫全库、序号不变）
-  uid 不在 → 尝试索引/imports 补一条；找不到不扫全库
-
-重建/启动加载：
-  _publish() 一次性发布新 CACHE + BY_UID
-  并发读不会看到 clear 后的空表
-
-refresh 与同内容副本：
-  某个路径内容变了，先更新该条；
-  如果 CACHE 里还有别的副本持有旧 uid，
-  BY_UID[旧 uid] 继续指向剩余副本；
-  选择剩余副本前要 force 重算指纹，
-  文件不存在或指纹不匹配的副本不能使用；
-  没有 live 副本才移除旧 uid。
-
-歌词文档状态：
-  nhlrc 有正文 → 显示本地歌词
-  nhlrc disabled=true → 显示无歌词，跳过缓存和自动匹配
-  没有 nhlrc → 可读网络缓存或触发自动匹配
-  delete 写 disabled；save/import/pick/restore 重新启用。
-
-load_for_playlists()（启动用）：
-  读 playlists.json 的所有成员 uid
-  用指纹索引 / library_index.json 反查 uid → 路径
-  只加载歌单引用到的 imports，不加载无关 imports
-  只对这些路径建 CACHE；不递归 music_dirs
-  缺失 uid 只记入 LAST_MISSING，不在此处全量扫
-
-自动重建：
-  启动后前端看到 auto_rebuild（有缺失）→ 空闲 8 秒后
-  POST /api/pl {action:"library_rebuild"}
-  → scan_library() 全量扫一次 + 裁剪索引
-  → 记录 last_missing / last_rebuild / last_recovered
-  → 同一缺失集合且上次没找回，不再自动重试
-
-scan_library()：
-  按 music_dirs 递归；扩展名来自 library.extensions
-  + data/curated/imports.json 里登记的导入文件
-  用指纹索引避免每次重算
-  全量扫描后裁剪 library_index / fingerprints 的失效路径
-  仍用于测试、显式全量重建和自动重建
+曲库     library / library_index / fingerprint
+歌词     lyrics / lyrics_fetch / lyrics_text / lyrics_cache
+格式     lrc_doc / lrc_files
+注音     annotation / annotation_cache
+歌单     playlists
+属性     song_meta
+导入     importing
+任务     jobs / vocals
+其它     waveform / fsio / diag / user_config
 ```
 
-### 5.3 三个 id 不要混
+### service
 
 ```text
-uid    音频指纹：所有读写/播放/任务的主身份
-idx    纯展示位置：列表 data-i、排序
-key    md5(文件名主干)：标签、整体偏移等按歌元数据
+song       载荷、改读音、匹配、pick
+lrc        编辑、保存、导入导出、备份
+playlist   歌单动作、导入、ui_offset
+jobs       任务编排
+settings   主题校验与持久化编排
+```
+
+### http
+
+```text
+routes     路由、参数校验、JSON 结果
+server     ThreadingHTTPServer
+static     静态文件与 Range
+web        页面装配 + __CFG + data-theme
+```
+
+### app
+
+```text
+__main__   起服务、开窗口、文件对话框、关闭隐藏
+logsetup   日志与异常钩子
+hotkeys    macOS 全局快捷键
+```
+
+### static
+
+```text
+05-audio       AudioEngine
+06-state       查看歌曲状态机
+10-app         状态、加载、波形、toast、主题
+11-vocals      人声任务
+12-library     歌单、多选、拖拽、导入
+20-editor      LRC 编辑 + picker
+30-playback    时间语义、播放条、高亮、循环
+40-shortcuts   应用内快捷键分发
+```
+
+## 4. 请求与数据流
+
+### 4.1 GET `/api/song/<uid>`
+
+```text
+NH.load
+  → GET /api/song/<uid>
+  → service.song.song_payload
+  → core.lrc_files.load
+      有 nhlrc：正文 + lines + trans
+      无 nhlrc：歌词缓存；tlyric 按时间配对
+  → core.annotation_cache.line_fields（逐行）
+      命中：直接返回
+      未命中：调用 yomi 引擎，再写缓存
+  → payload lines：ruby / rm / ky / rmH / kyH / trans
 ```
 
 ```text
-所有歌曲接口只传 uid：
-  /api/song/<uid>
-  /api/wave/<uid>
-  /audio/<uid>
-  /api/lrc、/api/line、/api/rematch、/api/pick、/api/jobs 用 body.uid
+disabled 分支：直接返回空歌词，不注音、不联网。
+```
 
-idx 只用于列表显示和 DOM；
-任何读写都不接受 idx。
+### 4.2 POST `/api/rematch`
+
+```text
+rematch
+  → 搜索候选
+  → 读取当前歌词（get_lrc，可能触发当前歌自动匹配并写歌词缓存）
+  → 不抓列表里候选的正文
+  → 不写 nhlrc
 ```
 
 ```text
-一个常见错误：把 idx 写进歌单。
-idx 每次启动都可能变；歌单只存 uid。
+候选正文只在用户 pick 时抓取。
+lazy_match 也会抓当前歌正文并写缓存。
 ```
 
-## 6. `service`：编排
+
+### 4.3 POST `/api/pick`
 
 ```text
-service 只做"把 core 的步骤串起来"，不实现具体规则：
-  · 读哪个文件、调用哪个 core 函数、按什么顺序
-  · 返回前端要的载荷/结果
-  · 不解析 HTTP，不碰窗口
-```
-
-### 6.1 song
-
-```text
-song_payload(uid)
-  曲库条目 → 歌词（data/lyrics 或缓存）→ 内存逐行注音（不写 nhlrc）
-  → {uid, idx, title, artist, lines, offset, audio, pending?}
-
-edit_line_action(req)  // req.uid 优先
-  改一处读音 → 重算该行 → 立即写 nhlrc → 返回新 ruby/rm/ky
-
-rematch(uid, duration)
-  候选只来自网络（网易云）→ 返回前 10
-
-pick(uid, id)
-  网络歌词重写当前 nhlrc 正文（备份、读音重来）
-
-lazy_match(item)
-  强制联网取歌词 → 只写歌词缓存 → 刷新曲库；disabled 时跳过
-```
-
-### 6.2 lrc
-
-```text
-lrc_action(req)：
-  load      读当前歌词（rows + metadata）
-  save      锁内读改写 + version 校验 + 备份 + 原子写 nhlrc
-  backup    查 .bak 是否存在/时间/行数
-  restore   version 校验后用 .bak 原子覆盖（重新启用）
-  export    生成 nhlrc 与纯 lrc 两种文本
-  import_lrc 直接原子写 nhlrc（重新启用）
-  delete    原子写 disabled nhlrc；保留 .bak，可恢复
-```
-
-### 6.3 playlist
-
-```text
-playlists_action(req)：
-  list_create / list_rename / list_delete / list_clear
-  entry_remove / entry_move / entries_move / entry_reorder / list_reorder
-  ui_open / ui_offset
-  match（懒匹配）
-  ui_offset/edit_clear/match 找不到 uid 时返回 ok:false，
-  不能静默成功
-  edit_clear（清空标注，恢复默认）
-  import（导入音频/歌词，走 import_to_list）
-
+pick
+  → fetch_lyrics_by_id
+  → 一次显式返回 {lrc, tlyric}
+  → tlyric 按时间/行序配对原文
+  → save_lyrics(mode="replace")
+  → 重写 nhlrc
 ```
 
 ```text
-所有 action 都是"一个 req dict 进、一个 dict 出"，
-方便 HTTP 和脚本共用。
+旧读音不保留。
+旧翻译不保留。
+新翻译随候选正文一起写入。
 ```
 
-## 7. `http`：协议层
+### 4.4 LRC 保存
 
 ```text
-routes.py 只做三件事：
-  ① 解析路径/JSON
-  ② 校验必填字段（缺失 400）
-  ③ 转发给 service，JSON 返回
-
-JSON 统一带 ok：
-  成功 {ok:true,...}
-  业务失败 {ok:false,error,...}
-  版本冲突 → 409 + {ok:false,conflict:true,...}
-  协议错误 → 400/500
-```
-
-### 7.1 路由
-
-```text
-GET
-  /                       页面（注入 __CFG）
-  /static/*               前端静态文件
-  /api/song/<uid>         单曲载荷
-  /api/pl                 歌单列表
-  /api/library            曲库列表 + uid
-  /api/wave/<uid>[?src=vocals]  波形峰值
-  /api/jobs/<id>          统一任务状态
-  /api/jobs/active        当前活动 vocals 任务
-  /audio/<uid>            音频流（Range）
-
-POST
-  /api/pl                 playlists_action
-  /api/line               改一处读音
-  /api/rematch            重新匹配候选
-  /api/pick               选中候选
-  /api/import/one         导入
-  /api/lrc                LRC 编辑（uid）
-  /api/jobs               启动 vocals / match / rebuild 任务
-  /api/jobs/<id>/cancel   取消单个 vocals 任务
-  /api/jobs/cancel_all    取消所有 vocals 任务
-  /api/log                前端未捕获错误写 app.log
+POST /api/lrc {action:save, lines, version}
+  → service.song.save_lyrics
+  → 对齐 annotations / translations
+  → lrc_files.save（版本校验 + 备份 + 原子替换）
 ```
 
 ```text
-必填字段在 REQUIRED 表里声明：
-  缺了直接 400，返回 {"ok":false,"error":"缺少参数：…"}
-
-HTTP 边界：
-  handler 抛意外异常 → diag.exception("http", ...) 写 traceback
-  → 前端收到 {"ok":false,"error":"内部错误"} 500
-  已解析/缺参/业务可预期错误不走这个兜底
-  不让 service 里出现 KeyError/None 兜底
+lines 里每行可带 trans。
+trans 不进入正文，只进入 nhlrc 尾部。
 ```
 
-### 7.2 音频与静态
+### 4.5 offset / 本机配置
 
 ```text
-/audio/<uid>：
-  按 uid 解析；支持 Range（206），按 64KB 分块写
-  Content-Type 按扩展名映射
-  前端 WebAudio 需要整文件 fetch，但 Range 仍保留给浏览器/调试
+ui_offset
+  → service.playlist
+  → song_meta.put(uid, offset)
 
-/static/*：
-  只读、防目录穿越、文本按 UTF-8
+song_payload
+  → song_meta.get(uid, offset)
+
+POST /api/theme
+  → service.settings
+  → core.user_config
+  → data/config.json
 ```
 
-### 7.3 错误约定
+### 4.6 人声任务
 
 ```text
-HTTP 层：
-  400  参数缺失 / 非法 JSON
-  404  未知路径 / 未知歌曲 / 音频文件不存在
-  200  正常；业务失败用 {"ok":false,"error":"…"} 表达
-
-service 层：
-  不抛业务异常给前端；返回 {ok/error} 或 {error}
-```
-
-## 8. 桌面壳 `nihonco_player_app`
-
-```text
-启动顺序：
-  ① logsetup.setup()：日志文件 + sys.excepthook
-  ② load_cache_for_playlists() → 只加载歌单成员和被引用的 imports
-  ③ make_server(0)：随机端口，只绑 127.0.0.1
-  ④ 后台线程 serve_forever
-  ⑤ webview.create_window + start
+POST /api/jobs
+  → service.jobs
+  → core.jobs（job 生命周期）
+  → core.vocals（队列、进程、分离）
 ```
 
 ```text
-窗口里的前端通过 window.pywebview.api 调本机能力：
-  pick_any()       一个对话框选文件/文件夹/多个
-  save_text(name, nhlrc, lrc)  导出；.lrc 扩展名写纯 LRC
-  pick_lrc_text()  选歌词文件并读文本
+job.state 是任务生命周期。
+job.stage 是人声执行阶段。
+job 已经 running，VOC 仍可能是 queued。
+```
+
+## 5. 写入、并发与版本
+
+| 保护 | 解决的问题 |
+|---|---|
+| `fsio.atomic_write` | 单文件替换不出现半写 |
+| `fsio.locked` + `LRC.LOCK` | 歌词读改写线程/进程串行 |
+| `expected_version` | 拒绝过期草稿 |
+| `SAVE_PENDING` | 当前会话的保存串行 |
+| `LRC_REPLACING` | 替换/删除期间禁止切歌 |
+| `NH.track(domain)` | 旧异步响应不能改当前状态 |
+| `AudioEngine._loadSeq` | 旧 fetch/decode 不能写当前 buffer |
+
+必须区分：
+
+```text
+token        请求归属（load / wave / lrcOpen / seek）
+SAVE_PENDING 保存队列
+LRC_REPLACING 排他锁
 ```
 
 ```text
-为什么用随机端口：
-  避免固定端口冲突；服务只在本机回环地址。
+AudioEngine._loadSeq 保留实例内序号，不提升为全局。
 ```
 
-## 9. 前端
+## 6. 前端状态
+
+### 6.1 例子：查看 B，播放 A
 
 ```text
-没有构建步骤：
-  player.html 按顺序加载五个 classic script
-  每个脚本是一个 IIFE，只通过 window.NH 暴露
-  check_js.py 会检查：
-    · 每个文件语法
-    · 五个文件拼起来语法（抓跨文件重复定义）
-    · 必须是 IIFE
-    · 必须取 window.NH
+NH.S = B           当前查看
+NH.PLAYING_UID = A 当前播放
 ```
 
 ```text
-分工：
-  05-audio.js    AudioEngine：解码、播放、seek、变速、音量
-  06-state.js    当前歌曲的加载/匹配纯状态机
-  10-app.js      状态、曲库/歌单、载入、波形、人声、toast
-  20-editor.js   LRC 表格、打轴、保存、导入导出
-  30-playback.js 时间语义、播放条、高亮、循环、键盘
+切换播放源不等于切换查看页面。
+句级操作可能把页面带回 A。
+```
 
-共享状态都在 NH 上：
-  NH.S / NH.LINES / NH.WAVE / NH.VIEW / NH.VIEW_MODE …
+### 6.2 例子：关闭翻译列后保存
+
+```text
+NH.TRANS_EDIT = false
+EROWS[i].trans 仍然存在
+lrcPayload() 仍然携带 trans
+保存不会清空翻译
+```
+
+### 6.3 变量表
+
+| 变量 | 归属 |
+|---|---|
+| `NH.S` | 当前查看歌曲 |
+| `NH.PLAYING_UID` | 当前播放歌曲 |
+| `NH.VIEW_MODE` | `normal` / `lrc` / `kana` |
+| `NH.LINES` | 普通页歌词 |
+| `NH.EROWS` | LRC 编辑行（含 trans） |
+| `NH.LRC_VERSION` | 文档版本 |
+| `NH.SELU` | 歌单多选 |
+| `NH.loop` / `NH.LOOP_ROW` | 单句循环 |
+| `NH.TRANS_EDIT` | 翻译列开关，不是数据 |
+| `NH.REQ` | 请求 domain 序号 |
+| `NH.SAVE_PENDING` | 保存队列 |
+| `NH.LRC_REPLACING` | 替换排他锁 |
+
+### 6.4 快捷键
+
+```text
+应用内：40-shortcuts.js
+全局：nihonco_player_app/hotkeys.py（⌃⌥←/→/P）
 ```
 
 ```text
-配置注入：
-  web.page() 把 config 整个塞进 window.__CFG
-  前端只读，不在前端写配置
+输入框、按钮、对话框、IME 组词中不抢键。
 ```
+
+## 7. 检查与测试
 
 ```text
-DOM 约定：
-  左栏 .ln、右栏 .ln2、编辑表格 .lerow
-  状态用 class（.on/.sel/.picked/.dirty）而不是内联样式
+改分层 / import
+  → make arch
+
+改 nhlrc / 翻译 / offset / 数据归属
+  → Python 领域测试
+
+改切歌 / 保存 / 音频时序
+  → 前端 VM 测试
+
+跨层交付
+  → make test
 ```
 
-## 10. 数据布局
+检查器能力：
 
 ```text
-data/
-├── lyrics/            歌词标注（nhlrc）        进 git（用户资产）
-├── vocals/            人声分离结果             不进 git（可重算但贵）
-├── cache/             可重建缓存               不进 git
-│   ├── lyrics/        歌词抓取缓存
-│   ├── annotations/   单行注音显示缓存
-│   ├── wave/          波形峰值
-│   ├── fingerprints.json 路径→指纹索引
-│   └── app.log
-├── curated/           人工/运行维护的数据       进 git
-│   ├── playlists.json、song_meta.json
-│   ├── imports.json（导入的音频路径）
-│   ├── lyrics_exclude.json、counters.json、glossary_lyrics.json
-│   └── *.lock         文件锁                   不进 git
-├── config.json        本机配置覆盖             不进 git
-├── sources/           原始下载                 不进 git
-├── corpus/            语料统计                 不进 git
-└── tables/            词典机械抽取             不进 git
+check_arch.py
+  Python 静态 import 前缀
+  不查动态 import / 行为 / 前端
+
+check_js.py
+  语法
+  IIFE / window.NH 命名空间
+  多文件拼接后的重复定义
+  不查运行时行为
 ```
+
+## 8. 专题文档
 
 ```text
-归属原则：
-  · 用户资产（歌词/歌单/标签/偏移）→ 进 git，备份有意义
-  · 可重建（缓存/波形/人声/语料）→ 不进 git，删了能重算
-  · 原始素材（sources）→ 不进 git，体积大
+nhlrc 字段格式
+翻译对齐规则
+播放器状态转换
 ```
 
-## 11. 配置
+本文只保留边界；字段细节、时间戳配对、状态机转换另写专题文档。
 
-```text
-config/defaults.json   仓库默认值（七组）
-data/config.json       本机覆盖（同结构，深层合并）
-window.__CFG           注入前端
-
-七组：
-  lyrics    匹配与打分 + 搜索上限/超时
-  player    播放器通用 + ui 节奏
-  waveform  波形
-  vocals    人声分离
-  library   扫描/导入
-  app       桌面壳/日志
-  jobs      job 轮询/保留条数；state=生命周期，stage=实际执行阶段
-```
-
-```text
-优先级：代码里的 _FALLBACK < defaults.json < data/config.json
-改 B 类参数：重启（后端）或刷新（纯前端 ui）生效。
-A 类阈值不走这里（见 §4）。
-```
-
-## 12. 并发与一致性
-
-```text
-后端：
-  library._LOCK        refresh/扫库串行（RLock）
-  lrc_files.LOCK       同一首歌的读-改-写串行（RLock）
-  vocals._queue        单线程队列，分离任务串行
-  HTTP                ThreadingHTTPServer，每个请求一个线程
-
-前端：
-  SAVE_PENDING         同一时刻最多一个保存请求
-  LOAD_REQUEST         切歌/载入的旧响应自动作废
-  LRC_OPEN_REQUEST     多次进入编辑模式只认最后一次
-  SEEK_SEQ             连续跳转只执行最后一次
-```
-
-```text
-一致性策略：
-  · nhlrc 是唯一权威；cache 只做单向回退
-  · GET /api/song 不写 nhlrc；自动注音只存在于响应
-  · 用户保存/导入/pick/恢复/删除走同一条原子写路径
-  · 保存失败保留 dirty；版本冲突不覆盖
-  · 写成功但曲库刷新失败时，二者分别报告
-```
-
-## 13. 新功能放哪
-
-```text
-纯文本→读音/罗马音/档位              nihonco_yomi
-读写某个数据文件、调外部命令           core
-串多个步骤、组装前端载荷               service
-新增 URL/参数校验                     http
-窗口/文件对话框/日志                   nihonco_player_app
-交互/渲染/播放                          static/*.js
-```
-
-```text
-判断标准：
-  · 需要 HTTP 吗？需要 → http
-  · 需要窗口吗？需要 → app
-  · 需要多处复用、涉及文件/网络吗？需要 → core
-  · 只是编排？→ service
-  · 纯计算？→ yomi
-```
-
-## 14. 测试与校验
-
-```text
-make test =
-  scripts/check_arch.py   分层边界
-  scripts/check_js.py     前端完整性
-  Python unittest         145 条
-  node --test             前端逻辑 9 条
-```
-
-```text
-测试的组织：
-  tests/test_lrc_doc / nhlrc / lyrics_store   格式与存储
-  tests/test_importing / fingerprint          导入与身份
-  tests/test_player_http / playlists_api      接口层
-  tests/test_rematch                          匹配
-  tests/test_ui_smoke                         真窗口冒烟
-  tests/lrc_editor.test.cjs                   前端时间/保存/锁定
-```
-
-## 15. 已知取舍
-
-```text
-① 单进程、无数据库
-   好处：部署简单、数据可 diff；代价：并发能力有限
-
-② 前端无构建
-   好处：改完刷新即可；代价：没有类型检查/模块系统，
-   只能靠 check_js 和 NH 约定维持
-
-③ 整首音频解码
-   好处：seek 采样级精确；代价：内存与首播等待
-
-④ idx 会变
-   所有持久化只能用 uid/key，不能用 idx
-
-⑤ 文件即真相
-   data/lyrics 与 data/curated 是唯一状态；没有隐藏内存数据库
-   好处：可备份/可手改；代价：需要文件锁与串行化
-```
+> 旧架构文档已移到 `docs/history2/`，不作为当前基线。
