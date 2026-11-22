@@ -168,17 +168,13 @@ d.pending
 ### 3.3 播放源切换
 
 ```text
-commitAudio()
-  → PLAYING_UID = NH.S.uid
-  → au.src = 当前歌音频
-  → 切换播放源
-
-如果播放源变了：
-  → closeLineLoop()
+commitAudio() 会把 PLAYING_UID 切到 S.uid。
+播放源变化时 closeLineLoop()。
 ```
 
 ```text
 PLAYING_UID 可以不等于 S。
+音频加载/切换机制见 audio.md。
 ```
 
 ## 4. 页面模式
@@ -222,9 +218,7 @@ NH.LOOP_ROW   锚定行
 ```
 
 ```text
-循环结束点：
-  下一句起点
-  最后一句固定 +8 秒
+循环跳转的采样定位见 audio.md。
 ```
 
 ```text
@@ -264,60 +258,14 @@ LRC_LOCKED    flush/保存期间禁止编辑/切歌
 LRC_VERSION   nhlrc 全文件版本
 ```
 
-### 7.1 进入编辑
-
 ```text
-openLrcEditor
-  → /api/lrc load
-  → 检查 load/lrcOpen token
-  → VIEW_MODE = lrc
-  → EROWS 从 lines + trans 建立
-  → LRC_VERSION = version
-  → TRANS_EDIT = false
-```
-
-### 7.2 编辑
-
-```text
-输入原文/翻译
-  → 改 EROWS
-  → markDirty()
-  → 自动保存
-
-关闭翻译列
-  → 只隐藏输入框
-  → 不删除 EROWS[i].trans
-```
-
-### 7.3 保存
-
-```text
-saveLrc
-  → 等待 SAVE_PENDING
-  → 取 lrcPayload()
-  → 版本校验
-  → 成功后更新 LRC_VERSION
+进入/编辑/保存/离场的操作细节见 lrc-editor.md。
 ```
 
 ```text
 SAVE_PENDING 是保存队列。
 LRC_REPLACING 是排他锁。
 两者不是请求 token。
-```
-
-### 7.4 切歌
-
-```text
-LRC 编辑中 load 其他歌
-  → setLrcLocked(true)
-  → flushLrc()
-  → flush 失败 → 不切
-  → 成功 → 请求新歌
-  → finally 解锁
-```
-
-```text
-LRC_REPLACING 期间 load 直接返回 false。
 ```
 
 ## 8. 组合示例
@@ -423,4 +371,5 @@ LRC 保存/撤销/替换
 音频指纹 → fingerprint.md
 歌词缓存 → cache.md
 歌词匹配 → lyrics-matching.md
+音频引擎 → audio.md
 ```

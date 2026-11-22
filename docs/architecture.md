@@ -443,12 +443,21 @@ check_js.py
 
 ## 8. 专题文档
 
-```text
-nhlrc 字段格式
-翻译对齐规则
-播放器状态转换
-```
+本文只保留边界。字段、流程和实现细节看各专题：
 
-本文只保留边界；字段细节、时间戳配对、状态机转换另写专题文档。
+```text
+topics/nhlrc.md            歌词文件格式
+topics/cache.md            缓存/持久化
+topics/fingerprint.md      音频指纹与 uid
+topics/lyrics-matching.md  歌词搜索/过滤/配对
+topics/player-state.md     查看/播放/编辑状态
+topics/lrc-editor.md       LRC 编辑与保存
+topics/audio.md            WebAudio 播放
+topics/vocals-jobs.md      人声任务与 job
+topics/library.md          曲库/歌单/导入
+topics/http-api.md         本机 HTTP API
+topics/development.md      开发/测试/检查器
+topics/packaging.md        打包
+```
 
 > 旧架构文档已移到 `docs/history2/`，不作为当前基线。

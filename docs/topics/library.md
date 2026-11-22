@@ -318,4 +318,5 @@ fingerprint.md
 cache.md
 lyrics-matching.md
 lrc-editor.md
+http-api.md
 ```

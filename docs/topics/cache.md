@@ -18,20 +18,16 @@ data/cache、data/tmp 是缓存/临时。
 data/vocals 是“可重建但昂贵”，不是权威。
 ```
 
-## 1. 权威数据
-
-| 路径 | 身份键 | 写入者 | 删除后 |
-|---|---|---|---|
-| `data/lyrics/*.nhlrc` | uid | `lrc_files` | 写 disabled 文档，仍是用户选择 |
-| `data/lyrics/bak/` | uid | `lrc_files` | 失去“恢复最初” |
-| `data/curated/playlists.json` | list id | `playlists` | 默认歌单仍存在 |
-| `data/curated/song_meta.json` | uid | `song_meta` | offset 回到 0 |
-| `data/curated/imports.json` | 音频路径 | `library` | 导入历史丢失 |
-| `data/config.json` | 配置键 | `user_config` | 回到默认配置 |
+## 1. 权威数据边界
 
 ```text
-这些不是缓存。
-不能靠“清缓存”处理。
+权威数据的完整表在 architecture §2。
+本文不重复身份键和删除行为。
+```
+
+```text
+data/curated、data/lyrics、data/config.json
+  → 不是缓存，不能靠清缓存处理
 ```
 
 ## 2. 缓存总表
@@ -141,34 +137,19 @@ data/cache/fingerprints.json
 ```
 
 ```text
-键：文件路径
-校验：size + mtime
-版本：_v = 源码 hash
-```
-
-```text
-uid = 音频指纹。
-移动/改名不改字节 → 指纹不变。
-重新压制/剪辑 → 指纹变。
-删除 → 重新计算。
+只缓存路径 → (size, mtime, fp)。
+算法、失效、读失败回退见 fingerprint.md。
 ```
 
 ## 8. 昂贵缓存：人声
 
 ```text
-data/vocals/<uid>/vocals.wav
-data/vocals/<uid>/meta.json
+data/vocals/<uid>/
 ```
 
 ```text
-键：uid
-不是 data/cache。
-删除后要重新 demucs，成本高。
-按 max_bytes / last_used 做 LRU 清理。
-```
-
-```text
-纯音乐结果可以只有 meta.json，没有 vocals.wav。
+可重建，但需要重新 demucs，不是普通 cache。
+布局、纯音乐、LRU、清理见 vocals-jobs.md。
 ```
 
 ## 9. 临时文件
@@ -288,4 +269,7 @@ nhlrc 格式 → nhlrc.md
 翻译来源/配对 → lyrics-matching.md
 翻译列编辑 → lrc-editor.md
 播放器状态 → player-state.md
+指纹索引 → fingerprint.md
+人声缓存 → vocals-jobs.md
+曲库索引 → library.md
 ```

@@ -290,38 +290,25 @@ disabled 直接跳过
 用于打开时没有歌词、后台匹配的阶段。
 ```
 
-## 11. 缓存
+## 11. 缓存语义
 
 ```text
-data/cache/lyrics/<md5(title|artist)>.json
-```
-
-键：
-
-```text
-NFKC(title)|NFKC(artist) → md5 16 位
-```
-
-正缓存：
-
-```text
-lrc / tlyric / lang / kana_ratio / source
-```
-
-负缓存：
-
-```text
-{miss:true, reason, checked_at}
+歌词缓存键 = NFKC(title)|NFKC(artist)
 ```
 
 ```text
-负缓存默认 7 天过期。
-正缓存没有 TTL。
-force / 删除缓存可立即重试；rematch 本身不读写歌词缓存。
+正缓存保存 lrc / tlyric / lang / kana_ratio。
+负缓存保存 miss / reason / checked_at。
 ```
 
 ```text
+force 可绕过缓存重新匹配。
+rematch 本身不读写歌词缓存。
 有 nhlrc 时，歌词缓存不参与歌词读取。
+```
+
+```text
+缓存键、TTL、删除和清理归 cache.md。
 ```
 
 ## 12. 扫描 CLI
@@ -348,12 +335,10 @@ is_likely_song 排除 BGM/伴奏
 2. 同名不同版本可能选错。
 3. 标题匹配是相等/包含，不是编辑距离。
 4. 短标题不做子串匹配。
-5. 正缓存没有 TTL。
-6. 负缓存有 TTL，但失败原因不区分网络/无结果。
-7. 只使用网易云一个来源。
-8. 没有多候选并发抓取。
-9. 没有用户可调的匹配阈值 UI。
-10. 手动候选不显示“当前使用中”。
+5. 只使用网易云一个来源。
+6. 没有多候选并发抓取。
+7. 没有用户可调的匹配阈值 UI。
+8. 手动候选不显示“当前使用中”。
 ```
 
 ## 14. 测试
@@ -393,4 +378,5 @@ disabled 跳过懒匹配
 ```text
 nhlrc 格式 → nhlrc.md
 缓存 TTL/失效 → cache.md
+LRC 翻译列 → lrc-editor.md
 ```
