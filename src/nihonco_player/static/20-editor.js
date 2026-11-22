@@ -155,7 +155,7 @@ function rowHtml(r,i){
 
 function renderLrcTable(){
   const box=document.getElementById('lyr');
-  box.innerHTML='<div class="letable">'+NH.EROWS.map(rowHtml).join('')+'</div>';
+  box.innerHTML=`<div class="letable${NH.TRANS_EDIT?' transon':''}">`+NH.EROWS.map(rowHtml).join('')+'</div>';
   const rows=box.querySelectorAll('.lerow');
 
   rows.forEach(el=>{

@@ -189,6 +189,7 @@ body.lrcedit .lrcwrap{display:flex}
 .letable{padding:6px 0}
 .lerow{display:flex;gap:8px;align-items:center;padding:5px 12px 5px 30%;border-bottom:1px solid var(--line-soft);cursor:pointer}
 .lerow:hover{background:var(--hover)}
+.letable.transon .lerow{padding-left:10%}
 .lerow.sel{background:var(--selected)}
 .lerow .no{width:2.2em;color:var(--muted-2);font-size:12px;text-align:right}
 .lerow input.ts{flex:0 0 auto;width:5.8em;background:transparent;border:0;color:var(--accent-soft);font-size:12px;
