@@ -134,10 +134,14 @@ def main() -> None:
               "toggle": "NH.mediaToggle && NH.mediaToggle()"}.get(name)
         if not js:
             return
-        try:
-            window.evaluate_js(js)
-        except Exception:
-            pass
+        # Carbon 回调在主线程；evaluate_js 会等待主线程执行，
+        # 直接调用会死锁。切到后台线程，让主线程继续跑 WebView。
+        def run():
+            try:
+                window.evaluate_js(js)
+            except Exception:
+                pass
+        threading.Thread(target=run, daemon=True).start()
 
     try:
         from . import hotkeys as GLOBAL_KEYS
