@@ -57,11 +57,14 @@ function seek(delta){
 document.addEventListener('keydown', e=>{
   if(e.isComposing || e.keyCode===229 || e.defaultPrevented) return;
   const t=e.target || {};
-  if(isTyping(t) || isButton(t)) return;
+  if(isTyping(t)) return;
   if(document.querySelector('.dialog-backdrop')) return;
 
   if(e.key==='Escape'){ closeHelp(); return; }
-  if(e.key==='?'){ e.preventDefault(); toggleHelp(); return; }
+  if(e.key==='?' || ((e.key==='/' || e.code==='Slash' || e.keyCode===191) && e.shiftKey)){
+    e.preventDefault(); toggleHelp(); return;
+  }
+  if(isButton(t)) return;
   if(e.metaKey || e.ctrlKey){
     const k=(e.key||'').toLowerCase();
     if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED){

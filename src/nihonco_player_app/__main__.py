@@ -100,6 +100,16 @@ def main() -> None:
                 FileDialog.OPEN, allow_multiple=True,
                 file_types=("音频 (*.mp3;*.flac;*.wav;*.m4a)", "歌词 (*.lrc)"))
 
+    window_ref: dict = {"window": None}
+
+    def show_window():
+        try:
+            w = window_ref.get("window")
+            if w:
+                w.show()
+        except Exception:
+            pass
+
     # 关闭窗口只隐藏，音频和全局热键继续；⌘Q 仍正常退出。
     if sys.platform == "darwin":
         try:
@@ -112,7 +122,13 @@ def main() -> None:
                         i.pywebview_window.hide()
                     return False
 
+            class ReopenOnDock(cocoa.BrowserView.AppDelegate):
+                def applicationShouldHandleReopen_hasVisibleWindows_(self, app, has_visible):
+                    show_window()
+                    return True
+
             cocoa.BrowserView.WindowDelegate = HideOnClose
+            cocoa.BrowserView.AppDelegate = ReopenOnDock
         except Exception:
             pass
 
@@ -121,12 +137,7 @@ def main() -> None:
         width=APP["window_width"], height=APP["window_height"],
         min_size=tuple(APP["window_min"]), js_api=Api(),
     )
-
-    def show_window():
-        try:
-            window.show()
-        except Exception:
-            pass
+    window_ref["window"] = window
 
     def on_hotkey(name):
         js = {"prev": "NH.mediaPrev && NH.mediaPrev()",
