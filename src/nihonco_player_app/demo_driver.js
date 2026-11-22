@@ -71,7 +71,7 @@
   const panel = document.createElement('div');
   panel.id = 'demo-panel';
   panel.innerHTML = `<b>nihonco uta · demo 1</b>
-    <small>从头播放 → 第 2 句跳到第 15 行 → 播到第 17 行 → 开单句循环。</small>
+    <small>从头播放 → 第 2 句后再等 5 秒 → 跳到第 15 行 → 播到第 17 行 → 开循环后保持。</small>
     <button id="demo-start">开始第一段</button>`;
   document.body.appendChild(panel);
 
@@ -81,12 +81,8 @@
     running = true;
     const b = document.getElementById('demo-start');
     const panelEl = document.getElementById('demo-panel');
-    if (b) { b.disabled = true; b.textContent = '3 秒后开始…'; }
+    if (b) { b.disabled = true; b.textContent = '运行中…'; }
     document.body.classList.add('demo-running');
-    for (const n of ['3','2','1']) {
-      if (b) b.textContent = n + ' 秒后开始…';
-      await sleep(1000);
-    }
     if (panelEl) panelEl.style.display = 'none';
     try {
       const song = NH.LIB.find(x => (x.title || '').includes('たぶん')) || NH.LIB[0];
@@ -101,7 +97,7 @@
         if (a.length < 2) return false;
         return NH.idxAt(NH.au.currentTime) >= a[1];
       }, 20000);
-      await sleep(700);   // 让第二句真正进入播放途中
+      await sleep(5700);  // 第二句进入播放途中，再留 5 秒
 
       // 跳到第 15 行；继续播放。
       await click(lineEl(14));
@@ -127,10 +123,9 @@
         return passed && t < start17 + 0.7;
       }, 12000);
 
-      await click(loop); // 关闭循环
-      NH.au.pause();
-      if (b) { b.disabled = false; b.textContent = '第一段完成'; }
-      document.body.classList.remove('demo-running');
+      // 演示到此为止：循环保持开启，不关闭、不暂停。
+      // 后续手动停止录屏即可。
+      if (b) { b.disabled = true; b.textContent = '循环中…'; }
     } catch (e) {
       const p = document.getElementById('demo-panel') || document.body.appendChild(document.createElement('div'));
       p.textContent = '演示中断：' + (e && e.message || e);
