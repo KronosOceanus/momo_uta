@@ -106,7 +106,6 @@ src/
 │   ├── config.py              运行参数（B 类）
 │   ├── paths.py                路径常量
 │   ├── common.py               共享小工具
-│   └── serve.py                引擎命令行
 │
 ├── nihonco_player/
 │   ├── core/                   数据与规则
@@ -174,7 +173,7 @@ tools/                          建表/评测/演示
   · 曲库/歌单/HTTP
 
 所以它可以：
-  · 在命令行单独跑（serve.py）
+  · 在命令行单独跑（stdio）
   · 在评测里批量跑（eval/）
   · 在 core 里被 annotation.py 调用
 ```

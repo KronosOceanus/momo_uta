@@ -46,7 +46,7 @@ python -m nihonco_yomi.annotate --text "今日は雨が降る" --layers ruby,rom
   · 输出前用不变量自检
 
 不做：
-  · 不联网、不读写歌单、不开 HTTP 服务（serve.py 是独立的测试页）
+  · 不联网、不读写歌单、不开 HTTP 服务
   · 不做上下文语义消歧（那是 LLM 补丁的职责，默认关闭）
   · 不负责渲染成 HTML（render.py 是共用渲染，属于"输出适配"）
 ```
@@ -73,7 +73,6 @@ src/nihonco_yomi/
 ├── thresholds.py    A/AB/B 判档的全部数字
 ├── config.py        运行配置（非阈值类开关）
 ├── paths.py         运行期路径（CACHE 等）
-└── serve.py         引擎自带测试页（8765，独立工具，不参与产品路径）
 ```
 
 ```text

@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "src" / "nihonco_player" / "static"
-ORDER = ["05-audio.js", "06-state.js", "10-app.js", "20-editor.js", "30-playback.js"]
+ORDER = ["05-audio.js", "06-state.js", "10-app.js", "11-vocals.js", "12-library.js", "20-editor.js", "30-playback.js"]
 
 
 def node_check(code: str, label: str) -> bool:

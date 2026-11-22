@@ -5,13 +5,12 @@ PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
         build-tables build-resource build-holdout build-prose build-lyrics \
         eval-dummy eval eval-real eval-kanji eval-gen eval-test eval-llm \
         ceiling stats tables-check build-stats audit gold-audit audit-patches \
-        render clean-cache clean-vocals clean-tmp all serve api
+        render clean-cache clean-vocals clean-tmp all api
 
 help:
 	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
 	@echo "make test-python     # Python 架构检查与测试"
 	@echo "make app             # 桌面应用（唯一入口）"
-	@echo "make serve           # 标注测试页 http://127.0.0.1:8765"
 	@echo "make api             # 命令行跑一次接口，验证可用"
 	@echo ""
 	@echo "make build-tables    # JMdict → data/tables/*.json"
@@ -38,8 +37,6 @@ help:
 config-check:
 	@$(PY) -m nihonco_yomi.config
 
-serve:
-	$(PY) -m nihonco_yomi.serve
 
 app:
 	@$(PY) -m nihonco_player_app

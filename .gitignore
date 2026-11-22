@@ -13,6 +13,7 @@ data/vocals/
 data/config.json
 data/curated/*.lock
 data/lyrics/.lock
+data/config.lock
 
 # 自动生成
 eval/reports/

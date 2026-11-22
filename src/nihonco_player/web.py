@@ -19,6 +19,3 @@ def page() -> str:
                         f'<html lang="ja" data-theme="{theme}">', 1)
     inject = f'<script>window.__CFG = {cfg};</script>\n'
     return html.replace("<head>", "<head>\n" + inject, 1)
-
-
-PAGE = page()
