@@ -123,9 +123,12 @@
         return passed && t < start17 + 0.7;
       }, 12000);
 
-      // 演示到此为止：循环保持开启，不关闭、不暂停。
-      // 后续手动停止录屏即可。
-      if (b) { b.disabled = true; b.textContent = '循环中…'; }
+      // 第 17 行循环一次后：关闭循环，点下一句，等 2 秒再点上一句。
+      await click(loop);
+      await click(document.getElementById('next'));
+      await sleep(2000);
+      await click(document.getElementById('prev'));
+      if (b) { b.disabled = true; b.textContent = '第一段完成'; }
     } catch (e) {
       const p = document.getElementById('demo-panel') || document.body.appendChild(document.createElement('div'));
       p.textContent = '演示中断：' + (e && e.message || e);
