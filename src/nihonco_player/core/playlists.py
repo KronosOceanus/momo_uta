@@ -215,7 +215,8 @@ def move(lid_from: str, lid_to: str, uid: str) -> None:
 
 
 def reorder(lid: str, uids: list[str]) -> None:
-    d = load()
-    if lid in d["members"]:
-        d["members"][lid] = [u for u in uids if u in d["members"][lid]]
-    save(d)
+    with _locked():
+        d = load()
+        if lid in d["members"]:
+            d["members"][lid] = [u for u in uids if u in d["members"][lid]]
+        save(d)
