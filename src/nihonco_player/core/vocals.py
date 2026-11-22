@@ -226,6 +226,7 @@ def installed() -> bool:
 
 def _demucs_cmd() -> list[str]:
     """打包后不能再用 python -m demucs；全量包走 app 子命令，薄壳走外部命令。"""
+    diag.log("vocals", f"demucs resolve frozen={getattr(sys, 'frozen', False)} exe={sys.executable}")
     try:
         import importlib
         importlib.import_module("demucs")

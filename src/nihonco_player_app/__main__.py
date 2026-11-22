@@ -41,6 +41,8 @@ def _run_demucs() -> None:
 
 
 def main() -> None:
+    from nihonco_player.core import diag
+    diag.log("app", f"frozen={getattr(sys, 'frozen', False)} exe={sys.executable} bundle={BUNDLE}")
     _bundle_path()
     bootstrap()
     log_path = logsetup.setup()
@@ -183,6 +185,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # PyInstaller + torch/demucs: 子进程会重新执行本可执行文件。
+    # 不先 freeze_support，它们会进入 main()，再开一个窗口。
+    import multiprocessing
+    multiprocessing.freeze_support()
     if len(sys.argv) > 1 and sys.argv[1] == "--nihonco-demucs":
         _run_demucs()
     else:
