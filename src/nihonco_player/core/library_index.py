@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import threading
 from pathlib import Path
 
@@ -14,7 +15,16 @@ from nihonco_yomi.paths import CACHE
 from . import fsio as FS
 
 INDEX = CACHE / "library_index.json"
-VERSION = 1
+
+
+def _source_version() -> str:
+    try:
+        return hashlib.sha1(Path(__file__).read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "1"
+
+
+VERSION = _source_version()
 _FIELDS = ("key", "uid", "stem", "orig", "title", "artist",
            "group", "source", "lang", "suspect")
 _lock = threading.RLock()

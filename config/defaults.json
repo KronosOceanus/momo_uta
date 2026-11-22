@@ -19,7 +19,8 @@
     "auto_try": 10,
     "manual_limit": 10,
     "http_timeout_s": 10,
-    "scan_sleep": 0.2
+    "scan_sleep": 0.2,
+    "negative_ttl_days": 7
   },
   "player": {
     "_note": "播放器通用参数。",

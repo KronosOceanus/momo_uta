@@ -1,0 +1,39 @@
+"""歌词负缓存 TTL。"""
+import json
+import tempfile
+import time
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from nihonco_player.core import lyrics_cache as LC
+from nihonco_player.core import lyrics_fetch as LF
+
+
+class TestNegativeCache(unittest.TestCase):
+    def test_fresh_miss_is_reused_and_expired_is_retried(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old_dir, old_ttl = LC.CACHE, LF.CFG.get("negative_ttl_days")
+            LC.set_cache_dir(Path(tmp))
+            LF.CFG["negative_ttl_days"] = 7
+            try:
+                p = LC.cache_path("曲", "歌手")
+                p.write_text(json.dumps({"miss": True, "checked_at": time.time()}),
+                             encoding="utf-8")
+                with patch.object(LF, "auto_match", return_value=None) as am:
+                    self.assertTrue(LF.get_lrc("曲", "歌手")["miss"])
+                    am.assert_not_called()
+
+                p.write_text(json.dumps({"miss": True, "checked_at": time.time() - 8 * 86400}),
+                             encoding="utf-8")
+                with patch.object(LF, "auto_match", return_value=None) as am:
+                    self.assertIsNone(LF.get_lrc("曲", "歌手"))
+                    am.assert_called_once()
+                    self.assertIn("checked_at", json.loads(p.read_text(encoding="utf-8")))
+            finally:
+                LF.CFG["negative_ttl_days"] = old_ttl
+                LC.set_cache_dir(old_dir)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -16,8 +16,29 @@ from nihonco_yomi.paths import CACHE
 from . import fsio as FS
 
 CACHE_DIR = CACHE / "annotations"
-VERSION = 1
 _FIELDS = ("ruby", "rm", "ky", "rmH", "kyH")
+
+
+def _source_version() -> str:
+    """注音结果随引擎/词典/渲染代码变化自动失效。"""
+    try:
+        from pathlib import Path as _P
+        import nihonco_yomi
+
+        root = _P(nihonco_yomi.__file__).parent
+        files = [root / name for name in (
+            "annotate.py", "kana.py", "romaji.py", "render.py",
+            "thresholds.py", "counters.py", "invariants.py")]
+        files.append(_P(__file__).with_name("annotation.py"))
+        h = hashlib.sha1()
+        for f in files:
+            h.update(f.read_bytes())
+        return h.hexdigest()[:12]
+    except Exception:
+        return "1"
+
+
+VERSION = _source_version()
 
 
 def _stored_json(stored) -> str:

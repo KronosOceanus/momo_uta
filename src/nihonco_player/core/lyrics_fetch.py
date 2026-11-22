@@ -129,6 +129,22 @@ def auto_match(title: str, artist: str, duration: float) -> dict | None:
     return None
 
 
+def _negative_fresh(old: dict, path: Path) -> bool:
+    ttl = float(CFG.get("negative_ttl_days", 7) or 0) * 86400
+    if ttl <= 0 or not old.get("miss"):
+        return False
+    checked = old.get("checked_at")
+    if checked is None:
+        try:
+            checked = path.stat().st_mtime
+        except OSError:
+            return False
+    try:
+        return time.time() - float(checked) < ttl
+    except (TypeError, ValueError):
+        return False
+
+
 def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0.0,
             force: bool = False, network: bool = True) -> dict | None:
     p = cache_path(title, artist)
@@ -139,15 +155,16 @@ def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0
             cached_ok = (not old_lrc or valid_lrc(old_lrc))
             # 旧缓存没按时长匹配过 → 重算一次；无时间轴的旧结果直接作废
             if cached_ok and (not duration or old.get("duration") or old.get("miss")):
-                return old
+                if not old.get("miss") or _negative_fresh(old, p):
+                    return old
         except Exception:
             pass
     if not network:                     # 加载路径只读本地；联网只由匹配阶段触发
         return None
     hit = auto_match(title, artist, duration)
     # 失败也缓存，避免每次启动都重新联网（负缓存）
-    FS.atomic_write_json(p, {**hit, "title": title, "artist_q": artist} if hit else {"miss": True, "reason": "no_match"},
-                         indent=None)
+    FS.atomic_write_json(p, {**hit, "title": title, "artist_q": artist} if hit else {
+        "miss": True, "reason": "no_match", "checked_at": time.time()}, indent=None)
     return hit
 
 

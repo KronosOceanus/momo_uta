@@ -22,7 +22,16 @@ from nihonco_yomi.paths import CACHE
 from . import fsio as FS
 
 INDEX = CACHE / "fingerprints.json"
-INDEX_VERSION = 2
+
+
+def _source_version() -> str:
+    try:
+        return hashlib.sha1(Path(__file__).read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "1"
+
+
+INDEX_VERSION = _source_version()
 CHUNK = 32 * 1024
 POSITIONS = (0.25, 0.5, 0.75)
 _LOCK = threading.RLock()

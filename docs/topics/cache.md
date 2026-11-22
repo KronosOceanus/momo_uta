@@ -39,7 +39,7 @@ data/vocals 是“可重建但昂贵”，不是权威。
 | 路径 | 键 | 写入者 | 失效方式 | 删除后 |
 |---|---|---|---|---|
 | `data/cache/lyrics/*.json` | title\|artist | `lyrics_fetch` | force / re-match / 删 | 重新联网 |
-| `data/cache/annotations/*.json` | version + text + stored | `annotation_cache` | bump VERSION / 删 | 重新注音 |
+| `data/cache/annotations/*.json` | version + text + stored | `annotation_cache` | 源码变化 / 删 | 重新注音 |
 | `data/cache/wave/*.json` | path + source + rate + step | `waveform` | size/mtime / 参数 / 删 | 重新 ffmpeg |
 | `data/cache/library_index.json` | 文件路径 | `library_index` | size/mtime / 删 | 重新扫库 |
 | `data/cache/fingerprints.json` | 文件路径 | `fingerprint` | size/mtime / 删 | 重新算指纹 |
@@ -66,7 +66,7 @@ data/cache/lyrics/<md5(title|artist)>.json
 
 ```text
 删除 → 重新联网匹配。
-负缓存没有 TTL；需要 re-match / force 才会重新尝试。
+负缓存带 checked_at，默认 7 天后过期；过期后会自动重试。
 ```
 
 ## 4. 注音缓存
@@ -87,7 +87,7 @@ VERSION 改变 → 全部失效。
 ```
 
 ```text
-引擎、词典、渲染规则变化时，必须手动 bump VERSION。
+引擎、词典、渲染规则或源码变化时，VERSION 自动变化。
 ```
 
 ## 5. 波形缓存
@@ -125,7 +125,7 @@ data/cache/library_index.json
 ```text
 键：文件路径
 校验：size + mtime
-版本：_v = 1
+版本：_v = 源码 hash
 ```
 
 ```text
@@ -143,7 +143,7 @@ data/cache/fingerprints.json
 ```text
 键：文件路径
 校验：size + mtime
-版本：_v = 2
+版本：_v = 源码 hash
 ```
 
 ```text
@@ -234,9 +234,9 @@ clean-cache 不清理索引/指纹，避免启动突然变慢。
 
 | 项 | 规则 |
 |---|---|
-| annotation `VERSION` | 手动维护；引擎/词典/渲染变必须 bump |
-| library_index `_v` | 手动维护；字段结构变才 bump |
-| fingerprint `_v` | 手动维护；指纹算法变才 bump |
+| annotation `VERSION` | 自动取引擎/词典/渲染源码 hash |
+| library_index `_v` | 自动取索引源码 hash |
+| fingerprint `_v` | 自动取指纹源码 hash |
 | wave `rate/step` | 自动进缓存路径 |
 | wave `size/mtime` | 自动进缓存内容并校验 |
 | lyrics cache | 无版本，按标题/歌手；force/re-match 更新 |
@@ -252,9 +252,9 @@ clean-cache 不清理索引/指纹，避免启动突然变慢。
 ```
 
 ```text
-命中负缓存 → 不自动联网。
-没有 TTL。
-需要 re-match / force 才重新尝试。
+命中未过期负缓存 → 不自动联网。
+默认 7 天后过期；过期后自动重试。
+也可用 re-match / force 立即重试。
 ```
 
 ```text
@@ -264,10 +264,8 @@ clean-cache 不清理索引/指纹，避免启动突然变慢。
 ## 14. 已知问题
 
 ```text
-1. 歌词负缓存没有 TTL。
-2. annotation VERSION / index _v 靠人工记得 bump。
-3. clean-cache 和 clean-index 分开，用户需要知道区别。
-4. 缓存写入失败有的地方静默，有的地方可能冒泡。
+1. clean-cache 和 clean-index 分开，用户需要知道区别。
+2. 缓存写入失败有的地方静默，有的地方可能冒泡。
 ```
 
 ```text
