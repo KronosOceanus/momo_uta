@@ -126,7 +126,7 @@
       // 第 17 行循环一次后：关闭循环，点下一句，等 2 秒再点上一句。
       await click(loop);
       await click(document.getElementById('next'));
-      await sleep(2000);
+      await sleep(1000);
       await click(document.getElementById('prev'));
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
     } catch (e) {
