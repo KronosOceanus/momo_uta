@@ -139,7 +139,7 @@
       await click(document.getElementById('next'));
       await sleep(1000);
       await click(document.getElementById('prev'));
-      await sleep(2000);
+      await sleep(7000);
       NH.au.pause();
 
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
