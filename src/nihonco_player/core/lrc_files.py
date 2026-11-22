@@ -279,12 +279,36 @@ def delete_store(audio: str | Path, uid: str | None = None,
                 "version": _version(text), "backed_up": bak.is_file()}
 
 
+def valid_import(text: str) -> tuple[bool, str]:
+    """导入前的统一校验：空、乱码、或普通 LRC 的有效行数不足都拒绝。
+
+    带读音/翻译尾部的 nhlrc 允许少于普通 LRC 行数，因为它是已整理文档。
+    """
+    text = str(text or "")
+    if not text.strip():
+        return False, "文件是空的"
+    if "\ufffd" in text:
+        return False, "文件不是有效的 UTF-8 文本"
+    body, tail = _split_nhlrc(text)
+    if tail and tail.get("disabled"):
+        return True, ""
+    if tail and (tail.get("lines") or tail.get("trans")):
+        return True, ""
+    n = LY.content_lines(body)
+    if n < int(LY.CFG["min_content_lines"]):
+        return False, f"有效歌词不足 {LY.CFG['min_content_lines']} 行"
+    return True, ""
+
+
 def import_text(audio: str | Path, text: str, uid: str | None = None,
                 title: str | None = None, artist: str | None = None,
                 expected_version: str | None = None,
                 translations: dict[int, str] | None = None,
                 trans_lang: str = "zh") -> dict:
     """用户导入：直接原子写权威 nhlrc，不写共享缓存。"""
+    ok, why = valid_import(text)
+    if not ok:
+        return {"ok": False, "error": why}
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
@@ -297,6 +321,12 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                     "version": current_version}
         backed = _backup_once(sp, bak)
         body, tail = _split_nhlrc(text)
+        if tail and tail.get("disabled"):
+            out = _disabled_text()
+            _atomic_write(sp, out)
+            return {"ok": True, "disabled": True, "path": str(sp),
+                    "lines": 0, "annotated": 0, "backed_up": backed,
+                    "version": _version(out)}
         body = body if body.endswith("\n") else body + "\n"
         lines, metadata = _parse_document(body)
         annotations = annotations_for(lines, tail) if tail else {}

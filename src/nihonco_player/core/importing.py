@@ -142,12 +142,12 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
         lrc = _pick(cand)
         used_lrc.add(lrc)
         artist, title = LY.split_name(a.stem)
-        text = _body(lrc)
-        if LY.content_lines(text) < MIN_LINES:
+        raw = lrc.read_text(encoding="utf-8", errors="ignore")
+        ok, _why = LRC.valid_import(raw)
+        if not ok:
             pending.append(str(a))
             added.append(str(a))
             continue
-        raw = lrc.read_text(encoding="utf-8", errors="ignore")
         LRC.import_text(str(a), raw, uid=FP.fingerprint(a),
                         title=title, artist=artist)
         added.append(str(a))
@@ -165,12 +165,12 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
             unpaired += 1
             continue
         artist, title = LY.split_name(target.stem)
-        text = _body(lrc)
-        if LY.content_lines(text) < MIN_LINES:
+        raw = lrc.read_text(encoding="utf-8", errors="ignore")
+        ok, _why = LRC.valid_import(raw)
+        if not ok:
             unpaired += 1
             continue
         had = LRC.exists(target)
-        raw = lrc.read_text(encoding="utf-8", errors="ignore")
         LRC.import_text(str(target), raw, uid=FP.fingerprint(target),
                         title=title, artist=artist)
         used_lrc.add(lrc)
