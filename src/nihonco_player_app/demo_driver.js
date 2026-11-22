@@ -169,10 +169,10 @@
         return NH.idxAt(NH.au.currentTime) >= a[1];
       }, 20000);
       await sleep(6000);  // 第二句进入播放途中，再留 6 秒
-      caption('跳转', 3);
 
       // 跳到第 15 行；继续播放。
       await click(lineEl(14));
+      caption('跳转', 3);
       await wait(() => NH.idxAt(NH.au.currentTime) >= 14, 10000);
 
       // 播放到第 17 行的途中。
@@ -182,8 +182,8 @@
       const loop = document.getElementById('loop');
       if (!loop) throw new Error('找不到单句循环');
       if (loop.textContent.includes('开')) await click(loop);
-      caption('单句循环：开', 4);
       await click(loop);
+      caption('单句循环：开', 4);
 
       // 等到第 17 行确实循环一次：先看到它走过起点，再看到时间回卷。
       const row17 = NH.LINES[16];
@@ -197,14 +197,14 @@
       }, 12000);
 
       // 第 17 行循环一次后：关闭循环，等 8 秒再点上一句。
-      caption('单句循环：关', 5);
       await click(loop);
+      caption('单句循环：关', 5);
       await sleep(8000);
-      caption('上一句', 6);
       await click(document.getElementById('prev'));
+      caption('上一句', 6);
       await sleep(6000);
-      caption('下一句', 7);
       await click(document.getElementById('next'));
+      caption('下一句', 7);
       await sleep(6000);
       NH.au.pause();
 
