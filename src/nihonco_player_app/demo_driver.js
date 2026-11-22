@@ -129,6 +129,38 @@
       await click(document.getElementById('next'));
       await sleep(1000);
       await click(document.getElementById('prev'));
+      await sleep(2000);
+      NH.au.pause();
+
+      // 第二段：点带「何」的那一行，改为なに，再演示振假名模式重置。
+      const why = NH.LINES.findIndex(l => (l.text || '').includes('そう何'));
+      if (why < 0) throw new Error('找不到带「何」的那一行');
+      await click(lineEl(why));
+      const whyEl = lineEl(why);
+      const whyBc = whyEl && whyEl.querySelector('.bc[data-base="何"]');
+      if (!whyBc) throw new Error('找不到「何」的候选');
+      await click(whyBc);
+      await wait(() => document.querySelector('.menu button'));
+      const nani = [...document.querySelectorAll('.menu button')]
+        .find(x => (x.textContent || '').trim() === 'なに');
+      if (!nani) throw new Error('候选里没有なに');
+      await click(nani);
+      await sleep(1000);
+
+      await click(document.getElementById('edit'));
+      await wait(() => NH.VIEW_MODE === 'kana');
+      await click(document.getElementById('resetall'));
+      await sleep(1200);
+      await sleep(1000);
+
+      // 下滑到这一行，把鼠标移到「何」上，不点击。
+      const afterReset = lineEl(why);
+      if (afterReset) afterReset.scrollIntoView({block:'center', behavior:'smooth'});
+      await sleep(500);
+      const target = afterReset && (afterReset.querySelector('.bc[data-base="何"]')
+        || afterReset.querySelector('[data-base="何"]'));
+      if (target) move(target);
+
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
     } catch (e) {
       const p = document.getElementById('demo-panel') || document.body.appendChild(document.createElement('div'));
