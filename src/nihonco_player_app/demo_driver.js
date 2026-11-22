@@ -202,10 +202,10 @@
       await sleep(8000);
       await click(document.getElementById('prev'));
       caption('上一句', 6);
-      await sleep(6000);
+      await sleep(8000);
       await click(document.getElementById('next'));
       caption('下一句', 7);
-      await sleep(6000);
+      await sleep(8000);
       NH.au.pause();
 
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
