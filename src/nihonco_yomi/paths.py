@@ -25,9 +25,5 @@ EVAL = ROOT / "eval"
 GOLD = EVAL / "gold"            # 标准答案（资产）
 REPORTS = EVAL / "reports"      # 自动生成（可重建）
 
-# 演示
-DEMO_SRC = ROOT / "demo" / "src"
-DEMO_OUT = ROOT / "demo" / "out"
-
 # 配置
 CONFIG = ROOT / "config"

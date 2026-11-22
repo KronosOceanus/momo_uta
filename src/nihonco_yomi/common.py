@@ -1,6 +1,6 @@
 """评测与工具用的公共设施（路径从 paths.py 来）。
 
-引擎不 import 这个文件；只有 tools/ 和 serve 用得到。
+引擎不 import 这个文件；只有 tools/ 用得到。
 """
 from __future__ import annotations
 
@@ -10,17 +10,13 @@ import sys
 import unicodedata
 from pathlib import Path
 
-from .paths import (CACHE, CORPUS, CURATED, DATA, DEMO_OUT, DEMO_SRC, EVAL,
+from .paths import (CACHE, CORPUS, CURATED, DATA, EVAL,
                     GOLD, REPORTS, ROOT, SOURCES, TABLES, TOOLS)
 
 # 评测
 EVAL = ROOT / "eval"
 GOLD = EVAL / "gold"            # 标准答案（资产）
 REPORTS = EVAL / "reports"      # 自动生成（可重建）
-
-# 演示
-DEMO_SRC = ROOT / "demo" / "src"
-DEMO_OUT = ROOT / "demo" / "out"
 
 DEFAULT_CMD = [sys.executable, "-m", "nihonco_yomi.annotate", "--stdio"]
 

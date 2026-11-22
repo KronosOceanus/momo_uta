@@ -5,7 +5,7 @@ PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
         build-tables build-resource build-holdout build-prose build-lyrics \
         eval-dummy eval eval-real eval-kanji eval-gen eval-test eval-llm \
         ceiling stats tables-check build-stats audit gold-audit audit-patches \
-        render clean-cache clean-vocals clean-tmp all api
+        clean-cache clean-vocals clean-tmp all api
 
 help:
 	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
@@ -32,7 +32,6 @@ help:
 	@echo "make audit-patches   # 人工补丁赚亏"
 	@echo ""
 	@echo "make eval-llm        # 带 LLM 的评测（默认不参与门禁）"
-	@echo "make render          # 重新生成 demo 页"
 
 config-check:
 	@$(PY) -m nihonco_yomi.config
@@ -114,8 +113,6 @@ audit-patches:
 	$(PY) -m tools.eval.evalkit patches
 
 
-render:
-	$(PY) -m tools.eval.render --songs アイドル 怪物
 
 clean-cache:
 	rm -rf data/cache/lyrics data/cache/wave data/cache/annotations

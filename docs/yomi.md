@@ -48,7 +48,7 @@ python -m nihonco_yomi.annotate --text "今日は雨が降る" --layers ruby,rom
 不做：
   · 不联网、不读写歌单、不开 HTTP 服务
   · 不做上下文语义消歧（那是 LLM 补丁的职责，默认关闭）
-  · 不负责渲染成 HTML（render.py 是共用渲染，属于"输出适配"）
+  · 不负责渲染成 HTML（render.py 只服务于播放器）
 ```
 
 ```text
@@ -66,7 +66,7 @@ src/nihonco_yomi/
 ├── counters.py      量词与数字读音（一人、二羽、33、四つ…）
 ├── invariants.py    8 条不变量，违反即弃权
 ├── romaji.py        假名 → 罗马音 / IME 键位（两套规则，不能混用）
-├── render.py        片段 → HTML（播放器与演示页共用的唯一实现）
+├── render.py        片段 → HTML（播放器使用）
 ├── llm.py           LLM 消歧客户端（只从候选里选，不生成）
 ├── kana.py          片假名 → 平假名
 ├── common.py        路径常量（ROOT / TABLES / CURATED / CORPUS / CACHE）

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""段 → HTML 的唯一实现（player / serve / demo 共用）。
+"""段 → HTML 的唯一实现（播放器共用）。
 
 不依赖数据源，只吃 Annotator 的 segments 列表。
 """
