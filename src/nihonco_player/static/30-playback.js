@@ -47,7 +47,12 @@ function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+NH.OFFSET :
 function isMetaLine(l){ return !l || l.meta || META_RE.test((l.text||'').trim()); }
 function idxAt(t){
   const ls=viewLines(); let n=-1;
-  for(let i=0;i<ls.length;i++){ const tt=lineT(ls[i]); if(tt!==null && tt<=t) n=i; }
+  for(let i=0;i<ls.length;i++){
+    const tt=lineT(ls[i]);
+    // meta 行不参与播放高亮；否则播放到 meta 区间时
+    // 每帧都 highlight 它，会把用户滚动拉回开头。
+    if(tt!==null && !isMetaLine(ls[i]) && tt<=t) n=i;
+  }
   return n;
 }
 function navItems(){
@@ -146,7 +151,8 @@ function highlight(i){
       document.querySelector(`.lerow[data-i="${i}"]`)?.scrollIntoView({block:'nearest'});
   }else{
     document.querySelectorAll('.ln').forEach((el,k)=>el.classList.toggle('on', k===i && !isMetaLine(ls[k])));
-    document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'center'});
+    if(!isMetaLine(ls[i]))
+      document.querySelectorAll('.ln')[i]?.scrollIntoView({block:'center'});
   }
   // 播放时 rAF 循环已在画波形，这里不再重复画
   // 右侧罗马音：编辑模式下按行号对齐（编辑后的文本与右侧同源），普通模式按时间

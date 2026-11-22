@@ -69,6 +69,19 @@ function player() {
 const nextTurn = () => new Promise(resolve => setImmediate(resolve));
 const song = idx => ({idx, uid: 'u' + idx, lines: [], title: 'Test song', version: 'v' + idx});
 
+test('meta lines do not become the playback current line', () => {
+  const p = player();
+  p.run(`VIEW_MODE='normal';
+    LINES=[{t:1,text:'作词: A',meta:true},
+           {t:2,text:'第一句'},
+           {t:3,text:'编曲: B',meta:true},
+           {t:4,text:'第二句'}];`);
+  assert.equal(p.run('idxAt(1.5)'), -1);
+  assert.equal(p.run('idxAt(2.5)'), 1);
+  assert.equal(p.run('idxAt(3.5)'), 1);
+  assert.equal(p.run('idxAt(4.5)'), 3);
+});
+
 test('leaving LRC mode saves before fetching the ordinary lyrics', async () => {
   const p = player();
   p.edit('changed');
