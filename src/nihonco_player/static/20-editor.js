@@ -148,7 +148,7 @@ function rowHtml(r,i){
     <input class="ts${r.t===null?' none':''}" data-i="${i}" value="${r.t===null?'':lrcFmt(r.t)}" placeholder="mm:ss.xx">
     <span class="bind" data-i="${i}" title="把标记时间写进这一行">↤</span>
     <input class="tx" data-i="${i}" value="${(r.text||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">
-    ${NH.TRANS_EDIT?`<input class="tx trans" data-i="${i}" placeholder="翻译（可选）" value="${(r.trans||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">`:''}
+    ${NH.TRANS_EDIT?`<input class="tx trans" data-i="${i}" value="${(r.trans||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">`:''}
     <span class="del" data-i="${i}" title="删除这一行">✕</span>
   </div>`;
 }
