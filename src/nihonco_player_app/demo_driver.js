@@ -72,7 +72,7 @@
     el.scrollIntoView({block:'center', behavior:'smooth'});
     await sleep(250);
     move(el);
-    await sleep(320);
+    await sleep(1000);  // 在目标上停留 1 秒再点击
     const r = el.getBoundingClientRect();
     const rip = document.createElement('div');
     rip.className = 'demo-ripple';
@@ -81,7 +81,7 @@
     document.body.appendChild(rip);
     setTimeout(() => rip.remove(), 500);
     el.click();
-    await sleep(180);
+    await sleep(250);
     // 点完按钮后把光标挪到按钮上方/下方，避免压住按钮或滑到相邻按钮。
     const sideX = r.left + r.width / 2;
     const sideY = (r.top > innerHeight * 0.58)
