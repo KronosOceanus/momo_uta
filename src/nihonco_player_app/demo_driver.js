@@ -41,14 +41,22 @@
       border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer}
     #demo-panel button:disabled{opacity:.4;cursor:default}
     body.demo-running{cursor:none}
-    #demo-caption{position:fixed;left:10px;bottom:108px;width:250px;z-index:99997;
-      padding:12px 14px;border:1px solid #ffffff2e;border-radius:10px;
-      background:#101318e8;color:#f4f2ed;pointer-events:none;
-      box-shadow:0 8px 28px #0005;opacity:0;transform:translateY(6px);
-      transition:opacity .25s ease,transform .25s ease;
-      font:15px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}
-    #demo-caption.show{opacity:1;transform:none}
-    #demo-caption .step{color:#c8843f;font-size:11px;letter-spacing:.12em;margin-bottom:3px}
+    #demo-caption{position:fixed;left:10px;bottom:70px;width:250px;height:230px;
+      z-index:99997;overflow:hidden;pointer-events:none;opacity:0;
+      transition:opacity .25s ease;
+      -webkit-mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);
+      mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);
+      font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}
+    #demo-caption.show{opacity:1}
+    #demo-caption .track{transition:transform .55s cubic-bezier(.2,.7,.2,1)}
+    #demo-caption .capstep{height:58px;min-height:58px;display:flex;align-items:center;gap:8px;
+      padding:0 10px;border-radius:8px;opacity:.28;transform:scale(.78);
+      transform-origin:left center;transition:opacity .35s ease,transform .35s ease,background .35s ease}
+    #demo-caption .capstep.active{opacity:1;transform:scale(1);background:#101318e8;color:#f4f2ed;
+      box-shadow:0 8px 24px #0004}
+    #demo-caption .capstep .n{color:#c8843f;font-size:10px;letter-spacing:.12em;min-width:38px}
+    #demo-caption .capstep .t{color:#5f5a51;font-size:13px;white-space:nowrap}
+    #demo-caption .capstep.active .t{color:#f4f2ed;font-size:15px}
   `;
   document.head.appendChild(style);
 
@@ -62,16 +70,32 @@
     const r = el.getBoundingClientRect();
     moveTo(r.left + r.width/2, r.top + r.height/2);
   };
+  const STEPS = ['歌词页','罗马音','跳转','单句循环：开','单句循环：关','上一句','下一句'];
   let cap = null;
+  let capTrack = null;
+  let capRows = [];
   const caption = (text, step) => {
     if (!cap) {
       cap = document.createElement('div');
       cap.id = 'demo-caption';
-      cap.innerHTML = '<div class="step"></div><div class="text"></div>';
+      capTrack = document.createElement('div');
+      capTrack.className = 'track';
+      STEPS.forEach((t, i) => {
+        const row = document.createElement('div');
+        row.className = 'capstep';
+        row.innerHTML = `<span class="n">${String(i + 1).padStart(2,'0')} / 07</span><span class="t">${t}</span>`;
+        capTrack.appendChild(row);
+        capRows.push(row);
+      });
+      cap.appendChild(capTrack);
       document.body.appendChild(cap);
     }
-    cap.querySelector('.step').textContent = step ? String(step).padStart(2, '0') + ' / 07' : '';
-    cap.querySelector('.text').textContent = text;
+    const i = Math.max(0, Math.min(STEPS.length - 1, (step || 1) - 1));
+    capRows.forEach((row, k) => {
+      row.classList.toggle('active', k === i);
+      if (k === i && text) row.querySelector('.t').textContent = text;
+    });
+    capTrack.style.transform = `translateY(${-(i * 58 - (230 - 58) / 2)}px)`;
     requestAnimationFrame(() => cap.classList.add('show'));
   };
 
