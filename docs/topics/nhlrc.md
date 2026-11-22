@@ -28,6 +28,11 @@ data/lyrics/bak/<name>.nhlrc.bak
 data/lyrics/.lock
 ```
 
+```text
+开发时 data = 项目/data；
+打包后 data = ~/Library/Application Support/nihonco uta/data。
+```
+
 规则：
 
 ```text

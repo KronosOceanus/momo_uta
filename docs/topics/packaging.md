@@ -1,6 +1,6 @@
 # 打包
 
-> 当前还没有正式 `.app` 打包配置。本文记录目标、依赖、体积和待办。
+> 已配置 PyInstaller onedir，能构建 base / thin / full 三种 `.app`。
 
 ## 0. 当前状态
 
@@ -32,6 +32,24 @@
 尚未签名 / 公证。
 ```
 
+### 三个版本
+
+| 版本 | 文件 | 内容 | 体积 |
+|---|---|---|---|
+| base | `nihonco-uta-base.app` | 播放器 + 歌词 + LRC + 翻译，不含人声依赖 | ~230 MB |
+| thin | `nihonco-uta-thin.app` | 同 base，但检测外部 demucs / ffmpeg | ~230 MB |
+| full | `nihonco-uta-full.app` | base + demucs + torch + ffmpeg | ~859 MB |
+
+```text
+三者共享同一份用户数据：
+  ~/Library/Application Support/nihonco uta/data
+```
+
+```text
+full 里的 demucs 通过 app 的 --nihonco-demucs 子命令运行；
+入口先调用 multiprocessing.freeze_support()，避免子进程重开窗口。
+```
+
 ## 1. 运行结构
 
 ```text
@@ -57,6 +75,10 @@ src/nihonco_player_app
 config/defaults.json
 static/player.html/.css/.js
 data/tables/jmdict_*.json
+data/curated/glossary_lyrics.json
+data/curated/counters.json
+data/curated/lyrics_exclude.json
+assets/nihonco-uta-logo.icns
 ```
 
 ```text
@@ -72,7 +94,8 @@ mutagen
 
 ```text
 data/lyrics/       用户歌词资产
-data/curated/      歌单/元数据/导入历史
+data/curated/      用户歌单/元数据/导入历史
+                   （只有 glossary/counters/lyrics_exclude 默认表随包）
 data/config.json   本机配置
 data/cache/        可重建缓存
 data/vocals/       人声缓存
@@ -132,12 +155,13 @@ full 的体积主要来自 torch、torch 依赖和 ffmpeg。
 
 ## 6. 打包方式
 
-建议：
+已使用：
 
 ```text
 PyInstaller onedir
   → .app
-  → 外层 DMG
+  → zip（当前）
+  → DMG（未做）
 ```
 
 ```text
@@ -150,48 +174,55 @@ PyInstaller onedir
 ## 7. 路径问题
 
 ```text
-代码通过 nihonco_yomi.paths 计算 ROOT。
-打包后 ROOT 不能指向临时解压目录。
+paths.BUNDLE
+  = .app 内只读资源，来自 PyInstaller _MEIPASS
+
+paths.ROOT
+  = 可写用户目录
+    ~/Library/Application Support/nihonco uta
+    可用 NIHONCO_HOME 覆盖
+
+开发时：
+  BUNDLE = ROOT = 项目根
 ```
 
-需要区分：
+只读资源：
 
 ```text
-只读资源：
-  config/defaults.json
-  data/tables
-  static
+config/defaults.json
+data/tables
+data/curated/glossary_lyrics.json
+data/curated/counters.json
+data/curated/lyrics_exclude.json
+static
+```
 
 可写用户数据：
-  data/curated
-  data/lyrics
-  data/cache
-  data/vocals
-  data/config.json
+
+```text
+data/curated
+data/lyrics
+data/cache
+data/vocals
+data/config.json
 ```
 
 ```text
-打包时要让可写目录落到用户可写位置，
-不能写进 .app 内部。
+首次启动由 paths.bootstrap() 建目录并复制默认表。
+可写目录不能落到 .app 内部。
 ```
 
 ## 8. 菜单栏名称
 
 ```text
-window title 已经是 nihonco uta
-系统菜单栏仍可能显示 Python
-```
-
-正式修法：
-
-```text
-打包 .app
-CFBundleName / CFBundleDisplayName = nihonco uta
+window title：nihonco uta
+CFBundleName / CFBundleDisplayName：nihonco uta
 ```
 
 ```text
-不做运行时 AppKit 改进程名的临时方案。
+已写入 Info.plist，不在运行时改 AppKit 进程名。
 ```
+
 
 ## 9. 签名与公证
 
@@ -235,6 +266,7 @@ __CFG 由服务端注入
 保存 nhlrc
 导入
 切换主题
+打开数据路径
 全局热键
 关闭窗口后台播放
 Dock 重新显示

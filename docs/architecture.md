@@ -107,7 +107,23 @@ annotate / romaji / render / kana / counters / invariants / thresholds
 
 ## 2. 数据归属
 
-### 2.1 权威数据
+### 2.1 数据根目录
+
+```text
+开发：
+  <repo>/data
+
+打包：
+  ~/Library/Application Support/nihonco uta/data
+  可用 NIHONCO_HOME 覆盖
+```
+
+```text
+本文表格里的 data/... 都相对于这个根目录。
+只读表/静态文件在 .app 的 Resources，不在用户数据根。
+```
+
+### 2.2 权威数据
 
 | 数据 | 身份键 | 写入者 | 删除后的行为 |
 |---|---|---|---|
@@ -117,7 +133,7 @@ annotate / romaji / render / kana / counters / invariants / thresholds
 | `data/curated/imports.json` | 音频路径 | `library` | 导入历史丢失 |
 | `data/config.json` | 配置路径 | `user_config` | 回到 `config/defaults.json` |
 
-### 2.2 可重建缓存
+### 2.3 可重建缓存
 
 | 数据 | 身份键 | 写入者 | 删除后的行为 |
 |---|---|---|---|
@@ -134,7 +150,7 @@ data/vocals 可重建，但成本高。
 data/tables、data/sources、data/corpus、eval/ 是仓库/评测数据，不是播放器运行数据。
 ```
 
-### 2.3 `.nhlrc` 内部
+### 2.4 `.nhlrc` 内部
 
 ```text
 正文       原文，权威
@@ -149,7 +165,7 @@ disabled   持久化的“用户删除了这首歌的歌词”
 disabled 也是持久化用户选择，不是缓存。
 ```
 
-### 2.4 身份
+### 2.5 身份
 
 ```text
 uid   歌曲身份，也是 offset 的键
@@ -157,7 +173,7 @@ idx   曲库展示位置，不是身份
 key   历史字段，不再作为 offset / 身份
 ```
 
-### 2.5 歌词缓存与翻译
+### 2.6 歌词缓存与翻译
 
 ```text
 data/cache/lyrics 里的 tlyric 只是抓取结果。

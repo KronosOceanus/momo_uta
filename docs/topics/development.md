@@ -10,6 +10,7 @@ make test-python   # Python 架构 + unittest
 make arch          # 当前实现包含 check_arch + check_js
 make app           # 启动桌面应用
 make api           # 命令行验证引擎
+./packaging/build.sh base|thin|full  # 构建三种 .app
 ```
 
 ```bash
@@ -171,7 +172,27 @@ app 使用随机端口，不占固定端口。
 静态前端由 routes 直接服务。
 ```
 
-## 8. 数据安全
+## 8. 打包
+
+```bash
+./packaging/build.sh base
+./packaging/build.sh thin
+./packaging/build.sh full
+```
+
+```text
+产物在 dist/<variant>/
+zip 在 dist/
+```
+
+```text
+打包后用户数据：
+  ~/Library/Application Support/nihonco uta/data
+开发时数据：
+  <repo>/data
+```
+
+## 9. 数据安全
 
 ```text
 不要用测试写真实 data/curated、data/lyrics。
@@ -183,7 +204,7 @@ make clean-cache / clean-index / clean-vocals 只删可重建数据。
 权威 nhlrc / playlists / song_meta / imports 不在清理命令里。
 ```
 
-## 9. 已知边界
+## 10. 已知边界
 
 ```text
 1. 没有前端构建器，新增脚本要手动改加载顺序。
@@ -193,7 +214,7 @@ make clean-cache / clean-index / clean-vocals 只删可重建数据。
 5. 打包尚未纳入 Makefile。
 ```
 
-## 10. 相关
+## 11. 相关
 
 ```text
 architecture.md

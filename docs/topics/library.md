@@ -179,6 +179,11 @@ rebuild_library()
 data/curated/playlists.json
 ```
 
+```text
+开发时 data = 项目/data；
+打包后 data = ~/Library/Application Support/nihonco uta/data。
+```
+
 结构：
 
 ```json

@@ -3,6 +3,12 @@
 > 本文回答：哪些数据能删、删了要重算什么、什么时候失效、删除/重建的代价。
 > 分层与模块职责见 [架构文档](../architecture.md)。
 
+```text
+本文路径相对 data 根：
+  开发：<repo>/data
+  打包：~/Library/Application Support/nihonco uta/data
+```
+
 ## 0. 一句话分类
 
 ```text
