@@ -76,9 +76,10 @@ class TestTranslations(unittest.TestCase):
 
     def test_translation_only_still_writes_tail(self):
         rows = [{"t": 1.0, "text": "君"}]
-        text = D.render_nhlrc(rows, [], None, {0: "你"})
+        text = D.render_nhlrc(rows, [], None, {0: "你"}, "en")
         body, tail = D._split_nhlrc(text)
         self.assertIsNotNone(tail)
+        self.assertEqual(tail["trans_lang"], "en")
         self.assertEqual(D.translations_for(D.parse(body), tail), {0: "你"})
 
     def test_align_translation_follows_text(self):

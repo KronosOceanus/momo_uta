@@ -55,7 +55,8 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False):
 
 
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
-                text=None, expected_version=None, translations=None) -> dict:
+                text=None, expected_version=None, translations=None,
+                trans_lang="zh") -> dict:
     """唯一的歌词权威写入口：锁内读改写 + 版本校验 + 原子替换。
 
     mode:
@@ -71,7 +72,8 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
         if mode == "replace" and text is not None:
             res = LRC.import_text(item["file"], text, uid, title, artist,
                                   expected_version=expected_version,
-                                  translations=translations)
+                                  translations=translations,
+                                  trans_lang=trans_lang)
         else:
             doc = LRC.load(item["file"], uid, title, artist)
             if mode == "align":
@@ -97,7 +99,7 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                                            translations)
             res = LRC.save(item["file"], lines or [], ann, uid=uid, title=title,
                            artist=artist, expected_version=expected_version,
-                           translations=trans)
+                           translations=trans, trans_lang=trans_lang)
     if uid and res.get("ok"):
         try:
             res["library"] = LIB.refresh(uid)

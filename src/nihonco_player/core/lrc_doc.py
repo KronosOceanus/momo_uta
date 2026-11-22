@@ -105,7 +105,7 @@ def align_translations(lines: list[dict], old_lines: list[dict],
     out: dict[int, str] = {}
     used: set[int] = set()
     for i, text in entries:                       # 位置 + 内容都没变
-        if i < len(lines) and old.get(i, None) == new.get(i) and new.get(i) == old.get(i):
+        if i < len(lines) and old.get(i) == new.get(i):
             out[i] = text
             used.add(i)
     rest = [(i, text) for i, text in entries if i not in used]
@@ -172,7 +172,8 @@ def render_body(lines: list[dict], metadata: list[dict] | None = None) -> str:
 
 def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
                  annotations: dict[int, list] | None = None,
-                 translations: dict[int, str] | None = None) -> str:
+                 translations: dict[int, str] | None = None,
+                 trans_lang: str = "zh") -> str:
     body = render(lines, metadata)
     entries = []
     for i, seg in sorted((annotations or {}).items()):
@@ -202,7 +203,7 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
         for ent in trans:
             t = json.dumps(ent["text"], ensure_ascii=False)
             trows.append(f'  {{"i": {ent["i"]}, "h": "{ent["h"]}", "text": {t}}}')
-        tail += (',\n "trans_lang": "zh",\n'
+        tail += (f',\n "trans_lang": {json.dumps(str(trans_lang or "zh"), ensure_ascii=False)},\n'
                  ' "trans": [\n' + ",\n".join(trows) + '\n ]')
     tail += '\n}'
     return body + "\n" + NHLRC_MARK + f" {NHLRC_VERSION}\n" + tail + "\n"

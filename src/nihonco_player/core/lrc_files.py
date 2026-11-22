@@ -282,7 +282,8 @@ def delete_store(audio: str | Path, uid: str | None = None,
 def import_text(audio: str | Path, text: str, uid: str | None = None,
                 title: str | None = None, artist: str | None = None,
                 expected_version: str | None = None,
-                translations: dict[int, str] | None = None) -> dict:
+                translations: dict[int, str] | None = None,
+                trans_lang: str = "zh") -> dict:
     """用户导入：直接原子写权威 nhlrc，不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -301,7 +302,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
         annotations = annotations_for(lines, tail) if tail else {}
         if translations is None:
             translations = translations_for(lines, tail) if tail else {}
-        out = render_nhlrc(lines, metadata, annotations, translations) if (annotations or translations) else body
+        out = render_nhlrc(lines, metadata, annotations, translations, trans_lang) if (annotations or translations) else body
         _atomic_write(sp, out)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "annotated": len(annotations), "backed_up": backed,
@@ -313,7 +314,7 @@ def save(audio: str | Path, lines: list[dict],
          translations: dict[int, str] | None = None,
          uid: str | None = None,
          title: str | None = None, artist: str | None = None,
-         expected_version: str | None = None) -> dict:
+         expected_version: str | None = None, trans_lang: str = "zh") -> dict:
     """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -332,7 +333,7 @@ def save(audio: str | Path, lines: list[dict],
             annotations = annotations_for(lines, _tail)
         if translations is None:
             translations = translations_for(lines, _tail)
-        text = render_nhlrc(lines, metadata, annotations, translations)
+        text = render_nhlrc(lines, metadata, annotations, translations, trans_lang)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}
