@@ -205,7 +205,7 @@
       await sleep(7000);
       await click(document.getElementById('next'));
       caption('下一句', 7);
-      await sleep(7000);
+      await sleep(7500);
       NH.au.pause();
 
       if (b) { b.disabled = true; b.textContent = '第一段完成'; }
