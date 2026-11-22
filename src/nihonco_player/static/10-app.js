@@ -671,6 +671,16 @@ function applyTheme(theme, persist){
 }
 const initialTheme=(CFG.player&&CFG.player.ui&&CFG.player.ui.theme)==='light'?'light':'dark';
 applyTheme(initialTheme,false);
+const dataBtn=document.getElementById('datadir');
+if(dataBtn) dataBtn.onclick=async()=>{
+  const a=window.pywebview && window.pywebview.api;
+  if(!a || !a.open_data_dir){ done('仅桌面版支持打开数据目录'); return; }
+  try{
+    const r=await a.open_data_dir();
+    if(r && r.ok===false){ done(r.error||'打开数据目录失败'); return; }
+    toast('已打开数据目录');
+  }catch(e){ done('打开数据目录失败：'+e.message); }
+};
 const themeBtn=document.getElementById('theme');
 if(themeBtn) themeBtn.onclick=()=>{
   const cur=document.documentElement && document.documentElement.dataset

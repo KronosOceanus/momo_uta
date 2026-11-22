@@ -58,6 +58,17 @@ def main() -> None:
     class Api:
         """前端只调 pick_any()：一个对话框里文件、文件夹都能选，程序自己判断。"""
 
+        def open_data_dir(self):
+            """用 Finder 打开当前用户数据目录；路径由后端决定，前端不硬编码。"""
+            try:
+                import subprocess
+                from nihonco_yomi.paths import DATA
+                DATA.mkdir(parents=True, exist_ok=True)
+                subprocess.run(["open", str(DATA)], check=False)
+                return {"ok": True, "path": str(DATA)}
+            except Exception as e:
+                return {"ok": False, "error": str(e)}
+
         def pick_any(self):
             """一个对话框，文件和文件夹都能选（NSOpenPanel 两个开关都打开）。"""
             try:
