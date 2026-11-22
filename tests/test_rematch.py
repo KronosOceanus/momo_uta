@@ -29,16 +29,18 @@ class TestRematch(unittest.TestCase):
                 d = SONG.rematch(it["uid"], 60)
             self.assertEqual(d["candidates"], [])      # 不再把本地当前项插进来
 
-    def test_current_marked_only_if_online(self):
+    def test_rematch_does_not_touch_lyrics_cache(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
             it = item(audio); CACHE.clear(); CACHE["0"] = it; LIB.BY_UID[it["uid"]] = it
             cand = {"id": 999, "name": "曲", "artist": "歌手", "duration": 60.0}
             with patch.object(LY, "search_candidates", return_value=[cand]), \
-                 patch.object(LY, "get_lrc", return_value={"id": 999, "lrc": "[00:01.00]旧"}):
+                 patch.object(LY, "get_lrc") as gl:
                 d = SONG.rematch(it["uid"], 60)
-            self.assertTrue(d["candidates"][0]["current"])
+            self.assertEqual(d["candidates"][0]["id"], 999)
+            self.assertNotIn("current", d["candidates"][0])
+            gl.assert_not_called()
 
     def test_pick_rewrites_lyrics_and_resets_readings(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -199,12 +199,9 @@ def rematch(ref, duration):
     artist, title = LY.split_name(item["stem"])
     duration = float(duration or 0) or LY.audio_duration(item["file"])
 
-    cur = LY.get_lrc(title, artist) or {}
-    cur_id = cur.get("id")
-
     seen, rows = set(), []
 
-    def add(c, src, q_title):
+    def add(c, src):
         if not c or not c.get("id") or c["id"] in seen:
             return
         if not LY.accept_candidate(c, title, artist, duration):
@@ -217,13 +214,9 @@ def rematch(ref, duration):
                      "score": LY.score_candidate(c, title, artist, duration)})
 
     for c in LY.search_candidates(title, artist):
-        add(c, "netease", title)
+        add(c, "netease")
 
-    for r in rows:
-        if cur_id and str(r["id"]) == str(cur_id):
-            r["current"] = True
-
-    rows.sort(key=lambda r: (not r.get("current"), -r["score"]))
+    rows.sort(key=lambda r: -r["score"])
     return {"stem": item["stem"], "candidates": rows[:int(LY.CFG["manual_limit"])]}
 
 
