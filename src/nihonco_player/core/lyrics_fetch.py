@@ -25,33 +25,35 @@ def _get(url: str, timeout: float | None = None) -> str:
 
 
 def search_candidates(title: str, artist: str, limit: int | None = None) -> list[dict]:
-    """多路搜索 + 详情，返回带时长的候选。"""
+    """多路搜索；搜索结果本身已带歌手/时长，不再请求 detail。"""
     limit = int(CFG["search_limit"]) if limit is None else limit
-    ids: list[int] = []
+    found: dict[int, dict] = {}
     for q in (f"{title} {artist}".strip(), title, f"{artist} {title}".strip()):
-        r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode({"s": q, "type": 1, "limit": limit}))
+        r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode(
+            {"s": q, "type": 1, "limit": limit}))
         try:
-            for x in json.loads(r)["result"]["songs"]:
-                if x["id"] not in ids:
-                    ids.append(x["id"])
+            songs = json.loads(r)["result"]["songs"]
         except Exception:
             continue
-        if len(ids) >= limit * 2:
+        for x in songs:
+            try:
+                song_id = int(x["id"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if song_id in found:
+                continue
+            artists = x.get("artists") or []
+            found[song_id] = {
+                "id": song_id,
+                "name": x.get("name", ""),
+                "artist": ", ".join(a.get("name", "") for a in artists
+                                    if isinstance(a, dict) and a.get("name")),
+                "duration": round(float(x.get("duration") or 0) / 1000, 1),
+                "album": (x.get("album") or {}).get("name", ""),
+            }
+        if len(found) >= limit * 2:
             break
-    ids = ids[:int(CFG["max_ids"])]
-    if not ids:
-        return []
-    r = _get("https://music.163.com/api/song/detail?ids=" + json.dumps(ids, separators=(",", ":")))   # 方括号不能转义
-    out = []
-    try:
-        for x in json.loads(r).get("songs", []):
-            out.append({"id": x["id"], "name": x.get("name", ""),
-                        "artist": ", ".join(a["name"] for a in x.get("artists", [])),
-                        "duration": round((x.get("duration") or 0) / 1000, 1),
-                        "album": (x.get("album") or {}).get("name", "")})
-    except Exception:
-        pass
-    return out
+    return list(found.values())[:int(CFG["max_ids"])]
 
 
 def score_candidate(c: dict, title: str, artist: str, duration: float) -> float:

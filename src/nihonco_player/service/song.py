@@ -368,7 +368,7 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 saved_ids = _saved_identities(body_rows, ann, out_lids, out_tids)
     if res.get("ok") and saved_ids:
         res["ids"] = saved_ids
-    if uid and res.get("ok"):
+    if uid and res.get("ok") and not res.get("skipped"):
         try:
             res["library"] = LIB.refresh(uid)
             for _, v in LIB.snapshot():

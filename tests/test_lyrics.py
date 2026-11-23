@@ -30,6 +30,22 @@ class TestLocalOnlyLoad(unittest.TestCase):
                 self.assertIsNone(LF.get_lrc("曲", "歌手", network=False))
 
 
+class TestSearchUsesPayload(unittest.TestCase):
+    def test_search_uses_search_payload_without_detail(self):
+        import json
+        from nihonco_player.core import lyrics_fetch as LF
+        payload = {"result": {"songs": [{
+            "id": 94214994, "name": "群青",
+            "artists": [{"name": "YOASOBI"}], "duration": 248444,
+            "album": {"name": "群青"}}]}}
+        with patch.object(LF, "_get", return_value=json.dumps(payload)) as get:
+            out = LF.search_candidates("群青", "YOASOBI", limit=1)
+        self.assertEqual(out[0]["id"], 94214994)
+        self.assertEqual(out[0]["artist"], "YOASOBI")
+        self.assertEqual(out[0]["duration"], 248.4)
+        self.assertFalse(any("song/detail" in c.args[0] for c in get.call_args_list))
+
+
 class TestUnifiedMatch(unittest.TestCase):
     def test_auto_skips_candidate_without_valid_lyrics(self):
         from nihonco_player.core import lyrics_fetch as LF

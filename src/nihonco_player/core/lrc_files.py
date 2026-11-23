@@ -67,6 +67,11 @@ def _write_v2(path: Path, backup: Path, rows: list[dict],
     return text, backed
 
 
+def _has_document_content(rows: list[dict]) -> bool:
+    return any(row.get("kind") in ("lyric", "metadata")
+               and (row.get("text") or "").strip() for row in rows)
+
+
 def _row_ids(rows: list[dict]) -> list[dict]:
     """保存后回传行身份，供前端合并服务端生成的 lid/tid。"""
     return [{"i": i, "text": row.get("text") or "", "lid": row.get("lid"),
@@ -398,6 +403,9 @@ def save_rows(audio: str | Path, rows: list[dict],
     """写 v2 rows；版本校验、首次备份、原子替换。"""
     if not rows:
         return {"ok": False, "error": "没有歌词行"}
+    if not _has_document_content(rows):
+        return {"ok": True, "skipped": True, "rows": 0, "ids": [],
+                "backed_up": False}
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
@@ -626,8 +634,11 @@ def save(audio: str | Path, lines: list[dict],
          annotation_index: dict[int, int] | None = None,
          metadata: list[dict] | None = None) -> dict:
     """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
-    if not lines:
+    if not lines and not metadata:
         return {"ok": False, "error": "没有歌词行"}
+    if not any((ln.get("text") or "").strip() for ln in (lines or [])) and not metadata:
+        return {"ok": True, "skipped": True, "rows": 0, "ids": [],
+                "backed_up": False}
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
