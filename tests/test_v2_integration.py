@@ -553,3 +553,12 @@ class TestV2SaveRowIds(unittest.TestCase):
                 self.assertTrue(saved["ids"][0]["lid"])
                 loaded = LRF.load_rows(audio)
                 self.assertEqual(loaded["rows"][0]["lid"], saved["ids"][0]["lid"])
+
+
+class TestV2PlainLrcPlan(unittest.TestCase):
+    def test_plain_lrc_import_generates_tokens(self):
+        from nihonco_player.core import lrc_files as LRF
+
+        rows = LRF.plain_lrc_rows("[00:01.00]君の名前\n")
+        self.assertTrue(rows[0]["tokens"])
+        self.assertTrue(any(t.get("ruby") for t in rows[0]["tokens"]))

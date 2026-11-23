@@ -441,6 +441,21 @@ def backup_status(audio: str | Path, uid: str | None = None,
             "mtime": b.stat().st_mtime, "size": b.stat().st_size}
 
 
+def _annotate_missing_tokens(rows: list[dict]) -> None:
+    """普通 LRC 没有读音尾部；导入时按正文生成一次 token。"""
+    from .annotation import annotate_line_with_notes, segs_of
+    for row in rows:
+        if row.get("kind") != "lyric" or row.get("tokens"):
+            continue
+        text = row.get("text") or ""
+        try:
+            result = annotate_line_with_notes(text)
+            segs = segs_of(result)
+            row["tokens"] = tokens_with_spans(segs, new_token_ids(len(segs)), text)
+        except Exception:
+            continue
+
+
 def plain_lrc_rows(text: str) -> list[dict]:
     """外部普通 LRC → v2 rows；不读取任何 nhlrc 尾部。"""
     body, _tail = _split_nhlrc(text)
@@ -452,7 +467,9 @@ def plain_lrc_rows(text: str) -> list[dict]:
             body_to_lyric[bi] = lyric
             lyric += 1
     meta_body = _metadata_for_body(metadata, body_to_lyric, len(body_rows))
-    return _rows_from_body(body_rows, meta_body, {}, {}, {}, {}, body_to_lyric)
+    rows = _rows_from_body(body_rows, meta_body, {}, {}, {}, {}, body_to_lyric)
+    _annotate_missing_tokens(rows)
+    return rows
 
 
 def restore_backup(audio: str | Path, uid: str | None = None,
