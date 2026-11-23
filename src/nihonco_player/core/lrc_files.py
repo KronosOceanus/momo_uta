@@ -418,6 +418,7 @@ def save_rows(audio: str | Path, rows: list[dict],
         if trans_lang is None:
             _body, tail = _split_v2_tail(original)
             trans_lang = (tail or {}).get("trans_lang") or "zh"
+        _annotate_missing_tokens(rows)
         text, backed = _write_v2(sp, bak, rows, trans_lang)
         return {"ok": True, "path": str(sp), "rows": len(rows),
                 "ids": _row_ids(rows),

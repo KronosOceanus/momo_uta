@@ -555,6 +555,24 @@ class TestV2SaveRowIds(unittest.TestCase):
                 self.assertEqual(loaded["rows"][0]["lid"], saved["ids"][0]["lid"])
 
 
+class TestV2SaveFillsTokens(unittest.TestCase):
+    def test_save_rows_fills_empty_tokens(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                LRF.save_rows(audio, [{"kind": "lyric", "text": "君の名前",
+                                       "t": 1.0, "lid": "l_a", "tokens": []}])
+                got = LRF.load_rows(audio)
+                self.assertTrue(got["rows"][0]["tokens"])
+
+
 class TestV2PlainLrcPlan(unittest.TestCase):
     def test_plain_lrc_import_generates_tokens(self):
         from nihonco_player.core import lrc_files as LRF
