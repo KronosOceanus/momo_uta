@@ -20,10 +20,9 @@ def lrc_action(req):
     uid, title, artist = item.get("uid"), item["title"], item.get("artist", "")
     if act == "load":
         rows_doc = LD.load_rows(uid)
+        rows_extra = None
         if rows_doc.get("ok") and rows_doc.get("model") == 2:
-            return {"ok": True, "model": 2, "uid": uid,
-                    "rows": rows_doc.get("rows") or [],
-                    "version": rows_doc.get("version"), "pending": False}
+            rows_extra = rows_doc.get("rows") or []
         doc, has_lines = load_lyrics(item)
         trans = doc.get("translations") or {}
         ann = doc.get("annotations") or {}
@@ -48,8 +47,11 @@ def lrc_action(req):
                 if tokens:
                     row["tokens"] = tokens
             lines.append(row)
-        return {**doc, "lines": lines, "body_rows": lines,
-                "pending": not has_lines and not doc.get("disabled")}
+        out = {**doc, "lines": lines, "body_rows": lines,
+               "pending": not has_lines and not doc.get("disabled")}
+        if rows_extra is not None:
+            out.update({"model": 2, "rows": rows_extra})
+        return out
     if act == "backup":
         return LRC.backup_status(item["file"], uid, title, artist)
     if act == "restore":

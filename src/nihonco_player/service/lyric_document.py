@@ -18,7 +18,8 @@ def load_rows(ref) -> dict:
         return {**doc, "uid": item.get("uid")}
     return {"ok": True, "uid": item.get("uid"), "rows": doc.get("rows") or [],
             "version": doc.get("version"), "exists": bool(doc.get("exists")),
-            "model": doc.get("model") or 0}
+            "model": doc.get("model") or 0,
+            "trans_lang": doc.get("trans_lang") or "zh"}
 
 
 def save_rows(ref, rows, expected_version=None, trans_lang="zh") -> dict:
@@ -69,7 +70,8 @@ def edit_reading(ref, lid, tid, reading, expected_version=None) -> dict:
     token["level"] = "A"
     res = LRC.save_rows(item["file"], rows, uid=item.get("uid"),
                         title=item["title"], artist=item.get("artist", ""),
-                        expected_version=expected_version)
+                        expected_version=expected_version,
+                        trans_lang=doc.get("trans_lang") or "zh")
     if res.get("ok"):
         try:
             res["library"] = LIB.refresh(item.get("uid"))

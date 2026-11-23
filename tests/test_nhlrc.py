@@ -124,7 +124,7 @@ class TestNhlrc(unittest.TestCase):
                 self.assertTrue(p.is_file())
                 raw = p.read_text(encoding="utf-8")
                 self.assertTrue(raw.startswith("[00:05.00]君の名前"))
-                self.assertIn("#NHLRC 1", raw)
+                self.assertIn("#NHLRC 2", raw)
                 doc = LRF.load(audio)
                 self.assertEqual(doc["annotations"], ann)
             self.assertEqual(DOC.render_body(rows(), []), "[00:05.00]君の名前\n[00:09.00]呼んでくれた\n")

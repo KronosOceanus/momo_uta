@@ -24,6 +24,7 @@ from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
                       _parse_body_rows, _parse_document, _parse_rows,
                       _split_nhlrc, annotations_for, annotations_and_ids_for,
                       parse, render, render_body, render_nhlrc,
+                      new_line_id, new_token_ids, tokens_with_spans,
                       translations_for, translations_from_lrc)
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
@@ -164,6 +165,47 @@ def usable_doc(doc: dict) -> bool:
     return doc.get("kind") == "nhlrc" or LY.has_timed(doc.get("text") or "")
 
 
+def _doc_from_v2_rows(rows: list[dict], path: Path, version: str,
+                      source: str = "nhlrc") -> dict:
+    """把 v2 rows 投影成旧 reader 需要的字段，供保存/兼容路径使用。"""
+    body_rows, lines, metadata = [], [], []
+    annotations, line_ids, token_ids, translations = {}, {}, {}, {}
+    trans_lang = "zh"
+    for row in rows:
+        kind = row.get("kind")
+        if kind == "metadata":
+            metadata.append({"before": len(lines), "text": row.get("text") or ""})
+            continue
+        text = row.get("text") or ""
+        body_rows.append({"t": row.get("t"), "text": text})
+        if kind != "lyric" or not text.strip():
+            continue
+        li = len(lines)
+        lines.append({"t": row.get("t"), "text": text})
+        if row.get("lid"):
+            line_ids[li] = row["lid"]
+        toks = row.get("tokens") or []
+        if toks:
+            annotations[li] = [[t.get("base", ""), t.get("ruby"), t.get("level")]
+                               for t in toks]
+            token_ids[li] = [t.get("tid") for t in toks]
+        if row.get("trans"):
+            translations[li] = row["trans"]
+    return {"ok": True, "exists": True, "from_cache": False,
+            "path": str(path), "kind": "nhlrc", "source": source,
+            "text": body_text_of(rows), "lines": lines,
+            "body_rows": body_rows, "metadata": metadata,
+            "annotations": annotations, "line_ids": line_ids,
+            "token_ids": token_ids, "translations": translations,
+            "trans_lang": trans_lang, "nhlrc": True, "disabled": False,
+            "version": version}
+
+
+def body_text_of(rows: list[dict]) -> str:
+    from .lyric_rows import body_text
+    return body_text(rows)
+
+
 def load(audio: str | Path, uid: str | None = None,
          title: str | None = None, artist: str | None = None,
          network: bool = False) -> dict:
@@ -192,6 +234,11 @@ def load(audio: str | Path, uid: str | None = None,
         path, kind = sp, "cache"
         from_cache = bool(full)
 
+    if tail and tail.get("v") == 2:
+        rows = parse_v2_rows(full)
+        doc = _doc_from_v2_rows(rows, path, version, source)
+        doc["trans_lang"] = (tail.get("trans_lang") or "zh")
+        return doc
     if disabled:
         return {"ok": True, "exists": True, "from_cache": False,
                 "path": str(path), "kind": "nhlrc", "source": "disabled",
@@ -245,7 +292,8 @@ def load_rows(audio: str | Path, uid: str | None = None,
     _body, tail = _split_v2_tail(full)
     model = 2 if tail and tail.get("v") == 2 else 0
     return {"ok": True, "rows": rows, "version": _version(full),
-            "exists": True, "model": model}
+            "exists": True, "model": model,
+            "trans_lang": (tail or {}).get("trans_lang") or "zh"}
 
 
 def save_rows(audio: str | Path, rows: list[dict],
@@ -424,6 +472,37 @@ def _metadata_for_body(metadata, annotation_index, body_len):
     return out
 
 
+def _rows_from_body(lines, metadata, annotations, translations,
+                    line_ids, token_ids, annotation_index) -> list[dict]:
+    """旧 body/compact 入参 → v2 rows；供旧保存入口一次性转换。"""
+    by_before = {}
+    for tag in metadata or []:
+        try:
+            before = int(tag.get("before", 0))
+        except (TypeError, ValueError):
+            before = 0
+        by_before.setdefault(before, []).append(tag)
+    rows = []
+    for bi, ln in enumerate(lines or []):
+        for tag in by_before.pop(bi, []):
+            rows.append({"kind": "metadata", "text": tag.get("text", ""), "t": None})
+        text = str(ln.get("text") or "")
+        if not text.strip():
+            rows.append({"kind": "blank", "text": "", "t": ln.get("t")})
+            continue
+        lid = (line_ids or {}).get(bi) or new_line_id()
+        seg = (annotations or {}).get(bi) or []
+        tids = (token_ids or {}).get(bi) or new_token_ids(len(seg))
+        tokens = tokens_with_spans(seg, tids, text)
+        rows.append({"kind": "lyric", "text": text, "t": ln.get("t"),
+                     "lid": lid, "tokens": tokens,
+                     "trans": (translations or {}).get(bi) or ""})
+    for before in sorted(by_before):
+        for tag in by_before[before]:
+            rows.append({"kind": "metadata", "text": tag.get("text", ""), "t": None})
+    return rows
+
+
 def save(audio: str | Path, lines: list[dict],
          annotations: dict[int, list] | None = None,
          translations: dict[int, str] | None = None,
@@ -460,10 +539,10 @@ def save(audio: str | Path, lines: list[dict],
                 if (ln.get("text") or "").strip():
                     annotation_index[bi] = lyric
                     lyric += 1
-        metadata = _metadata_for_body(metadata, annotation_index, len(lines))
-        text = render_nhlrc(lines, metadata, annotations, translations, trans_lang,
-                            line_ids=line_ids, token_ids=token_ids,
-                            annotation_index=annotation_index)
+        body_meta = _metadata_for_body(metadata, annotation_index, len(lines))
+        rows = _rows_from_body(lines, body_meta, annotations, translations,
+                               line_ids, token_ids, annotation_index)
+        text = render_v2_rows(rows, trans_lang)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}

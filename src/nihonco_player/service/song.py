@@ -435,7 +435,25 @@ def edit_line(uid, li, start, reading):
         token = next((t for t in (row.get("tokens") or [])
                       if int(t.get("start", -1)) == int(start)), None)
         if not token:
-            return None
+            # 新导入/未注音的 v2 还没有 token：按 start 现算一次并落 token。
+            r = annotate_line_with_notes(row.get("text") or "",
+                                         extra_start=int(start),
+                                         extra_reading=reading)
+            segs = segs_of(r)
+            tids = new_token_ids(len(segs))
+            row["tokens"] = tokens_with_spans(segs, tids, row.get("text") or "")
+            saved = LRC.save_rows(item["file"], rows, uid=item.get("uid"),
+                                  title=item["title"], artist=item.get("artist", ""),
+                                  expected_version=v2.get("version"),
+                                  trans_lang=v2.get("trans_lang") or "zh")
+            if not saved.get("ok"):
+                return None
+            return {"line": li, "ruby": ruby_html(r),
+                    "rm": r.get("romaji", {}).get("text", ""),
+                    "ky": r.get("keys", {}).get("text", ""),
+                    "rmH": words_html_of(r, "romaji"),
+                    "kyH": words_html_of(r, "keys"),
+                    "version": saved.get("version")}
         res = LD.edit_reading(uid, row.get("lid"), token.get("tid"), reading,
                               expected_version=v2.get("version"))
         if not res.get("ok"):
