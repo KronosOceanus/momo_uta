@@ -63,6 +63,35 @@ class TestImportPreferNhlrc(unittest.TestCase):
                 self.assertEqual(res["rejected_lrc"], 1)
                 self.assertFalse(LRF.store_path(audio).is_file())
 
+    def test_import_with_lrc_counts_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            lrc = root / "歌手 - 曲.lrc"
+            audio.touch()
+            lrc.write_text("[00:05.00]君\n[00:10.00]花\n[00:15.00]夜\n",
+                           encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                first = importing.import_paths([str(audio), str(lrc)], with_lrc=True)
+                second = importing.import_paths([str(audio), str(lrc)], with_lrc=True)
+                self.assertEqual(first["overwritten"], 0)
+                self.assertEqual(second["overwritten"], 1)
+
+    def test_import_deduplicates_file_and_parent_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            lrc = root / "歌手 - 曲.lrc"
+            audio.touch()
+            lrc.write_text("[00:05.00]君\n[00:10.00]花\n[00:15.00]夜\n",
+                           encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                res = importing.import_paths([str(audio), str(root)], with_lrc=True)
+                self.assertEqual(res["added"], [str(audio)])
+                self.assertEqual(res["overwritten"], 0)
+
     def test_import_text_keeps_nhlrc_readings(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"

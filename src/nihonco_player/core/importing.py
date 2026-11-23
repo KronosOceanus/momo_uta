@@ -38,6 +38,21 @@ def _stem_key(s: str) -> str:
     return LY._norm(s)
 
 
+def _unique_paths(items):
+    seen = set()
+    out = []
+    for p in items:
+        try:
+            key = str(p.resolve())
+        except OSError:
+            key = str(p)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(p)
+    return out
+
+
 def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                  with_lrc: bool = False) -> dict:
     """按用户选中的路径导一批。
@@ -65,6 +80,10 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                 audios.append(p)
             elif with_lrc and p.suffix.lower() in LYRIC_EXT:
                 lrcs.append(p)
+
+    audios = _unique_paths(audios)
+    lrcs = _unique_paths(lrcs)
+    rejected = _unique_paths(rejected)
 
     by_key: dict[str, list[Path]] = {}
     for p in lrcs:
@@ -96,9 +115,15 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
             pending.append(str(a))
             added.append(str(a))
             continue
-        LRC.import_text(str(a), raw, uid=FP.fingerprint(a),
-                        title=title, artist=artist)
-        added.append(str(a))
+        had = LRC.exists(str(a))
+        imported = LRC.import_text(str(a), raw, uid=FP.fingerprint(a),
+                                   title=title, artist=artist)
+        if imported.get("ok"):
+            if had:
+                overwritten += 1
+            added.append(str(a))
+        else:
+            pending.append(str(a))
 
     pool = [Path(x) for x in (pool_audio or [])]
     pool += [a for a in audios if str(a) not in added]
@@ -119,13 +144,14 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
             unpaired += 1
             continue
         had = LRC.exists(target)
-        LRC.import_text(str(target), raw, uid=FP.fingerprint(target),
-                        title=title, artist=artist)
+        imported = LRC.import_text(str(target), raw, uid=FP.fingerprint(target),
+                                   title=title, artist=artist)
         used_lrc.add(lrc)
-        if had:
-            overwritten += 1
-        else:
-            added.append(str(target))
+        if imported.get("ok"):
+            if had:
+                overwritten += 1
+            else:
+                added.append(str(target))
 
     return {"added": added, "pending": pending, "overwritten": overwritten,
             "unpaired": unpaired, "rejected_lrc": len(rejected),
