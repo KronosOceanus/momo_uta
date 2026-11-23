@@ -35,16 +35,6 @@ OKURIGANA_EXCEPTIONS = [
 ]
 
 
-def _okurigana_ok(base: str, ruby: str) -> bool:
-    m = TRAILING_HIRA.search(base)
-    if not m:
-        return True
-    tail = m.group(1)
-    if ruby.endswith(tail):
-        return True
-    return any(b.search(base) and r.search(ruby) for b, r in OKURIGANA_EXCEPTIONS)
-
-
 def check(line: str, segs: list[dict]) -> list[dict]:
     """返回违规列表 [{seg, code, detail}]。空列表 = 通过。"""
     bad: list[dict] = []

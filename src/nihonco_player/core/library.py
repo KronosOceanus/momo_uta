@@ -16,6 +16,7 @@ from . import fingerprint as FP
 from . import fsio as FS
 from . import library_index as LI
 from . import lrc_files as LRC
+from . import playlists as PL
 from . import lyrics as LY
 
 MUSIC = Path.home() / "Music" / "网易云音乐"
@@ -95,7 +96,6 @@ def snapshot() -> list[tuple[str, dict]]:
 
 def _resolve_uid(uid: str) -> tuple[Path, str] | None:
     """按已有索引/imports 找 uid；找不到返回 None，绝不扫全库。"""
-    from . import playlists as PL
     paths = []
     for p in (FP.paths_for_uids([uid]).get(uid) or []) + (LI.paths_by_uid().get(uid) or []):
         paths.append(Path(p))
@@ -255,7 +255,6 @@ def _entry(p: Path, group: str, stored=None, force_fp: bool = False) -> dict | N
 def load_for_playlists() -> list[dict]:
     """启动只加载歌单引用的歌，不再加载无关 imports。"""
     global LAST_MISSING
-    from . import playlists as PL
 
     uids = list(dict.fromkeys(PL.all_uids()))
     wanted = set(uids)
@@ -315,7 +314,6 @@ def should_auto_rebuild() -> bool:
 def rebuild_library() -> dict:
     """全量扫描并裁剪索引；只由缺失触发的自动维护调用。"""
     global LAST_MISSING
-    from . import playlists as PL
     old = set(LAST_MISSING)
     lib = scan_library()
     _publish(lib)

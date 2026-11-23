@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 def _engine():
     # 注意：包内有个同名函数 annotate(text)，`from . import annotate` 会拿到函数，
@@ -100,15 +99,9 @@ class Annotator:
         return "\n".join(out)
 
 
-_default: Annotator | None = None
-
-
 def annotate(text: str, layers: list[str] | None = None) -> dict:
-    """模块级便捷函数：懒加载一个全局 Annotator。"""
-    global _default
-    if _default is None or layers is not None:
-        return Annotator(layers=layers).annotate(text)
-    return _default.annotate(text)
+    """模块级便捷函数：每次调用创建一个 Annotator。"""
+    return Annotator(layers=layers).annotate(text)
 
 
 if __name__ == "__main__":

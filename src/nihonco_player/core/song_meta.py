@@ -6,7 +6,6 @@
 """
 from __future__ import annotations
 
-from pathlib import Path
 
 from nihonco_yomi.paths import ROOT
 

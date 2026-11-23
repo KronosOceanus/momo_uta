@@ -128,36 +128,25 @@ def morae(kana: str) -> list[str]:
     return out
 
 
-def _vowel_of(romaji: str) -> str:
-    for ch in reversed(romaji):
-        if ch in VOWELS:
-            return ch
-    return ""
 
-
-def _units_romaji(units: list[str], particle: bool = False, whole: str = "") -> list[str]:
+def _units_romaji(units: list[str], particle: bool = False) -> list[str]:
     """逐单元罗马音；和 units 等长，拼接即为整词。っ 取下一个单元的辅音。"""
     out: list[str] = []
-    prev = ""
     for i, unit in enumerate(units):
         if unit == "っ":
             nxt = units[i + 1] if i + 1 < len(units) else ""
             nxt_r = ROMAJI.get(nxt, "")
             head = next((TO_SOKUON[p] for p in ("ch", "ts", "sh") if nxt_r.startswith(p)), "")
             out.append(head or (nxt_r[:1] if nxt_r[:1] not in VOWELS else "tsu"))
-            prev = ""
             continue
         if unit == "ー":
             out.append("-")          # 长音符按字面写 -（和键位一致）
-            prev = ""
             continue
         r = ROMAJI.get(unit)
         if r is None:
             out.append("■")
-            prev = ""
             continue
         out.append(r)
-        prev = r
     return out
 
 

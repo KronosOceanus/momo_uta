@@ -27,7 +27,6 @@ import re
 import sys
 import threading
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from .kana import kata_to_hira
 from .invariants import check_line as check_invariants
@@ -359,7 +358,6 @@ def annotate_token(w, line: str = "", start: int = -1) -> list[dict]:
     surface = w.surface
     feat = w.feature
     pos = "/".join(str(x) for x in feat[:4] if x and x != "*")
-    pos_parts = set(pos.split("/"))
 
     try:
         reading = occ_reading(feat) or str(feat[6] or "")

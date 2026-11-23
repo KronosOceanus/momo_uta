@@ -20,9 +20,6 @@ def set_cache_dir(path) -> None:
     CACHE = _P(path)
 
 
-def cache_dir():
-    return CACHE
-
 
 def _key(title: str, artist: str) -> str:
     t = unicodedata.normalize("NFKC", title or "").lower()

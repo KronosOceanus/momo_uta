@@ -34,15 +34,6 @@ def get(job_id: str) -> dict | None:
         return _copy(job) if job else None
 
 
-def find_active(kind: str, key: str) -> dict | None:
-    with _lock:
-        for job in _jobs.values():
-            if job["kind"] == kind and str(job["key"]) == str(key) \
-                    and job["state"] in ("queued", "running"):
-                return _copy(job)
-    return None
-
-
 def start(kind: str, key, runner, cancel=None) -> dict:
     """启动后台任务；同 kind+key 的 queued/running 任务原子复用。"""
     job_id = uuid.uuid4().hex

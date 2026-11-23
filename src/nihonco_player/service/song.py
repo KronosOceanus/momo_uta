@@ -5,9 +5,7 @@
 """
 from __future__ import annotations
 
-import json
 import re
-import threading
 
 from ..core import annotation_cache as ANN_CACHE
 from ..core import library as LIB
@@ -17,7 +15,7 @@ from ..core import diag
 from ..core import fsio as FS
 from ..core import lyrics as LY
 from ..core import song_meta as META
-from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
+from ..core.annotation import (AN,  # noqa: F401
                                annotate_line_with_notes, annotate_line_with_token_overrides,
                                ruby_html, segs_of, strip_paren_ruby, words_html_of)
 from ..core.lrc_doc import new_line_id, new_token_ids, tokens_with_spans
@@ -260,7 +258,6 @@ def _resolve_save_ids(body_rows, ann, old, old_map, reuse, line_ids, token_ids):
         seg = (ann or {}).get(bi)
         if not seg or bi in out_tids:
             continue
-        old_text = old["texts"].get(old_bi) if old_bi is not None else None
         old_ids = old["tids"].get(old_bi) if old_bi is not None else None
         if bi in reuse and isinstance(old_ids, list) and len(old_ids) == len(seg):
             out_tids[bi] = old_ids

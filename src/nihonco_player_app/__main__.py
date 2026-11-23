@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import sys
 import threading
-import traceback
 from pathlib import Path
 
 import webview
@@ -110,7 +109,7 @@ def main(demo: bool = False, demo_auto: bool = False) -> None:
                 body = alt_text if (alt_text and path.lower().endswith(".lrc")) else text
                 Path(path).write_text(body, encoding="utf-8")
                 return path
-            except Exception as e:
+            except Exception:
                 return ""
 
         def pick_lrc_text(self):

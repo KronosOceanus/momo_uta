@@ -446,7 +446,6 @@ async function load(ref, autoplay, nextMode){
   NH.startVocals(d.uid);
   return true;
 }
-function navIdx(n){ const k=NH.NAV.indexOf(n); return k<0?0:k; }
 
 NH.TOAST_T = null; NH.TOAST_Q = []; NH.TOAST_BUSY = false; NH.TOAST_SHOWN = false;
 function _toastEl(){
@@ -688,5 +687,5 @@ if(themeBtn) themeBtn.onclick=()=>{
   applyTheme(cur==='light'?'dark':'light',true);
 };
 
-Object.assign(NH, {lyr, CFG, UI, cv, cx, SPAN_MIN, SPAN_MAX, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, SPAN_LO, SPAN_HI, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, navIdx, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme});
+Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme});
 })();

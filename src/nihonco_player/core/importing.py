@@ -11,7 +11,6 @@ from pathlib import Path
 from nihonco_yomi.config import LB
 
 from . import fingerprint as FP
-from . import library as LIB
 from . import lrc_files as LRC
 from . import lyrics as LY
 

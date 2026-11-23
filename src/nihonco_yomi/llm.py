@@ -6,13 +6,10 @@
 from __future__ import annotations
 
 import hashlib
-import argparse
 import json
 import os
-import sys
 import time
 import urllib.request
-from pathlib import Path
 
 from .common import CACHE as _CACHE, ROOT
 CACHE = _CACHE / "llm"
@@ -113,81 +110,3 @@ def choose_batch(items: list[dict], temperature: float = 0) -> dict[int, str | N
         if i in range(len(items)) and isinstance(r, str) and r in items[i]["cands"]:
             out[i] = (r, c)
     return out
-
-def cmd_prefetch(argv=None) -> None:
-    """离线预取 LLM 消歧结果，填进 data/cache/llm/choices.json。"""
-    import annotate
-
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=0, help="只处理前 N 句（调试）")
-    ap.add_argument("--batch", type=int, default=10)
-    ap.add_argument("--dry", action="store_true", help="只统计，不调 API")
-    a = ap.parse_args(argv)
-
-    annotate.load_tables()
-    annotate.TABLES.readings = json.loads(
-        (TABLES / "jmdict_readings.json").read_text(encoding="utf-8"))
-    annotate.TABLES.common = json.loads(
-        (TABLES / "jmdict_common_readings.json").read_text(encoding="utf-8"))
-
-    gold = load_gold([EVAL / "gold.jsonl", EVAL / "lyrics.jsonl"])
-    if a.limit:
-        gold = gold[: a.limit]
-
-    cache = load_cache()
-    items = []
-    for rec in gold:
-        line = rec["text"]
-        for seg in annotate.annotate_line(line, {})["segments"]:
-            base = seg["base"]
-            if seg.get("level") != "B":      # 只有 B 档会用 LLM 的结果
-                continue
-            if not annotate.KANJI.search(base):
-                continue
-            cands = annotate.candidates_for(base)
-            if len(cands) < 2:
-                continue
-            key = annotate.cache_key(line, seg["start"], base, cands)
-            if key in cache:
-                continue
-            items.append({"text": line, "idx": seg["start"], "base": base,
-                          "cands": cands, "key": key})
-
-    print(f"待问：{len(items)} 个多候选词（来自 {len(gold)} 句）")
-    if a.dry or not items:
-        return
-
-    done = 0
-    for i in range(0, len(items), a.batch):
-        chunk = items[i:i + a.batch]
-        try:
-            got = choose_batch(chunk)
-        except Exception as e:
-            print(f"  批次 {i // a.batch} 失败：{type(e).__name__}: {e}")
-            continue
-        for j, it in enumerate(chunk):
-            one = got.get(j)
-            if one:
-                r, conf = one
-                cache[it["key"]] = {"r": r, "c": conf}
-                done += 1
-        if (i // a.batch) % 10 == 0:
-            print(f"  [{i}/{len(items)}] 已拿到 {done}", flush=True)
-            save_cache(cache)
-
-    save_cache(cache)
-    print(f"完成：新增 {done} 条选择，缓存总计 {len(cache)} 条")
-
-
-DISPATCH = {"choose": None, "prefetch": cmd_prefetch}
-
-
-def main() -> None:
-    if len(sys.argv) < 2 or sys.argv[1] not in DISPATCH:
-        print("用法: python tools/llm.py prefetch [--limit N] [--batch N] [--dry]")
-        raise SystemExit(2)
-    DISPATCH[sys.argv[1]](sys.argv[2:])
-
-
-if __name__ == "__main__":
-    main()

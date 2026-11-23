@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import re
 
 COUNTERS: dict = {}
 NUM_TSITSU: dict = {}       # 一〜十 + つ
@@ -125,7 +124,7 @@ _SEN = {1: "せん", 3: "さんぜん", 8: "はっせん"}
 def numeral_reading(n: int) -> str | None:
     """阿拉伯数字的日语读法（0–9999）。规则是封闭的，不需要查表。"""
     if n == 0:
-        return "ゼロ" if False else "れい"
+        return "れい"
     if not 0 < n < 10000:
         return None
     parts: list[str] = []

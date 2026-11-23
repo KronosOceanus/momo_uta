@@ -135,11 +135,6 @@ function nextIdx(dir){
   if(to<0 || to>=items.length) return items[dir>0?at:0].i;
   return items[to].i;
 }
-function rowForTime(t){
-  let n=-1;
-  for(let i=0;i<NH.EROWS.length;i++){ const tt=NH.EROWS[i].t; if(tt!==null && tt<=t) n=i; }
-  return n<0?0:n;
-}
 function highlight(i){
   const ls=viewLines(); const l=ls[i];
   NH.CUR=i;
@@ -163,10 +158,6 @@ function highlight(i){
   }
 }
 function seek(n){ seekIdx(n, true); }
-function paint(n){
-  if(n===NH.CUR) return;
-  highlight(n);
-}
 NH.au.onloadedmetadata=()=>{
   if(!NH.LINES.length) return;
   const last=NH.LINES[NH.LINES.length-1].t;
@@ -428,5 +419,5 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, META_RE, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, rowForTime, highlight, seek, paint, fmtTime, paintTransport, paintTicks, seekToClientX, PL, syncPlayBtn, stepPlaying});
+Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying});
 })();

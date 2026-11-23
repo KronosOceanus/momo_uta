@@ -2,10 +2,8 @@
 """LRC 读写业务：加载 / 保存 / 备份 / 恢复 / 导入文本。只依赖 core。"""
 from __future__ import annotations
 
-import json
 
 from ..core import library as LIB
-from ..core import lrc_doc as DOC
 from ..core import lrc_files as LRC
 from ..core.lrc_doc import tokens_with_spans
 from . import lyric_document as LD

@@ -806,21 +806,6 @@ function renderSide(){
   });
   if(NH.CUR>=0) paint2(NH.CUR);
 }
-function syncSideToTime(t){
-  if(!NH.LINES.length) return;
-  // 取时间最接近的一行（避免边界处偏到下一句）
-  let n=-1, best=1e9;
-  for(let i=0;i<NH.LINES.length;i++){
-    if(NH.isMetaLine(NH.LINES[i])) continue;
-    const d=Math.abs(NH.LINES[i].t-t);
-    if(d<best){ best=d; n=i; }
-  }
-  if(n<0) return;
-  NH.CUR=n;
-  document.querySelectorAll('.ln2').forEach((el,i)=>el.classList.toggle('on', i===n && !NH.LINES[i].meta));
-  const el=document.querySelectorAll('.ln2')[n];
-  if(el) el.scrollIntoView({block:'center'});
-}
 function paint2(n){
   // 与左侧同一判定：按文本判断 meta，而不是看 payload 里的 meta 字段
   const meta = !NH.LINES[n] || NH.isMetaLine(NH.LINES[n]);
@@ -830,6 +815,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
+Object.assign(NH, {setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

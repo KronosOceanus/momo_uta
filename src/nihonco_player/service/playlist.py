@@ -2,8 +2,6 @@
 """歌单 / 导入 / 打标 业务。只依赖 core。"""
 from __future__ import annotations
 
-import json
-import threading
 from pathlib import Path
 
 from ..core import importing as IMP

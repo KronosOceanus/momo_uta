@@ -46,7 +46,7 @@ _hotkey_refs: list[ctypes.c_void_p] = []
 
 def install(callback: Callable[[str], None]) -> bool:
     """注册三个全局热键；成功返回 True，非 macOS/失败返回 False。"""
-    global _callback, _handler_ref
+    global _callback
     if sys.platform != "darwin":
         return False
     path = ctypes.util.find_library("Carbon")

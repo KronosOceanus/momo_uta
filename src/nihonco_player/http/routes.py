@@ -9,7 +9,6 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
 from ..core import diag
-from ..core import lyrics as LY
 from ..core import library as LIB
 from ..web import page
 from ..service import jobs as SVC_JOBS

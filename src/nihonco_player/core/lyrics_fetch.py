@@ -9,13 +9,11 @@ import urllib.request
 from pathlib import Path
 
 from nihonco_yomi.config import LY as CFG
-from nihonco_yomi.paths import CACHE, ROOT
 
 from . import fsio as FS
 
 from .lyrics_cache import cache_path
-from .lyrics_text import (_match, content_lines, has_timed, is_excluded,
-                          is_likely_song, lang_guess, split_name)
+from .lyrics_text import _match, content_lines, has_timed, is_excluded, lang_guess
 
 UA = {"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"}
 def _get(url: str, timeout: float | None = None) -> str:
@@ -167,56 +165,6 @@ def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0
         "miss": True, "reason": "no_match", "checked_at": time.time()}, indent=None)
     return hit
 
-
-def scan(folder: Path, force: bool = False, only_cached: bool = False) -> None:
-    files = sorted({p.stem for p in folder.rglob("*")
-                    if p.suffix.lower() in (".mp3", ".flac", ".wav") and JP.search(p.stem)})
-    songs = [s for s in files if is_likely_song(s)]
-    if only_cached:                     # 只重扫"本来就有歌词"的歌
-        keep = []
-        for stem in songs:
-            a, t = split_name(stem)
-            if _cached(t, a):
-                keep.append(stem)
-        songs = keep
-    print(f"日文名文件 {len(files)}，疑似有人声 {len(songs)}")
-    if not songs:
-        print("没有可匹配的歌")
-        return
-    hits, miss = [], []
-    by_stem = {}
-    for f in folder.rglob("*"):
-        if f.suffix.lower() in (".mp3", ".flac", ".wav"):
-            by_stem.setdefault(f.stem, f)
-    for i, stem in enumerate(songs, 1):
-        artist, title = split_name(stem)
-        dur = audio_duration(by_stem.get(stem, ""))   # 默认匹配按时长挑版本
-        hit = get_lrc(title, artist, duration=dur, force=force)
-        (hits if hit else miss).append((stem, hit))
-        print(f"{i:3d}/{len(songs)} {'✓' if hit else '✗'} {stem[:46]}", flush=True)
-        time.sleep(float(CFG["scan_sleep"]))
-    rep = ROOT / "eval" / "reports" / "lyrics_coverage.md"
-    lines = [f"# 歌词获取覆盖\n", f"疑似歌曲 {len(songs)}，拿到 LRC {len(hits)}（{len(hits)/len(songs):.0%}）\n",
-             "\n## 已拿到\n", "| 文件 | 来源 | 匹配到的曲名 |", "|---|---|---|"]
-    for stem, h in hits:
-        lines.append(f"| {stem} | {h.get('source','?')} | {h.get('name','')} |")
-    lines += ["\n## 没拿到\n", "| 文件 |", "|---|"]
-    lines += [f"| {stem} |" for stem, _ in miss]
-    FS.atomic_write_text(rep, "\n".join(lines))
-    print(f"\n覆盖 {len(hits)}/{len(songs)} = {len(hits)/len(songs):.0%} → {rep}")
-
-
-if __name__ == "__main__":
-    if "--scan" in sys.argv:
-        scan(Path(sys.argv[sys.argv.index("--scan") + 1]).expanduser(),
-             force="--force" in sys.argv, only_cached="--only-cached" in sys.argv)
-    elif "--song" in sys.argv:
-        i = sys.argv.index("--song")
-        h = get_lrc(sys.argv[i + 2], sys.argv[i + 1])
-        print(json.dumps(h, ensure_ascii=False, indent=2)[:800] if h else "没找到")
-
-
-# ── LRC 解析（从播放器挪过来，归数据层）──────────────────
 
 
 def fetch_lyrics_by_id(song_id) -> dict:

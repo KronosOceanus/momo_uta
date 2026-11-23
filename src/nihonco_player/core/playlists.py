@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 
 from nihonco_yomi.paths import ROOT
 
@@ -68,7 +67,6 @@ def all_uids() -> list[str]:
 
 def build(lib: list[dict]) -> list[dict]:
     d = load()
-    open_ids = d.get("open", [])
     by_uid = {it["uid"]: it for it in lib}
     # 默认歌单置顶，其余按 list_order（未列出的保持创建顺序）
     order = {lid: i for i, lid in enumerate(d["list_order"])}

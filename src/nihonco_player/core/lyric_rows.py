@@ -10,7 +10,6 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
-from pathlib import Path
 
 from . import lrc_doc as DOC
 

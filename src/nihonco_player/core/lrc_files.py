@@ -15,15 +15,13 @@ from pathlib import Path
 
 from nihonco_yomi.paths import LYRICS
 
-from . import diag
 from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
 from .lyric_rows import parse_rows as parse_v2_rows, render_rows as render_v2_rows
-from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
-                      _parse_body_rows, _parse_document, _parse_rows,
-                      _split_nhlrc, annotations_for, annotations_and_ids_for,
-                      parse, render, render_body, render_nhlrc,
+from .lrc_doc import (NHLRC_MARK, GEN, _hash8,  # noqa: F401
+                      _parse_document, _parse_rows, _split_nhlrc,
+                      annotations_for, annotations_and_ids_for, parse,
                       new_line_id, new_token_ids, tokens_with_spans,
                       translations_for, translations_from_lrc)
 
@@ -149,10 +147,6 @@ def store_index(uids=None) -> dict[str, bool]:
         except Exception:
             out.setdefault(u, False)
     return out
-
-
-def store_has_text(uid: str) -> bool:
-    return store_index({uid}).get(str(uid), False)
 
 
 def usable_doc(doc: dict) -> bool:
