@@ -423,7 +423,7 @@ async function load(ref, autoplay, nextMode){
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
     lyr.innerHTML=NH.LINES.map((l,n)=>{
       const tr=l.trans ? `<div class="lntrans">${String(l.trans).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
-      return `<div class="ln" data-n="${n}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}${tr}</div>`;
+      return `<div class="ln" data-n="${n}" data-lid="${l.lid||''}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}${tr}</div>`;
     }).join('');
     document.querySelectorAll('.ln').forEach(el=>{
       const n=+el.dataset.n;

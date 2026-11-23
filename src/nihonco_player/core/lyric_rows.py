@@ -76,19 +76,20 @@ def _row_from_line(raw: str, first: bool = False) -> dict:
 def _tokens(seg, tids, text: str) -> list[dict]:
     if not seg or not isinstance(tids, list) or len(tids) != len(seg):
         return []
-    pos = 0
+    pos = u16 = 0
     out = []
     for i, part in enumerate(seg):
         base = str(part[0] or "") if part else ""
         if not base:
             return []
-        end = pos + len(base)
-        if text[pos:end] != base:
+        end_cp = pos + len(base)
+        if text[pos:end_cp] != base:
             return []
-        out.append({"tid": tids[i], "start": pos, "end": end, "base": base,
+        end = u16 + DOC.utf16_len(base)
+        out.append({"tid": tids[i], "start": u16, "end": end, "base": base,
                     "ruby": part[1] if len(part) > 1 else None,
                     "level": part[2] if len(part) > 2 else None})
-        pos = end
+        pos, u16 = end_cp, end
     return out if pos == len(text) else []
 
 
@@ -164,7 +165,61 @@ def body_text(rows: list[dict]) -> str:
     return "\n".join(out) + "\n"
 
 
+def _tokens_valid(row: dict) -> bool:
+    text = row.get("text") or ""
+    cp = u16 = 0
+    for tok in row.get("tokens") or []:
+        base = tok.get("base") or ""
+        if not base or tok.get("start") != u16:
+            return False
+        if text[cp:cp + len(base)] != base:
+            return False
+        cp += len(base)
+        u16 += DOC.utf16_len(base)
+        if tok.get("end") != u16:
+            return False
+    return bool(row.get("tokens")) and cp == len(text)
+
+
+def repair_tokens(row: dict) -> None:
+    """正文改了但 token 只覆盖一部分时，补齐分段并保留未改部分的手工读音。"""
+    if row.get("kind") != "lyric" or _tokens_valid(row):
+        return
+    old = [dict(t) for t in (row.get("tokens") or [])]
+    text = row.get("text") or ""
+    if not old:
+        return
+    try:
+        from .annotation import annotate_line_with_notes, segs_of
+        result = annotate_line_with_notes(text)
+        segs = segs_of(result)
+    except Exception:
+        return
+    by_span = {(t.get("start"), t.get("end"), t.get("base")): t for t in old}
+    out = []
+    cp = u16 = 0
+    for part in segs:
+        base = part[0] or ""
+        end_cp = cp + len(base)
+        end_u16 = u16 + DOC.utf16_len(base)
+        found = by_span.get((u16, end_u16, base))
+        if found:
+            ruby, level, tid = found.get("ruby"), found.get("level"), found.get("tid")
+        else:
+            ruby, level = part[1], part[2]
+            tid = None
+        if not tid:
+            tid = _new_tid()
+        out.append({"tid": tid, "start": u16, "end": end_u16, "base": base,
+                    "ruby": ruby, "level": level})
+        cp, u16 = end_cp, end_u16
+    if cp == len(text):
+        row["tokens"] = out
+
+
 def render_rows(rows: list[dict], trans_lang: str = "zh") -> str:
+    for row in rows:
+        repair_tokens(row)
     body = body_text(rows)
     lines = []
     trans = []
@@ -202,8 +257,9 @@ def split_row(row: dict, pos: int) -> tuple[dict, dict]:
     if row.get("kind") != "lyric":
         raise ValueError("只能拆 lyric 行")
     text = row.get("text") or ""
-    pos = max(0, min(len(text), int(pos)))
-    left_text, right_text = text[:pos], text[pos:]
+    pos = max(0, min(DOC.utf16_len(text), int(pos)))
+    cp = DOC.utf16_to_cp(text, pos)
+    left_text, right_text = text[:cp], text[cp:]
     tokens = row.get("tokens") or []
     left_tokens = [dict(t) for t in tokens if t["end"] <= pos]
     right_tokens = [{**t, "start": t["start"] - pos, "end": t["end"] - pos}
@@ -239,7 +295,7 @@ def merge_rows(left: dict, right: dict) -> dict:
     if left_content or not right_content:
         target = left
         tokens = [dict(t) for t in (left.get("tokens") or [])]
-        offset = len(left_text)
+        offset = DOC.utf16_len(left_text)
         tokens += [{**t, "start": t["start"] + offset, "end": t["end"] + offset}
                    for t in (right.get("tokens") or [])]
     else:

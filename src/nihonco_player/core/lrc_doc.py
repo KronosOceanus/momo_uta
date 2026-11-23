@@ -239,24 +239,40 @@ def translations_from_lrc(trans_text: str, lines: list[dict],
     return out
 
 
+def utf16_len(s: str) -> int:
+    return len(s.encode("utf-16-le")) // 2
+
+
+def utf16_to_cp(s: str, pos: int) -> int:
+    """UTF-16 code unit offset → Python code point index。"""
+    pos = max(0, min(int(pos), utf16_len(s)))
+    n = 0
+    for i, ch in enumerate(s):
+        if n >= pos:
+            return i
+        n += 2 if ord(ch) > 0xFFFF else 1
+    return len(s)
+
+
 def tokens_with_spans(seg, tids, text: str) -> list[dict]:
     """把 seg + tid 转成编辑器 token；span/base 不匹配则返回空。"""
     if not seg or not isinstance(tids, list) or len(tids) != len(seg):
         return []
-    pos = 0
+    cp = u16 = 0
     out = []
     for i, part in enumerate(seg):
         base = str(part[0] or "") if part else ""
         if not base:
             return []
-        end = pos + len(base)
-        if text[pos:end] != base:
+        end_cp = cp + len(base)
+        if text[cp:end_cp] != base:
             return []
-        out.append({"tid": tids[i], "start": pos, "end": end, "base": base,
+        end_u16 = u16 + utf16_len(base)
+        out.append({"tid": tids[i], "start": u16, "end": end_u16, "base": base,
                     "ruby": part[1] if len(part) > 1 else None,
                     "level": part[2] if len(part) > 2 else None})
-        pos = end
-    return out if pos == len(text) else []
+        cp, u16 = end_cp, end_u16
+    return out if cp == len(text) else []
 
 
 def render_body(lines: list[dict], metadata: list[dict] | None = None) -> str:

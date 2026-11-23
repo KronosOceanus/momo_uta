@@ -338,3 +338,17 @@ class TestV2EditLine(unittest.TestCase):
                 self.assertTrue(out)
                 got = LRF.load_rows(audio)
                 self.assertEqual(got["rows"][0]["tokens"][0]["ruby"], "きみだ")
+
+
+class TestUtf16Spans(unittest.TestCase):
+    def test_token_spans_after_surrogate_are_utf16(self):
+        rows = [{"kind": "lyric", "text": "𠮷君", "t": 1.0, "lid": "l_a",
+                 "tokens": [
+                     {"tid": "t1", "start": 0, "end": 2, "base": "𠮷", "ruby": None, "level": "K"},
+                     {"tid": "t2", "start": 2, "end": 3, "base": "君", "ruby": "きみ", "level": "A"},
+                 ], "trans": ""}]
+        text = R.render_rows(rows)
+        got = R.parse_rows(text)
+        toks = got[0]["tokens"]
+        self.assertEqual([(t["start"], t["end"]) for t in toks], [(0, 2), (2, 3)])
+        self.assertEqual(toks[1]["base"], "君")

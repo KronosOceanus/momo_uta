@@ -528,7 +528,9 @@ document.getElementById('lrcsaveas').onclick=async()=>{
   const name=(NH.S&&NH.S.title?NH.S.title:'lyrics')+'.nhlrc';
   if(window.pywebview && window.pywebview.api && window.pywebview.api.save_text){
     let ex={ok:false};
-    try{ ex=await NH.api('/api/lrc',{action:'export', uid:NH.S.uid, lines:lrcPayload()}); }catch(e){}
+    const body={action:'export', uid:NH.S.uid};
+    if(NH.ROWS_MODE) body.rows=lrcPayload(); else body.lines=lrcPayload();
+    try{ ex=await NH.api('/api/lrc',body); }catch(e){}
     if(!ex.ok){ NH.done('导出失败：'+(ex.error||'未知错误')); return; }
     const p=await window.pywebview.api.save_text(name, ex.nhlrc, ex.lrc);
     NH.done(p ? '已导出 '+p.split('/').pop() : '已取消');
@@ -674,7 +676,8 @@ document.addEventListener('click', async e=>{
     openPicker(ew, [], async v => {
       const lineEl=ew.closest('.ln'); const li=+lineEl.dataset.n; const start=+ew.dataset.start;
       try{
-        const d=await NH.api('/api/line',{uid:NH.S.uid,line:li,start,reading:v});
+        const d=await NH.api('/api/line',{uid:NH.S.uid,line:li,lid:lineEl.dataset.lid,
+                                         start,reading:v});
         applyEdit(d);
         flashAt(li, ew.dataset.base);
       }catch(err){ NH.done('改读音失败：'+err.message); }
@@ -729,7 +732,8 @@ function openPicker(el, cands, onPick, allowInput=true){
 async function doEdit(bc, reading){
   const lineEl = bc.closest('.ln'); const li = +lineEl.dataset.n; const start = +bc.dataset.start;
   try{
-    const d = await NH.api('/api/line',{uid:NH.S.uid, line:li, start, reading});
+    const lid = lineEl.dataset.lid;
+    const d = await NH.api('/api/line',{uid:NH.S.uid, line:li, lid, start, reading});
     applyEdit(d);
     flashAt(li, bc.dataset.base);
   }catch(err){ NH.done('改读音失败：'+err.message); }

@@ -377,7 +377,7 @@ def _v2_payload(item: dict, idx, uid, rows_doc: dict) -> dict:
                   for tok in (row.get("tokens") or [])]
         fields = ANN_CACHE.line_fields(text, stored or None)
         fields.update({"t": row.get("t"), "text": text, "raw": text,
-                       "trans": row.get("trans") or ""})
+                       "lid": row.get("lid"), "trans": row.get("trans") or ""})
         lines.append(fields)
     item["has_lyric"] = bool(lines)
     return {**base, "pending": not lines, "lines": lines,
@@ -436,8 +436,9 @@ def edit_line(uid, li, start, reading):
                       if int(t.get("start", -1)) == int(start)), None)
         if not token:
             # 新导入/未注音的 v2 还没有 token：按 start 现算一次并落 token。
+            from ..core.lrc_doc import utf16_to_cp
             r = annotate_line_with_notes(row.get("text") or "",
-                                         extra_start=int(start),
+                                         extra_start=utf16_to_cp(row.get("text") or "", start),
                                          extra_reading=reading)
             segs = segs_of(r)
             tids = new_token_ids(len(segs))
@@ -478,14 +479,16 @@ def edit_line(uid, li, start, reading):
         if not (0 <= li < len(lines)) or not (lines[li].get("text") or "").strip():
             return None
         text = lines[li]["text"]
+        from ..core.lrc_doc import utf16_to_cp
+        start_cp = utf16_to_cp(text, start)
         clean, _ = strip_paren_ruby(text)
         base = AN.annotate(clean)
-        seg = next((x for x in base["lines"][0]["segments"] if x["start"] == start), None)
+        seg = next((x for x in base["lines"][0]["segments"] if x["start"] == start_cp), None)
         if not seg:
             return None
         ann = dict(doc.get("annotations") or {})
         r = annotate_line_with_notes(text, stored=ann.get(li),
-                                     extra_start=start, extra_reading=reading)
+                                     extra_start=start_cp, extra_reading=reading)
         ann[li] = segs_of(r)
         body_rows = doc.get("body_rows") or lines
         res = save_lyrics(item, body_rows, "annotated", ann)
@@ -560,11 +563,19 @@ def lazy_match(item: dict) -> None:
 
 # ── HTTP 用得着的两个封装 ─────────────────────────────
 def edit_line_action(req) -> dict:
-    """改一处读音（HTTP 用）：改完立即写盘；失败返回 {"error"}。"""
+    """改一处读音（HTTP 用）：优先用 lid 重新定位，避免旧 line 顺序。"""
     line = int(req.get("line", -1))
     start = int(req.get("start", -1))
     reading = str(req.get("reading") or "")
-    r = edit_line(req.get("uid"), line, start, reading)
+    uid = req.get("uid")
+    lid = req.get("lid")
+    if lid:
+        from . import lyric_document as LD
+        doc = LD.load_rows(uid)
+        if doc.get("ok") and doc.get("model") == 2:
+            items = LD.playable_rows(doc.get("rows") or [])
+            line = next((i for i, x in enumerate(items) if x.get("lid") == lid), line)
+    r = edit_line(uid, line, start, reading)
     if not r:
         return {"error": "读音保存失败"}
     return r

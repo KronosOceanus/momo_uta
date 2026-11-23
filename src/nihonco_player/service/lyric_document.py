@@ -22,10 +22,14 @@ def load_rows(ref) -> dict:
             "trans_lang": doc.get("trans_lang") or "zh"}
 
 
-def save_rows(ref, rows, expected_version=None, trans_lang="zh") -> dict:
+def save_rows(ref, rows, expected_version=None, trans_lang=None) -> dict:
     item = LIB.resolve(ref)
     if not item:
         return {"ok": False, "error": "没有这首歌"}
+    if trans_lang is None:
+        current = LRC.load_rows(item["file"], item.get("uid"),
+                                item["title"], item.get("artist", ""))
+        trans_lang = current.get("trans_lang") or "zh"
     res = LRC.save_rows(item["file"], rows, uid=item.get("uid"),
                         title=item["title"], artist=item.get("artist", ""),
                         expected_version=expected_version,

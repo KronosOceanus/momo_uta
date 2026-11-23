@@ -83,13 +83,21 @@ def lrc_action(req):
     if act == "save_rows":
         return LD.save_rows(uid, req.get("rows") or [],
                             expected_version=req.get("version"),
-                            trans_lang=req.get("trans_lang") or "zh")
+                            trans_lang=req.get("trans_lang"))
     if act == "edit_reading":
         return LD.edit_reading(uid, req.get("lid"), req.get("tid"),
                                req.get("reading"), expected_version=req.get("version"))
     if act == "export":
         lines = req.get("lines")
+        rows = req.get("rows")
+        if rows is None and lines and any("kind" in x for x in lines):
+            rows = lines
         doc = LRC.load(item["file"], uid, title, artist)
+        if rows is not None:
+            from ..core.lyric_rows import body_text, render_rows
+            return {"ok": True, "nhlrc": render_rows(
+                        rows, req.get("trans_lang") or doc.get("trans_lang") or "zh"),
+                    "lrc": body_text(rows)}
         if not lines:
             lines = doc.get("body_rows") or doc["lines"]
         # 编辑器行包含空行；annotation 仍按非空歌词行编号。
