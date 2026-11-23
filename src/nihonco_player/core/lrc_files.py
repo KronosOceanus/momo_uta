@@ -344,7 +344,7 @@ def load_rows(audio: str | Path, uid: str | None = None,
 def save_rows(audio: str | Path, rows: list[dict],
               uid: str | None = None, title: str | None = None,
               artist: str | None = None, expected_version: str | None = None,
-              trans_lang: str = "zh") -> dict:
+              trans_lang: str | None = None) -> dict:
     """写 v2 rows；版本校验、首次备份、原子替换。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -357,6 +357,9 @@ def save_rows(audio: str | Path, rows: list[dict],
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
                     "version": current_version}
         backed = _backup_once(sp, bak)
+        if trans_lang is None:
+            _body, tail = _split_v2_tail(original)
+            trans_lang = (tail or {}).get("trans_lang") or "zh"
         text = render_v2_rows(rows, trans_lang)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "rows": len(rows),
