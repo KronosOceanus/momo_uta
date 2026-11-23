@@ -1,11 +1,10 @@
-"""v2 端到端：导入、API 读写、普通播放、改读音、v1 保存转换。"""
+"""v2 端到端：导入、API 读写、普通播放、改读音。"""
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from nihonco_player.core import importing as IMP
-import v1_fixtures as V1
 from nihonco_player.core import library as LIB
 from nihonco_player.core import lrc_doc as D
 from nihonco_player.core import lyric_rows as R
@@ -86,26 +85,6 @@ class TestV2Integration(unittest.TestCase):
                 self.assertEqual([x["text"] for x in payload["lines"]], ["花", "君"])
                 self.assertTrue(SONG.edit_line(item["uid"], 0, 0, "はな"))
 
-    def test_v1_save_is_converted_to_v2(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            audio = root / "曲.mp3"
-            audio.touch()
-            item = _cache(audio)
-            v1 = V1.render_nhlrc(
-                [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}], [],
-                {0: [["君", "きみ", "A"]], 1: [["花", "はな", "A"]]})
-            with patch.object(LRF, "LYRICS", root / "lyrics"), \
-                 patch.object(LC, "CACHE", root / "cache"), \
-                 patch.object(LRF.LY, "audio_duration", return_value=60):
-                LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)
-                LRF.store_path(audio).write_text(v1, encoding="utf-8")
-                res = SONG.save_lyrics(item, [{"t": 1.0, "text": "君"},
-                                              {"t": 2.0, "text": "花"}], "align")
-                self.assertTrue(res["ok"], res)
-                raw = LRF.store_path(audio).read_text(encoding="utf-8")
-                self.assertIn("#NHLRC 2", raw)
-                self.assertNotIn("#NHLRC 1", raw)
 
 
 class TestV2Contract(unittest.TestCase):
@@ -294,18 +273,17 @@ class TestV2VersionRace(unittest.TestCase):
 
 
 class TestV2DisabledAndRestore(unittest.TestCase):
-    def test_delete_writes_v2_disabled_and_restore_converts_v1_backup(self):
+    def test_delete_and_restore_v2(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = root / "曲.mp3"
             audio.touch()
-            v1 = V1.render_nhlrc([{"t": 1.0, "text": "君"},
-                                   {"t": 2.0, "text": "花"}], [],
-                                  {0: [["君", "きみ", "A"]],
-                                   1: [["花", "はな", "A"]]})
+            rows = [{"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_a",
+                     "tokens": [], "trans": ""},
+                    {"kind": "lyric", "text": "花", "t": 2.0, "lid": "l_b",
+                     "tokens": [], "trans": ""}]
             with patch.object(LRF, "LYRICS", root / "lyrics"):
-                LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)
-                LRF.store_path(audio).write_text(v1, encoding="utf-8")
+                self.assertTrue(LRF.save_rows(audio, rows)["ok"])
                 self.assertTrue(LRF.delete_store(audio)["ok"])
                 disabled = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertIn("#NHLRC 2", disabled)
@@ -335,21 +313,6 @@ class TestV2StaleFallback(unittest.TestCase):
                 self.assertFalse(out.get("ok", True), out)
                 self.assertEqual(LRF.load_rows(audio)["rows"][0]["text"], "僕")
 
-    def test_export_legacy_body_is_v2(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            audio = root / "曲.mp3"
-            audio.touch()
-            item = _cache(audio)
-            v1 = V1.render_nhlrc([{"t": 1.0, "text": "君"}], [],
-                                  {0: [["君", "きみ", "A"]]})
-            with patch.object(LRF, "LYRICS", root / "lyrics"):
-                LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)
-                LRF.store_path(audio).write_text(v1, encoding="utf-8")
-                out = SVC_LRC.lrc_action({"action": "export", "uid": item["uid"],
-                                          "lines": [{"t": 1.0, "text": "君"}]})
-                self.assertTrue(out["ok"], out)
-                self.assertIn("#NHLRC 2", out["nhlrc"])
 
 
 class TestV2TrailingSpace(unittest.TestCase):
@@ -500,7 +463,7 @@ class TestV2LegacySaveTransLang(unittest.TestCase):
                 line = [{"t": 1.0, "text": "君"}]
                 self.assertTrue(LRF.save(audio, line, translations={0: "you"},
                                           trans_lang="en")["ok"])
-                self.assertTrue(LRF.save(audio, line)["ok"])
+                self.assertTrue(LRF.save(audio, line, translations={0: "you"})["ok"])
                 self.assertEqual(LRF.load_rows(audio)["trans_lang"], "en")
 
 

@@ -28,6 +28,7 @@ class TestLrcTranslations(unittest.TestCase):
                 LRF.save(audio, rows, uid="u1", title="曲", artist="歌手",
                          translations={0: "你"})
                 LRF.save(audio, rows, annotations={0: [["君", "きみ", "A"]]},
+                         translations={0: "你"},
                          uid="u1", title="曲", artist="歌手")
                 doc = LRF.load(audio, "u1", "曲", "歌手")
                 self.assertEqual(doc["translations"], {0: "你"})

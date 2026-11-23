@@ -19,11 +19,9 @@ from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
 from .lyric_rows import parse_rows as parse_v2_rows, render_rows as render_v2_rows
-from .lrc_doc import (NHLRC_MARK, GEN, _hash8,  # noqa: F401
-                      _parse_document, _parse_rows, _split_nhlrc,
-                      annotations_for, annotations_and_ids_for, parse,
-                      new_line_id, new_token_ids, tokens_with_spans,
-                      translations_for, translations_from_lrc)
+from .lrc_doc import (NHLRC_MARK, GEN, _parse_document, _parse_rows,
+                      _split_nhlrc, parse, new_line_id, new_token_ids,
+                      tokens_with_spans, translations_from_lrc)
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
 LOCK = threading.RLock()
@@ -275,20 +273,14 @@ def load(audio: str | Path, uid: str | None = None,
                                  (tail.get("trans_lang") or "zh"))
 
     lines, metadata, body_rows = _parse_rows(body)
-    # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
-    strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
-    annotations, line_ids, token_ids = annotations_and_ids_for(lines, tail, strict=strict)
-    if from_cache:
-        translations = translations_from_lrc((hit or {}).get("tlyric") or "", lines)
-    else:
-        translations = translations_for(lines, tail, strict=strict)
+    translations = (translations_from_lrc((hit or {}).get("tlyric") or "", lines)
+                    if from_cache else {})
     return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
             "path": str(path), "kind": kind, "source": source, "text": body,
             "lines": lines, "body_rows": body_rows, "metadata": metadata,
-            "annotations": annotations,
-            "line_ids": line_ids, "token_ids": token_ids,
+            "annotations": {}, "line_ids": {}, "token_ids": {},
             "translations": translations,
-            "trans_lang": (tail or {}).get("trans_lang") or "zh",
+            "trans_lang": "zh",
             "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
 
 
@@ -370,7 +362,7 @@ def export_rows(doc: dict, lines: list[dict] | None = None,
 
 def load_rows(audio: str | Path, uid: str | None = None,
               title: str | None = None, artist: str | None = None) -> dict:
-    """读 rows；没有文件返回空 rows，v1 在内存转成 rows。"""
+    """读 rows；只接受 v2 nhlrc。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
@@ -382,14 +374,15 @@ def load_rows(audio: str | Path, uid: str | None = None,
         return {"ok": True, "rows": [], "version": _version(full),
                 "exists": True, "model": 0, "disabled": True,
                 "trans_lang": "zh"}
-    model = 2 if tail and tail.get("v") == 2 else 0
+    if not tail or tail.get("v") != 2:
+        return {"ok": False, "error": "不支持的 nhlrc 版本", "rows": []}
     try:
-        rows = parse_v2_rows(full if model == 2 else to_v2_text(full))
+        rows = parse_v2_rows(full)
     except ValueError as e:
         return {"ok": False, "error": str(e), "rows": []}
     return {"ok": True, "rows": rows, "version": _version(full),
             "exists": True, "model": 2,
-            "trans_lang": (tail or {}).get("trans_lang") or "zh"}
+            "trans_lang": tail.get("trans_lang") or "zh"}
 
 
 def save_rows(audio: str | Path, rows: list[dict],
@@ -434,35 +427,18 @@ def backup_status(audio: str | Path, uid: str | None = None,
             "mtime": b.stat().st_mtime, "size": b.stat().st_size}
 
 
-def to_v2_text(text: str) -> str:
-    """把旧 v1 文档转成 v2；普通读取不拒绝 v1，恢复备份时统一写 v2。"""
-    body, tail = _split_nhlrc(text)
-    if tail and tail.get("v") == 2:
-        return text
-    if tail and tail.get("disabled"):
-        return _disabled_text()
-    lines, metadata, body_rows = _parse_rows(body)
+def plain_lrc_rows(text: str) -> list[dict]:
+    """外部普通 LRC → v2 rows；不读取任何 nhlrc 尾部。"""
+    body, _tail = _split_nhlrc(text)
+    _lines, metadata, body_rows = _parse_rows(body)
     body_to_lyric = {}
     lyric = 0
     for bi, ln in enumerate(body_rows):
         if (ln.get("text") or "").strip():
             body_to_lyric[bi] = lyric
             lyric += 1
-    annotations, line_ids, token_ids = (annotations_and_ids_for(lines, tail)
-                                         if tail else ({}, {}, {}))
-    translations = translations_for(lines, tail) if tail else {}
-    ann_body = {bi: annotations[li] for bi, li in body_to_lyric.items()
-                if li in annotations}
-    trans_body = {bi: translations[li] for bi, li in body_to_lyric.items()
-                  if li in translations}
-    lids_body = {bi: line_ids[li] for bi, li in body_to_lyric.items()
-                 if li in line_ids}
-    tids_body = {bi: token_ids[li] for bi, li in body_to_lyric.items()
-                 if li in token_ids}
     meta_body = _metadata_for_body(metadata, body_to_lyric, len(body_rows))
-    rows = _rows_from_body(body_rows, meta_body, ann_body, trans_body,
-                           lids_body, tids_body, body_to_lyric)
-    return render_v2_rows(rows, (tail or {}).get("trans_lang") or "zh")
+    return _rows_from_body(body_rows, meta_body, {}, {}, {}, {}, body_to_lyric)
 
 
 def restore_backup(audio: str | Path, uid: str | None = None,
@@ -483,7 +459,10 @@ def restore_backup(audio: str | Path, uid: str | None = None,
         text = b.read_text(encoding="utf-8", errors="ignore")
         if _is_disabled_text(text):
             return {"ok": False, "error": "没有可恢复的歌词备份"}
-        text = to_v2_text(text)
+        try:
+            parse_v2_rows(text)
+        except ValueError:
+            return {"ok": False, "error": "不支持的 nhlrc 版本"}
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(parse(text)),
                 "version": _version(text)}
@@ -521,6 +500,8 @@ def valid_import(text: str) -> tuple[bool, str]:
     if "\ufffd" in text:
         return False, "文件不是有效的 UTF-8 文本"
     body, tail = _split_nhlrc(text)
+    if tail and tail.get("v") != 2:
+        return False, "不支持的 nhlrc 版本"
     if tail and tail.get("disabled"):
         return True, ""
     if tail and (tail.get("lines") or tail.get("trans")):
@@ -550,6 +531,8 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
         if conflict:
             return conflict
         body, tail = _split_nhlrc(text)
+        if tail and tail.get("v") != 2:
+            return {"ok": False, "error": "不支持的 nhlrc 版本"}
         if tail and tail.get("disabled"):
             out = _disabled_text()
             backed = _backup_once(sp, bak)
@@ -558,7 +541,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                     "lines": 0, "annotated": 0, "backed_up": backed,
                     "version": _version(out)}
         try:
-            rows = parse_v2_rows(to_v2_text(text))
+            rows = parse_v2_rows(text) if tail else plain_lrc_rows(text)
         except ValueError as e:
             return {"ok": False, "error": str(e)}
         lyric_rows = [row for row in rows if row.get("kind") == "lyric"]
@@ -654,9 +637,9 @@ def save(audio: str | Path, lines: list[dict],
         if metadata is None:
             _, metadata = _parse_document(body)
         if annotations is None:
-            annotations = annotations_for(lines, _tail)
+            annotations = {}
         if translations is None:
-            translations = translations_for(lines, _tail)
+            translations = {}
         if annotation_index is None:
             annotation_index = {}
             lyric = 0

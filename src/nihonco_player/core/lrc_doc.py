@@ -2,13 +2,11 @@
 """LRC / nhlrc 文档格式：纯文本 ↔ 结构，无文件 IO。"""
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import secrets
 
 NHLRC_MARK = "#NHLRC"
-NHLRC_VERSION = 1
 GEN = "nihonco 0.1"
 
 LINE = re.compile(r"^\[(\d+):(\d+(?:\.\d+)?)(?:-\d+)?\](.*)$")
@@ -16,10 +14,6 @@ METADATA = re.compile(
     r"(?:\[(?:ar|al|ti|au|by|offset|length|re|ve|la|id|tool):[^\]\r\n]*\][ \t]*)+",
     re.IGNORECASE,
 )
-
-
-def _hash8(text: str) -> str:
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
 
 
 def _split_nhlrc(text: str) -> tuple[str, dict | None]:
@@ -34,21 +28,6 @@ def _split_nhlrc(text: str) -> tuple[str, dict | None]:
                 return body, None
             return body, tail if isinstance(tail, dict) else None
     return text, None
-
-
-def _seg_list(raw) -> list[list]:
-    """容忍两种写法：["君","きみ","A"] 或 {"b":"君","r":"きみ","lv":"A"}"""
-    out = []
-    for item in raw or ():
-        if isinstance(item, dict):
-            out.append([item.get("b", ""), item.get("r"), item.get("lv")])
-        elif isinstance(item, (list, tuple)) and item:
-            out.append([item[0], (item[1] if len(item) > 1 else None),
-                        (item[2] if len(item) > 2 else None)])
-    return out
-
-
-ID_RE = re.compile(r"^[lt]_[0-9a-f]{8}$")
 
 
 def _new_lid() -> str:
@@ -67,105 +46,6 @@ def new_token_ids(count: int) -> list[str]:
     return [_new_tid() for _ in range(max(0, int(count)))]
 
 
-def _unique_id(prefix: str, seen: set[str]) -> str:
-    for _ in range(100):
-        candidate = _new_lid() if prefix == "l" else _new_tid()
-        if candidate not in seen:
-            return candidate
-    # 极端情况下退回确定性序号，仍满足格式
-    for n in range(10000):
-        candidate = f"{prefix}_{n:08x}"
-        if candidate not in seen:
-            return candidate
-    raise RuntimeError("无法生成唯一歌词身份")
-
-
-def _legacy_lid(i: int, text: str) -> str:
-    raw = f"line\0{i}\0{text}".encode("utf-8")
-    return "l_" + hashlib.sha1(raw).hexdigest()[:8]
-
-
-def _legacy_tid(i: int, text: str, ti: int, base: str) -> str:
-    raw = f"token\0{i}\0{ti}\0{base}\0{text}".encode("utf-8")
-    return "t_" + hashlib.sha1(raw).hexdigest()[:8]
-
-
-def _valid_id(value, prefix: str) -> bool:
-    return isinstance(value, str) and value.startswith(prefix + "_") and bool(ID_RE.fullmatch(value))
-
-
-def annotations_and_ids_for(lines: list[dict], tail: dict | None,
-                            strict: bool = True) -> tuple[dict[int, list], dict[int, str], dict[int, list[str]]]:
-    """按旧逻辑校验 seg，同时返回行/token 身份。
-
-    旧文件没有 lid/tid 时生成确定性 legacy id；不写回。
-    """
-    if not tail or not tail.get("lines"):
-        return {}, {}, {}
-    ok: dict[int, list] = {}
-    lids: dict[int, str] = {}
-    tids: dict[int, list[str]] = {}
-    seen_l: set[str] = set()
-    seen_t: set[str] = set()
-    for ent in tail["lines"]:
-        try:
-            i = int(ent.get("i"))
-        except (TypeError, ValueError):
-            continue
-        if not (0 <= i < len(lines)):
-            continue
-        text = lines[i].get("text") or ""
-        if strict and ent.get("h") and ent["h"] != _hash8(text):
-            continue
-        seg = _seg_list(ent.get("seg"))
-        if not seg or "".join(x[0] for x in seg) != text:
-            continue
-        lid = ent.get("lid")
-        if not _valid_id(lid, "l") or lid in seen_l:
-            lid = _legacy_lid(i, text)
-        seen_l.add(lid)
-        ids = ent.get("tid")
-        if not isinstance(ids, list) or len(ids) != len(seg):
-            ids = []
-        out_ids = []
-        for ti, part in enumerate(seg):
-            tid = ids[ti] if ti < len(ids) else None
-            if not _valid_id(tid, "t") or tid in seen_t:
-                tid = _legacy_tid(i, text, ti, str(part[0] or ""))
-            seen_t.add(tid)
-            out_ids.append(tid)
-        ok[i] = seg
-        lids[i] = lid
-        tids[i] = out_ids
-    return ok, lids, tids
-
-
-def annotations_for(lines: list[dict], tail: dict | None,
-                    strict: bool = True) -> dict[int, list]:
-    """校验尾部标注；与带身份版本共用同一套校验。"""
-    return annotations_and_ids_for(lines, tail, strict=strict)[0]
-
-
-def translations_for(lines: list[dict], tail: dict | None,
-                      strict: bool = True) -> dict[int, str]:
-    """校验尾部翻译：行号存在、hash 一致、文本非空才认。"""
-    if not tail or not tail.get("trans"):
-        return {}
-    out: dict[int, str] = {}
-    for ent in tail["trans"]:
-        try:
-            i = int(ent.get("i"))
-            text = str(ent.get("text") or "").strip()
-        except (AttributeError, TypeError, ValueError):
-            continue
-        if not text or not (0 <= i < len(lines)):
-            continue
-        if strict and ent.get("h") and ent["h"] != _hash8(lines[i].get("text") or ""):
-            continue
-        out[i] = text
-    return out
-
-
 def align_translations(lines: list[dict], old_lines: list[dict],
                        translations: dict[int, str] | None) -> dict[int, str]:
     """插入/删除/移动行后，按位置 + 原文内容对齐翻译。"""
@@ -177,12 +57,12 @@ def align_translations(lines: list[dict], old_lines: list[dict],
     new = {i: (ln.get("text") or "") for i, ln in enumerate(lines or [])}
     out: dict[int, str] = {}
     used: set[int] = set()
-    for i, text in entries:                       # 位置 + 内容都没变
+    for i, text in entries:
         if i < len(lines) and old.get(i) == new.get(i):
             out[i] = text
             used.add(i)
     rest = [(i, text) for i, text in entries if i not in used]
-    for i, ln in enumerate(lines or []):          # 按原文内容 FIFO 找
+    for i, ln in enumerate(lines or []):
         if i in out:
             continue
         want = ln.get("text") or ""

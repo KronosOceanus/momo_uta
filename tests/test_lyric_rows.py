@@ -102,7 +102,7 @@ class TestRowsStorage(unittest.TestCase):
                 self.assertEqual(loaded["rows"][1]["trans"], "你")
                 self.assertEqual(loaded["rows"][1]["tokens"][0]["tid"], "t_aaa")
 
-    def test_v1_loads_in_memory_as_v2_and_version_conflict(self):
+    def test_v1_file_is_rejected(self):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
@@ -113,20 +113,15 @@ class TestRowsStorage(unittest.TestCase):
             audio = root / "曲.mp3"
             audio.touch()
             with patch.object(LRF, "LYRICS", root / "lyrics"):
-                saved = LRF.save_rows(audio, [{"kind": "lyric", "text": "君", "t": 1.0,
-                                               "lid": "l_aaa", "tokens": [], "trans": ""}])
-                self.assertTrue(saved["ok"])
-                conflict = LRF.save_rows(audio, [{"kind": "lyric", "text": "花",
-                                                 "t": 2.0, "lid": "l_bbb",
-                                                 "tokens": [], "trans": ""}],
-                                            expected_version="wrong")
-                self.assertTrue(conflict.get("conflict"))
+                self.assertTrue(LRF.save_rows(audio, [{"kind": "lyric", "text": "君",
+                                                       "t": 1.0, "lid": "l_aaa",
+                                                       "tokens": [], "trans": ""}])["ok"])
                 path = LRF.store_path(audio)
-                path.write_text("[00:01.00]君\n\n#NHLRC 1\n{\"v\":1}\n", encoding="utf-8")
-                migrated = LRF.load_rows(audio)
-                self.assertTrue(migrated["ok"])
-                self.assertEqual(migrated["model"], 2)
-                self.assertEqual(migrated["rows"][0]["text"], "君")
+                path.write_text("[00:01.00]君\n\n#NHLRC 1\n{\"v\":1}\n",
+                                encoding="utf-8")
+                got = LRF.load_rows(audio)
+                self.assertFalse(got["ok"])
+                self.assertIn("不支持", got["error"])
 
 
 class TestRowsService(unittest.TestCase):

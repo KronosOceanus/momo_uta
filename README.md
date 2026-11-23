@@ -35,7 +35,7 @@ nihonco uta 是一个本地日文歌曲播放器。
 ```text
 lyric / blank / metadata 统一为 rows
 播放视图按时间从 rows 派生
-V1 仍可读取，写入统一为 v2
+V1 文件不再读取；只接受 v2，所有写入都是 v2
 ```
 
 ## 功能
