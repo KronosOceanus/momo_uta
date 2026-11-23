@@ -90,22 +90,11 @@ def lrc_action(req):
         return LD.edit_reading(uid, req.get("lid"), req.get("tid"),
                                req.get("reading"), expected_version=req.get("version"))
     if act == "export":
-        lines = req.get("lines")
-        rows = req.get("rows")
-        if rows is None and lines and any("kind" in x for x in lines):
-            rows = lines
         doc = LRC.load(item["file"], uid, title, artist)
-        if rows is not None:
-            from ..core.lyric_rows import body_text, render_rows
-            return {"ok": True, "nhlrc": render_rows(
-                        rows, req.get("trans_lang") or doc.get("trans_lang") or "zh"),
-                    "lrc": body_text(rows)}
-        if not lines:
-            lines = doc.get("body_rows") or doc["lines"]
+        rows = LRC.export_rows(doc, lines=req.get("lines"), rows=req.get("rows"))
         from ..core.lyric_rows import body_text, render_rows
-        rows = LRC.rows_from_legacy(doc, lines)
         return {"ok": True, "nhlrc": render_rows(
-                    rows, doc.get("trans_lang") or "zh"),
+                    rows, req.get("trans_lang") or doc.get("trans_lang") or "zh"),
                 "lrc": body_text(rows)}
     if act == "import_lrc":
         text = str(req.get("text") or "")

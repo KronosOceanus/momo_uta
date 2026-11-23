@@ -502,3 +502,19 @@ class TestV2LegacySaveTransLang(unittest.TestCase):
                                           trans_lang="en")["ok"])
                 self.assertTrue(LRF.save(audio, line)["ok"])
                 self.assertEqual(LRF.load_rows(audio)["trans_lang"], "en")
+
+
+class TestV2ExportRows(unittest.TestCase):
+    def test_export_rows_prefers_explicit_rows(self):
+        from nihonco_player.core import lrc_files as LRF
+
+        doc = {"text": "[00:01.00]a\n", "body_rows": [{"t": 1.0, "text": "a"}]}
+        rows = [{"kind": "lyric", "text": "x", "t": 1.0, "lid": "l_x", "tokens": []}]
+        self.assertEqual(LRF.export_rows(doc, rows=rows), rows)
+
+    def test_export_rows_accepts_kind_rows_in_lines(self):
+        from nihonco_player.core import lrc_files as LRF
+
+        doc = {"text": "", "body_rows": []}
+        rows = [{"kind": "lyric", "text": "x", "t": 1.0, "lid": "l_x", "tokens": []}]
+        self.assertEqual(LRF.export_rows(doc, lines=rows), rows)

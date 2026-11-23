@@ -348,6 +348,17 @@ def rows_from_legacy(doc: dict, lines: list[dict] | None = None) -> list[dict]:
     return skeleton
 
 
+def export_rows(doc: dict, lines: list[dict] | None = None,
+                rows: list[dict] | None = None) -> list[dict]:
+    """统一导出入口：调用方给 rows 就用 rows，否则从旧正文/body 构造。"""
+    if rows is None and lines and any("kind" in x for x in lines):
+        rows, lines = lines, None
+    if rows is not None:
+        return rows
+    body = lines if lines is not None else (doc.get("body_rows") or doc.get("lines") or [])
+    return rows_from_legacy(doc, body)
+
+
 def load_rows(audio: str | Path, uid: str | None = None,
               title: str | None = None, artist: str | None = None) -> dict:
     """读 rows；没有文件返回空 rows，v1 在内存转成 rows。"""
@@ -385,7 +396,7 @@ def save_rows(audio: str | Path, rows: list[dict],
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
         original, exists = _read_original(sp)
-        _current, conflict = _version_conflict(original, exists, expected_version)
+        _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
         if trans_lang is None:
@@ -456,7 +467,7 @@ def restore_backup(audio: str | Path, uid: str | None = None,
             return {"ok": False, "error": "没有备份文件"}
         sp = store_path(audio, u, title, artist)
         original, exists = _read_original(sp)
-        _current, conflict = _version_conflict(original, exists, expected_version)
+        _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
         text = b.read_text(encoding="utf-8", errors="ignore")
@@ -478,7 +489,7 @@ def delete_store(audio: str | Path, uid: str | None = None,
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
         original, exists = _read_original(sp)
-        _current, conflict = _version_conflict(original, exists, expected_version)
+        _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
         if sp.is_file():
@@ -525,7 +536,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
         original, exists = _read_original(sp)
-        _current, conflict = _version_conflict(original, exists, expected_version)
+        _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
         body, tail = _split_nhlrc(text)
@@ -622,7 +633,7 @@ def save(audio: str | Path, lines: list[dict],
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
         original, exists = _read_original(sp)
-        _current, conflict = _version_conflict(original, exists, expected_version)
+        _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
         body, _tail = _split_nhlrc(original)
