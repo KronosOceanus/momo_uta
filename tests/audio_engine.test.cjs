@@ -12,6 +12,7 @@ function deferred() {
 function makeEngine() {
   const pending = new Map();
   const signals = new Map();
+  const starts = [];
   const fetch = (url, opts={}) => {
     signals.set(url, opts.signal);
     return Promise.resolve({
@@ -23,7 +24,9 @@ function makeEngine() {
     constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
     createGain() { return {gain: {value: 1}, connect() {}}; }
     createBufferSource() {
-      return {buffer: null, playbackRate: {value: 1}, connect() {}, start() {}, stop() {}, disconnect() {}};
+      const src = {buffer: null, playbackRate: {value: 1}, connect() {},
+        start() { starts.push(src); }, stop() {}, disconnect() {}};
+      return src;
     }
     decodeAudioData(ab) {
       const d = pending.get(ab.url);
@@ -37,7 +40,7 @@ function makeEngine() {
     requestAnimationFrame() {},
   };
   vm.runInNewContext(fs.readFileSync('src/nihonco_player/static/05-audio.js', 'utf8'), ctx);
-  return {engine: new ctx.window.NH.AudioEngine(), pending, signals};
+  return {engine: new ctx.window.NH.AudioEngine(), pending, signals, starts};
 }
 
 test('late decode cannot overwrite the current source', async () => {
@@ -111,4 +114,29 @@ test('late completed load does not touch the current source', async () => {
   assert.equal(await oldLoad, null);
   assert.equal(engine._buf.name, 'b');
   assert.equal(engine.readyState, 4);
+});
+
+
+test('two concurrent plays start only one source', async () => {
+  const {engine, pending, starts} = makeEngine();
+  pending.set('a', deferred());
+  engine.src = 'a';
+  const first = engine.play();
+  const second = engine.play();
+  pending.get('a').resolve({name: 'a', duration: 4});
+  await Promise.all([first, second]);
+  assert.equal(starts.length, 1);
+  assert.equal(engine._playing, true);
+});
+
+test('pause during play preload prevents automatic start', async () => {
+  const {engine, pending, starts} = makeEngine();
+  pending.set('a', deferred());
+  engine.src = 'a';
+  const play = engine.play();
+  engine.pause();
+  pending.get('a').resolve({name: 'a', duration: 4});
+  await play;
+  assert.equal(starts.length, 0);
+  assert.equal(engine._playing, false);
 });

@@ -5,53 +5,9 @@
 >
 > 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
-## 1. 并发播放后暂停可能还有声音
+## 1. 同一后台任务能启动两次
 
 - 编号：BUG-001
-- 状态：⬜ 待修
-- 优先级：高
-- 影响：双音源叠加，暂停不彻底
-- 复现：代码路径已确认，GPT 用模拟 Web Audio 复现
-
-### 现象
-
-解码期间连续发出两次播放请求，解码完成后启动两个音源。暂停只停掉其中一个。
-
-### 原因
-
-`static/05-audio.js` 的 `play()`：
-
-```js
-if(this._playing) return;
-if(!this._buf) await this.preload();
-...
-this._startSrc();
-```
-
-两个 `play()` 可以同时通过 `_playing` 检查，并同时等待同一个 preload；完成后都调用 `_startSrc()`。
-
-```text
-_playing 只在 _startSrc() 里变成 true
-  → 前置检查挡不住第二个
-```
-
-### 方向
-
-```text
-1. play 加互斥 Promise / 生成序号
-2. await 后再检查 _playing / seq / url
-3. _startSrc 前保证只有一个 pending starter
-```
-
-### 相关
-
-```text
-src/nihonco_player/static/05-audio.js: play / _startSrc
-```
-
-## 2. 同一后台任务能启动两次
-
-- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：中高
 - 影响：人声分离等昂贵任务重复执行，资源和取消状态错乱
@@ -100,9 +56,9 @@ find_active + 插入放进同一个 _lock 临界区
 src/nihonco_player/core/jobs.py: start / find_active
 ```
 
-## 3. 首次保存丢失歌词元数据
+## 2. 首次保存丢失歌词元数据
 
-- 编号：BUG-003
+- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`[ar:]`、`[ti:]`、`[offset:]` 等元数据丢失
@@ -152,9 +108,9 @@ src/nihonco_player/core/lrc_files.py: save
 src/nihonco_player/service/song.py: save_lyrics
 ```
 
-## 4. wheel 缺少默认配置和前端静态资源
+## 3. wheel 缺少默认配置和前端静态资源
 
-- 编号：BUG-004
+- 编号：BUG-003
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`pip install` 后命令入口运行时报错
@@ -205,9 +161,9 @@ pyproject.toml
 BUG-001 翻译错行/丢失
 BUG-001 重复歌词身份错位
 BUG-001 并发播放
-BUG-002 后台任务重复
-BUG-003 元数据丢失
-BUG-004 wheel 资源
+BUG-001 后台任务重复
+BUG-002 元数据丢失
+BUG-003 wheel 资源
 ```
 
 ## 说明

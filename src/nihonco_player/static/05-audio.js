@@ -10,7 +10,7 @@ class AudioEngine {
     this._ctx=null; this._gain=null; this._buf=null; this._src=null;
     this._offset=0; this._started=0; this._playing=false; this._rate=1;
     this._vol=1; this._muted=false; this._dur=0; this._ready=0; this._url='';
-    this._load=null; this._loadSeq=0; this._abort=null; this._watch=0; this._ended=false; this._handlers={};
+    this._load=null; this._loadSeq=0; this._playSeq=0; this._abort=null; this._watch=0; this._ended=false; this._handlers={};
     this.ontimeupdate=null; this.onloadedmetadata=null; this.onerror=null;
   }
   addEventListener(type, fn){ (this._handlers[type] ||= []).push(fn); }
@@ -22,6 +22,7 @@ class AudioEngine {
   set src(u){
     if(u!==this._url){
       this._loadSeq++;                 // 旧 fetch/decode 完成后无权写回
+      this._playSeq++;                 // 旧 play 等待期间切歌后不能启动
       if(this._abort){ try{ this._abort.abort(); }catch(e){} this._abort=null; }
       this._url=u; this._buf=null; this._ready=0; this._dur=0; this._offset=0;
       this._load=null;                 // 换歌必须重开预载，否则会拿到上一首的已解析 Promise
@@ -92,15 +93,17 @@ class AudioEngine {
   async play(){
     this._ctxGet();
     if(this._playing) return;
+    const playSeq=++this._playSeq;
     const seq=this._loadSeq, url=this._url;
     if(!this._buf && url) await this.preload();
-    // 等待期间切歌：旧的 play 请求不能拿新 buffer 启动
-    if(seq!==this._loadSeq || url!==this._url || !this._buf) return;
+    // 等待期间切歌、暂停或另一个 play 已经接管：本次请求作废
+    if(playSeq!==this._playSeq || seq!==this._loadSeq || url!==this._url || !this._buf) return;
     this._ended=false;
     this._startSrc();
     this._emit('play'); this._emit('playing'); this._watchStart();
   }
   pause(){
+    this._playSeq++;
     if(!this._playing) return;
     this._offset=this.currentTime;
     this._stop();
