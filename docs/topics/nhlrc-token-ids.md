@@ -2,6 +2,9 @@
 
 > 目标：编辑一行正文时，未改动的 token 读音不被整行重置。
 > 格式基础见 [nhlrc](nhlrc.md)。
+>
+> 状态：已实现后端读写、API、编辑器加载/保存、文本编辑和拆行/合并。
+> 空行规则已并入 [nhlrc](nhlrc.md) 的正文格式。
 
 ## 0. 一句话
 
@@ -87,7 +90,7 @@ seg 仍然是 [base, ruby, level]
 ### 2.1 字段规则
 
 ```text
-i     当前行号，仅用于显示/读写顺序
+i     非空歌词行号；空行不占号，仅用于显示/读写顺序
 h     当前正文 hash，仅用于快速校验
 lid   行身份，跨插入/删除/移动保持不变
 seg   [base, ruby, level]
@@ -308,6 +311,7 @@ LRC 保存时，每行发送：
 tokens 只带身份和 span
 ruby/level 以后端旧文件为准
 新 token 不带 tid
+空行不进入 tokens，也不占 i
 ```
 
 ```text
@@ -493,7 +497,39 @@ addRow / delRows / 拆行 / 合并 / 粘贴
 拆/合并    → 完整 token 保留
 ```
 
-## 15. 相关
+## 15. 空行
+
+空行属于正文，但不属于注音。
+
+```text
+body_rows = 编辑器行，保留空行
+lines     = 非空歌词行
+i         = lines 的序号
+```
+
+保存：
+
+```text
+正文按 body_rows 渲染
+annotation / trans / lid / tid 按 lines 编号
+```
+
+所以：
+
+```text
+在注音行前插入空行
+  → 正文多一行
+  → annotation i 不变
+  → 后面的读音不会被整体错位
+```
+
+相关格式：
+
+```text
+nhlrc 正文空行 → nhlrc.md 第 3.4 节
+```
+
+## 16. 相关
 
 ```text
 nhlrc 格式 → nhlrc.md

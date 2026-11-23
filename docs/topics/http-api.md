@@ -235,7 +235,21 @@ save 带 version；冲突 → 409 {ok:false, conflict:true}
 ```
 
 ```text
+load:
+  lines 是编辑器行，保留空行
+  body_rows 同 lines
+  每行可带 lid/tokens
+  annotation i 仍按非空歌词行编号
+
+save:
+  lines 可包含空行
+  服务端先映射 body_rows → 非空歌词行
+  lid/tokens 随行提交
+```
+
+```text
 export 返回 nhlrc + 纯 lrc
+导出时空行保留，annotation 按非空行编号
 ```
 
 ### 2.7 `/api/jobs`

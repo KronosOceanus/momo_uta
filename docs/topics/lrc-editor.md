@@ -6,7 +6,7 @@
 ## 0. 一句话
 
 ```text
-LRC 编辑器 = 一张可编辑的 ERROWS 表
+LRC 编辑器 = 一张可编辑的 EROWS 表
             + 自动保存队列
             + 版本校验
             + 导入/导出/删除/恢复
@@ -51,7 +51,7 @@ lrcOpen token 仍然有效
 
 ```text
 NH.EROWS
-  [{t, text, trans}, ...]
+  [{t, text, trans, lid, tokens}, ...]
 
 NH.ESEL
   当前行
@@ -73,8 +73,8 @@ NH.LRC_METADATA
 ```
 
 ```text
-EROWS 保留文件顺序和未打点的草稿行。
-播放视图只使用有时间戳的行。
+EROWS 保留文件顺序、空行和未打点的草稿行。
+播放视图只使用有时间戳且文本非空的行。
 ```
 
 ## 3. 表格布局
@@ -142,6 +142,72 @@ Enter → 失焦，不拆行
 加行 → 在选中行后插入空行
 删行 → 删除选中行或当前行
 ```
+
+空行会：
+
+```text
+显示在 LRC 编辑器
+保留在正文
+不占用 annotation i
+不出现在播放行
+```
+
+例如：
+
+```text
+编辑器：
+  0 涙流すことすら無いまま
+  1 （空行）
+  2 過ごした日々の痕一つも残さずに
+
+annotation：
+  i=0 涙流すことすら無いまま
+  i=1 過ごした日々の痕一つも残さずに
+```
+
+保存时由服务端把 `body_rows` 映射到非空歌词行，避免空行把后面的读音整体错位。
+
+### 行 / token 身份
+
+LRC 编辑器加载时同时拿到：
+
+```text
+lid
+tokens: [{tid, start, end, base, ruby, level}]
+```
+
+文本编辑：
+
+```text
+未改动区间的 token
+  → 保留 tid/ruby/level
+  → start/end 随文本平移
+
+改动区间的 token
+  → 丢弃 tid
+  → 后端重新注音
+  → 分配新 tid
+```
+
+行操作：
+
+```text
+插入行 → 新 lid
+删除行 → 删除该行身份
+拆行   → 左行保留 lid，右行新 lid
+合并行 → 保留左行 lid，右侧 token 平移
+```
+
+保存时 `lrcPayload()` 会带：
+
+```text
+lid
+tokens: [{tid, start, end, base}]
+```
+
+服务端按 `tid + span` 保留读音，不按 base 猜测。
+
+完整格式见 [nhlrc-token-ids](nhlrc-token-ids.md)。
 
 ### ↤ 绑定时间
 
@@ -272,7 +338,7 @@ EROWS[i].trans 可编辑
 
 ```text
 只隐藏输入框
-不清空 ERROWS[i].trans
+不清空 EROWS[i].trans
 不 markDirty
 ```
 
@@ -281,6 +347,7 @@ EROWS[i].trans 可编辑
 ```text
 lrcPayload()
   → 每行带 trans
+  → 有身份时带 lid/tokens
   → 服务端写 nhlrc 尾部 trans
 ```
 
@@ -326,6 +393,7 @@ LRC 工具栏“导出”
 
 ```text
 导出使用当前编辑行，不要求先保存。
+导出时空行保留在正文，annotation 仍按非空行编号。
 ```
 
 ## 12. 删除 / 恢复最初

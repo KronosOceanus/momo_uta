@@ -129,7 +129,50 @@ uid = 音频指纹，是歌曲身份
 LRC 编辑器保留草稿行。
 ```
 
-### 3.4 网易云 JSON 行
+### 3.4 空行
+
+正文允许空行，并且保存时保留。
+
+```text
+空行不进入 compact lines
+空行不占用 annotation i
+空行仍然出现在 LRC 编辑器
+```
+
+例如：
+
+```lrc
+[00:02.19]涙流すことすら無いまま
+
+[00:07.44]過ごした日々の痕一つも残さずに
+```
+
+解析后：
+
+```text
+body_rows:
+  0 [00:02.19]涙流すことすら無いまま
+  1 空行
+  2 [00:07.44]過ごした日々の痕一つも残さずに
+
+lines / annotation:
+  i=0 涙流すことすら無いまま
+  i=1 過ごした日々の痕一つも残さずに
+```
+
+```text
+body_rows = 编辑器行，保留空行
+lines    = 非空歌词行，供播放/注音使用
+```
+
+写入时：
+
+```text
+正文按 body_rows 渲染
+lines / trans / lid / tid 的 i 按非空歌词行编号
+```
+
+### 3.5 网易云 JSON 行
 
 正文解析兼容这一种输入：
 
@@ -174,14 +217,23 @@ t 是毫秒。
 ## 5. 读音 `lines`
 
 ```json
-{"i": 0, "h": "1234abcd", "seg": [["君", "きみ", "A"], ["の", "の", null]]}
+{"i": 0, "h": "1234abcd", "lid": "l_8f3a2c1d",
+ "seg": [["君", "きみ", "A"], ["の", "の", null]],
+ "tid": ["t_91ab77cd", "t_77cd42ef"]}
 ```
 
 | 字段 | 含义 |
 |---|---|
-| `i` | 正文行号，从 0 开始 |
+| `i` | 非空歌词行号，从 0 开始；空行不占号 |
 | `h` | 该行正文文本的 8 位 hash |
 | `seg` | `[base, ruby, level]` 序列 |
+| `lid` | 可选，行身份 |
+| `tid` | 可选，与 seg 一一对应的 token 身份 |
+
+```text
+lid/tid 的完整规则见 [nhlrc-token-ids](nhlrc-token-ids.md)。
+旧文件没有 lid/tid，读取时在内存里补 legacy id。
+```
 
 ```text
 lines 是稀疏数组。
@@ -213,7 +265,7 @@ h 不匹配且严格模式 → 忽略该条
 
 | 字段 | 含义 |
 |---|---|
-| `i` | 正文行号 |
+| `i` | 非空歌词行号；空行不占号 |
 | `h` | 该行正文文本的 8 位 hash |
 | `text` | 译文 |
 
@@ -283,9 +335,16 @@ h 是变更检测，不是安全校验。
 
 ```text
 正文：按文件顺序解析
+body_rows：保留空行的编辑器行
+lines：非空歌词行
 lines：annotations_for 校验
 trans：translations_for 校验
 disabled：直接短路
+```
+
+```text
+annotation i 永远相对 lines，不相对 body_rows。
+API 返回编辑器行时，会把 lines 上的标注映射到 body_rows。
 ```
 
 ## 9. 写入规则
@@ -313,6 +372,13 @@ disabled：直接短路
 ```text
 保存时必须保留没有参与本次编辑的 lines / trans。
 只有主动替换整份歌词或删除歌词才清空它们。
+```
+
+```text
+空行：
+  保留在正文
+  不生成 annotation
+  不占 i
 ```
 
 ## 10. disabled
