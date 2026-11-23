@@ -55,11 +55,6 @@ pyproject.toml
 ## 修复顺序建议
 
 ```text
-BUG-001 翻译错行/丢失
-BUG-001 重复歌词身份错位
-BUG-001 并发播放
-BUG-001 后台任务重复
-BUG-001 元数据丢失
 BUG-001 wheel 资源
 ```
 
