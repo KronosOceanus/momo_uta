@@ -69,6 +69,13 @@ def _write_v2(path: Path, backup: Path, rows: list[dict],
     return text, backed
 
 
+def _row_ids(rows: list[dict]) -> list[dict]:
+    """保存后回传行身份，供前端合并服务端生成的 lid/tid。"""
+    return [{"i": i, "text": row.get("text") or "", "lid": row.get("lid"),
+             "tokens": row.get("tokens") or []}
+            for i, row in enumerate(rows) if row.get("kind") == "lyric"]
+
+
 def lock_path() -> Path:
     return LYRICS / ".lock"
 
@@ -406,6 +413,7 @@ def save_rows(audio: str | Path, rows: list[dict],
             trans_lang = (tail or {}).get("trans_lang") or "zh"
         text, backed = _write_v2(sp, bak, rows, trans_lang)
         return {"ok": True, "path": str(sp), "rows": len(rows),
+                "ids": _row_ids(rows),
                 "backed_up": backed, "version": _version(text)}
 
 

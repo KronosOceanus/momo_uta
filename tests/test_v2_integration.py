@@ -551,3 +551,25 @@ class TestV2LegacyExportDeletion(unittest.TestCase):
             [{"kind": "lyric", "text": "a", "t": 1.0, "lid": "l_x",
               "tokens": [], "trans": "x"}], trans_lang="en")
         self.assertEqual(doc["trans_lang"], "en")
+
+
+class TestV2SaveRowIds(unittest.TestCase):
+    def test_save_rows_returns_server_generated_ids(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                saved = LRF.save_rows(audio, [
+                    {"kind": "lyric", "text": "君", "t": 1.0, "tokens": [],
+                     "trans": ""}])
+                self.assertTrue(saved["ok"])
+                self.assertEqual(saved["ids"][0]["text"], "君")
+                self.assertTrue(saved["ids"][0]["lid"])
+                loaded = LRF.load_rows(audio)
+                self.assertEqual(loaded["rows"][0]["lid"], saved["ids"][0]["lid"])
