@@ -5,60 +5,9 @@
 >
 > 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
-## 1. 同一后台任务能启动两次
+## 1. 首次保存丢失歌词元数据
 
 - 编号：BUG-001
-- 状态：⬜ 待修
-- 优先级：中高
-- 影响：人声分离等昂贵任务重复执行，资源和取消状态错乱
-- 复现：并发路径已确认
-
-### 现象
-
-两个并发请求提交相同 `kind + key`：
-
-```text
-返回两个 job ID
-runner 执行两次
-```
-
-### 原因
-
-`core/jobs.py` 的 `start()`：
-
-```python
-active = find_active(kind, str(key))
-if active:
-    return active
-
-job_id = uuid.uuid4().hex
-with _lock:
-    _jobs[job_id] = job
-```
-
-`find_active` 和插入不在同一个锁段：
-
-```text
-A、B 同时 find_active → None
-A 插入 job A
-B 插入 job B
-```
-
-### 方向
-
-```text
-find_active + 插入放进同一个 _lock 临界区
-```
-
-### 相关
-
-```text
-src/nihonco_player/core/jobs.py: start / find_active
-```
-
-## 2. 首次保存丢失歌词元数据
-
-- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`[ar:]`、`[ti:]`、`[offset:]` 等元数据丢失
@@ -108,9 +57,9 @@ src/nihonco_player/core/lrc_files.py: save
 src/nihonco_player/service/song.py: save_lyrics
 ```
 
-## 3. wheel 缺少默认配置和前端静态资源
+## 2. wheel 缺少默认配置和前端静态资源
 
-- 编号：BUG-003
+- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`pip install` 后命令入口运行时报错
@@ -162,8 +111,8 @@ BUG-001 翻译错行/丢失
 BUG-001 重复歌词身份错位
 BUG-001 并发播放
 BUG-001 后台任务重复
-BUG-002 元数据丢失
-BUG-003 wheel 资源
+BUG-001 元数据丢失
+BUG-002 wheel 资源
 ```
 
 ## 说明

@@ -31,6 +31,31 @@ class TestJobs(unittest.TestCase):
         self.assertEqual(a["id"], b["id"])
         self.assertEqual(wait(a["id"])["state"], "done")
 
+    def test_concurrent_same_job_starts_once(self):
+        import threading
+        barrier = threading.Barrier(3)
+        calls = []
+
+        def runner():
+            calls.append(1)
+            time.sleep(0.05)
+            return True
+
+        results = []
+        def submit():
+            barrier.wait()
+            results.append(JOBS.start("test", "concurrent", runner))
+
+        threads = [threading.Thread(target=submit) for _ in range(2)]
+        for t in threads:
+            t.start()
+        barrier.wait()
+        for t in threads:
+            t.join()
+        self.assertEqual(len({x["id"] for x in results}), 1)
+        self.assertEqual(wait(results[0]["id"])["state"], "done")
+        self.assertEqual(len(calls), 1)
+
     def test_failure_records_error(self):
         def boom():
             raise RuntimeError("nope")

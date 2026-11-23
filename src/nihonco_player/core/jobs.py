@@ -44,19 +44,21 @@ def find_active(kind: str, key: str) -> dict | None:
 
 
 def start(kind: str, key, runner, cancel=None) -> dict:
-    """启动后台任务；runner 返回结果，异常转为 failed。"""
-    active = find_active(kind, str(key))
-    if active:
-        return active
+    """启动后台任务；同 kind+key 的 queued/running 任务原子复用。"""
     job_id = uuid.uuid4().hex
     now = time.time()
-    job = {"id": job_id, "kind": kind, "key": str(key), "state": "queued",
-           "stage": "queued", "error": None, "result": None,
-           "since": now, "updated": now, "_cancel": cancel,
-           "_cancel_requested": False}
     with _lock:
+        for job in _jobs.values():
+            if job["kind"] == kind and str(job["key"]) == str(key) \
+                    and job["state"] in ("queued", "running"):
+                return _copy(job)
+        job = {"id": job_id, "kind": kind, "key": str(key), "state": "queued",
+               "stage": "queued", "error": None, "result": None,
+               "since": now, "updated": now, "_cancel": cancel,
+               "_cancel_requested": False}
         _jobs[job_id] = job
         _prune_locked()
+        snapshot = _copy(job)
 
     def run():
         _local.job_id = job_id
@@ -96,7 +98,7 @@ def start(kind: str, key, runner, cancel=None) -> dict:
             _local.job_id = None
 
     threading.Thread(target=run, daemon=True, name=f"job-{kind}").start()
-    return _copy(job)
+    return snapshot
 
 
 def set_stage(stage: str) -> None:
