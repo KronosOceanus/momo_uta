@@ -115,7 +115,7 @@ def lrc_action(req):
                            expected_version=req.get("version"))
     if act == "save":
         lines = req.get("lines") or []
-        if not lines or not any((ln.get("text") or "").strip() for ln in lines):
+        if not lines:
             return {"ok": False, "error": "没有歌词行"}
         trans = req.get("translations")
         if trans is None and any("trans" in ln for ln in lines):

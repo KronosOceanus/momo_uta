@@ -424,3 +424,24 @@ class TestV2EmptyRows(unittest.TestCase):
                 out = LRF.save_rows(audio, [])
                 self.assertFalse(out["ok"])
                 self.assertEqual(LRF.store_path(audio).read_text(encoding="utf-8"), before)
+
+
+class TestV2BlankOnlyDocument(unittest.TestCase):
+    def test_blank_and_metadata_only_document_is_legal(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            rows = [
+                {"kind": "metadata", "text": "[ar:X]", "t": None},
+                {"kind": "blank", "text": "", "t": None},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                self.assertTrue(LRF.save_rows(audio, rows)["ok"])
+                got = LRF.load_rows(audio)["rows"]
+                self.assertEqual([r["kind"] for r in got], ["metadata", "blank"])
