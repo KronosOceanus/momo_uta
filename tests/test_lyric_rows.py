@@ -357,3 +357,19 @@ class TestUtf16Spans(unittest.TestCase):
         toks = got[0]["tokens"]
         self.assertEqual([(t["start"], t["end"]) for t in toks], [(0, 2), (2, 3)])
         self.assertEqual(toks[1]["base"], "君")
+
+
+class TestMalformedTail(unittest.TestCase):
+    def test_bad_tail_types_are_ignored(self):
+        cases = [
+            '{"v":2,"lines":123}',
+            '{"v":2,"lines":[1]}',
+            '{"v":2,"lines":[{"i":0,"seg":1}]}',
+            '{"v":2,"trans":123}',
+            '{"v":2,"trans":[1]}',
+        ]
+        for tail in cases:
+            text = "[00:01.00]君\n\n#NHLRC 2\n" + tail + "\n"
+            rows = R.parse_rows(text)
+            self.assertEqual(rows[0]["text"], "君")
+            self.assertEqual(rows[0]["tokens"], [])

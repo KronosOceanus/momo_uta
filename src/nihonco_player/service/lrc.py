@@ -22,7 +22,8 @@ def lrc_action(req):
         if rows_doc.get("ok") and rows_doc.get("model") == 2:
             rows_extra = rows_doc.get("rows") or []
             doc = LRC.doc_from_rows(rows_extra, rows_doc.get("version") or "",
-                                    str(rows_doc.get("path") or ""))
+                                    str(rows_doc.get("path") or ""),
+                                    trans_lang=rows_doc.get("trans_lang") or "zh")
             has_lines = bool(doc.get("lines"))
         else:
             doc, has_lines = load_lyrics(item)

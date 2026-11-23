@@ -47,6 +47,11 @@ def _split_document(text: str) -> tuple[str, dict | None]:
     return text, None
 
 
+def _tail_list(tail: dict | None, key: str) -> list:
+    value = (tail or {}).get(key)
+    return value if isinstance(value, list) else []
+
+
 def _row_from_line(raw: str, first: bool = False) -> dict:
     line = raw.lstrip("\ufeff") if first else raw
     stripped = line.strip()
@@ -78,7 +83,9 @@ def _tokens(seg, tids, text: str) -> list[dict]:
     pos = u16 = 0
     out = []
     for i, part in enumerate(seg):
-        base = str(part[0] or "") if part else ""
+        if not isinstance(part, (list, tuple)) or not part:
+            return []
+        base = str(part[0] or "")
         if not base:
             return []
         end_cp = pos + len(base)
@@ -105,7 +112,9 @@ def parse_rows(text: str) -> list[dict]:
         rows.append(row)
 
 
-    for ent in (tail or {}).get("lines") or []:
+    for ent in _tail_list(tail, "lines"):
+        if not isinstance(ent, dict):
+            continue
         try:
             i = int(ent.get("i"))
         except (TypeError, ValueError):
@@ -116,17 +125,32 @@ def parse_rows(text: str) -> list[dict]:
         h = ent.get("h")
         if h and h != _hash8(row["text"]):
             continue
-        seg = [list(x) if isinstance(x, (list, tuple)) else x
-               for x in (ent.get("seg") or [])]
-        seg = [[x.get("b", ""), x.get("r"), x.get("lv")] if isinstance(x, dict) else x
-               for x in seg]
+        raw_seg = ent.get("seg")
+        if raw_seg is None:
+            raw_seg = []
+        if not isinstance(raw_seg, list):
+            continue
+        seg = []
+        bad = False
+        for x in raw_seg:
+            if isinstance(x, (list, tuple)):
+                seg.append(list(x))
+            elif isinstance(x, dict):
+                seg.append([x.get("b", ""), x.get("r"), x.get("lv")])
+            else:
+                bad = True
+                break
+        if bad:
+            continue
         if seg and "".join(str(x[0] or "") for x in seg) != row["text"].rstrip():
             continue
         row["lid"] = ent.get("lid") or _new_lid()
         tids = ent.get("tid") or []
         row["tokens"] = _tokens(seg, tids, row["text"])
 
-    for ent in (tail or {}).get("trans") or []:
+    for ent in _tail_list(tail, "trans"):
+        if not isinstance(ent, dict):
+            continue
         try:
             i = int(ent.get("i"))
         except (TypeError, ValueError):

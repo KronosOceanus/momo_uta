@@ -518,3 +518,36 @@ class TestV2ExportRows(unittest.TestCase):
         doc = {"text": "", "body_rows": []}
         rows = [{"kind": "lyric", "text": "x", "t": 1.0, "lid": "l_x", "tokens": []}]
         self.assertEqual(LRF.export_rows(doc, lines=rows), rows)
+
+
+class TestV2LegacyExportDeletion(unittest.TestCase):
+    def test_deleted_body_rows_are_removed(self):
+        from nihonco_player.core import lrc_files as LRF
+
+        doc = {"text": "[00:01.00]a\n[00:02.00]b\n[00:03.00]c\n",
+               "body_rows": [{"t": 1.0, "text": "a"}, {"t": 2.0, "text": "b"},
+                             {"t": 3.0, "text": "c"}]}
+        rows = LRF.rows_from_legacy(doc, [{"t": 1.0, "text": "a"},
+                                          {"t": 2.0, "text": "b"}])
+        self.assertEqual([r["text"] for r in rows], ["a", "b"])
+
+    def test_empty_save_lines_rejected(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                self.assertFalse(LRF.save(audio, [])["ok"])
+
+    def test_doc_from_rows_keeps_trans_lang(self):
+        from nihonco_player.core import lrc_files as LRF
+
+        doc = LRF.doc_from_rows(
+            [{"kind": "lyric", "text": "a", "t": 1.0, "lid": "l_x",
+              "tokens": [], "trans": "x"}], trans_lang="en")
+        self.assertEqual(doc["trans_lang"], "en")

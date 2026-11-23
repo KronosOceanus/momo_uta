@@ -182,11 +182,10 @@ def usable_doc(doc: dict) -> bool:
 
 
 def _doc_from_v2_rows(rows: list[dict], path: Path, version: str,
-                      source: str = "nhlrc") -> dict:
+                      source: str = "nhlrc", trans_lang: str = "zh") -> dict:
     """把 v2 rows 投影成旧 reader 需要的字段，供保存/兼容路径使用。"""
     body_rows, lines, metadata = [], [], []
     annotations, line_ids, token_ids, translations = {}, {}, {}, {}
-    trans_lang = "zh"
     for row in rows:
         kind = row.get("kind")
         if kind == "metadata":
@@ -223,8 +222,9 @@ def body_text_of(rows: list[dict]) -> str:
 
 
 def doc_from_rows(rows: list[dict], version: str = VERSION_NONE,
-                  path: str = "", source: str = "nhlrc") -> dict:
-    return _doc_from_v2_rows(rows, Path(path), version, source)
+                  path: str = "", source: str = "nhlrc",
+                  trans_lang: str = "zh") -> dict:
+    return _doc_from_v2_rows(rows, Path(path), version, source, trans_lang)
 
 
 def load(audio: str | Path, uid: str | None = None,
@@ -264,9 +264,8 @@ def load(audio: str | Path, uid: str | None = None,
                 "nhlrc": True, "disabled": True, "version": version}
     if tail and tail.get("v") == 2:
         rows = parse_v2_rows(full)
-        doc = _doc_from_v2_rows(rows, path, version, source)
-        doc["trans_lang"] = (tail.get("trans_lang") or "zh")
-        return doc
+        return _doc_from_v2_rows(rows, path, version, source,
+                                 (tail.get("trans_lang") or "zh"))
 
     lines, metadata, body_rows = _parse_rows(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
@@ -306,11 +305,13 @@ def rows_from_legacy(doc: dict, lines: list[dict] | None = None) -> list[dict]:
     lids = doc.get("line_ids") or {}
     trans = doc.get("translations") or {}
     bi = lyric = 0
+    out = []
     for row in skeleton:
         if row.get("kind") == "metadata":
+            out.append(row)
             continue
         if bi >= len(body):
-            continue
+            continue                      # 编辑器删掉的行：旧骨架不再保留
         ln = body[bi]
         text = str(ln.get("text") or "")
         row["t"] = ln.get("t")
@@ -328,24 +329,25 @@ def rows_from_legacy(doc: dict, lines: list[dict] | None = None) -> list[dict]:
             row["lid"] = None
             row["tokens"] = []
             row["trans"] = ""
+        out.append(row)
         bi += 1
     # 编辑器可能比旧正文多出行：追加到末尾，不能因为骨架短就静默丢弃。
     while bi < len(body):
         ln = body[bi]
         text = str(ln.get("text") or "")
         if not text.strip():
-            skeleton.append({"kind": "blank", "text": "", "t": ln.get("t")})
+            out.append({"kind": "blank", "text": "", "t": ln.get("t")})
         else:
             lid = lids.get(lyric) or new_line_id()
             seg = ann.get(lyric) or []
             ids = tids.get(lyric) or new_token_ids(len(seg))
-            skeleton.append({
+            out.append({
                 "kind": "lyric", "text": text, "t": ln.get("t"), "lid": lid,
                 "tokens": tokens_with_spans(seg, ids, text) if seg else [],
                 "trans": str(ln.get("trans") or trans.get(lyric) or "")})
             lyric += 1
         bi += 1
-    return skeleton
+    return out
 
 
 def export_rows(doc: dict, lines: list[dict] | None = None,
@@ -627,6 +629,8 @@ def save(audio: str | Path, lines: list[dict],
          annotation_index: dict[int, int] | None = None,
          metadata: list[dict] | None = None) -> dict:
     """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
+    if not lines:
+        return {"ok": False, "error": "没有歌词行"}
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
