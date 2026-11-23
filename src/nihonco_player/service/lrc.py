@@ -75,6 +75,9 @@ def lrc_action(req):
         return LD.save_rows(uid, req.get("rows") or [],
                             expected_version=req.get("version"),
                             trans_lang=req.get("trans_lang") or "zh")
+    if act == "edit_reading":
+        return LD.edit_reading(uid, req.get("lid"), req.get("tid"),
+                               req.get("reading"), expected_version=req.get("version"))
     if act == "export":
         lines = req.get("lines")
         doc = LRC.load(item["file"], uid, title, artist)

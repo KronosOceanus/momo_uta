@@ -154,3 +154,37 @@ class TestRowsService(unittest.TestCase):
                 self.assertTrue(loaded["ok"], loaded)
                 self.assertEqual(loaded["rows"][0]["lid"], "l_aaa")
                 self.assertEqual(loaded["rows"][0]["trans"], "你")
+
+
+class TestRowsEditReading(unittest.TestCase):
+    def test_edit_reading_by_lid_and_tid(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+        from nihonco_player.core import library as LIB
+        from nihonco_player.core.library import CACHE
+        from nihonco_player.service import lyric_document as LD
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            uid = LRF.uid_of(audio)
+            item = {"key": "k", "uid": uid, "file": str(audio),
+                    "stem": "曲", "orig": "曲", "title": "曲", "artist": "歌手",
+                    "has_lyric": True, "group": ""}
+            CACHE.clear()
+            CACHE["0"] = item
+            LIB.BY_UID[uid] = item
+            rows = [{"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_aaa",
+                     "tokens": [{"tid": "t_aaa", "start": 0, "end": 1,
+                                 "base": "君", "ruby": "きみ", "level": "AB"}],
+                     "trans": ""}]
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                self.assertTrue(LD.save_rows(uid, rows)["ok"])
+                out = LD.edit_reading(uid, "l_aaa", "t_aaa", "きみだ")
+                self.assertTrue(out["ok"], out)
+                got = LD.load_rows(uid)
+                self.assertEqual(got["rows"][0]["tokens"][0]["ruby"], "きみだ")
+                self.assertEqual(got["rows"][0]["tokens"][0]["level"], "A")
