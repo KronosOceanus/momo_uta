@@ -454,6 +454,69 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(doc["trans_lang"], "en")
                 self.assertEqual(doc["translations"], {0: "you"})
 
+    def test_swapped_duplicate_lines_follow_lids_and_tokens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                lines = [{"t": 5.0, "text": "君"}, {"t": 9.0, "text": "君"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], lines, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみ"})
+                SONG.edit_line_action({"uid": uid, "line": 1, "start": 0,
+                                       "reading": "くん"})
+                before = LRF.load(audio, uid)
+                swapped = [
+                    {"t": 9.0, "text": "君", "lid": before["line_ids"][1],
+                     "tokens": [{"tid": before["token_ids"][1][0], "start": 0,
+                                 "end": 1, "base": "君"}]},
+                    {"t": 5.0, "text": "君", "lid": before["line_ids"][0],
+                     "tokens": [{"tid": before["token_ids"][0][0], "start": 0,
+                                 "end": 1, "base": "君"}]},
+                ]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], swapped, "align")["ok"])
+                after = LRF.load(audio, uid)
+                self.assertEqual(after["annotations"][0][0][1], "くん")
+                self.assertEqual(after["annotations"][1][0][1], "きみ")
+                self.assertEqual(after["token_ids"][0], [before["token_ids"][1][0]])
+                self.assertEqual(after["token_ids"][1], [before["token_ids"][0][0]])
+                self.assertEqual(after["line_ids"][0], before["line_ids"][1])
+                self.assertEqual(after["line_ids"][1], before["line_ids"][0])
+
+    def test_inserted_duplicate_line_does_not_take_old_token_or_reading(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                lines = [{"t": 5.0, "text": "君"}, {"t": 9.0, "text": "君"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], lines, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみ"})
+                SONG.edit_line_action({"uid": uid, "line": 1, "start": 0,
+                                       "reading": "くん"})
+                before = LRF.load(audio, uid)
+                mixed = [
+                    {"t": 5.0, "text": "君", "lid": before["line_ids"][0],
+                     "tokens": [{"tid": before["token_ids"][0][0], "start": 0,
+                                 "end": 1, "base": "君"}]},
+                    {"t": 7.0, "text": "君"},
+                    {"t": 9.0, "text": "君", "lid": before["line_ids"][1],
+                     "tokens": [{"tid": before["token_ids"][1][0], "start": 0,
+                                 "end": 1, "base": "君"}]},
+                ]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], mixed, "align")["ok"])
+                after = LRF.load(audio, uid)
+                self.assertEqual(after["annotations"][0][0][1], "きみ")
+                self.assertEqual(after["annotations"][2][0][1], "くん")
+                self.assertNotIn(after["token_ids"][1][0],
+                                 before["token_ids"][0] + before["token_ids"][1])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

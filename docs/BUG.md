@@ -5,72 +5,9 @@
 >
 > 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
-## 1. 重复歌词的读音 / token ID 跟错行
+## 1. 并发播放后暂停可能还有声音
 
 - 编号：BUG-001
-- 状态：⬜ 待修
-- 优先级：高
-- 影响：交换或移动重复歌词后，读音和 token 身份留在原位置
-- 复现：已确认
-
-### 现象
-
-```text
-两行都是「君」：
-  第一行 きみ
-  第二行 くん
-
-交换两行后保存：
-  lid 跟着行移动了
-  但读音仍是第一行 きみ、第二行 くん
-  token ID 也没有跟着移动
-```
-
-### 原因
-
-`service/song.py` 的 `_annotate_lines()` 有一个快速路径：
-
-```python
-if keep_unchanged and st and "".join(x[0] for x in st) == text:
-    ann[i] = st
-    continue
-```
-
-它在 token 覆盖之前直接返回。
-
-重复行文本相同：
-
-```text
-align_annotations 只能按文本 FIFO 匹配
-  → 旧 0「君」のきみ 配给新 0「君」
-  → 旧 1「君」のくん 配给新 1「君」
-```
-
-于是：
-
-```text
-lid/tokens 已经交换
-annotation 仍按位置保留
-```
-
-### 方向
-
-```text
-1. 行上带 tokens/lid 时，不要走 keep_unchanged 快速路径
-2. 重复行按 lid 对齐，不按文本 FIFO
-3. token 覆盖必须优先于旧 annotation
-```
-
-### 相关
-
-```text
-src/nihonco_player/service/song.py: _annotate_lines / _annotate_for_save
-src/nihonco_player/core/lrc_doc.py: align_annotations
-```
-
-## 2. 并发播放后暂停可能还有声音
-
-- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：高
 - 影响：双音源叠加，暂停不彻底
@@ -112,9 +49,9 @@ _playing 只在 _startSrc() 里变成 true
 src/nihonco_player/static/05-audio.js: play / _startSrc
 ```
 
-## 3. 同一后台任务能启动两次
+## 2. 同一后台任务能启动两次
 
-- 编号：BUG-003
+- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：中高
 - 影响：人声分离等昂贵任务重复执行，资源和取消状态错乱
@@ -163,9 +100,9 @@ find_active + 插入放进同一个 _lock 临界区
 src/nihonco_player/core/jobs.py: start / find_active
 ```
 
-## 4. 首次保存丢失歌词元数据
+## 3. 首次保存丢失歌词元数据
 
-- 编号：BUG-004
+- 编号：BUG-003
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`[ar:]`、`[ti:]`、`[offset:]` 等元数据丢失
@@ -215,9 +152,9 @@ src/nihonco_player/core/lrc_files.py: save
 src/nihonco_player/service/song.py: save_lyrics
 ```
 
-## 5. wheel 缺少默认配置和前端静态资源
+## 4. wheel 缺少默认配置和前端静态资源
 
-- 编号：BUG-005
+- 编号：BUG-004
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`pip install` 后命令入口运行时报错
@@ -267,10 +204,10 @@ pyproject.toml
 ```text
 BUG-001 翻译错行/丢失
 BUG-001 重复歌词身份错位
-BUG-002 并发播放
-BUG-003 后台任务重复
-BUG-004 元数据丢失
-BUG-005 wheel 资源
+BUG-001 并发播放
+BUG-002 后台任务重复
+BUG-003 元数据丢失
+BUG-004 wheel 资源
 ```
 
 ## 说明

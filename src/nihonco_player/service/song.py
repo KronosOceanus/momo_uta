@@ -36,11 +36,12 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
     return doc, LRC.usable_doc(doc)
 
 
-def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None,
+def _annotate_lines(lines, stored=None, reuse=None, old_texts=None,
                     tokens=None, old_token_values=None):
     """按行生成读音；行内正文变化时按 token id 保留读音。"""
     ann = {}
     stored = stored or {}
+    reuse = reuse or set()
     old_texts = old_texts or {}
     tokens = tokens or {}
     old_token_values = old_token_values or {}
@@ -49,7 +50,7 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None,
         if not text:
             continue
         st = stored.get(i)
-        if keep_unchanged and st and "".join(x[0] for x in st) == text:
+        if i in reuse and st and "".join(x[0] for x in st) == text:
             ann[i] = st
             continue
         try:
@@ -121,31 +122,100 @@ def _old_save_layout(doc):
             "texts": old_texts, "token_values": old_token_values}
 
 
+def _map_new_to_old(body_rows, old):
+    """新 body 行 → 旧 body 行：lid 优先，文本兜底，每条旧行最多认领一次。"""
+    used = set()
+    mapped = {}
+    old_by_lid = {lid: bi for bi, lid in (old.get("lids") or {}).items() if lid}
+    for bi, ln in enumerate(body_rows):
+        lid = ln.get("lid")
+        old_bi = old_by_lid.get(lid) if lid else None
+        if old_bi is not None and old_bi not in used:
+            mapped[bi] = old_bi
+            used.add(old_bi)
+    # 第二轮：只处理完全没有 lid 的行，先位置+文本，再文本 FIFO。
+    old_body = old.get("body_rows") or []
+    for bi, ln in enumerate(body_rows):
+        if bi in mapped or ln.get("lid"):
+            continue
+        text = ln.get("text") or ""
+        if bi < len(old_body) and bi not in used and (old_body[bi].get("text") or "") == text:
+            mapped[bi] = bi
+            used.add(bi)
+    # 兼容旧数据：行数不变、没有 lid 的编辑行仍按位置取旧标注。
+    if len(body_rows) == len(old_body):
+        for bi, ln in enumerate(body_rows):
+            if bi in mapped or ln.get("lid") or bi in used:
+                continue
+            mapped[bi] = bi
+            used.add(bi)
+    for bi, ln in enumerate(body_rows):
+        if bi in mapped or ln.get("lid"):
+            continue
+        text = ln.get("text") or ""
+        for old_bi, old_ln in enumerate(old_body):
+            if old_bi not in used and (old_ln.get("text") or "") == text:
+                mapped[bi] = old_bi
+                used.add(old_bi)
+                break
+    return mapped
+
+
+def _tokens_match_old(line, old_bi, old):
+    """整行 token 序列与旧 tid/span/base 完全一致时才允许整行快路径。"""
+    tokens = line.get("tokens") or []
+    old_segs = (old.get("ann") or {}).get(old_bi) or []
+    old_ids = (old.get("tids") or {}).get(old_bi) or []
+    text = line.get("text") or ""
+    if not tokens or len(tokens) != len(old_segs) or len(old_ids) != len(old_segs):
+        return False
+    pos = 0
+    for i, seg in enumerate(old_segs):
+        base = str(seg[0] or "")
+        end = pos + len(base)
+        tok = tokens[i] if i < len(tokens) else None
+        if not tok or tok.get("tid") != old_ids[i]:
+            return False
+        if tok.get("start") != pos or tok.get("end") != end or tok.get("base") != base:
+            return False
+        if text[pos:end] != base:
+            return False
+        pos = end
+    return pos == len(text)
+
+
 def _annotate_for_save(mode, body_rows, lyric_rows, body_to_lyric,
                        doc, old, annotations):
     """按保存模式生成 body-keyed annotation。"""
     if mode == "align":
-        old_compact = DOC.align_annotations(lyric_rows,
-                                            doc.get("annotations") or {})
-        old_ann = {bi: old_compact[li] for bi, li in body_to_lyric.items()
-                   if li in old_compact}
-        # 空行以外的行数没变时，同位置的已编辑行也交给 token 对齐。
-        if len(old["body_rows"]) == len(body_rows):
-            for bi, st in old["ann"].items():
-                if bi not in old_ann and st:
-                    old_ann[bi] = st
+        mapped = _map_new_to_old(body_rows, old)
+        old_ann = {bi: old["ann"][old_bi] for bi, old_bi in mapped.items()
+                   if old.get("ann", {}).get(old_bi)}
+        old_texts = {bi: old["texts"].get(old_bi, "")
+                     for bi, old_bi in mapped.items()}
         tokens = {bi: (ln.get("tokens") or [])
                   for bi, ln in enumerate(body_rows)}
-        return _annotate_lines(body_rows, old_ann, keep_unchanged=True,
-                               old_texts=old["texts"], tokens=tokens,
-                               old_token_values=old["token_values"])
+        reuse = set()
+        for bi, ln in enumerate(body_rows):
+            old_bi = mapped.get(bi)
+            st = old["ann"].get(old_bi) if old_bi is not None else None
+            if not st or (ln.get("text") or "") != (old["texts"].get(old_bi) or ""):
+                continue
+            line_tokens = tokens.get(bi) or []
+            if not line_tokens or _tokens_match_old(ln, old_bi, old):
+                reuse.add(bi)
+        ann = _annotate_lines(body_rows, old_ann, reuse=reuse,
+                              old_texts=old_texts, tokens=tokens,
+                              old_token_values=old["token_values"])
+        return ann, mapped
     if mode == "annotated":
-        return {bi: annotations[li] for bi, li in body_to_lyric.items()
-                if annotations and li in annotations}
+        return ({bi: annotations[li] for bi, li in body_to_lyric.items()
+                 if annotations and li in annotations},
+                _map_new_to_old(body_rows, old))
     if mode == "reset":
-        return _annotate_lines(body_rows)
+        return _annotate_lines(body_rows), _map_new_to_old(body_rows, old)
     if mode == "replace":
-        return annotations or {}
+        return annotations or {}, _map_new_to_old(body_rows, old)
     raise ValueError("未知歌词保存模式：" + str(mode))
 
 
@@ -168,7 +238,7 @@ def _save_translations(body_rows, body_to_lyric, doc, old, translations):
             if str(v or "").strip() and int(k) in body_to_lyric}
 
 
-def _resolve_save_ids(body_rows, ann, old, line_ids, token_ids):
+def _resolve_save_ids(body_rows, ann, old, old_map, line_ids, token_ids):
     """保留未改行的身份；改行只保留能按 tid/span 对上的 token。"""
     out_lids = dict(line_ids or {})
     for bi, ln in enumerate(body_rows):
@@ -176,14 +246,15 @@ def _resolve_save_ids(body_rows, ann, old, line_ids, token_ids):
             out_lids.setdefault(bi, ln["lid"])
     out_tids = dict(token_ids or {})
     for bi, ln in enumerate(body_rows):
+        old_bi = old_map.get(bi)
         if bi not in out_lids:
-            out_lids[bi] = old["lids"].get(bi) or new_line_id()
+            out_lids[bi] = (old["lids"].get(old_bi) if old_bi is not None else None) or new_line_id()
         seg = (ann or {}).get(bi)
         if not seg or bi in out_tids:
             continue
-        old_text = old["texts"].get(bi)
+        old_text = old["texts"].get(old_bi) if old_bi is not None else None
         new_text = ln.get("text") or ""
-        old_ids = old["tids"].get(bi)
+        old_ids = old["tids"].get(old_bi) if old_bi is not None else None
         if old_text == new_text and isinstance(old_ids, list) and len(old_ids) == len(seg):
             out_tids[bi] = old_ids
             continue
@@ -198,10 +269,11 @@ def _resolve_save_ids(body_rows, ann, old, line_ids, token_ids):
                 tid = tok.get("tid")
                 if not tid or tid in used:
                     continue
+                old_seg = old["token_values"].get(tid)
                 if tok.get("start") == start and \
                    tok.get("end") == end and \
                    tok.get("base") == base and \
-                   tid in old["token_values"]:
+                   old_seg and old_seg[0] == base:
                     fresh[ti] = tid
                     used.add(tid)
                     break
@@ -241,11 +313,11 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             body_rows = lines or []
             lyric_rows, body_to_lyric = _body_layout(body_rows)
             old = _old_save_layout(doc)
-            ann = _annotate_for_save(mode, body_rows, lyric_rows, body_to_lyric,
-                                     doc, old, annotations)
+            ann, old_map = _annotate_for_save(mode, body_rows, lyric_rows,
+                                              body_to_lyric, doc, old, annotations)
             trans = _save_translations(body_rows, body_to_lyric, doc, old,
                                        translations)
-            out_lids, out_tids = _resolve_save_ids(body_rows, ann, old,
+            out_lids, out_tids = _resolve_save_ids(body_rows, ann, old, old_map,
                                                    line_ids, token_ids)
             res = LRC.save(item["file"], body_rows, ann, uid=uid, title=title,
                            artist=artist, expected_version=expected_version,
