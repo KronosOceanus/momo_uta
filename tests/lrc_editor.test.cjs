@@ -530,3 +530,10 @@ test('clear then retype gives a new identity and empty translation', () => {
   assert.equal(result.trans, '');
   assert.equal(result.tokens, 0);
 });
+
+test('applyEdit updates the version used by the next line edit', () => {
+  const p = player();
+  p.run(`S={idx:'0',uid:'u0',version:'v1'}; LINES=[{lid:'l_a',ruby:'',rm:'',ky:''}];`);
+  p.run(`applyEdit({line:0,lid:'l_a',version:'v2',ruby:'<span></span>',rm:'',ky:''})`);
+  assert.equal(p.run('S.version'), 'v2');
+});

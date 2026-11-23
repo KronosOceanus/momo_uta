@@ -70,8 +70,8 @@ def _backup_once(sp: Path, bak: Path) -> bool:
 
 
 def _disabled_text() -> str:
-    return (NHLRC_MARK + f" {NHLRC_VERSION}\n" +
-            json.dumps({"v": NHLRC_VERSION, "gen": GEN, "disabled": True},
+    return (NHLRC_MARK + " 2\n" +
+            json.dumps({"v": 2, "gen": GEN, "disabled": True},
                        ensure_ascii=False, indent=1) + "\n")
 
 
@@ -234,6 +234,13 @@ def load(audio: str | Path, uid: str | None = None,
         path, kind = sp, "cache"
         from_cache = bool(full)
 
+    if disabled:
+        return {"ok": True, "exists": True, "from_cache": False,
+                "path": str(path), "kind": "nhlrc", "source": "disabled",
+                "text": "", "lines": [], "body_rows": [], "metadata": [],
+                "annotations": {}, "line_ids": {}, "token_ids": {},
+                "translations": {}, "trans_lang": "zh",
+                "nhlrc": True, "disabled": True, "version": version}
     if tail and tail.get("v") == 2:
         rows = parse_v2_rows(full)
         doc = _doc_from_v2_rows(rows, path, version, source)
@@ -285,14 +292,18 @@ def load_rows(audio: str | Path, uid: str | None = None,
     if not sp.is_file():
         return {"ok": True, "rows": [], "version": VERSION_NONE, "exists": False}
     full = sp.read_text(encoding="utf-8", errors="ignore")
+    _body, tail = _split_v2_tail(full)
+    if tail and tail.get("disabled"):
+        return {"ok": True, "rows": [], "version": _version(full),
+                "exists": True, "model": 0, "disabled": True,
+                "trans_lang": "zh"}
+    model = 2 if tail and tail.get("v") == 2 else 0
     try:
-        rows = parse_v2_rows(full)
+        rows = parse_v2_rows(full if model == 2 else to_v2_text(full))
     except ValueError as e:
         return {"ok": False, "error": str(e), "rows": []}
-    _body, tail = _split_v2_tail(full)
-    model = 2 if tail and tail.get("v") == 2 else 0
     return {"ok": True, "rows": rows, "version": _version(full),
-            "exists": True, "model": model,
+            "exists": True, "model": 2,
             "trans_lang": (tail or {}).get("trans_lang") or "zh"}
 
 
@@ -340,6 +351,37 @@ def backup_status(audio: str | Path, uid: str | None = None,
             "mtime": b.stat().st_mtime, "size": b.stat().st_size}
 
 
+def to_v2_text(text: str) -> str:
+    """把旧 v1 文档转成 v2；普通读取不拒绝 v1，恢复备份时统一写 v2。"""
+    body, tail = _split_nhlrc(text)
+    if tail and tail.get("v") == 2:
+        return text
+    if tail and tail.get("disabled"):
+        return _disabled_text()
+    lines, metadata, body_rows = _parse_rows(body)
+    body_to_lyric = {}
+    lyric = 0
+    for bi, ln in enumerate(body_rows):
+        if (ln.get("text") or "").strip():
+            body_to_lyric[bi] = lyric
+            lyric += 1
+    annotations, line_ids, token_ids = (annotations_and_ids_for(lines, tail)
+                                         if tail else ({}, {}, {}))
+    translations = translations_for(lines, tail) if tail else {}
+    ann_body = {bi: annotations[li] for bi, li in body_to_lyric.items()
+                if li in annotations}
+    trans_body = {bi: translations[li] for bi, li in body_to_lyric.items()
+                  if li in translations}
+    lids_body = {bi: line_ids[li] for bi, li in body_to_lyric.items()
+                 if li in line_ids}
+    tids_body = {bi: token_ids[li] for bi, li in body_to_lyric.items()
+                 if li in token_ids}
+    meta_body = _metadata_for_body(metadata, body_to_lyric, len(body_rows))
+    rows = _rows_from_body(body_rows, meta_body, ann_body, trans_body,
+                           lids_body, tids_body, body_to_lyric)
+    return render_v2_rows(rows, (tail or {}).get("trans_lang") or "zh")
+
+
 def restore_backup(audio: str | Path, uid: str | None = None,
                    title: str | None = None, artist: str | None = None,
                    expected_version: str | None = None) -> dict:
@@ -359,6 +401,7 @@ def restore_backup(audio: str | Path, uid: str | None = None,
         text = b.read_text(encoding="utf-8", errors="ignore")
         if _is_disabled_text(text):
             return {"ok": False, "error": "没有可恢复的歌词备份"}
+        text = to_v2_text(text)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(parse(text)),
                 "version": _version(text)}
@@ -435,7 +478,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                     "lines": 0, "annotated": 0, "backed_up": backed,
                     "version": _version(out)}
         try:
-            rows = parse_v2_rows(text)
+            rows = parse_v2_rows(to_v2_text(text))
         except ValueError as e:
             return {"ok": False, "error": str(e)}
         lyric_rows = [row for row in rows if row.get("kind") == "lyric"]

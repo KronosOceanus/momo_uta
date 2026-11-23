@@ -694,6 +694,7 @@ document.addEventListener('click', async e=>{
       try{
         const d=await NH.api('/api/line',{uid:NH.S.uid,line:li,lid:lineEl.dataset.lid, version:NH.S?.version,
                                          start,reading:v});
+        if(d.ok===false) throw new Error(d.error||'歌词行已变化');
         applyEdit(d);
         flashAt(li, ew.dataset.base);
       }catch(err){ NH.done('改读音失败：'+err.message); }
@@ -750,6 +751,7 @@ async function doEdit(bc, reading){
   try{
     const lid = lineEl.dataset.lid;
     const d = await NH.api('/api/line',{uid:NH.S.uid, line:li, lid, start, reading, version:NH.S?.version});
+    if(d.ok===false) throw new Error(d.error||'歌词行已变化');
     applyEdit(d);
     flashAt(li, bc.dataset.base);
   }catch(err){ NH.done('改读音失败：'+err.message); }
@@ -770,7 +772,7 @@ function flashAt(li, word){
   }
 }
 function applyEdit(d){
-  if(d.version) NH.LRC_VERSION=d.version;
+  if(d.version){ NH.LRC_VERSION=d.version; if(NH.S) NH.S.version=d.version; }
   let li = d.line;
   if(d.lid){
     const found = NH.LINES.findIndex(x=>x.lid===d.lid);

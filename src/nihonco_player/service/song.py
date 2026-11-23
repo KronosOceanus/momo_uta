@@ -288,6 +288,38 @@ def _resolve_save_ids(body_rows, ann, old, old_map, reuse, line_ids, token_ids):
     return out_lids, out_tids
 
 
+def _reset_v2(item: dict, expected_version=None) -> dict | None:
+    """v2 重置读音：保留 rows 顺序/metadata/空行/译文，只重建 token。"""
+    doc = LRC.load_rows(item["file"], item.get("uid"),
+                        item["title"], item.get("artist", ""))
+    if not doc.get("ok") or doc.get("model") != 2:
+        return None
+    rows = doc.get("rows") or []
+    for row in rows:
+        if row.get("kind") != "lyric" or not (row.get("text") or "").strip():
+            continue
+        try:
+            r = annotate_line_with_notes(row.get("text") or "")
+            segs = segs_of(r)
+            tids = new_token_ids(len(segs))
+            row["tokens"] = tokens_with_spans(segs, tids, row.get("text") or "")
+        except Exception as e:
+            diag.log("annotate", f"重置读音失败：{e}")
+            return {"ok": False, "error": "重置读音失败"}
+    res = LRC.save_rows(item["file"], rows, uid=item.get("uid"),
+                        title=item["title"], artist=item.get("artist", ""),
+                        expected_version=expected_version,
+                        trans_lang=doc.get("trans_lang") or "zh")
+    if res.get("ok"):
+        try:
+            res["library"] = LIB.refresh(item.get("uid"))
+            res["refresh_ok"] = True
+        except Exception as e:
+            res["refresh_ok"] = False
+            res["refresh_error"] = str(e)
+    return res
+
+
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 text=None, expected_version=None, translations=None,
                 trans_lang=None, line_ids=None, token_ids=None,
@@ -304,13 +336,17 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     title = item.get("title", "")
     artist = item.get("artist", "")
     saved_ids = []
+    if mode == "reset" and lines is None:
+        v2 = _reset_v2(item, expected_version=expected_version)
+        if v2 is not None:
+            return v2
     with LRC.LOCK, FS.locked(LRC.lock_path()):
         if mode == "replace" and text is not None:
             compact = compact_translations if compact_translations is not None else translations
             res = LRC.import_text(item["file"], text, uid, title, artist,
                                   expected_version=expected_version,
                                   translations=compact,
-                                  trans_lang=trans_lang or "zh")
+                                  trans_lang=trans_lang)
         else:
             doc = LRC.load(item["file"], uid, title, artist)
             if trans_lang is None:
@@ -419,7 +455,7 @@ def song_payload(ref, _item=None) -> dict:
             "nhlrc": doc.get("kind") == "nhlrc", "disabled": False}
 
 
-def edit_line(uid, li, start, reading):
+def edit_line(uid, li, start, reading, lid=None, expected_version=None):
     """改一处的读音：v2 用 lid/tid，旧文档走原路径。"""
     item = LIB.resolve(uid)
     if not item or not reading:
@@ -428,10 +464,16 @@ def edit_line(uid, li, start, reading):
     v2 = LD.load_rows(uid)
     if v2.get("ok") and v2.get("model") == 2:
         rows = v2.get("rows") or []
-        items = LD.playable_rows(rows)
-        if not (0 <= li < len(items)):
-            return None
-        row = items[li]
+        if lid:
+            row = next((r for r in rows
+                        if r.get("kind") == "lyric" and r.get("lid") == lid), None)
+            if not row:
+                return None
+        else:
+            items = LD.playable_rows(rows)
+            if not (0 <= li < len(items)):
+                return None
+            row = items[li]
         token = next((t for t in (row.get("tokens") or [])
                       if int(t.get("start", -1)) == int(start)), None)
         if not token:
@@ -457,7 +499,9 @@ def edit_line(uid, li, start, reading):
                     "kyH": words_html_of(r, "keys"),
                     "version": saved.get("version")}
         res = LD.edit_reading(uid, row.get("lid"), token.get("tid"), reading,
-                              expected_version=v2.get("version"))
+                              expected_version=(expected_version
+                                                if expected_version is not None
+                                                else v2.get("version")))
         if not res.get("ok"):
             return None
         again = LD.load_rows(uid)
@@ -571,18 +615,8 @@ def edit_line_action(req) -> dict:
     reading = str(req.get("reading") or "")
     uid = req.get("uid")
     lid = req.get("lid")
-    if lid:
-        from . import lyric_document as LD
-        doc = LD.load_rows(uid)
-        if doc.get("ok") and doc.get("model") == 2:
-            if req.get("version") and str(req["version"]) != str(doc.get("version")):
-                return {"ok": False, "error": "歌词已更新，请重新加载"}
-            items = LD.playable_rows(doc.get("rows") or [])
-            idx = next((i for i, x in enumerate(items) if x.get("lid") == lid), None)
-            if idx is None:
-                return {"ok": False, "error": "歌词行已变化，请重新加载"}
-            line = idx
-    r = edit_line(uid, line, start, reading)
+    r = edit_line(uid, line, start, reading, lid=lid,
+                  expected_version=req.get("version"))
     if not r:
-        return {"error": "读音保存失败"}
+        return {"ok": False, "error": "读音保存失败"}
     return r

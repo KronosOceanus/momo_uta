@@ -7,6 +7,7 @@ from unittest.mock import patch
 from nihonco_player.core import importing as IMP
 from nihonco_player.core import library as LIB
 from nihonco_player.core import lrc_doc as DOC
+from nihonco_player.core import lyric_rows as R
 from nihonco_player.core import lrc_files as LRF
 from nihonco_player.core import lyrics_cache as LC
 from nihonco_player.core.library import CACHE
@@ -224,3 +225,90 @@ class TestV2DeletedTarget(unittest.TestCase):
                 self.assertFalse(out.get("ok", True), out)
                 got = LRF.load_rows(audio)
                 self.assertEqual(got["rows"][0]["tokens"][0]["ruby"], "はな")
+
+
+class TestV2ResetAndLanguage(unittest.TestCase):
+    def test_reset_keeps_metadata_before_blank(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            rows = [
+                {"kind": "metadata", "text": "[ar:X]", "t": None},
+                {"kind": "blank", "text": "", "t": None},
+                {"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_a",
+                 "tokens": [], "trans": ""},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                self.assertTrue(LRF.save_rows(audio, rows)["ok"])
+                out = SONG.save_lyrics(item, None, "reset")
+                self.assertTrue(out["ok"], out)
+                got = LRF.load_rows(audio)["rows"]
+                self.assertEqual([r["kind"] for r in got],
+                                 ["metadata", "blank", "lyric"])
+                self.assertEqual(got[0]["text"], "[ar:X]")
+
+    def test_replace_import_preserves_trans_lang(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            v2 = R.render_rows([{"kind": "lyric", "text": "君", "t": 1.0,
+                                 "lid": "l_a", "tokens": [], "trans": "you"}],
+                               trans_lang="en")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                out = SONG.save_lyrics(item, mode="replace", text=v2)
+                self.assertTrue(out["ok"], out)
+                self.assertEqual(LRF.load_rows(audio)["trans_lang"], "en")
+
+
+class TestV2VersionRace(unittest.TestCase):
+    def test_stale_version_after_reorder_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            rows = [
+                {"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_jun",
+                 "tokens": [{"tid": "t_j", "start": 0, "end": 1, "base": "君",
+                             "ruby": "きみ", "level": "A"}], "trans": ""},
+                {"kind": "lyric", "text": "花", "t": 2.0, "lid": "l_hana",
+                 "tokens": [{"tid": "t_h", "start": 0, "end": 1, "base": "花",
+                             "ruby": "はな", "level": "A"}], "trans": ""},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"):
+                first = LRF.save_rows(audio, rows)
+                old = first["version"]
+                LRF.save_rows(audio, [dict(rows[0], t=3.0), dict(rows[1], t=0.5)])
+                out = SONG.edit_line_action({"uid": item["uid"], "line": 0,
+                                             "lid": "l_jun", "start": 0,
+                                             "reading": "くん", "version": old})
+                self.assertFalse(out.get("ok", True), out)
+                got = LRF.load_rows(audio)
+                self.assertEqual(got["rows"][0]["tokens"][0]["ruby"], "きみ")
+
+
+class TestV2DisabledAndRestore(unittest.TestCase):
+    def test_delete_writes_v2_disabled_and_restore_converts_v1_backup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            v1 = DOC.render_nhlrc([{"t": 1.0, "text": "君"},
+                                   {"t": 2.0, "text": "花"}], [],
+                                  {0: [["君", "きみ", "A"]],
+                                   1: [["花", "はな", "A"]]})
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)
+                LRF.store_path(audio).write_text(v1, encoding="utf-8")
+                self.assertTrue(LRF.delete_store(audio)["ok"])
+                disabled = LRF.store_path(audio).read_text(encoding="utf-8")
+                self.assertIn("#NHLRC 2", disabled)
+                self.assertTrue(LRF.restore_backup(audio)["ok"])
+                restored = LRF.store_path(audio).read_text(encoding="utf-8")
+                self.assertIn("#NHLRC 2", restored)
+                self.assertNotIn("#NHLRC 1", restored)

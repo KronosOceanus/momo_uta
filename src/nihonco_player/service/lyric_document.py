@@ -5,6 +5,7 @@ from __future__ import annotations
 from ..core import library as LIB
 from ..core import lrc_files as LRC
 from ..core import diag
+from ..core import fsio as FS
 from ..core.lyric_rows import playable as playable_rows
 
 
@@ -46,36 +47,39 @@ def save_rows(ref, rows, expected_version=None, trans_lang=None) -> dict:
 
 
 def edit_reading(ref, lid, tid, reading, expected_version=None) -> dict:
-    """v2 手动改读音：按 lid + tid 定位，不接受 line/start。"""
+    """v2 手动改读音：同一把锁内按 lid + tid 定位并写入。"""
     item = LIB.resolve(ref)
     if not item:
         return {"ok": False, "error": "没有这首歌"}
     reading = str(reading or "").strip()
     if not reading:
         return {"ok": False, "error": "读音为空"}
-    doc = LRC.load_rows(item["file"], item.get("uid"),
-                        item["title"], item.get("artist", ""))
-    if not doc.get("ok"):
-        return doc
-    rows = doc.get("rows") or []
-    target = None
-    token = None
-    for row in rows:
-        if row.get("kind") == "lyric" and row.get("lid") == lid:
-            target = row
-            for tok in row.get("tokens") or []:
-                if tok.get("tid") == tid:
-                    token = tok
-                    break
-            break
-    if not target or not token:
-        return {"ok": False, "error": "找不到歌词行或 token"}
-    token["ruby"] = reading
-    token["level"] = "A"
-    res = LRC.save_rows(item["file"], rows, uid=item.get("uid"),
-                        title=item["title"], artist=item.get("artist", ""),
-                        expected_version=expected_version,
-                        trans_lang=doc.get("trans_lang") or "zh")
+    with LRC.LOCK, FS.locked(LRC.lock_path()):
+        doc = LRC.load_rows(item["file"], item.get("uid"),
+                            item["title"], item.get("artist", ""))
+        if not doc.get("ok"):
+            return doc
+        rows = doc.get("rows") or []
+        target = None
+        token = None
+        for row in rows:
+            if row.get("kind") == "lyric" and row.get("lid") == lid:
+                target = row
+                for tok in row.get("tokens") or []:
+                    if tok.get("tid") == tid:
+                        token = tok
+                        break
+                break
+        if not target or not token:
+            return {"ok": False, "error": "找不到歌词行或 token"}
+        token["ruby"] = reading
+        token["level"] = "A"
+        res = LRC.save_rows(item["file"], rows, uid=item.get("uid"),
+                            title=item["title"], artist=item.get("artist", ""),
+                            expected_version=(expected_version
+                                              if expected_version is not None
+                                              else doc.get("version")),
+                            trans_lang=doc.get("trans_lang") or "zh")
     if res.get("ok"):
         try:
             res["library"] = LIB.refresh(item.get("uid"))
