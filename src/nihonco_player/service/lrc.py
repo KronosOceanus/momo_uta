@@ -71,6 +71,8 @@ def lrc_action(req):
         return res
     if act == "load_rows":
         return LD.load_rows(uid)
+    if act == "playback":
+        return LD.playback(uid)
     if act == "save_rows":
         return LD.save_rows(uid, req.get("rows") or [],
                             expected_version=req.get("version"),

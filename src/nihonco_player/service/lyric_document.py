@@ -5,6 +5,7 @@ from __future__ import annotations
 from ..core import library as LIB
 from ..core import lrc_files as LRC
 from ..core import diag
+from ..core.lyric_rows import playable as playable_rows
 
 
 def load_rows(ref) -> dict:
@@ -80,3 +81,26 @@ def edit_reading(ref, lid, tid, reading, expected_version=None) -> dict:
         res["tid"] = tid
         res["reading"] = reading
     return res
+
+
+
+def playback(ref) -> dict:
+    """v2 播放载荷：从 rows 派生可播放行，带 body index。"""
+    doc = load_rows(ref)
+    if not doc.get("ok"):
+        return doc
+    rows = doc.get("rows") or []
+    body_index = {id(row): i for i, row in enumerate(rows)}
+    items = playable_rows(rows)
+    lines = []
+    for row in items:
+        lines.append({
+            "body_index": body_index.get(id(row)),
+            "lid": row.get("lid"),
+            "t": row.get("t"),
+            "text": row.get("text") or "",
+            "tokens": row.get("tokens") or [],
+            "trans": row.get("trans") or "",
+        })
+    return {"ok": True, "uid": doc.get("uid"), "version": doc.get("version"),
+            "lines": lines}
