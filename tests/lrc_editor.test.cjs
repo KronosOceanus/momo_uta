@@ -415,3 +415,42 @@ test('save response ids are merged back into matching rows', () => {
     globalThis.__row = JSON.stringify(EROWS[0]);`);
   assert.equal(JSON.parse(p.run('__row')).lid, undefined);
 });
+
+test('split at line start keeps the content lid on the right row', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'君の名',lid:'l_aaaaaaaa',tokens:[]}];
+    globalThis.__right = splitRow(EROWS[0], 0);
+    globalThis.__left = JSON.stringify(EROWS[0]) + '|' + JSON.stringify(__right);`);
+  const [left, right] = p.run('__left').split('|').map(JSON.parse);
+  assert.equal(left.text, '');
+  assert.equal(right.text, '君の名');
+  assert.equal(right.lid, 'l_aaaaaaaa');
+  assert.notEqual(left.lid, 'l_aaaaaaaa');
+});
+
+test('merging into an empty row takes the content lid from the right row', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'',lid:'l_empty'}, {t:2,text:'君の名',lid:'l_content',tokens:[]}];
+    mergeRows(EROWS[0], ER0WS_PLACEHOLDER);`.replace('ER0WS_PLACEHOLDER', 'EROWS[1]'));
+  assert.equal(p.run('EROWS[0].text'), '君の名');
+  assert.equal(p.run('EROWS[0].lid'), 'l_content');
+});
+
+test('one text edit burst creates one undo snapshot', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'old'}]; UNDO=[]; REDO=[]; TEXT_EDIT_ROW=null;
+    beginTextEdit(0); beginTextEdit(0); beginTextEdit(0);
+    globalThis.__undo = UNDO.length;`);
+  assert.equal(p.run('__undo'), 1);
+});
+
+test('merge response carries ruby and level', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'君'}];
+    mergeSavedIds([{i:0,text:'君',lid:'l_aaaaaaaa',tokens:[
+      {tid:'t_bbbbbbbb',start:0,end:1,base:'君',ruby:'きみ',level:'A'}]}]);
+    globalThis.__token = JSON.stringify(EROWS[0].tokens[0]);`);
+  assert.deepEqual(JSON.parse(p.run('__token')), {
+    tid:'t_bbbbbbbb', start:0, end:1, base:'君', ruby:'きみ', level:'A'
+  });
+});

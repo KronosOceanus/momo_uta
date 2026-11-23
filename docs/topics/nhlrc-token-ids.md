@@ -535,7 +535,10 @@ nhlrc 正文空行 → nhlrc.md 第 3.4 节
 
 ```json
 {"ids": [
-  {"i": 0, "text": "君の名", "lid": "l_...", "tokens": [...]}
+  {"i": 0, "text": "君の名", "lid": "l_...", "tokens": [
+    {"tid": "t_...", "start": 0, "end": 1, "base": "君",
+     "ruby": "きみ", "level": "A"}
+  ]}
 ]}
 ```
 

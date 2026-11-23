@@ -193,6 +193,7 @@ class TestManualReading(unittest.TestCase):
                 self.assertTrue(row["lid"].startswith("l_"))
                 self.assertEqual([t["base"] for t in row["tokens"]][0], "君")
                 self.assertEqual(row["tokens"][0]["ruby"], "きみだ")
+                self.assertEqual(row["tokens"][0]["level"], "A")
                 self.assertEqual(row["tokens"][-1]["end"], len(row["text"]))
 
     def test_save_with_tid_payload_keeps_edited_line_token(self):
@@ -229,6 +230,8 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(res["ids"][0]["text"], "君の名")
                 self.assertTrue(res["ids"][0]["lid"].startswith("l_"))
                 self.assertTrue(res["ids"][0]["tokens"])
+                self.assertEqual(res["ids"][0]["tokens"][0]["ruby"], "きみだ")
+                self.assertEqual(res["ids"][0]["tokens"][0]["level"], "A")
                 after = LRF.load(audio, uid)
                 self.assertIn("きみだ", LRF.store_path(audio).read_text(encoding="utf-8"))
                 self.assertEqual(after["line_ids"][0], before["line_ids"][0])

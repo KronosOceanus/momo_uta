@@ -239,6 +239,26 @@ def translations_from_lrc(trans_text: str, lines: list[dict],
     return out
 
 
+def tokens_with_spans(seg, tids, text: str) -> list[dict]:
+    """把 seg + tid 转成编辑器 token；span/base 不匹配则返回空。"""
+    if not seg or not isinstance(tids, list) or len(tids) != len(seg):
+        return []
+    pos = 0
+    out = []
+    for i, part in enumerate(seg):
+        base = str(part[0] or "") if part else ""
+        if not base:
+            return []
+        end = pos + len(base)
+        if text[pos:end] != base:
+            return []
+        out.append({"tid": tids[i], "start": pos, "end": end, "base": base,
+                    "ruby": part[1] if len(part) > 1 else None,
+                    "level": part[2] if len(part) > 2 else None})
+        pos = end
+    return out if pos == len(text) else []
+
+
 def render_body(lines: list[dict], metadata: list[dict] | None = None) -> str:
     return render(lines, metadata)
 

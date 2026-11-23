@@ -7,6 +7,7 @@ NH.VIEW_MODE = 'normal';
 
 // ── LRC 编辑表格 ────────────────────────────────
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
+NH.TEXT_EDIT_ROW = null;
 NH.TRANS_EDIT = false;
 NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false;
 
@@ -48,6 +49,12 @@ function ensureLid(row){
   if(!row.lid) row.lid=newLid();
   return row.lid;
 }
+function beginTextEdit(i){
+  if(NH.TEXT_EDIT_ROW!==i){
+    snapshot();
+    NH.TEXT_EDIT_ROW=i;
+  }
+}
 function retokenizeRow(row, nextText){
   ensureLid(row);
   const old=row.text||'';
@@ -77,13 +84,21 @@ function splitRow(row, pos){
   const leftTokens=sliceTokens(row,0,pos);
   const rightTokens=sliceTokens(row,pos,text.length,-pos);
   ensureLid(row);
+  const oldLid=row.lid;
+  const leftEmpty=!left.trim(), rightEmpty=!right.trim();
+  // 原内容在哪边，lid 跟哪边；空行拿新身份。
+  const rightLid=(leftEmpty && !rightEmpty) ? oldLid : newLid();
+  if(leftEmpty && !rightEmpty) row.lid=newLid();
   row.text=left; row.tokens=leftTokens;
-  return {t:null, text:right, trans:'', lid:newLid(), tokens:rightTokens};
+  return {t:null, text:right, trans:'', lid:rightLid, tokens:rightTokens};
 }
 function mergeRows(prev, cur){
-  ensureLid(prev);
-  const offset=(prev.text||'').length;
-  prev.text=(prev.text||'')+(cur.text||'');
+  const prevText=prev.text||'', curText=cur.text||'';
+  const useCurLid=!prevText.trim() && curText.trim() && cur.lid;
+  const lid=useCurLid ? cur.lid : ensureLid(prev);
+  const offset=prevText.length;
+  prev.text=prevText+curText;
+  prev.lid=lid;
   prev.tokens=[...(prev.tokens||[]), ...(cur.tokens||[]).map(t=>({
     ...t, start:t.start+offset, end:t.end+offset
   }))];
@@ -157,6 +172,7 @@ async function flushLrc(){
 function undo(){
   if(!NH.UNDO.length) return;
   NH.REDO.push(JSON.stringify(NH.EROWS));
+  NH.TEXT_EDIT_ROW=null;
   NH.EROWS=JSON.parse(NH.UNDO.pop()); NH.ESEL=Math.min(NH.ESEL, NH.EROWS.length-1);
   NH.SEL.clear(); markDirty(); renderLrcTable();
 }
@@ -198,32 +214,19 @@ async function openLrcEditor(entering=false){
   // 编辑器保留文件顺序及未打点的行，播放视图只展示有时间戳的行。
   NH.LRC_VERSION=d.version||null;
   NH.LRC_METADATA=d.metadata||[];
-  const lids=d.line_ids||{}, tids=d.token_ids||{}, ann=d.annotations||{};
-  const tokensOf=(i,text)=>{
-    const seg=ann[i]||[], ids=tids[i]||[];
-    if(!seg.length || ids.length!==seg.length) return [];
-    let pos=0, out=[];
-    for(let k=0;k<seg.length;k++){
-      const base=String(seg[k][0]||'');
-      const end=pos+base.length;
-      if(!base || text.slice(pos,end)!==base) return [];
-      out.push({tid:ids[k], start:pos, end, base,
-                ruby:seg[k][1], level:seg[k][2]});
-      pos=end;
-    }
-    return pos===text.length ? out : [];
-  };
+  const lids=d.line_ids||{};
   NH.EROWS=(d.lines||[]).map((x,i)=>{
     const row={t:x.t, text:x.text, trans:x.trans||''};
     const lid=x.lid||lids[i];
     if(lid) row.lid=lid;
-    const tokens=x.tokens||tokensOf(i,x.text||'');
+    const tokens=x.tokens||[];
     if(tokens.length) row.tokens=tokens;
     return row;
   });
   NH.TRANS_EDIT=false; syncTransBtn();
   if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
   NH.ESEL=0; NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
+  NH.TEXT_EDIT_ROW=null;
   NH.UNDO=[]; NH.REDO=[];
   document.getElementById('savehint').textContent='';
   renderLrcTable();
@@ -285,9 +288,12 @@ function renderLrcTable(){
   box.querySelectorAll('input.tx:not(.trans)').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
     el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
+    el.onblur=()=>{ NH.TEXT_EDIT_ROW=null; };
     el.oninput=()=>{
       if(NH.LRC_LOCKED) return;
-      retokenizeRow(NH.EROWS[+el.dataset.i], el.value);
+      const i=+el.dataset.i;
+      beginTextEdit(i);
+      retokenizeRow(NH.EROWS[i], el.value);
       markDirty();
     };
     el.onkeydown=ev=>{
@@ -304,6 +310,7 @@ function renderLrcTable(){
         mergeRows(prev, cur);
         prev.trans=[prev.trans||'', cur.trans||''].filter(x=>x).join(' ');
         NH.EROWS.splice(i,1);
+        NH.TEXT_EDIT_ROW=null;
         NH.ESEL=i-1; NH.SEL.clear();
         renderLrcTable();
         const pv=document.querySelector(`.lerow[data-i="${i-1}"] input.tx`);
@@ -317,6 +324,7 @@ function renderLrcTable(){
         snapshot();
         const right=splitRow(NH.EROWS[i], pos);
         NH.EROWS.splice(i+1, 0, right);
+        NH.TEXT_EDIT_ROW=null;
         NH.ESEL=i+1; NH.SEL.clear(); NH.EDIRTY=true;
         renderLrcTable();
         const nx=document.querySelector(`.lerow[data-i="${i+1}"] input.tx`);
@@ -741,6 +749,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
+Object.assign(NH, {setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

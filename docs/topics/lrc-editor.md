@@ -194,8 +194,9 @@ tokens: [{tid, start, end, base, ruby, level}]
 ```text
 插入行 → 新 lid
 删除行 → 删除该行身份
-拆行   → 左行保留 lid，右行新 lid
-合并行 → 保留左行 lid，右侧 token 平移
+拆行   → 原内容所在侧保留 lid；空侧新 lid
+合并行 → 非空侧保留 lid；左边为空时用右边内容的 lid
+        右侧 token 平移
 ```
 
 保存时 `lrcPayload()` 会带：

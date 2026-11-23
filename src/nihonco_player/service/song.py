@@ -20,7 +20,7 @@ from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
                                annotate_line_with_notes, annotate_line_with_token_overrides,
                                ruby_html, segs_of, strip_paren_ruby, words_html_of)
-from ..core.lrc_doc import new_line_id, new_token_ids
+from ..core.lrc_doc import new_line_id, new_token_ids, tokens_with_spans
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
 HAN_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -77,18 +77,10 @@ def _saved_identities(body_rows, ann, line_ids, token_ids):
         tids = (token_ids or {}).get(bi) or []
         if not lid or len(tids) != len(seg):
             continue
-        pos = 0
-        tokens = []
-        for ti, part in enumerate(seg):
-            base = str(part[0] or "") if part else ""
-            if not base:
-                tokens = []
-                break
-            end = pos + len(base)
-            tokens.append({"tid": tids[ti], "start": pos, "end": end, "base": base})
-            pos = end
-        if tokens and pos == len(body_rows[bi].get("text") or ""):
-            out.append({"i": bi, "text": body_rows[bi].get("text") or "",
+        payload = body_rows[bi].get("text") or ""
+        tokens = tokens_with_spans(seg, tids, payload)
+        if tokens:
+            out.append({"i": bi, "text": payload,
                         "lid": lid, "tokens": tokens})
     return out
 

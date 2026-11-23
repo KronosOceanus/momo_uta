@@ -7,27 +7,8 @@ import json
 from ..core import library as LIB
 from ..core import lrc_doc as DOC
 from ..core import lrc_files as LRC
+from ..core.lrc_doc import tokens_with_spans
 from .song import load_lyrics, save_lyrics
-
-
-def _tokens_for(seg, ids, text):
-    """把 seg + tid 转成带字符 span 的编辑器 token。"""
-    if not seg or not isinstance(ids, list) or len(ids) != len(seg):
-        return []
-    pos = 0
-    out = []
-    for i, part in enumerate(seg):
-        base = str(part[0] or "") if part else ""
-        if not base:
-            return []
-        end = pos + len(base)
-        if text[pos:end] != base:
-            return []
-        out.append({"tid": ids[i], "start": pos, "end": end,
-                    "base": base, "ruby": part[1] if len(part) > 1 else None,
-                    "level": part[2] if len(part) > 2 else None})
-        pos = end
-    return out if pos == len(text) else []
 
 
 def lrc_action(req):
@@ -57,7 +38,7 @@ def lrc_action(req):
             if li is not None and lids.get(li):
                 row["lid"] = lids[li]
             if li is not None:
-                tokens = _tokens_for(ann.get(li), tids.get(li), ln.get("text") or "")
+                tokens = tokens_with_spans(ann.get(li), tids.get(li), ln.get("text") or "")
                 if tokens:
                     row["tokens"] = tokens
             lines.append(row)
