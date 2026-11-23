@@ -118,7 +118,7 @@ service/lrc.py
 
 现状：
 
-[save_lyrics](/Users/thxm/Documents/nihonco_uta/src/nihonco_player/service/song.py#L96) 同时负责：
+[save_lyrics](../../src/nihonco_player/service/song.py#L96) 同时负责：
 
 ```text
 body/compact 映射
