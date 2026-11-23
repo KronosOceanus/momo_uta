@@ -255,6 +255,15 @@ i 越界           → 忽略该条
 seg 为空         → 忽略该条
 seg 拼接 ≠ 行文本 → 忽略该条
 h 不匹配且严格模式 → 忽略该条
+lid/tid 格式不合法 → 回退 legacy id
+lid/tid 重复       → 回退 legacy id
+tid 数量 ≠ seg 数量 → 回退 legacy id
+```
+
+```text
+写入时只写合法且不重复的 lid/tid。
+失效 annotation 不会被写入。
+下一次保存后，旧的悬空/重复 id 自然被清掉。
 ```
 
 ## 6. 翻译 `trans`

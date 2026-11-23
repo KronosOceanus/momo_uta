@@ -529,7 +529,38 @@ annotation / trans / lid / tid 按 lines 编号
 nhlrc 正文空行 → nhlrc.md 第 3.4 节
 ```
 
-## 16. 相关
+## 16. 失效身份清理
+
+加载时：
+
+```text
+annotation 无效
+  → 不进入 annotations
+
+lid/tid 格式不合法
+  → 回退 legacy id
+
+lid/tid 重复
+  → 后出现的回退 legacy id
+
+tid 数量 ≠ seg 数量
+  → 该行 token id 回退 legacy id
+```
+
+写入时：
+
+```text
+只写合法且不重复的 lid/tid
+不写失效 annotation
+不写被删除行的身份
+```
+
+```text
+不在加载时偷偷重写文件。
+下一次用户保存后，失效身份自然被清掉。
+```
+
+## 17. 相关
 
 ```text
 nhlrc 格式 → nhlrc.md
