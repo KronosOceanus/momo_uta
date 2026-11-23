@@ -364,7 +364,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                 expected_version: str | None = None,
                 translations: dict[int, str] | None = None,
                 trans_lang: str | None = None) -> dict:
-    """用户导入：直接原子写权威 nhlrc，不写共享缓存。"""
+    """用户导入：直接原子写权威 v2 nhlrc，不写共享缓存。"""
     ok, why = valid_import(text)
     if not ok:
         return {"ok": False, "error": why}
@@ -386,36 +386,19 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
             return {"ok": True, "disabled": True, "path": str(sp),
                     "lines": 0, "annotated": 0, "backed_up": backed,
                     "version": _version(out)}
-        body = body if body.endswith("\n") else body + "\n"
-        lines, metadata, body_rows = _parse_rows(body)
-        body_to_lyric = {}
-        lyric = 0
-        for bi, ln in enumerate(body_rows):
-            if (ln.get("text") or "").strip():
-                body_to_lyric[bi] = lyric
-                lyric += 1
-        annotations, line_ids, token_ids = annotations_and_ids_for(lines, tail) if tail else ({}, {}, {})
-        if translations is None:
-            translations = translations_for(lines, tail) if tail else {}
-        ann_body = {bi: annotations[li] for bi, li in body_to_lyric.items()
-                    if li in annotations}
-        trans_body = {bi: translations[li] for bi, li in body_to_lyric.items()
-                      if li in translations}
-        lids_body = {bi: line_ids[li] for bi, li in body_to_lyric.items()
-                     if li in line_ids}
-        tids_body = {bi: token_ids[li] for bi, li in body_to_lyric.items()
-                     if li in token_ids}
-        if trans_lang is None:
-            trans_lang = (tail or {}).get("trans_lang") or "zh"
-        metadata = _metadata_for_body(metadata, body_to_lyric, len(body_rows))
-        out = (render_nhlrc(body_rows, metadata, ann_body, trans_body, trans_lang,
-                            line_ids=lids_body, token_ids=tids_body,
-                            annotation_index=body_to_lyric)
-               if (ann_body or trans_body) else body)
+        try:
+            rows = parse_v2_rows(text)
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        lyric_rows = [row for row in rows if row.get("kind") == "lyric"]
+        for i, row in enumerate(lyric_rows):
+            if translations is not None and i in translations:
+                row["trans"] = str(translations[i] or "")
+        out = render_v2_rows(rows, trans_lang or (tail or {}).get("trans_lang") or "zh")
         _atomic_write(sp, out)
-        return {"ok": True, "path": str(sp), "lines": len(lines),
-                "annotated": len(annotations), "backed_up": backed,
-                "version": _version(out)}
+        return {"ok": True, "path": str(sp), "lines": len(lyric_rows),
+                "annotated": sum(1 for row in lyric_rows if row.get("tokens")),
+                "backed_up": backed, "version": _version(out)}
 
 
 def _metadata_for_body(metadata, annotation_index, body_len):

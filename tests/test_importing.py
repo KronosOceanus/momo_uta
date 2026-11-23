@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import importing, lrc_doc as DOC, lrc_files as LRF, lyrics_cache
+from nihonco_player.core import importing, lrc_files as LRF, lyrics_cache, lyric_rows as R
 
 
 class TestImportPreferNhlrc(unittest.TestCase):
@@ -16,13 +16,18 @@ class TestImportPreferNhlrc(unittest.TestCase):
             (root / "歌手 - 曲.lrc").write_text(
                 "[00:05.00]旧歌词\n[00:10.00]第二句\n[00:15.00]第三句\n",
                 encoding="utf-8")
-            body = "[00:05.00]新歌词\n[00:10.00]第二句\n[00:15.00]第三句\n"
-            ann = {0: [["新", "あら", "A"], ["歌词", None, None]]}
-            (root / "歌手 - 曲.nhlrc").write_text(
-                DOC.render_nhlrc(
-                    [{"t": 5.0, "text": "新歌词"}, {"t": 10.0, "text": "第二句"},
-                     {"t": 15.0, "text": "第三句"}], [], ann),
-                encoding="utf-8")
+            rows = [
+                {"kind": "lyric", "text": "新歌词", "t": 5.0, "lid": "l_a",
+                 "tokens": [{"tid": "t_a", "start": 0, "end": 1,
+                             "base": "新", "ruby": "あら", "level": "A"},
+                            {"tid": "t_b", "start": 1, "end": 3,
+                             "base": "歌词", "ruby": None, "level": None}]},
+                {"kind": "lyric", "text": "第二句", "t": 10.0, "lid": "l_b",
+                 "tokens": []},
+                {"kind": "lyric", "text": "第三句", "t": 15.0, "lid": "l_c",
+                 "tokens": []},
+            ]
+            (root / "歌手 - 曲.nhlrc").write_text(R.render_rows(rows), encoding="utf-8")
             with patch.object(lyrics_cache, "CACHE", root / "cache"), \
                  patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
@@ -96,8 +101,10 @@ class TestImportPreferNhlrc(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
-            text = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
-                                       {0: [["君", "きみ", "A"]]})
+            text = R.render_rows([{"kind": "lyric", "text": "君", "t": 1.0,
+                                   "lid": "l_aaa",
+                                   "tokens": [{"tid": "t_aaa", "start": 0, "end": 1,
+                                               "base": "君", "ruby": "きみ", "level": "A"}]}])
             with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
                 res = LRF.import_text(audio, text)

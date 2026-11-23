@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import lrc_doc as DOC
 from nihonco_player.core import lrc_files as LRF
+from nihonco_player.core import lyric_rows as R
 
 
 class TestImportValidation(unittest.TestCase):
@@ -50,8 +50,10 @@ class TestImportValidation(unittest.TestCase):
 
     def test_annotated_nhlrc_can_be_short(self):
         def run(audio):
-            text = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
-                                    {0: [["君", "きみ", "A"]]})
+            text = R.render_rows([{"kind": "lyric", "text": "君", "t": 1.0,
+                                   "lid": "l_aaa",
+                                   "tokens": [{"tid": "t_aaa", "start": 0, "end": 1,
+                                               "base": "君", "ruby": "きみ", "level": "A"}]}])
             r = LRF.import_text(audio, text)
             self.assertTrue(r["ok"])
             self.assertIn("#NHLRC", LRF.store_path(audio).read_text(encoding="utf-8"))

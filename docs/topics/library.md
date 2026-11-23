@@ -265,7 +265,7 @@ data/curated/imports.json
   → 按 stem / 同目录唯一配对
   → nhlrc 优先
   → 校验 valid_import
-  → LRC.import_text 写 nhlrc
+  → LRC.import_text 写 v2 nhlrc
 ```
 
 ```text
