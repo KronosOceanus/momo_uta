@@ -289,7 +289,7 @@ document.getElementById('list').addEventListener('drop', async e=>{
 });
 
 // 导入：选完直接导入，只弹一条消息
-async function doImport(listId, withLrc, btn){
+async function doImport(listId, withLrc){
   let paths=[];
   const api_ = window.pywebview && window.pywebview.api;
   if(api_ && api_.pick_any){
@@ -309,9 +309,9 @@ async function doImport(listId, withLrc, btn){
     if(r.unpaired) bits.push(`${r.unpaired} 个 lrc 未配对`);
     if(r.rejected_lrc) bits.push(`已拒绝 ${r.rejected_lrc} 个歌词文件，请用「导入音乐+LRC」`);
     if(r.already) bits.push(`${r.already} 首已在歌单`);
-    NH.done(bits.join('，')); lock(btn, false);
+    NH.done(bits.join('，'));
   }catch(err){
-    NH.done('导入失败：'+err.message); lock(btn, false);
+    NH.done('导入失败：'+err.message);
   }
 }
 

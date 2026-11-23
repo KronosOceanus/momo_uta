@@ -115,82 +115,9 @@ lrcs   = unique([p.resolve() ...])
 core/importing.py: import_paths
 ```
 
-## 3. 导入模块残留死代码
-
-- 编号：BUG-003
-- 状态：⬜ 待修
-- 优先级：低
-- 影响：维护风险；旧自动配对逻辑可能被误用
-- 范围：`core/importing.py`
-
-### 现状
-
-没有调用：
-
-```text
-_annotations()
-_pair()
-_body() 只被 _pair 使用
-```
-
-`_pair()` 还是旧版自动配对逻辑，不带 `with_lrc` 语义。
-
-### 修复方向
-
-```text
-删除 _annotations / _pair / _body
-让 import_paths 成为唯一导入入口
-```
-
-### 相关
-
-```text
-src/nihonco_player/core/importing.py
-```
-
-## 4. `doImport` 的 `btn` 参数没有实际意义
-
-- 编号：BUG-004
-- 状态：⬜ 待修
-- 优先级：低
-- 影响：无功能崩溃，但参数误导
-- 范围：`static/12-library.js`
-
-### 现状
-
-```js
-async function doImport(listId, withLrc, btn)
-```
-
-菜单调用：
-
-```js
-doImport(g.id, false)
-```
-
-`btn` 是 `undefined`。
-
-`lock(btn, false)` 里虽然判断了 `if(btn)`，不会崩，但这个参数没有意义。
-
-### 修复方向
-
-```text
-删除 btn 参数
-或
-真正传入触发按钮
-```
-
-### 相关
-
-```text
-src/nihonco_player/static/12-library.js: doImport
-```
-
 ## 修复顺序
 
 ```text
 BUG-001 覆盖计数
 BUG-002 路径去重
-BUG-003 死代码
-BUG-004 doImport btn
 ```

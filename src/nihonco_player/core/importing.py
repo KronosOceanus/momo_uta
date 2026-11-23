@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -14,12 +13,10 @@ from nihonco_yomi.config import LB
 from . import fingerprint as FP
 from . import library as LIB
 from . import lrc_files as LRC
-from . import lrc_doc as DOC
 from . import lyrics as LY
 
 AUDIO_EXT = set(LB["extensions"])
 LYRIC_EXT = {".lrc", ".nhlrc"}
-MIN_LINES = int(LY.CFG["min_content_lines"])
 
 
 def _pick(cands: list[Path]) -> Path | None:
@@ -30,19 +27,6 @@ def _pick(cands: list[Path]) -> Path | None:
                                         p.stat().st_mtime))[-1]
 
 
-def _body(path: Path) -> str:
-    text = path.read_text(encoding="utf-8", errors="ignore")
-    return DOC._split_nhlrc(text)[0] if path.suffix.lower() == ".nhlrc" else text
-
-
-def _annotations(path: Path, body: str) -> dict | None:
-    if path.suffix.lower() != ".nhlrc":
-        return None
-    _b, tail = DOC._split_nhlrc(path.read_text(encoding="utf-8", errors="ignore"))
-    if not tail:
-        return None
-    lines, _m = DOC._parse_document(body)
-    return DOC.annotations_for(lines, tail) or None
 JUNK = re.compile(r"[\s._\-]*[\(（\[【]\s*(?:\d+|mqms\d*|tv\s*size|short\s*ver\.?|"
                   r"ショートサイズ)\s*[\)）\]】]$", re.I)
 
@@ -52,46 +36,6 @@ def _stem_key(s: str) -> str:
     s = JUNK.sub("", s)
     s = re.sub(r"^[\s\d._\-]+", "", s)
     return LY._norm(s)
-
-
-def _pair(audios: list[Path], lrcs: list[Path], root: Path | None = None) -> dict:
-    by_stem: dict[str, list[Path]] = {}
-    for p in lrcs:
-        by_stem.setdefault(_stem_key(p.stem), []).append(p)
-
-    items, unpaired = [], 0
-    for a in audios:
-        key = _stem_key(a.stem)
-        cand = by_stem.get(key) or []
-        if not cand:                       # 退化：同目录下唯一一个歌词文件
-            same_dir = [p for p in lrcs if p.parent == a.parent]
-            cand = same_dir if len(same_dir) == 1 else []
-        rel = (a.relative_to(root) if root and a.is_relative_to(root) else a.name)
-        if not cand:
-            unpaired += 1
-            artist, title = LY.split_name(a.stem)
-            items.append({"stem": a.stem, "audio": str(a), "lrc": None, "rel": str(rel),
-                          "title": title, "artist": artist,
-                          "duration": round(LY.audio_duration(a), 1),
-                          "lines": 0, "status": "需联网匹配"})
-            continue
-        lrc = _pick(cand)
-        text = _body(lrc)
-        lines = LY.content_lines(text)
-        artist, title = LY.split_name(a.stem)
-        items.append({
-            "stem": a.stem, "audio": str(a), "lrc": str(lrc), "rel": str(rel),
-            "title": title, "artist": artist,
-            "duration": round(LY.audio_duration(a), 1),
-            "lines": lines,
-            "status": ("就绪" if lines >= MIN_LINES else f"歌词只有 {lines} 行"),
-        })
-
-    ready = [i for i in items if i["status"] in ("就绪", "需联网匹配")]
-    return {"audio_found": len(audios), "lrc_found": len(lrcs),
-            "ready": len(ready), "unpaired": unpaired, "items": items}
-
-
 
 
 def import_paths(paths: list[str], pool_audio: list[str] | None = None,
