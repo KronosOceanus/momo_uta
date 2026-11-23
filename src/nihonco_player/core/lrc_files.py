@@ -218,6 +218,17 @@ def load(audio: str | Path, uid: str | None = None,
             "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
 
 
+def _split_v2_tail(text: str) -> tuple[str, dict | None]:
+    lines = (text or "").splitlines()
+    for i, line in enumerate(lines):
+        if line.strip().startswith(NHLRC_MARK):
+            try:
+                return "\n".join(lines[:i]), json.loads("\n".join(lines[i + 1:]) or "{}")
+            except Exception:
+                return "\n".join(lines[:i]), None
+    return text, None
+
+
 def load_rows(audio: str | Path, uid: str | None = None,
               title: str | None = None, artist: str | None = None) -> dict:
     """只读 v2 rows；没有文件返回空 rows，v1 直接报错。"""
@@ -231,7 +242,10 @@ def load_rows(audio: str | Path, uid: str | None = None,
         rows = parse_v2_rows(full)
     except ValueError as e:
         return {"ok": False, "error": str(e), "rows": []}
-    return {"ok": True, "rows": rows, "version": _version(full), "exists": True}
+    _body, tail = _split_v2_tail(full)
+    model = 2 if tail and tail.get("v") == 2 else 0
+    return {"ok": True, "rows": rows, "version": _version(full),
+            "exists": True, "model": model}
 
 
 def save_rows(audio: str | Path, rows: list[dict],

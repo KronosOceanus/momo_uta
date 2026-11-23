@@ -366,12 +366,34 @@ def _payload_base(item: dict, idx, uid, doc: dict) -> dict:
     }
 
 
+def _v2_payload(item: dict, idx, uid, rows_doc: dict) -> dict:
+    from .lyric_document import playable_rows
+    rows = rows_doc.get("rows") or []
+    base = _payload_base(item, idx, uid, {"version": rows_doc.get("version")})
+    lines = []
+    for row in playable_rows(rows):
+        text = row.get("text") or ""
+        stored = [[tok.get("base", ""), tok.get("ruby"), tok.get("level")]
+                  for tok in (row.get("tokens") or [])]
+        fields = ANN_CACHE.line_fields(text, stored or None)
+        fields.update({"t": row.get("t"), "text": text, "raw": text,
+                       "trans": row.get("trans") or ""})
+        lines.append(fields)
+    item["has_lyric"] = bool(lines)
+    return {**base, "pending": not lines, "lines": lines,
+            "nhlrc": True, "disabled": False}
+
+
 def song_payload(ref, _item=None) -> dict:
     item = _item or LIB.resolve(ref)
     if not item:
         raise KeyError("没有这首歌")
     uid = item.get("uid")
     idx = LIB.idx_for(uid or ref)
+    from . import lyric_document as LD
+    rows_doc = LD.load_rows(uid)
+    if rows_doc.get("ok") and rows_doc.get("model") == 2:
+        return _v2_payload(item, idx, uid, rows_doc)
     doc, has_lines = load_lyrics(item)
     base = _payload_base(item, idx, uid, doc)
     if doc.get("disabled"):

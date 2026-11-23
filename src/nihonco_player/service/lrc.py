@@ -20,7 +20,7 @@ def lrc_action(req):
     uid, title, artist = item.get("uid"), item["title"], item.get("artist", "")
     if act == "load":
         rows_doc = LD.load_rows(uid)
-        if rows_doc.get("ok") and rows_doc.get("exists"):
+        if rows_doc.get("ok") and rows_doc.get("model") == 2:
             return {"ok": True, "model": 2, "uid": uid,
                     "rows": rows_doc.get("rows") or [],
                     "version": rows_doc.get("version"), "pending": False}

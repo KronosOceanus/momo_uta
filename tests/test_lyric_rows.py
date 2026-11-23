@@ -269,3 +269,39 @@ class TestRowOperations(unittest.TestCase):
         self.assertEqual(out["trans"], "你 花")
         self.assertEqual([t["tid"] for t in out["tokens"]], ["t1", "t2"])
         self.assertEqual(out["tokens"][1]["start"], 1)
+
+
+class TestV2Payload(unittest.TestCase):
+    def test_song_payload_uses_v2_playable_rows(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+        from nihonco_player.core import library as LIB
+        from nihonco_player.core.library import CACHE
+        from nihonco_player.service import song as SONG
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            uid = LRF.uid_of(audio)
+            item = {"key": "k", "uid": uid, "file": str(audio),
+                    "stem": "曲", "orig": "曲", "title": "曲", "artist": "歌手",
+                    "has_lyric": True, "group": ""}
+            CACHE.clear()
+            CACHE["0"] = item
+            LIB.BY_UID[uid] = item
+            rows = [
+                {"kind": "lyric", "text": "late", "t": 9.0, "lid": "l_late",
+                 "tokens": [], "trans": ""},
+                {"kind": "blank", "text": "", "t": None},
+                {"kind": "lyric", "text": "first", "t": 2.0, "lid": "l_first",
+                 "tokens": [], "trans": "第一"},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                self.assertTrue(LRF.save_rows(audio, rows)["ok"])
+                out = SONG.song_payload(uid)
+                self.assertFalse(out["pending"])
+                self.assertEqual([x["text"] for x in out["lines"]], ["first", "late"])
+                self.assertEqual(out["lines"][0]["trans"], "第一")

@@ -202,7 +202,14 @@ uid / id
 失败 → 400 {ok:false,error}
 ```
 
-### 2.5 `/api/import/one`
+### 2.5 `/api/song`
+
+```text
+v2 文档：返回 rows 派生的播放行（按时间排序）
+无 v2 尾部：走旧文档
+```
+
+### 2.6 `/api/import/one`
 
 必填：
 
@@ -216,7 +223,7 @@ import 可带 with_lrc；缺省只收音频，显式歌词会被拒绝并返回 
 返回 import_paths 结果 + lists
 ```
 
-### 2.6 `/api/lrc`
+### 2.7 `/api/lrc`
 
 必填：
 

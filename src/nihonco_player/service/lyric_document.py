@@ -17,7 +17,8 @@ def load_rows(ref) -> dict:
     if not doc.get("ok"):
         return {**doc, "uid": item.get("uid")}
     return {"ok": True, "uid": item.get("uid"), "rows": doc.get("rows") or [],
-            "version": doc.get("version")}
+            "version": doc.get("version"), "exists": bool(doc.get("exists")),
+            "model": doc.get("model") or 0}
 
 
 def save_rows(ref, rows, expected_version=None, trans_lang="zh") -> dict:
