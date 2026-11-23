@@ -44,6 +44,22 @@ class TestNhlrc(unittest.TestCase):
         self.assertRegex(first[1][0], r"^l_[0-9a-f]{8}$")
         self.assertRegex(first[2][0][0], r"^t_[0-9a-f]{8}$")
 
+    def test_blank_body_row_does_not_shift_annotation_index(self):
+        lines = [{"t": 5.0, "text": "君の名前"}, {"t": None, "text": ""},
+                 {"t": 9.0, "text": "呼んでくれた"}]
+        ann = {0: [["君", "きみ", "A"], ["の名前", "のなまえ", "B"]],
+               2: [["呼んでくれた", None, None]]}
+        text = DOC.render_nhlrc(lines, [], ann, annotation_index={0: 0, 2: 1})
+        body, tail = DOC._split_nhlrc(text)
+        self.assertIn("[00:05.00]君の名前\n\n[00:09.00]呼んでくれた\n", body)
+        parsed, _ = DOC._parse_document(body)
+        self.assertEqual(len(parsed), 2)
+        got = DOC.annotations_for(parsed, tail)
+        self.assertEqual(got[0], ann[0])
+        self.assertEqual(got[1], ann[2])
+        rows = DOC._parse_body_rows(body)
+        self.assertEqual([x["text"] for x in rows], ["君の名前", "", "呼んでくれた"])
+
     def test_annotation_dropped_when_text_changed(self):
         ann = {0: [["君", "きみ", "A"], ["の名前", "のなまえ", "B"]]}
         text = DOC.render_nhlrc(rows(), [], ann)

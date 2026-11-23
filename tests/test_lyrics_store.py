@@ -272,6 +272,38 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(after["line_ids"][0], before["line_ids"][0])
                 self.assertNotEqual(after["line_ids"][1], before["line_ids"][0])
 
+    def test_blank_line_keeps_following_annotation_index(self):
+        from nihonco_player.service import lrc as SVC_LRC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                uid = LRF.uid_of(audio)
+                SONG.song_payload(uid)
+                SONG.save_lyrics(CACHE["0"], rows(), "align")
+                before = LRF.load(audio, uid)
+                lines = [{"t": 5.0, "text": "君の名前", "trans": "",
+                          "lid": before["line_ids"][0],
+                          "tokens": [{"tid": before["token_ids"][0][i],
+                                      "start": sum(len(x[0]) for x in before["annotations"][0][:i]),
+                                      "end": sum(len(x[0]) for x in before["annotations"][0][:i]) + len(before["annotations"][0][i][0]),
+                                      "base": before["annotations"][0][i][0]}
+                                     for i in range(len(before["annotations"][0]))]},
+                         {"t": None, "text": "", "trans": ""},
+                         {"t": 9.0, "text": "呼んでくれた", "trans": ""},
+                         {"t": 13.0, "text": "また会おう", "trans": ""}]
+                res = SONG.save_lyrics(CACHE["0"], lines, "align")
+                self.assertTrue(res.get("ok"), res)
+                doc = SVC_LRC.lrc_action({"action": "load", "uid": uid})
+                self.assertEqual([x["text"] for x in doc["lines"]],
+                                 ["君の名前", "", "呼んでくれた", "また会おう"])
+                # 空行不占 annotation i：下面三行仍能读出自己的读音
+                self.assertEqual(len(doc["annotations"]), 3)
+                self.assertEqual("".join(x[0] for x in doc["annotations"][1]), "呼んでくれた")
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -20,9 +20,10 @@ from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
 from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
-                      _parse_document, _split_nhlrc, annotations_for,
-                      annotations_and_ids_for, parse, render, render_body,
-                      render_nhlrc, translations_for, translations_from_lrc)
+                      _parse_body_rows, _parse_document, _split_nhlrc,
+                      annotations_for, annotations_and_ids_for, parse, render,
+                      render_body, render_nhlrc, translations_for,
+                      translations_from_lrc)
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
 LOCK = threading.RLock()
@@ -193,12 +194,13 @@ def load(audio: str | Path, uid: str | None = None,
     if disabled:
         return {"ok": True, "exists": True, "from_cache": False,
                 "path": str(path), "kind": "nhlrc", "source": "disabled",
-                "text": "", "lines": [], "metadata": [],
+                "text": "", "lines": [], "body_rows": [], "metadata": [],
                 "annotations": {}, "line_ids": {}, "token_ids": {},
                 "translations": {}, "nhlrc": True, "disabled": True,
                 "version": version}
 
     lines, metadata = _parse_document(body)
+    body_rows = _parse_body_rows(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
     strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
     annotations, line_ids, token_ids = annotations_and_ids_for(lines, tail, strict=strict)
@@ -208,7 +210,8 @@ def load(audio: str | Path, uid: str | None = None,
         translations = translations_for(lines, tail, strict=strict)
     return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
             "path": str(path), "kind": kind, "source": source, "text": body,
-            "lines": lines, "metadata": metadata, "annotations": annotations,
+            "lines": lines, "body_rows": body_rows, "metadata": metadata,
+            "annotations": annotations,
             "line_ids": line_ids, "token_ids": token_ids,
             "translations": translations,
             "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
@@ -332,12 +335,28 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                     "version": _version(out)}
         body = body if body.endswith("\n") else body + "\n"
         lines, metadata = _parse_document(body)
+        body_rows = _parse_body_rows(body)
+        body_to_lyric = {}
+        lyric = 0
+        for bi, ln in enumerate(body_rows):
+            if (ln.get("text") or "").strip():
+                body_to_lyric[bi] = lyric
+                lyric += 1
         annotations, line_ids, token_ids = annotations_and_ids_for(lines, tail) if tail else ({}, {}, {})
         if translations is None:
             translations = translations_for(lines, tail) if tail else {}
-        out = (render_nhlrc(lines, metadata, annotations, translations, trans_lang,
-                            line_ids=line_ids, token_ids=token_ids)
-               if (annotations or translations) else body)
+        ann_body = {bi: annotations[li] for bi, li in body_to_lyric.items()
+                    if li in annotations}
+        trans_body = {bi: translations[li] for bi, li in body_to_lyric.items()
+                      if li in translations}
+        lids_body = {bi: line_ids[li] for bi, li in body_to_lyric.items()
+                     if li in line_ids}
+        tids_body = {bi: token_ids[li] for bi, li in body_to_lyric.items()
+                     if li in token_ids}
+        out = (render_nhlrc(body_rows, metadata, ann_body, trans_body, trans_lang,
+                            line_ids=lids_body, token_ids=tids_body,
+                            annotation_index=body_to_lyric)
+               if (ann_body or trans_body) else body)
         _atomic_write(sp, out)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "annotated": len(annotations), "backed_up": backed,
@@ -351,7 +370,8 @@ def save(audio: str | Path, lines: list[dict],
          title: str | None = None, artist: str | None = None,
          expected_version: str | None = None, trans_lang: str = "zh",
          line_ids: dict[int, str] | None = None,
-         token_ids: dict[int, list[str]] | None = None) -> dict:
+         token_ids: dict[int, list[str]] | None = None,
+         annotation_index: dict[int, int] | None = None) -> dict:
     """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -371,7 +391,8 @@ def save(audio: str | Path, lines: list[dict],
         if translations is None:
             translations = translations_for(lines, _tail)
         text = render_nhlrc(lines, metadata, annotations, translations, trans_lang,
-                            line_ids=line_ids, token_ids=token_ids)
+                            line_ids=line_ids, token_ids=token_ids,
+                            annotation_index=annotation_index)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}

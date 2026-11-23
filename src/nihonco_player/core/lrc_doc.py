@@ -255,12 +255,14 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
                  translations: dict[int, str] | None = None,
                  trans_lang: str = "zh",
                  line_ids: dict[int, str] | None = None,
-                 token_ids: dict[int, list[str]] | None = None) -> str:
+                 token_ids: dict[int, list[str]] | None = None,
+                 annotation_index: dict[int, int] | None = None) -> str:
     body = render(lines, metadata)
     entries = []
     for i, seg in sorted((annotations or {}).items()):
         if 0 <= i < len(lines) and seg:
-            ent = {"i": i, "h": _hash8(lines[i].get("text") or ""), "seg": seg}
+            tail_i = (annotation_index or {}).get(i, i)
+            ent = {"i": tail_i, "h": _hash8(lines[i].get("text") or ""), "seg": seg}
             lid = (line_ids or {}).get(i)
             if _valid_id(lid, "l"):
                 ent["lid"] = lid
@@ -272,7 +274,8 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
     for i, text in sorted((translations or {}).items()):
         text = str(text or "").strip()
         if text and 0 <= i < len(lines):
-            trans.append({"i": i, "h": _hash8(lines[i].get("text") or ""),
+            tail_i = (annotation_index or {}).get(i, i)
+            trans.append({"i": tail_i, "h": _hash8(lines[i].get("text") or ""),
                           "text": text})
     if not entries and not trans:
         return body
@@ -380,6 +383,34 @@ def _parse_document(text: str) -> tuple[list[dict], list[dict]]:
                 pass
         out.append({"t": None, "text": raw})
     return out, metadata
+
+
+def _parse_body_rows(text: str) -> list[dict]:
+    """编辑器行：保留空行，排除 metadata；与 compact lines 分开。"""
+    out = []
+    for i, raw in enumerate((text or "").splitlines()):
+        line = (raw.lstrip("\ufeff") if i == 0 else raw).strip()
+        if not line:
+            out.append({"t": None, "text": ""})
+            continue
+        if METADATA.fullmatch(line):
+            continue
+        m = LINE.match(line)
+        if m:
+            out.append({"t": round(int(m.group(1)) * 60 + float(m.group(2)), 2),
+                        "text": m.group(3).strip()})
+            continue
+        if line.startswith("{") and '"t"' in line:
+            try:
+                obj = json.loads(line)
+                t = float(obj.get("t", 0)) / 1000.0
+                body = "".join((c or {}).get("tx", "") for c in (obj.get("c") or []))
+                out.append({"t": round(t, 2), "text": body.strip()})
+                continue
+            except (AttributeError, TypeError, ValueError):
+                pass
+        out.append({"t": None, "text": raw})
+    return out
 
 
 def fmt(t: float | None) -> str:

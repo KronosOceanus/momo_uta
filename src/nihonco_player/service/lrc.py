@@ -42,16 +42,26 @@ def lrc_action(req):
         ann = doc.get("annotations") or {}
         lids = doc.get("line_ids") or {}
         tids = doc.get("token_ids") or {}
+        compact = doc.get("lines") or []
+        body_rows = doc.get("body_rows") or compact
+        body_to_lyric = {}
+        lyric = 0
+        for bi, ln in enumerate(body_rows):
+            if (ln.get("text") or "").strip():
+                body_to_lyric[bi] = lyric
+                lyric += 1
         lines = []
-        for i, ln in enumerate(doc.get("lines") or []):
-            row = {**ln, "trans": trans.get(i, "")}
-            if lids.get(i):
-                row["lid"] = lids[i]
-            tokens = _tokens_for(ann.get(i), tids.get(i), ln.get("text") or "")
-            if tokens:
-                row["tokens"] = tokens
+        for bi, ln in enumerate(body_rows):
+            li = body_to_lyric.get(bi)
+            row = {**ln, "trans": trans.get(li, "") if li is not None else ""}
+            if li is not None and lids.get(li):
+                row["lid"] = lids[li]
+            if li is not None:
+                tokens = _tokens_for(ann.get(li), tids.get(li), ln.get("text") or "")
+                if tokens:
+                    row["tokens"] = tokens
             lines.append(row)
-        return {**doc, "lines": lines,
+        return {**doc, "lines": lines, "body_rows": lines,
                 "pending": not has_lines and not doc.get("disabled")}
     if act == "backup":
         return LRC.backup_status(item["file"], uid, title, artist)
@@ -81,19 +91,32 @@ def lrc_action(req):
         lines = req.get("lines")
         doc = LRC.load(item["file"], uid, title, artist)
         if not lines:
-            lines = doc["lines"]
-        ann = doc.get("annotations") or {}
-        trans = doc.get("translations") or {}
+            lines = doc.get("body_rows") or doc["lines"]
+        # 编辑器行包含空行；annotation 仍按非空歌词行编号。
+        body_to_lyric = {}
+        lyric = 0
+        for bi, ln in enumerate(lines):
+            if (ln.get("text") or "").strip():
+                body_to_lyric[bi] = lyric
+                lyric += 1
+        old_ann = doc.get("annotations") or {}
+        old_trans = doc.get("translations") or {}
+        ann = {bi: old_ann[li] for bi, li in body_to_lyric.items() if li in old_ann}
+        trans = {bi: old_trans[li] for bi, li in body_to_lyric.items() if li in old_trans}
         if lines and any("trans" in x for x in lines):
-            trans = {i: x.get("trans") or "" for i, x in enumerate(lines)
+            trans = {bi: x.get("trans") or "" for bi, x in enumerate(lines)
                      if (x.get("trans") or "").strip()}
         elif req.get("translations"):
             trans = {int(k): str(v) for k, v in req["translations"].items() if str(v or "").strip()}
         same_lines = [ln.get("text") for ln in lines] == [ln.get("text") for ln in doc["lines"]]
-        lids = doc.get("line_ids") if same_lines else None
-        tids = doc.get("token_ids") if same_lines else None
-        return {"ok": True, "nhlrc": DOC.render_nhlrc(lines, doc["metadata"], ann, trans,
-                                                       line_ids=lids, token_ids=tids),
+        lids = {bi: (doc.get("line_ids") or {}).get(li)
+                for bi, li in body_to_lyric.items()} if same_lines else None
+        tids = {bi: (doc.get("token_ids") or {}).get(li)
+                for bi, li in body_to_lyric.items()} if same_lines else None
+        return {"ok": True, "nhlrc": DOC.render_nhlrc(
+                    lines, doc["metadata"], ann, trans,
+                    line_ids=lids, token_ids=tids,
+                    annotation_index=body_to_lyric),
                 "lrc": DOC.render_body(lines, doc["metadata"])}
     if act == "import_lrc":
         text = str(req.get("text") or "")
