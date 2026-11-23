@@ -32,6 +32,12 @@
 尚未签名 / 公证。
 ```
 
+```text
+不支持 wheel / pip 安装入口。
+交付形态只有 macOS .app；wheel 不包含 config、static、tables、corpus。
+pyproject 不注册 console script，避免安装出一个不可用的 nihonco-uta 命令。
+```
+
 ### 三个版本
 
 | 版本 | 文件 | 内容 | 体积 |
