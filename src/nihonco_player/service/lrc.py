@@ -89,7 +89,10 @@ def lrc_action(req):
                      if (x.get("trans") or "").strip()}
         elif req.get("translations"):
             trans = {int(k): str(v) for k, v in req["translations"].items() if str(v or "").strip()}
-        same_lines = [ln.get("text") for ln in lines] == [ln.get("text") for ln in doc["lines"]]
+        # 空行不进入 compact，但仍是 body；比较实际歌词行，避免空行误判为“正文改了”。
+        lyric_texts = [ln.get("text") for ln in lines
+                       if (ln.get("text") or "").strip()]
+        same_lines = lyric_texts == [ln.get("text") for ln in doc["lines"]]
         lids = {bi: (doc.get("line_ids") or {}).get(li)
                 for bi, li in body_to_lyric.items()} if same_lines else None
         tids = {bi: (doc.get("token_ids") or {}).get(li)

@@ -603,8 +603,11 @@ class TestManualReading(unittest.TestCase):
                 ann = {0: [["君", "きみ", "A"]], 2: [["花", "はな", "A"]]}
                 trans = {0: "you", 2: "flower"}
                 meta = [{"before": 0, "text": "[ar:X]"}]
+                lids = {0: "l_11111111", 2: "l_22222222"}
+                tids = {0: ["t_11111111"], 2: ["t_22222222"]}
                 self.assertTrue(LRF.save(audio, lines, ann, trans,
-                                         metadata=meta, trans_lang="en")["ok"])
+                                         metadata=meta, trans_lang="en",
+                                         line_ids=lids, token_ids=tids)["ok"])
                 uid = LRF.uid_of(audio)
                 item = CACHE["0"]
                 res = SVC_LRC.lrc_action({"action": "export", "uid": uid})
@@ -614,6 +617,10 @@ class TestManualReading(unittest.TestCase):
                 self.assertIn("[00:03.00]花", exported)
                 self.assertEqual(tail["trans_lang"], "en")
                 self.assertEqual([x["text"] for x in tail["trans"]], ["you", "flower"])
+                self.assertEqual([x.get("lid") for x in tail["lines"]],
+                                 ["l_11111111", "l_22222222"])
+                self.assertEqual([x.get("tid") for x in tail["lines"]],
+                                 [["t_11111111"], ["t_22222222"]])
 
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
