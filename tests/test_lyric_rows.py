@@ -47,10 +47,30 @@ class TestLyricRows(unittest.TestCase):
         rows = [{"kind": "lyric", "text": "花", "t": 1.0, "lid": "l_bbb",
                  "tokens": [], "trans": "花"}]
         text = R.render_rows(rows)
-        self.assertIn('"seg": []', text)
-        self.assertIn('"tid": []', text)
+        self.assertIn('"seg":[]', text)
+        self.assertIn('"tid":[]', text)
         got = R.parse_rows(text)
         self.assertEqual(got[0]["trans"], "花")
+
+    def test_tail_entries_are_compact_and_k_is_omitted(self):
+        rows = [
+            {"kind": "lyric", "text": "君の", "t": 1.0, "lid": "l_a",
+             "tokens": [
+                 {"tid": "t1", "start": 0, "end": 1, "base": "君",
+                  "ruby": "きみ", "level": "A"},
+                 {"tid": "t2", "start": 1, "end": 2, "base": "の",
+                  "ruby": None, "level": "K"},
+             ], "trans": ""},
+            {"kind": "lyric", "text": "花", "t": 2.0, "lid": "l_b",
+             "tokens": [], "trans": ""},
+        ]
+        text = R.render_rows(rows)
+        self.assertIn('"seg":[["君","きみ","A"],["の",null]]', text)
+        self.assertNotIn('"seg": [\n', text)
+        self.assertEqual(sum(1 for ln in text.splitlines()
+                             if ln.strip().startswith('{"i":')), 2)
+        got = R.parse_rows(text)
+        self.assertEqual(got[0]["tokens"][1]["level"], None)
 
     def test_v1_tail_is_rejected(self):
         with self.assertRaises(ValueError):

@@ -236,6 +236,27 @@ def repair_tokens(row: dict) -> None:
         row["tokens"] = out
 
 
+def _compact(value) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _dump_tail(tail: dict) -> str:
+    """外层字段换行；每条标注/翻译压成一行，便于 diff。"""
+    parts = [f' "v": {json.dumps(tail["v"])}',
+             f' "gen": {json.dumps(tail["gen"], ensure_ascii=False)}',
+             f' "body": {json.dumps(tail["body"])}']
+    lines = tail.get("lines") or []
+    parts.append(' "lines": [\n' + ",\n".join("  " + _compact(x) for x in lines)
+                 + "\n ]" if lines else ' "lines": []')
+    if "trans_lang" in tail:
+        parts.append(f' "trans_lang": {json.dumps(tail["trans_lang"], ensure_ascii=False)}')
+    trans = tail.get("trans") or []
+    if trans:
+        parts.append(' "trans": [\n' + ",\n".join("  " + _compact(x) for x in trans)
+                     + "\n ]")
+    return "{\n" + ",\n".join(parts) + "\n}"
+
+
 def render_rows(rows: list[dict], trans_lang: str = "zh") -> str:
     for row in rows:
         repair_tokens(row)
@@ -248,7 +269,12 @@ def render_rows(rows: list[dict], trans_lang: str = "zh") -> str:
         lid = row.get("lid") or _new_lid()
         row["lid"] = lid
         tokens = row.get("tokens") or []
-        seg = [[tok["base"], tok.get("ruby"), tok.get("level")] for tok in tokens]
+        seg = []
+        for tok in tokens:
+            part = [tok["base"], tok.get("ruby")]
+            if tok.get("level") != "K":      # K 是纯假名默认档，省略即可
+                part.append(tok.get("level"))
+            seg.append(part)
         tids = [tok["tid"] for tok in tokens]
         lines.append({"i": i, "lid": lid, "h": _hash8(row.get("text") or ""),
                       "seg": seg, "tid": tids})
@@ -260,8 +286,7 @@ def render_rows(rows: list[dict], trans_lang: str = "zh") -> str:
     if trans:
         tail["trans_lang"] = str(trans_lang or "zh")
         tail["trans"] = trans
-    return body + "\n" + DOC.NHLRC_MARK + f" {VERSION}\n" + json.dumps(
-        tail, ensure_ascii=False, indent=1) + "\n"
+    return body + "\n" + DOC.NHLRC_MARK + f" {VERSION}\n" + _dump_tail(tail) + "\n"
 
 
 def playable(rows: list[dict]) -> list[dict]:
