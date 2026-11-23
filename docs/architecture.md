@@ -499,6 +499,7 @@ check_js.py
 本文只保留边界。字段、流程和实现细节看各专题：
 
 ```text
+歌词数据模型.md          单一行模型设计
 topics/nhlrc.md            歌词文件格式
 topics/nhlrc-token-ids.md  行/token 身份升级
 topics/cache.md            缓存/持久化
