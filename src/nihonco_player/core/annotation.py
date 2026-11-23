@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import difflib
 import re
 
 import nihonco_yomi
@@ -87,6 +88,60 @@ def annotate_line_with_notes(text: str, extra_start: int | None = None,
         if seg:
             ov[f"o:0-{seg['word']}"] = kana
     return AN.annotate(clean, ov) if ov else base
+
+
+def annotate_line_preserving_notes(text: str, old_text: str,
+                                    stored: list | None) -> dict:
+    """正文被编辑后，保守保留仍然完整的旧 token 读音。
+
+    只有旧 token 的字符区间完整落在一个 matching block 里，且新 token 的
+    base 仍相同，才保留。任何跨改动边界的 token 都重新注音，绝不误保留。
+    """
+    if not stored:
+        return annotate_line_with_notes(text)
+    if not old_text or old_text == text:
+        return annotate_line_with_notes(text, stored=stored)
+
+    blocks = [b for b in difflib.SequenceMatcher(None, old_text, text,
+                                                autojunk=False).get_matching_blocks()
+              if b.size]
+    old_spans = []
+    pos = 0
+    for seg in stored:
+        base = str(seg[0] or "") if seg else ""
+        if not base:
+            return annotate_line_with_notes(text)
+        old_spans.append((pos, pos + len(base), seg))
+        pos += len(base)
+    if pos != len(old_text):
+        return annotate_line_with_notes(text)
+
+    base_result = annotate_line_with_notes(text)
+    by_start = {seg.get("start"): seg for seg in base_result["lines"][0]["segments"]}
+    extras = []
+    levels = {}
+    for start, end, old_seg in old_spans:
+        ruby = old_seg[1] if len(old_seg) > 1 else None
+        if not ruby:
+            continue
+        match = next((b for b in blocks if b.a <= start and end <= b.a + b.size), None)
+        if not match:
+            continue
+        new_start = match.b + (start - match.a)
+        new_seg = by_start.get(new_start)
+        if not new_seg or new_seg.get("base") != old_seg[0]:
+            continue
+        extras.append((new_start, ruby))
+        if len(old_seg) > 2 and old_seg[2]:
+            levels[new_start] = old_seg[2]
+
+    r = annotate_line_with_notes(text, extras=extras) if extras else base_result
+    if levels:
+        for seg in r["lines"][0]["segments"]:
+            level = levels.get(seg.get("start"))
+            if level:
+                seg["level"] = level
+    return r
 
 
 def segs_of(result) -> list:

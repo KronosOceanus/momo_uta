@@ -35,10 +35,11 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
     return doc, LRC.usable_doc(doc)
 
 
-def _annotate_lines(lines, stored=None, keep_unchanged=False):
-    """按行生成读音；keep_unchanged 时正文没变的行沿用旧标注。"""
+def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None):
+    """按行生成读音；行内正文变化时保守保留未改 token 的读音。"""
     ann = {}
     stored = stored or {}
+    old_texts = old_texts or {}
     for i, ln in enumerate(lines):
         text = (ln.get("text") or "").strip()
         if not text:
@@ -48,7 +49,11 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False):
             ann[i] = st
             continue
         try:
-            ann[i] = segs_of(annotate_line_with_notes(text, stored=st))
+            if st and old_texts.get(i) not in (None, text):
+                from ..core.annotation import annotate_line_preserving_notes
+                ann[i] = segs_of(annotate_line_preserving_notes(text, old_texts[i], st))
+            else:
+                ann[i] = segs_of(annotate_line_with_notes(text, stored=st))
         except Exception as e:
             diag.log("annotate", f"第 {i} 行注音失败：{e}")
     return ann
@@ -78,7 +83,16 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             doc = LRC.load(item["file"], uid, title, artist)
             if mode == "align":
                 old = DOC.align_annotations(lines or [], doc.get("annotations") or {})
-                ann = _annotate_lines(lines or [], old, keep_unchanged=True)
+                old_texts = {i: (ln.get("text") or "").strip()
+                             for i, ln in enumerate(doc.get("lines") or [])}
+                # 行数不变时，把同位置的已编辑行也交给 token 对齐；
+                # 行数变化时仍只使用 align_annotations 的精确匹配。
+                if len(doc.get("lines") or []) == len(lines or []):
+                    for i, st in (doc.get("annotations") or {}).items():
+                        if i not in old and st:
+                            old[i] = st
+                ann = _annotate_lines(lines or [], old, keep_unchanged=True,
+                                      old_texts=old_texts)
             elif mode == "annotated":
                 ann = annotations or {}
             elif mode == "reset":

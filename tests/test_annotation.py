@@ -15,6 +15,18 @@ class TestAnnotation(unittest.TestCase):
         self.assertIn("きみだ", A.ruby_html(r))
         self.assertIn("kimi", A.words_html_of(r, "romaji"))
 
+    def test_changed_line_keeps_unmodified_token_reading(self):
+        old = A.segs_of(A.annotate_line_with_notes(
+            "君の名前", extra_start=0, extra_reading="きみだ"))
+        r = A.annotate_line_preserving_notes("君の名", "君の名前", old)
+        self.assertIn("きみだ", A.ruby_html(r))
+
+    def test_changed_token_drops_old_reading(self):
+        old = A.segs_of(A.annotate_line_with_notes(
+            "君の名前", extra_start=0, extra_reading="きみだ"))
+        r = A.annotate_line_preserving_notes("僕の名前", "君の名前", old)
+        self.assertNotIn("きみだ", A.ruby_html(r))
+
     def test_line_fields_shape(self):
         f = A.line_fields("君の名前")
         self.assertEqual(set(f), {"ruby", "rm", "ky", "rmH", "kyH"})
