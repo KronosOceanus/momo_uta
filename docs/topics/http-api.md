@@ -237,6 +237,8 @@ save 带 version；冲突 → 409 {ok:false, conflict:true}
 
 ```text
 load:
+  v2 文档返回 model:2 + rows
+  v1/旧文档返回 lines
   lines 是编辑器行，保留空行
   body_rows 同 lines
   每行可带 lid/tokens

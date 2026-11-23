@@ -19,6 +19,11 @@ def lrc_action(req):
         return {"ok": False, "error": "没有这首歌"}
     uid, title, artist = item.get("uid"), item["title"], item.get("artist", "")
     if act == "load":
+        rows_doc = LD.load_rows(uid)
+        if rows_doc.get("ok") and rows_doc.get("exists"):
+            return {"ok": True, "model": 2, "uid": uid,
+                    "rows": rows_doc.get("rows") or [],
+                    "version": rows_doc.get("version"), "pending": False}
         doc, has_lines = load_lyrics(item)
         trans = doc.get("translations") or {}
         ann = doc.get("annotations") or {}

@@ -225,13 +225,13 @@ def load_rows(audio: str | Path, uid: str | None = None,
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     if not sp.is_file():
-        return {"ok": True, "rows": [], "version": VERSION_NONE}
+        return {"ok": True, "rows": [], "version": VERSION_NONE, "exists": False}
     full = sp.read_text(encoding="utf-8", errors="ignore")
     try:
         rows = parse_v2_rows(full)
     except ValueError as e:
         return {"ok": False, "error": str(e), "rows": []}
-    return {"ok": True, "rows": rows, "version": _version(full)}
+    return {"ok": True, "rows": rows, "version": _version(full), "exists": True}
 
 
 def save_rows(audio: str | Path, rows: list[dict],

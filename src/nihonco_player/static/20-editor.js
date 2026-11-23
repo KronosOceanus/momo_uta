@@ -9,7 +9,7 @@ NH.VIEW_MODE = 'normal';
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
 NH.TEXT_EDIT_ROW = null;
 NH.TRANS_EDIT = false;
-NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false;
+NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false; NH.ROWS_MODE = false;
 
 function setLrcLocked(locked){
   if(locked===NH.LRC_LOCKED) return;
@@ -49,6 +49,18 @@ function ensureLid(row){
   if(!row.lid) row.lid=newLid();
   return row.lid;
 }
+function newRowId(){
+  const bytes=new Uint8Array(4);
+  if(window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+  else for(let i=0;i<bytes.length;i++) bytes[i]=Math.floor(Math.random()*256);
+  return 'r_'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+}
+function rowKind(text){
+  const t=(text||'').trim();
+  if(!t) return 'blank';
+  if(/^\[(ar|al|ti|au|by|offset|length|re|ve|la|id|tool):/i.test(t)) return 'metadata';
+  return 'lyric';
+}
 function beginTextEdit(i){
   if(NH.TEXT_EDIT_ROW!==i){
     snapshot();
@@ -68,6 +80,7 @@ function retokenizeRow(row, nextText){
   const changedEnd=old.length-s;
   const shift=nextText.length-old.length;
   row.text=nextText;
+  row.kind=rowKind(nextText);
   row.tokens=tokens.flatMap(t=>{
     if(t.end<=p) return [t];
     if(t.start>=changedEnd) return [{...t, start:t.start+shift, end:t.end+shift}];
@@ -89,8 +102,9 @@ function splitRow(row, pos){
   // 原内容在哪边，lid 跟哪边；空行拿新身份。
   const rightLid=(leftEmpty && !rightEmpty) ? oldLid : newLid();
   if(leftEmpty && !rightEmpty) row.lid=newLid();
-  row.text=left; row.tokens=leftTokens;
-  return {t:null, text:right, trans:'', lid:rightLid, tokens:rightTokens};
+  row.text=left; row.tokens=leftTokens; row.kind=rowKind(left);
+  return {id:newRowId(), kind:rowKind(right), t:null, text:right, trans:'', lid:rightLid,
+          tokens:rightTokens};
 }
 function mergeRows(prev, cur){
   const prevText=prev.text||'', curText=cur.text||'';
@@ -98,6 +112,7 @@ function mergeRows(prev, cur){
   const lid=useCurLid ? cur.lid : ensureLid(prev);
   const offset=prevText.length;
   prev.text=prevText+curText;
+  prev.kind=rowKind(prev.text);
   prev.lid=lid;
   prev.tokens=[...(prev.tokens||[]), ...(cur.tokens||[]).map(t=>({
     ...t, start:t.start+offset, end:t.end+offset
@@ -113,6 +128,15 @@ function mergeSavedIds(ids){
   }
 }
 function lrcPayload(){
+  if(NH.ROWS_MODE){
+    return NH.EROWS.map(x=>{
+      const row={id:x.id||newRowId(), kind:x.kind||rowKind(x.text), t:x.t, text:x.text||'',
+                 trans:x.trans||''};
+      if(x.lid) row.lid=x.lid;
+      if(Array.isArray(x.tokens) && x.tokens.length) row.tokens=x.tokens.map(t=>({...t}));
+      return row;
+    });
+  }
   return NH.EROWS.map(x=>{
     const row={t:x.t, text:x.text, trans:x.trans||''};
     if(x.lid) row.lid=x.lid;
@@ -141,7 +165,9 @@ async function saveLrc(silent, force){
   const h=document.getElementById('savehint');
   NH.SAVE_PENDING=(async()=>{
     try{
-      const r=await NH.api('/api/lrc',{action:'save', uid:song.uid, version:NH.LRC_VERSION, lines:lrcPayload()});
+      const body={action:NH.ROWS_MODE?'save_rows':'save', uid:song.uid, version:NH.LRC_VERSION};
+      if(NH.ROWS_MODE) body.rows=lrcPayload(); else body.lines=lrcPayload();
+      const r=await NH.api('/api/lrc',body);
       if(!r.ok) throw new Error(r.error||'保存失败');
       if(r.version) NH.LRC_VERSION=r.version;
       if(NH.EDIT_REVISION===revision){
@@ -190,6 +216,13 @@ function lrcParse(v){
   return Math.round((+m[1]*60 + +m[2])*100)/100;
 }
 function lrcText(){
+  if(NH.ROWS_MODE){
+    return NH.EROWS.map(r=>{
+      if((r.kind||rowKind(r.text))==='metadata') return r.text||'';
+      const stamp=lrcFmt(r.t);
+      return `${stamp ? `[${stamp}]` : ''}${r.text||''}`;
+    }).join('\n')+'\n';
+  }
   const rows=NH.EROWS.map(r=>{
     const stamp=lrcFmt(r.t);
     return `${stamp ? `[${stamp}]` : ''}${r.text||''}`;
@@ -213,18 +246,30 @@ async function openLrcEditor(entering=false){
   }
   // 编辑器保留文件顺序及未打点的行，播放视图只展示有时间戳的行。
   NH.LRC_VERSION=d.version||null;
-  NH.LRC_METADATA=d.metadata||[];
-  const lids=d.line_ids||{};
-  NH.EROWS=(d.lines||[]).map((x,i)=>{
-    const row={t:x.t, text:x.text, trans:x.trans||''};
-    const lid=x.lid||lids[i];
-    if(lid) row.lid=lid;
-    const tokens=x.tokens||[];
-    if(tokens.length) row.tokens=tokens;
-    return row;
-  });
+  NH.ROWS_MODE=Array.isArray(d.rows);
+  if(NH.ROWS_MODE){
+    NH.LRC_METADATA=[];
+    NH.EROWS=d.rows.map(x=>{
+      const row={id:x.id||newRowId(), kind:x.kind||rowKind(x.text), t:x.t,
+                 text:x.text||'', trans:x.trans||''};
+      if(x.lid) row.lid=x.lid;
+      if(Array.isArray(x.tokens) && x.tokens.length) row.tokens=x.tokens;
+      return row;
+    });
+  }else{
+    NH.LRC_METADATA=d.metadata||[];
+    const lids=d.line_ids||{};
+    NH.EROWS=(d.lines||[]).map((x,i)=>{
+      const row={t:x.t, text:x.text, trans:x.trans||''};
+      const lid=x.lid||lids[i];
+      if(lid) row.lid=lid;
+      const tokens=x.tokens||[];
+      if(tokens.length) row.tokens=tokens;
+      return row;
+    });
+  }
   NH.TRANS_EDIT=false; syncTransBtn();
-  if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
+  if(!NH.EROWS.length) NH.EROWS=[{id:newRowId(),kind:'blank',t:null,text:'',trans:''}];
   NH.ESEL=0; NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
   NH.TEXT_EDIT_ROW=null;
   NH.UNDO=[]; NH.REDO=[];
@@ -343,8 +388,9 @@ function renderLrcTable(){
       const at=Math.max(0,+el.dataset.i+1);
       const fresh=lines.map(x=>{
         const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
-        return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:'', lid:newLid()}
-                 : {t:null, text:x, trans:'', lid:newLid()};
+        return m ? {id:newRowId(), kind:rowKind(m[3]), t:Math.round((+m[1]*60 + +m[2])*100)/100,
+                    text:m[3], trans:'', lid:newLid()}
+                 : {id:newRowId(), kind:rowKind(x), t:null, text:x, trans:'', lid:newLid()};
       });
       NH.EROWS.splice(at,0,...fresh);
       NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
@@ -371,7 +417,7 @@ function renderLrcTable(){
   box.querySelectorAll('.del').forEach(el=>{
     el.onclick=e=>{ e.stopPropagation(); if(NH.LRC_LOCKED) return;
       snapshot(); NH.EROWS.splice(+el.dataset.i,1);
-      if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
+      if(!NH.EROWS.length) NH.EROWS=[{id:newRowId(),kind:'blank',t:null,text:'',trans:''}];
       NH.ESEL=Math.min(NH.ESEL,NH.EROWS.length-1); NH.SEL.clear(); renderLrcTable(); };
   });
 }
@@ -427,8 +473,9 @@ function insertLines(text){
   const at=insertPos();
   const fresh=lines.map(x=>{
     const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
-    return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:'', lid:newLid()}
-             : {t:null, text:x, trans:'', lid:newLid()};
+    return m ? {id:newRowId(), kind:rowKind(m[3]), t:Math.round((+m[1]*60 + +m[2])*100)/100,
+                text:m[3], trans:'', lid:newLid()}
+             : {id:newRowId(), kind:rowKind(x), t:null, text:x, trans:'', lid:newLid()};
   });
   NH.EROWS.splice(at,0,...fresh);
   NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
@@ -438,7 +485,7 @@ function insertLines(text){
 function addRow(at){
   snapshot();
   const pos = (at===undefined) ? insertPos() : at;
-  NH.EROWS.splice(pos,0,{t:null,text:'',trans:'',lid:newLid()});
+  NH.EROWS.splice(pos,0,{id:newRowId(),kind:'blank',t:null,text:'',trans:'',lid:newLid()});
   NH.ESEL=pos; NH.SEL.clear(); renderLrcTable();
   document.querySelector(`.lerow[data-i="${pos}"]`)?.scrollIntoView({block:'center'});
 }
@@ -447,7 +494,7 @@ function delRows(){
   if(!idx.length) return;
   snapshot();
   idx.sort((a,b)=>b-a).forEach(i=>NH.EROWS.splice(i,1));
-  if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
+  if(!NH.EROWS.length) NH.EROWS=[{id:newRowId(),kind:'blank',t:null,text:'',trans:''}];
   NH.ESEL=Math.min(idx[idx.length-1],NH.EROWS.length-1); NH.SEL.clear(); renderLrcTable();
 }
 function selectAll(){

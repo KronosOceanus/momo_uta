@@ -468,3 +468,27 @@ test('save ids do not merge when the editor revision changed', async () => {
   assert.equal(p.run('EROWS[0].text'), 'new');
   assert.equal(p.run('EROWS[0].lid'), undefined);
 });
+
+test('v2 rows mode loads, serializes and saves rows', async () => {
+  const p = player();
+  p.run("VIEW_MODE='lrc';");
+  const opening = p.run('openLrcEditor()');
+  p.requests[0].resolve({ok:true, version:'v2', model:2, rows:[
+    {id:'r1', kind:'metadata', text:'[ar:X]', t:null},
+    {id:'r2', kind:'lyric', text:'君', t:1, lid:'l_aaa',
+     tokens:[{tid:'t_aaa',start:0,end:1,base:'君',ruby:'きみ',level:'A'}], trans:'你'},
+    {id:'r3', kind:'blank', text:'', t:null},
+    {id:'r4', kind:'lyric', text:'花', t:3, lid:'l_bbb', tokens:[], trans:''},
+  ]});
+  await opening;
+  assert.equal(p.run('ROWS_MODE'), true);
+  assert.equal(p.run('EROWS.length'), 4);
+  assert.equal(p.run('lrcText()'), '[ar:X]\n[00:01.00]君\n\n[00:03.00]花\n');
+  const saving = p.run('saveLrc(true, true)');
+  assert.equal(p.calls.at(-1).body.action, 'save_rows');
+  assert.equal(p.calls.at(-1).body.rows[1].lid, 'l_aaa');
+  assert.equal(p.calls.at(-1).body.rows[1].trans, '你');
+  p.requests[1].resolve({ok:true, version:'v3'});
+  await saving;
+  assert.equal(p.run('EDIRTY'), false);
+});
