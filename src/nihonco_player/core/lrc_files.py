@@ -19,6 +19,7 @@ from . import diag
 from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
+from .lyric_rows import parse_rows as parse_v2_rows, render_rows as render_v2_rows
 from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
                       _parse_body_rows, _parse_document, _parse_rows,
                       _split_nhlrc, annotations_for, annotations_and_ids_for,
@@ -215,6 +216,44 @@ def load(audio: str | Path, uid: str | None = None,
             "translations": translations,
             "trans_lang": (tail or {}).get("trans_lang") or "zh",
             "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
+
+
+def load_rows(audio: str | Path, uid: str | None = None,
+              title: str | None = None, artist: str | None = None) -> dict:
+    """只读 v2 rows；没有文件返回空 rows，v1 直接报错。"""
+    audio = Path(audio)
+    u = uid or uid_of(audio)
+    sp = store_path(audio, u, title, artist)
+    if not sp.is_file():
+        return {"ok": True, "rows": [], "version": VERSION_NONE}
+    full = sp.read_text(encoding="utf-8", errors="ignore")
+    try:
+        rows = parse_v2_rows(full)
+    except ValueError as e:
+        return {"ok": False, "error": str(e), "rows": []}
+    return {"ok": True, "rows": rows, "version": _version(full)}
+
+
+def save_rows(audio: str | Path, rows: list[dict],
+              uid: str | None = None, title: str | None = None,
+              artist: str | None = None, expected_version: str | None = None,
+              trans_lang: str = "zh") -> dict:
+    """写 v2 rows；版本校验、首次备份、原子替换。"""
+    audio = Path(audio)
+    u = uid or uid_of(audio)
+    sp = store_path(audio, u, title, artist)
+    bak = store_backup(audio, u, title, artist)
+    with LOCK, FS.locked(lock_path()):
+        original = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
+        current_version = _version(original) if sp.is_file() else VERSION_NONE
+        if expected_version is not None and current_version != str(expected_version):
+            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
+                    "version": current_version}
+        backed = _backup_once(sp, bak)
+        text = render_v2_rows(rows, trans_lang)
+        _atomic_write(sp, text)
+        return {"ok": True, "path": str(sp), "rows": len(rows),
+                "backed_up": backed, "version": _version(text)}
 
 
 def backup_path(audio: str | Path, uid: str | None = None,

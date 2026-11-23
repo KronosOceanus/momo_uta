@@ -70,3 +70,55 @@ class TestLyricRows(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRowsStorage(unittest.TestCase):
+    def test_v2_save_and_load_rows(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            rows = [
+                {"kind": "metadata", "text": "[ar:X]", "t": None},
+                {"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_aaa",
+                 "tokens": [{"tid": "t_aaa", "start": 0, "end": 1,
+                             "base": "君", "ruby": "きみ", "level": "A"}],
+                 "trans": "你"},
+                {"kind": "blank", "text": "", "t": None},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                saved = LRF.save_rows(audio, rows)
+                self.assertTrue(saved["ok"])
+                loaded = LRF.load_rows(audio)
+                self.assertTrue(loaded["ok"])
+                self.assertEqual([r["kind"] for r in loaded["rows"]],
+                                 ["metadata", "lyric", "blank"])
+                self.assertEqual(loaded["rows"][1]["lid"], "l_aaa")
+                self.assertEqual(loaded["rows"][1]["trans"], "你")
+                self.assertEqual(loaded["rows"][1]["tokens"][0]["tid"], "t_aaa")
+
+    def test_v2_rejects_v1_and_version_conflict(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                saved = LRF.save_rows(audio, [{"kind": "lyric", "text": "君", "t": 1.0,
+                                               "lid": "l_aaa", "tokens": [], "trans": ""}])
+                self.assertTrue(saved["ok"])
+                conflict = LRF.save_rows(audio, [], expected_version="wrong")
+                self.assertTrue(conflict.get("conflict"))
+                path = LRF.store_path(audio)
+                path.write_text("[00:01.00]君\n\n#NHLRC 1\n{\"v\":1}\n", encoding="utf-8")
+                bad = LRF.load_rows(audio)
+                self.assertFalse(bad["ok"])
