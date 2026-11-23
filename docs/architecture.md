@@ -154,10 +154,17 @@ data/tables、data/sources、data/corpus、eval/ 是仓库/评测数据，不是
 
 ```text
 正文       原文，权威
-lines      读音，i + h
+body_rows  编辑器行，保留空行
+lines      读音，i + h + seg + 可选 lid/tid
 trans      翻译，i + h + text
 trans_lang 翻译语言，当前默认 zh
 disabled   持久化的“用户删除了这首歌的歌词”
+```
+
+```text
+body_rows 是编辑器/正文顺序
+lines 是非空歌词行
+annotation / trans / lid / tid 的 i 都相对 lines，不相对 body_rows
 ```
 
 ```text
@@ -169,8 +176,16 @@ disabled 也是持久化用户选择，不是缓存。
 
 ```text
 uid   歌曲身份，也是 offset 的键
+lid   歌词行身份，跨插入/删除/移动保持
+tid   歌词 token 身份
 idx   曲库展示位置，不是身份
 key   历史字段，不再作为 offset / 身份
+h     行正文变更检测，不是身份
+```
+
+```text
+lid/tid 只解决歌词编辑内部的身份；
+它们不参与歌曲查找，也不进入 url。
 ```
 
 ### 2.6 歌词缓存与翻译
@@ -180,6 +195,28 @@ data/cache/lyrics 里的 tlyric 只是抓取结果。
 没有 .nhlrc 时，tlyric 可用于显示。
 pick / 保存后，翻译才进入 .nhlrc 的 trans。
 有 .nhlrc 但没有 trans 时，不自动回填缓存翻译。
+```
+
+### 2.7 歌词解析与保存链
+
+```text
+lrc_doc._parse_rows(text)
+  → compact lines / metadata / body_rows
+       │
+       ├─ 播放/注音：compact lines
+       └─ 编辑器：body_rows
+
+service.song.save_lyrics()
+  → _body_layout
+  → 旧标注/身份准备
+  → annotation / token 合并
+  → lrc_files.save()
+       → render_nhlrc(annotation_index=body → lyric)
+```
+
+```text
+正文解析只有一套入口：lrc_doc._parse_rows。
+保存时 body 索引到 lyric 索引的映射由 core 计算，调用方不传。
 ```
 
 ## 3. 模块地图
@@ -204,7 +241,7 @@ llm            可选 LLM 消歧
 ```text
 曲库     library / library_index / fingerprint
 歌词     lyrics / lyrics_fetch / lyrics_text / lyrics_cache
-格式     lrc_doc / lrc_files
+格式     lrc_doc（统一解析/IDs）/ lrc_files（权威写入）
 注音     annotation / annotation_cache
 歌单     playlists
 属性     song_meta
@@ -216,7 +253,7 @@ llm            可选 LLM 消歧
 ### service
 
 ```text
-song       载荷、改读音、匹配、pick
+song       载荷、保存编排、改读音、匹配、pick
 lrc        编辑、保存、导入导出、备份
 playlist   歌单动作、导入、ui_offset
 jobs       任务编排

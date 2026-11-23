@@ -239,6 +239,7 @@ load:
   lines 是编辑器行，保留空行
   body_rows 同 lines
   每行可带 lid/tokens
+  token 含 tid/start/end/base/ruby/level
   annotation i 仍按非空歌词行编号
 
 save:

@@ -246,6 +246,15 @@ snapshot() 保存整个 EROWS 的 JSON。
 UNDO 上限由 UI.undo_steps 控制。
 ```
 
+文本输入按“编辑批次”压栈：
+
+```text
+beginTextEdit(i)
+  → 同一行第一次输入时 snapshot()
+  → 连续输入不重复压栈
+  → blur / Enter / 撤销 / 重做后重新开始
+```
+
 ```text
 翻译和原文一起进入快照。
 ```
@@ -290,7 +299,8 @@ saveLrc 发送 NH.LRC_VERSION
 ```json
 {"ids": [
   {"i": 0, "text": "君の名", "lid": "l_...", "tokens": [
-    {"tid": "t_...", "start": 0, "end": 1, "base": "君"}
+    {"tid": "t_...", "start": 0, "end": 1, "base": "君",
+     "ruby": "きみ", "level": "A"}
   ]}
 ]}
 ```
