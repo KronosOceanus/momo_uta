@@ -52,7 +52,7 @@ class TestLyricRows(unittest.TestCase):
         got = R.parse_rows(text)
         self.assertEqual(got[0]["trans"], "花")
 
-    def test_tail_entries_are_compact_and_k_is_omitted(self):
+    def test_tail_entries_are_compact_and_keep_k(self):
         rows = [
             {"kind": "lyric", "text": "君の", "t": 1.0, "lid": "l_a",
              "tokens": [
@@ -65,12 +65,12 @@ class TestLyricRows(unittest.TestCase):
              "tokens": [], "trans": ""},
         ]
         text = R.render_rows(rows)
-        self.assertIn('"seg":[["君","きみ","A"],["の",null]]', text)
+        self.assertIn('"seg":[["君","きみ","A"],["の",null,"K"]]', text)
         self.assertNotIn('"seg": [\n', text)
         self.assertEqual(sum(1 for ln in text.splitlines()
                              if ln.strip().startswith('{"i":')), 2)
         got = R.parse_rows(text)
-        self.assertEqual(got[0]["tokens"][1]["level"], None)
+        self.assertEqual(got[0]["tokens"][1]["level"], "K")
 
     def test_v1_tail_is_rejected(self):
         with self.assertRaises(ValueError):

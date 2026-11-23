@@ -269,12 +269,7 @@ def render_rows(rows: list[dict], trans_lang: str = "zh") -> str:
         lid = row.get("lid") or _new_lid()
         row["lid"] = lid
         tokens = row.get("tokens") or []
-        seg = []
-        for tok in tokens:
-            part = [tok["base"], tok.get("ruby")]
-            if tok.get("level") != "K":      # K 是纯假名默认档，省略即可
-                part.append(tok.get("level"))
-            seg.append(part)
+        seg = [[tok["base"], tok.get("ruby"), tok.get("level")] for tok in tokens]
         tids = [tok["tid"] for tok in tokens]
         lines.append({"i": i, "lid": lid, "h": _hash8(row.get("text") or ""),
                       "seg": seg, "tid": tids})
