@@ -3,7 +3,7 @@
 > 记录已确认或高度可疑、**尚未修复**的问题。
 > 修复后从本文移除，具体回归以 tests / git log 为准。
 >
-> 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
+> 相关：[优化记录](优化.md) · [TODO](todo.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
 ## 0. 导入音乐+LRC 覆盖 nhlrc 时不计入 overwritten
 
