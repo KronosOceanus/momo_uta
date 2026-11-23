@@ -26,13 +26,28 @@ class TestImportPreferNhlrc(unittest.TestCase):
             with patch.object(lyrics_cache, "CACHE", root / "cache"), \
                  patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                res = importing.import_paths([str(audio)])
+                res = importing.import_paths([str(audio)], with_lrc=True)
                 self.assertEqual(len(res["added"]), 1)
                 doc = LRF.load(audio)            # 只读缓存，没有本地 .lrc/.nhlrc 冲突
                 self.assertEqual([r["text"] for r in doc["lines"]][0], "新歌词")
                 # 导入 nhlrc 时标注一并进缓存（不丢读音）
                 self.assertEqual(doc["annotations"],
                                  {0: [["新", "あら", "A"], ["歌词", None, None]]})
+
+    def test_audio_only_ignores_local_lrc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            (root / "歌手 - 曲.lrc").write_text(
+                "[00:05.00]本地歌词\n[00:10.00]第二句\n[00:15.00]第三句\n",
+                encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                res = importing.import_paths([str(audio)])
+                self.assertEqual(res["lrc_found"], 0)
+                self.assertEqual(res["pending"], [str(audio)])
+                self.assertFalse(LRF.store_path(audio).is_file())
 
     def test_import_text_keeps_nhlrc_readings(self):
         with tempfile.TemporaryDirectory() as tmp:

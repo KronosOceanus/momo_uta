@@ -105,7 +105,7 @@ def import_to_list(req) -> dict:
         return {"ok": False, "error": "没有选择文件", "lists": _lists()}
 
     pool = [it["file"] for g in PL.build(cached_items()) if g["id"] == lid for it in g["items"]]
-    res = IMP.import_paths(paths, pool)
+    res = IMP.import_paths(paths, pool, with_lrc=bool(req.get("with_lrc")))
 
     # 导入的音频可能不在 music_dirs 里 → 先登记到 imports.json，
     # 再只把新增文件加进 CACHE，不动已有 idx、不扫全库。

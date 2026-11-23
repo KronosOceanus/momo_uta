@@ -18,7 +18,6 @@ from . import lrc_doc as DOC
 from . import lyrics as LY
 
 AUDIO_EXT = set(LB["extensions"])
-PAIR_LRC = bool(LB["auto_pair_lrc"])
 LYRIC_EXT = {".lrc", ".nhlrc"}
 MIN_LINES = int(LY.CFG["min_content_lines"])
 
@@ -95,8 +94,12 @@ def _pair(audios: list[Path], lrcs: list[Path], root: Path | None = None) -> dic
 
 
 
-def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
-    """按用户选中的路径（可以混着是目录和文件）导一批。
+def import_paths(paths: list[str], pool_audio: list[str] | None = None,
+                 with_lrc: bool = False) -> dict:
+    """按用户选中的路径导一批。
+
+    with_lrc=False：只收音频，不扫描/不配对目录里的歌词。
+    with_lrc=True：显式允许本地 LRC/NHLRC 配对。
 
     返回 {added:[audio str], pending:[audio str], overwritten:int,
           unpaired:int, skipped:list[str]}
@@ -110,12 +113,12 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
             files.append(p)
 
     audios = [p for p in files if p.suffix.lower() in AUDIO_EXT]
-    lrcs = [p for p in files if p.suffix.lower() in LYRIC_EXT]
+    lrcs = [p for p in files if with_lrc and p.suffix.lower() in LYRIC_EXT]
     for d in dirs:                                  # ① 目录递归
         for p in sorted(d.rglob("*")):
             if p.suffix.lower() in AUDIO_EXT:
                 audios.append(p)
-            elif p.suffix.lower() in LYRIC_EXT:
+            elif with_lrc and p.suffix.lower() in LYRIC_EXT:
                 lrcs.append(p)
 
     by_key: dict[str, list[Path]] = {}
@@ -127,12 +130,12 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
 
     for a in audios:                                # ② 音频 + lrc 配对
         key = _stem_key(a.stem)
-        cand = [p for p in by_key.get(key, []) if p not in used_lrc] if PAIR_LRC else []
-        if not cand:                                # 音频自己所在目录里找同名歌词
+        cand = [p for p in by_key.get(key, []) if p not in used_lrc] if with_lrc else []
+        if not cand and with_lrc:                    # 音频自己所在目录里找同名歌词
             cand = [p for p in a.parent.glob("*")
                     if p.suffix.lower() in LYRIC_EXT and p not in used_lrc
                     and _stem_key(p.stem) == key]
-        if not cand:                                # 再退：同目录唯一 lrc
+        if not cand and with_lrc:                    # 再退：同目录唯一 lrc
             same = [p for p in lrcs if p.parent == a.parent and p not in used_lrc]
             cand = same if len(same) == 1 else []
         if not cand:
@@ -154,7 +157,7 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None) -> dict:
 
     pool = [Path(x) for x in (pool_audio or [])]
     pool += [a for a in audios if str(a) not in added]
-    for lrc in lrcs:                                # ④ 剩余 lrc → 反查音频
+    for lrc in lrcs if with_lrc else ():            # ④ 剩余 lrc → 反查音频
         if lrc in used_lrc:
             continue
         key = _stem_key(lrc.stem)

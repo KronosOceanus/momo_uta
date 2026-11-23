@@ -246,20 +246,30 @@ data/curated/imports.json
 不是曲库身份来源。
 ```
 
-## 11. 目录导入
+## 11. 导入
+
+两个入口，语义不同：
 
 ```text
-import_paths(paths)
-```
+导入音乐
+  import_paths(paths, with_lrc=False)
+  → 只收音频
+  → 目录里的 .lrc / .nhlrc 不扫描
+  → 不写 nhlrc
+  → 歌词走待匹配
 
-```text
-展开目录/文件
-  → 音频文件
-  → .lrc / .nhlrc
-  → 按 stem 配对
+导入音乐+LRC
+  import_paths(paths, with_lrc=True)
+  → 收音频和显式/目录里的 .lrc / .nhlrc
+  → 按 stem / 同目录唯一配对
   → nhlrc 优先
   → 校验 valid_import
   → LRC.import_text 写 nhlrc
+```
+
+```text
+已有 data/lyrics 下的 nhlrc 仍然按 uid 优先；
+导入音频不会动它。
 ```
 
 ```text

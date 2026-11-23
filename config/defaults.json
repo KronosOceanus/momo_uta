@@ -70,8 +70,7 @@
   },
   "library": {
     "_note": "曲库扫描与导入。",
-    "extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"],
-    "auto_pair_lrc": true
+    "extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"]
   },
   "app": {
     "_note": "桌面壳与日志。",

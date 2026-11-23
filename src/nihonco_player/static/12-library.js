@@ -128,7 +128,8 @@ function openPlMenu(x, y, g){
     b.onclick=ev=>{ ev.stopPropagation(); closeCtx(); fn(); };
     box.appendChild(b);
   };
-  mk('导入音乐…', ()=>doImport(g.id));
+  mk('导入音乐…', ()=>doImport(g.id, false));
+  mk('导入音乐+LRC…', ()=>doImport(g.id, true));
   if(!g.locked) mk('重命名…', async ()=>{
     const name=await NH.uiPrompt('新的歌单名', g.name);
     if(!name || name===g.name) return;
@@ -288,7 +289,7 @@ document.getElementById('list').addEventListener('drop', async e=>{
 });
 
 // 导入：选完直接导入，只弹一条消息
-async function doImport(listId, btn){
+async function doImport(listId, withLrc, btn){
   let paths=[];
   const api_ = window.pywebview && window.pywebview.api;
   if(api_ && api_.pick_any){
@@ -299,7 +300,7 @@ async function doImport(listId, btn){
   if(!paths.length) return;
   NH.busy('导入中…');
   try{
-    const r = await NH.api('/api/pl',{action:'import', list:listId, paths});
+    const r = await NH.api('/api/pl',{action:'import', list:listId, paths, with_lrc:!!withLrc});
     if(r.lists) NH.PLS=r.lists; NH.LIB=NH.PLS.flatMap(g=>g.items); NH.renderList();
     if(r.ok===false){ NH.done(r.error||'导入失败'); return; }
     const bits=[`新增 ${r.imported} 首`];

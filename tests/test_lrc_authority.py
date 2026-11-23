@@ -178,7 +178,8 @@ class TestAuthority(unittest.TestCase):
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(LRF.LY, "audio_duration", return_value=60):
-                res = IMP.import_paths([str(audio), str(root / "歌手 - 曲.lrc")])
+                res = IMP.import_paths([str(audio), str(root / "歌手 - 曲.lrc")],
+                                       with_lrc=True)
                 self.assertEqual(len(res["added"]), 1)
                 self.assertTrue(LRF.store_path(audio).is_file())
                 self.assertEqual(LRF.load(audio)["lines"][0]["text"], "君の名前")
