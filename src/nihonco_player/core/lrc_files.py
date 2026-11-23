@@ -267,6 +267,12 @@ def load(audio: str | Path, uid: str | None = None,
                 "annotations": {}, "line_ids": {}, "token_ids": {},
                 "translations": {}, "trans_lang": "zh",
                 "nhlrc": True, "disabled": True, "version": version}
+    if tail and tail.get("v") != 2:
+        return {"ok": False, "error": "不支持的 nhlrc 版本", "exists": True,
+                "path": str(path), "lines": [], "body_rows": [],
+                "metadata": [], "annotations": {}, "line_ids": {},
+                "token_ids": {}, "translations": {}, "disabled": False,
+                "version": version}
     if tail and tail.get("v") == 2:
         rows = parse_v2_rows(full)
         return _doc_from_v2_rows(rows, path, version, source,

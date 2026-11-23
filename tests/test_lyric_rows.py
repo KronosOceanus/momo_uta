@@ -122,6 +122,7 @@ class TestRowsStorage(unittest.TestCase):
                 got = LRF.load_rows(audio)
                 self.assertFalse(got["ok"])
                 self.assertIn("不支持", got["error"])
+                self.assertFalse(LRF.load(audio)["ok"])
 
 
 class TestRowsService(unittest.TestCase):
