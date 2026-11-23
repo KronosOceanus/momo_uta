@@ -589,6 +589,32 @@ class TestManualReading(unittest.TestCase):
                                  ["[ar:歌手]", "[ti:曲名]"])
                 self.assertEqual([x["text"] for x in after["lines"]], ["君"])
 
+    def test_export_maps_metadata_around_blank_body_rows(self):
+        from nihonco_player.service import lrc as SVC_LRC
+        from nihonco_player.core import lrc_doc as DOC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                lines = [{"t": 1.0, "text": "君"}, {"t": None, "text": ""},
+                         {"t": 3.0, "text": "花"}]
+                ann = {0: [["君", "きみ", "A"]], 2: [["花", "はな", "A"]]}
+                trans = {0: "you", 2: "flower"}
+                meta = [{"before": 0, "text": "[ar:X]"}]
+                self.assertTrue(LRF.save(audio, lines, ann, trans,
+                                         metadata=meta, trans_lang="en")["ok"])
+                uid = LRF.uid_of(audio)
+                item = CACHE["0"]
+                res = SVC_LRC.lrc_action({"action": "export", "uid": uid})
+                self.assertTrue(res["ok"])
+                exported, tail = DOC._split_nhlrc(res["nhlrc"])
+                self.assertTrue(exported.startswith("[ar:X]\n[00:01.00]君"))
+                self.assertIn("[00:03.00]花", exported)
+                self.assertEqual(tail["trans_lang"], "en")
+                self.assertEqual([x["text"] for x in tail["trans"]], ["you", "flower"])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

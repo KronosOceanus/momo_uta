@@ -94,12 +94,14 @@ def lrc_action(req):
                 for bi, li in body_to_lyric.items()} if same_lines else None
         tids = {bi: (doc.get("token_ids") or {}).get(li)
                 for bi, li in body_to_lyric.items()} if same_lines else None
+        metadata = LRC._metadata_for_body(doc.get("metadata"), body_to_lyric,
+                                          len(lines))
         return {"ok": True, "nhlrc": DOC.render_nhlrc(
-                    lines, doc["metadata"], ann, trans,
+                    lines, metadata, ann, trans,
                     trans_lang=doc.get("trans_lang") or "zh",
                     line_ids=lids, token_ids=tids,
                     annotation_index=body_to_lyric),
-                "lrc": DOC.render_body(lines, doc["metadata"])}
+                "lrc": DOC.render_body(lines, metadata)}
     if act == "import_lrc":
         text = str(req.get("text") or "")
         if not text.strip():

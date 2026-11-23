@@ -5,72 +5,9 @@
 >
 > 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
-## 1. 导出 nhlrc 时 metadata 位置可能错位
+## 1. 导入音乐+LRC 覆盖 nhlrc 时不计入 overwritten
 
 - 编号：BUG-001
-- 状态：⬜ 待修
-- 优先级：高
-- 影响：含空行的歌词导出后，`[ar:]`、`[ti:]`、`[offset:]` 可能插错位置
-- 范围：`/api/lrc action=export`
-
-### 现象
-
-正文：
-
-```text
-[ar:歌手]
-[00:01.00]空行
-[00:02.00]君
-```
-
-导出为 `.nhlrc` 后，metadata 可能出现在空行之后，而不是原来的位置。
-
-### 原因
-
-`service/lrc.py` 的 export：
-
-```python
-lines = req.get("lines")            # body 行，可能含空行
-doc = LRC.load(...)                 # metadata.before 是 compact 行号
-DOC.render_nhlrc(lines, doc["metadata"], ...)
-DOC.render_body(lines, doc["metadata"])
-```
-
-保存路径已经会做：
-
-```text
-compact metadata.before → body before
-```
-
-但导出路径没有做。
-
-### 修复方向
-
-```text
-export 也使用 _metadata_for_body()
-  → compact 行号映射到 body 行号
-  → render_nhlrc / render_body 都使用映射后的 metadata
-```
-
-### 测试
-
-```text
-正文含空行
-  → 导出 nhlrc
-  → 重新解析
-  → metadata 位置和内容不变
-```
-
-### 相关
-
-```text
-src/nihonco_player/service/lrc.py: export
-src/nihonco_player/core/lrc_files.py: _metadata_for_body
-```
-
-## 2. 导入音乐+LRC 覆盖 nhlrc 时不计入 overwritten
-
-- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：高
 - 影响：覆盖已有 nhlrc，但前端只显示“新增 N 首”
@@ -125,9 +62,9 @@ LRC.import_text(str(a), raw, ...)
 src/nihonco_player/core/importing.py: import_paths
 ```
 
-## 3. 只导入音乐时，显式 LRC 被静默忽略
+## 2. 只导入音乐时，显式 LRC 被静默忽略
 
-- 编号：BUG-003
+- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：用户同时选音频和 LRC，但 LRC 被丢弃且没有提示
@@ -196,9 +133,9 @@ service/playlist.py
 static/12-library.js
 ```
 
-## 4. 导入路径重复时，统计可能偏大
+## 3. 导入路径重复时，统计可能偏大
 
-- 编号：BUG-004
+- 编号：BUG-003
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：重复计数、重复写，虽然下游会去重
@@ -249,9 +186,9 @@ lrcs   = unique([p.resolve() ...])
 core/importing.py: import_paths
 ```
 
-## 5. 导入模块残留死代码
+## 4. 导入模块残留死代码
 
-- 编号：BUG-005
+- 编号：BUG-004
 - 状态：⬜ 待修
 - 优先级：低
 - 影响：维护风险；旧自动配对逻辑可能被误用
@@ -282,9 +219,9 @@ _body() 只被 _pair 使用
 src/nihonco_player/core/importing.py
 ```
 
-## 6. README 的导入说明未同步
+## 5. README 的导入说明未同步
 
-- 编号：BUG-006
+- 编号：BUG-005
 - 状态：⬜ 待修
 - 优先级：低
 - 影响：用户以为“导入音乐”会自动配同名 LRC
@@ -320,9 +257,9 @@ README 仍写着：
 README.md
 ```
 
-## 7. `doImport` 的 `btn` 参数没有实际意义
+## 6. `doImport` 的 `btn` 参数没有实际意义
 
-- 编号：BUG-007
+- 编号：BUG-006
 - 状态：⬜ 待修
 - 优先级：低
 - 影响：无功能崩溃，但参数误导
@@ -361,11 +298,10 @@ src/nihonco_player/static/12-library.js: doImport
 ## 修复顺序
 
 ```text
-BUG-001 导出 metadata
-BUG-002 覆盖计数
-BUG-003 忽略 LRC 提示
-BUG-004 路径去重
-BUG-005 死代码
-BUG-006 README
-BUG-007 doImport btn
+BUG-001 覆盖计数
+BUG-002 忽略 LRC 提示
+BUG-003 路径去重
+BUG-004 死代码
+BUG-005 README
+BUG-006 doImport btn
 ```
