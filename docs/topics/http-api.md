@@ -247,6 +247,7 @@ save:
   服务端先映射 body_rows → 非空歌词行
   lid/tokens 随行提交
   translations 是 body-keyed 快照；{} 表示清空全部
+  trans_lang 缺省时沿用旧文档
   响应可带 ids（回传新生成的 lid/token spans）
 ```
 

@@ -96,6 +96,7 @@ def lrc_action(req):
                 for bi, li in body_to_lyric.items()} if same_lines else None
         return {"ok": True, "nhlrc": DOC.render_nhlrc(
                     lines, doc["metadata"], ann, trans,
+                    trans_lang=doc.get("trans_lang") or "zh",
                     line_ids=lids, token_ids=tids,
                     annotation_index=body_to_lyric),
                 "lrc": DOC.render_body(lines, doc["metadata"])}

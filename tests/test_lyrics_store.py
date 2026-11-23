@@ -436,6 +436,24 @@ class TestManualReading(unittest.TestCase):
                 self.assertTrue(saved.get("ok"), saved)
                 self.assertEqual(LRF.load(audio, uid)["translations"], {})
 
+    def test_edit_reading_preserves_translation_language(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                lines = [{"t": 5.0, "text": "君", "trans": "you"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], lines, "align",
+                                                 trans_lang="en")["ok"])
+                uid = LRF.uid_of(audio)
+                self.assertEqual(LRF.load(audio, uid)["trans_lang"], "en")
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみ"})
+                doc = LRF.load(audio, uid)
+                self.assertEqual(doc["trans_lang"], "en")
+                self.assertEqual(doc["translations"], {0: "you"})
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

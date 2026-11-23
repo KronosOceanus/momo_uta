@@ -395,6 +395,10 @@ lrcPayload()
 保存契约：
 
 ```text
+trans_lang 原样透传
+  → 改读音、改翻译、普通保存都不改写语言标签
+  → 只有显式改语言时才变
+
 translations 是 body-keyed 快照
   key = 编辑器 body 行号
 

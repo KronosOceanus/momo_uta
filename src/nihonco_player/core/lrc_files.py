@@ -196,8 +196,8 @@ def load(audio: str | Path, uid: str | None = None,
                 "path": str(path), "kind": "nhlrc", "source": "disabled",
                 "text": "", "lines": [], "body_rows": [], "metadata": [],
                 "annotations": {}, "line_ids": {}, "token_ids": {},
-                "translations": {}, "nhlrc": True, "disabled": True,
-                "version": version}
+                "translations": {}, "trans_lang": "zh",
+                "nhlrc": True, "disabled": True, "version": version}
 
     lines, metadata, body_rows = _parse_rows(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
@@ -213,6 +213,7 @@ def load(audio: str | Path, uid: str | None = None,
             "annotations": annotations,
             "line_ids": line_ids, "token_ids": token_ids,
             "translations": translations,
+            "trans_lang": (tail or {}).get("trans_lang") or "zh",
             "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
 
 
@@ -309,7 +310,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                 title: str | None = None, artist: str | None = None,
                 expected_version: str | None = None,
                 translations: dict[int, str] | None = None,
-                trans_lang: str = "zh") -> dict:
+                trans_lang: str | None = None) -> dict:
     """用户导入：直接原子写权威 nhlrc，不写共享缓存。"""
     ok, why = valid_import(text)
     if not ok:
@@ -351,6 +352,8 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                      if li in line_ids}
         tids_body = {bi: token_ids[li] for bi, li in body_to_lyric.items()
                      if li in token_ids}
+        if trans_lang is None:
+            trans_lang = (tail or {}).get("trans_lang") or "zh"
         out = (render_nhlrc(body_rows, metadata, ann_body, trans_body, trans_lang,
                             line_ids=lids_body, token_ids=tids_body,
                             annotation_index=body_to_lyric)

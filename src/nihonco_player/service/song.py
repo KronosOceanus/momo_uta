@@ -211,7 +211,7 @@ def _resolve_save_ids(body_rows, ann, old, line_ids, token_ids):
 
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 text=None, expected_version=None, translations=None,
-                trans_lang="zh", line_ids=None, token_ids=None,
+                trans_lang=None, line_ids=None, token_ids=None,
                 compact_translations=None) -> dict:
     """唯一的歌词权威写入口：锁内读改写 + 版本校验 + 原子替换。
 
@@ -231,9 +231,11 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             res = LRC.import_text(item["file"], text, uid, title, artist,
                                   expected_version=expected_version,
                                   translations=compact,
-                                  trans_lang=trans_lang)
+                                  trans_lang=trans_lang or "zh")
         else:
             doc = LRC.load(item["file"], uid, title, artist)
+            if trans_lang is None:
+                trans_lang = doc.get("trans_lang") or "zh"
             if mode == "reset" and lines is None:
                 lines = doc.get("body_rows") or doc.get("lines") or []
             body_rows = lines or []
