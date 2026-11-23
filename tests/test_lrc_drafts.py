@@ -58,7 +58,7 @@ class TestLrcDrafts(unittest.TestCase):
                 self.assertEqual([r["text"] for r in doc["lines"]],
                                  ["[Chorus]", "次の日", "[Note: keep singing]"])
                 self.assertTrue(lrcio.store_path(audio).is_file())
-                self.assertEqual(lrcio.backup_path(audio, lrcio.uid_of(audio))
+                self.assertEqual(lrcio.store_backup(audio)
                                  .read_text(encoding="utf-8"), raw)
 
     def test_first_save_carries_metadata_from_cache(self):

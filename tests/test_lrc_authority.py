@@ -152,7 +152,7 @@ class TestAuthority(unittest.TestCase):
                  patch.object(LRF.LY, "audio_duration", return_value=60):
                 LRF.delete_store(audio)                 # 无旧歌词，写 disabled
                 self.assertTrue(LRF.save(audio, rows(), {})["ok"])
-                self.assertFalse(LRF.backup_path(audio).exists())
+                self.assertFalse(LRF.store_backup(audio).exists())
                 r = LRF.restore_backup(audio)
                 self.assertFalse(r["ok"])
                 self.assertFalse(r["ok"])

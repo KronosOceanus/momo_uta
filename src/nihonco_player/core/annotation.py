@@ -12,7 +12,6 @@ import re
 import nihonco_yomi
 from nihonco_yomi.render import segments_html, words_html
 
-from . import diag
 
 AN = nihonco_yomi.Annotator()
 
@@ -188,20 +187,6 @@ def segs_of(result) -> list:
     """引擎结果 → 文件里存的紧凑形式 [[base, ruby, level], …]"""
     return [[seg["base"], seg.get("ruby"), seg.get("level")]
             for seg in result["lines"][0]["segments"]]
-
-
-def annotations_from_lines(lines: list[dict]) -> dict[int, list]:
-    """按当前行内容重新注音，生成 nhlrc 的标注表。"""
-    out: dict[int, list] = {}
-    for i, ln in enumerate(lines):
-        text = (ln.get("text") or "").strip()
-        if not text:
-            continue
-        try:
-            out[i] = segs_of(annotate_line_with_notes(text))
-        except Exception as e:
-            diag.log("annotate", f"行 {i} 注音失败：{e}")
-    return out
 
 
 def line_fields(text: str, stored: list | None = None) -> dict:

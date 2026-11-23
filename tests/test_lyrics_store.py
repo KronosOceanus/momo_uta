@@ -63,30 +63,6 @@ class TestNaming(unittest.TestCase):
                 self.assertEqual(LRF.store_path(audio, uid), f)
 
 
-class TestAlign(unittest.TestCase):
-    def test_insert_keeps_other_annotations(self):
-        old = rows()
-        ann = {0: [["君の名前", "きみのなまえ", "A"]],
-               1: [["呼んでくれた", "よんでくれた", "A"]],
-               2: [["また会おう", "またあおう", "A"]]}
-        new = [{"t": 1.0, "text": "新しい行"}] + old
-        out = DOC.align_annotations(new, ann)
-        self.assertNotIn(0, out)
-        self.assertEqual(out[1], ann[0])
-        self.assertEqual(out[2], ann[1])
-        self.assertEqual(out[3], ann[2])
-
-    def test_delete_and_reorder_follow_text(self):
-        ann = {0: [["A", "あ", "A"]], 1: [["B", "び", "A"]], 2: [["C", "し", "A"]]}
-        out = DOC.align_annotations([{"t": 1.0, "text": "C"}, {"t": 2.0, "text": "A"}], ann)
-        self.assertEqual(out[0], ann[2])
-        self.assertEqual(out[1], ann[0])
-        self.assertNotIn(2, out)
-
-    def test_changed_text_drops_annotation(self):
-        ann = {0: [["君の名前", "きみのなまえ", "A"]]}
-        out = DOC.align_annotations([{"t": 1.0, "text": "君の名"}], ann)
-        self.assertEqual(out, {})
 
 
 class TestManualReading(unittest.TestCase):

@@ -2,6 +2,7 @@
 import unittest
 
 from nihonco_player.core import lrc_doc as D
+import v1_fixtures as V1
 
 
 class TestLrcDoc(unittest.TestCase):
@@ -18,7 +19,6 @@ class TestLrcDoc(unittest.TestCase):
         self.assertEqual(meta[0]["before"], 0)
         self.assertEqual([r["text"] for r in body], ["词", "", "草稿", "あの日"])
         self.assertEqual(D.parse(text), rows)
-        self.assertEqual(D._parse_body_rows(text), body)
 
     def test_timed_empty_line_keeps_body_position_but_not_compact(self):
         text = "[00:01.00]君\n[00:02.00]\n[00:03.00]花\n"
@@ -38,7 +38,7 @@ class TestLrcDoc(unittest.TestCase):
 
     def test_nhlrc_body_and_annotation(self):
         rows = [{"t": 1.0, "text": "君"}]
-        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]})
+        text = V1.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]})
         body, tail = D._split_nhlrc(text)
         self.assertEqual(body, "[00:01.00]君\n")
         self.assertEqual(D.annotations_for(rows, tail), {0: [["君", "きみ", "A"]]})
@@ -57,7 +57,7 @@ if __name__ == "__main__":
 class TestTailFormat(unittest.TestCase):
     def test_one_entry_per_line(self):
         rows = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
-        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]],
+        text = V1.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]],
                                          1: [["花", "はな", "A"]]})
         tail_lines = [ln for ln in text.splitlines() if '"i":' in ln]
         self.assertEqual(len(tail_lines), 2)
@@ -65,7 +65,7 @@ class TestTailFormat(unittest.TestCase):
 
     def test_body_hash_fast_path_skips_line_hash(self):
         rows = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
-        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]],
+        text = V1.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]],
                                          1: [["花", "はな", "A"]]})
         body, tail = D._split_nhlrc(text)
         for ent in tail["lines"]:
@@ -75,7 +75,7 @@ class TestTailFormat(unittest.TestCase):
 
     def test_body_mismatch_falls_back_to_line_hash(self):
         rows = [{"t": 1.0, "text": "君"}]
-        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]})
+        text = V1.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]})
         body, tail = D._split_nhlrc(text)
         tail["body"] = "00000000"
         tail["lines"][0]["h"] = "00000000"
@@ -85,14 +85,14 @@ class TestTailFormat(unittest.TestCase):
 class TestTranslations(unittest.TestCase):
     def test_nhlrc_roundtrip_translation(self):
         rows = [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}]
-        text = D.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]},
+        text = V1.render_nhlrc(rows, [], {0: [["君", "きみ", "A"]]},
                               {0: "你", 1: "花"})
         body, tail = D._split_nhlrc(text)
         self.assertEqual(D.translations_for(D.parse(body), tail), {0: "你", 1: "花"})
 
     def test_translation_only_still_writes_tail(self):
         rows = [{"t": 1.0, "text": "君"}]
-        text = D.render_nhlrc(rows, [], None, {0: "你"}, "en")
+        text = V1.render_nhlrc(rows, [], None, {0: "你"}, "en")
         body, tail = D._split_nhlrc(text)
         self.assertIsNotNone(tail)
         self.assertEqual(tail["trans_lang"], "en")

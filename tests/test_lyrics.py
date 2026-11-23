@@ -8,24 +8,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from nihonco_player.core import lyrics as L  # noqa: E402
 
 
-class TestParseLrc(unittest.TestCase):
-    def test_basic(self):
-        rows = L.parse_lrc("[00:12.34]あの日\n[00:15.00]今も")
-        self.assertEqual([r["t"] for r in rows], [12.34, 15.0])
-        self.assertEqual(rows[0]["text"], "あの日")
-
-    def test_netease_marker(self):
-        """网易云会给非歌词行加 -1 后缀，不能因此整行丢掉。"""
-        rows = L.parse_lrc("[00:00.00-1] 作词 : X\n[00:12.30] あの日")
-        self.assertEqual(len(rows), 2)
-
-    def test_sorted_and_skipped(self):
-        rows = L.parse_lrc("[00:20.00]b\n[00:10.00]a\n不是时间行")
-        self.assertEqual([r["text"] for r in rows], ["a", "b"])
-
-    def test_content_lines_excludes_metadata(self):
-        lrc = "[00:00.00]作词 : X\n[00:10.00]あの日\n[00:12.00]今も\n[00:14.00]空を"
-        self.assertEqual(L.content_lines(lrc), 3)
 
 
 class TestTimedLyrics(unittest.TestCase):

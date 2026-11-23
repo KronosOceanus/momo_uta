@@ -18,7 +18,6 @@ from .lyrics_fetch import (audio_duration, auto_match, accept_candidate,  # noqa
                            score_candidate, search_candidates, valid_lrc)
 from .lyrics_text import (JP, KANA_RE, HAN_RE, LAT_RE, LRC,  # noqa: F401
                           clean_artist, content_lines, has_timed, is_excluded,
-                          is_likely_song, kind, lang_guess, parse_lrc,
-                          split_name)
+                          is_likely_song, kind, lang_guess, split_name)
 from .lyrics_text import _match, _norm  # noqa: F401
 from .lyrics_cache import _key  # noqa: F401

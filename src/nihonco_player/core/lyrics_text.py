@@ -59,10 +59,6 @@ def kind(s: str) -> str:
     return "en" if l else "other"
 
 
-def parse_lrc(text: str) -> list[dict]:
-    """解析 [mm:ss.xx] + 文本，按时间排序（实现在 lrc_doc.parse_timed）。"""
-    from .lrc_doc import parse_timed
-    return parse_timed(text)
 PUNCT = re.compile(r"[\s\-–—~〜!！?？\.。、,，()（）\[\]【】「」『』:：/／'\"’”·・]")
 
 

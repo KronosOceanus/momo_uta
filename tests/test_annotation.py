@@ -53,10 +53,6 @@ class TestAnnotation(unittest.TestCase):
         segs = A.AN.annotate(clean)["lines"][0]["segments"]
         self.assertIsNone(A._stored_overrides(clean, segs, [["别人", "べつ", "A"]]))
 
-    def test_annotations_from_lines_skips_empty(self):
-        out = A.annotations_from_lines([{"text": "君"}, {"text": "  "}])
-        self.assertEqual(sorted(out), [0])
-        self.assertEqual("".join(x[0] for x in out[0]), "君")
 
 
 if __name__ == "__main__":

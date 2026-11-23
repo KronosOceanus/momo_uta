@@ -363,11 +363,6 @@ def save_rows(audio: str | Path, rows: list[dict],
                 "backed_up": backed, "version": _version(text)}
 
 
-def backup_path(audio: str | Path, uid: str | None = None,
-                title: str | None = None, artist: str | None = None) -> Path:
-    return store_backup(audio, uid or uid_of(audio), title, artist)
-
-
 def backup_candidates(audio: str | Path, uid: str | None = None,
                       title: str | None = None, artist: str | None = None) -> list[Path]:
     return [store_backup(audio, uid or uid_of(audio), title, artist)]

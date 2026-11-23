@@ -5,8 +5,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from nihonco_player.core import importing as IMP
+import v1_fixtures as V1
 from nihonco_player.core import library as LIB
-from nihonco_player.core import lrc_doc as DOC
+from nihonco_player.core import lrc_doc as D
 from nihonco_player.core import lyric_rows as R
 from nihonco_player.core import lrc_files as LRF
 from nihonco_player.core import lyrics_cache as LC
@@ -91,7 +92,7 @@ class TestV2Integration(unittest.TestCase):
             audio = root / "曲.mp3"
             audio.touch()
             item = _cache(audio)
-            v1 = DOC.render_nhlrc(
+            v1 = V1.render_nhlrc(
                 [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "花"}], [],
                 {0: [["君", "きみ", "A"]], 1: [["花", "はな", "A"]]})
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
@@ -298,7 +299,7 @@ class TestV2DisabledAndRestore(unittest.TestCase):
             root = Path(tmp)
             audio = root / "曲.mp3"
             audio.touch()
-            v1 = DOC.render_nhlrc([{"t": 1.0, "text": "君"},
+            v1 = V1.render_nhlrc([{"t": 1.0, "text": "君"},
                                    {"t": 2.0, "text": "花"}], [],
                                   {0: [["君", "きみ", "A"]],
                                    1: [["花", "はな", "A"]]})
@@ -340,7 +341,7 @@ class TestV2StaleFallback(unittest.TestCase):
             audio = root / "曲.mp3"
             audio.touch()
             item = _cache(audio)
-            v1 = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
+            v1 = V1.render_nhlrc([{"t": 1.0, "text": "君"}], [],
                                   {0: [["君", "きみ", "A"]]})
             with patch.object(LRF, "LYRICS", root / "lyrics"):
                 LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)

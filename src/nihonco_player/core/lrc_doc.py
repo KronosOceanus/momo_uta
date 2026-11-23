@@ -275,78 +275,6 @@ def tokens_with_spans(seg, tids, text: str) -> list[dict]:
     return out if not text[cp:].strip() else []
 
 
-def render_body(lines: list[dict], metadata: list[dict] | None = None) -> str:
-    return render(lines, metadata)
-
-
-def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
-                 annotations: dict[int, list] | None = None,
-                 translations: dict[int, str] | None = None,
-                 trans_lang: str = "zh",
-                 line_ids: dict[int, str] | None = None,
-                 token_ids: dict[int, list[str]] | None = None,
-                 annotation_index: dict[int, int] | None = None) -> str:
-    body = render(lines, metadata)
-    entries = []
-    seen_l: set[str] = set()
-    seen_t: set[str] = set()
-    for i, seg in sorted((annotations or {}).items()):
-        if 0 <= i < len(lines) and seg:
-            tail_i = (annotation_index or {}).get(i, i)
-            ent = {"i": tail_i, "h": _hash8(lines[i].get("text") or ""), "seg": seg}
-            lid = (line_ids or {}).get(i)
-            if lid is not None:
-                if not _valid_id(lid, "l") or lid in seen_l:
-                    lid = _unique_id("l", seen_l)
-                ent["lid"] = lid
-                seen_l.add(lid)
-            tids = (token_ids or {}).get(i)
-            if tids is not None:
-                if not isinstance(tids, list) or len(tids) != len(seg):
-                    tids = [None] * len(seg)
-                final = []
-                for tid in tids:
-                    if not _valid_id(tid, "t") or tid in seen_t:
-                        tid = _unique_id("t", seen_t)
-                    final.append(tid)
-                    seen_t.add(tid)
-                ent["tid"] = final
-            entries.append(ent)
-    trans = []
-    for i, text in sorted((translations or {}).items()):
-        text = str(text or "").strip()
-        if text and 0 <= i < len(lines):
-            tail_i = (annotation_index or {}).get(i, i)
-            trans.append({"i": tail_i, "h": _hash8(lines[i].get("text") or ""),
-                          "text": text})
-    if not entries and not trans:
-        return body
-    # 尾部一行一条：体积小、diff 可读、每行都能单独定位
-    rows = []
-    for ent in entries:
-        parts = [f'"i": {ent["i"]}', f'"h": "{ent["h"]}"']
-        if ent.get("lid"):
-            parts.append(f'"lid": {json.dumps(ent["lid"], ensure_ascii=False)}')
-        parts.append(f'"seg": {json.dumps(ent["seg"], ensure_ascii=False, separators=(",", ":"))}')
-        if ent.get("tid"):
-            parts.append(f'"tid": {json.dumps(ent["tid"], ensure_ascii=False, separators=(",", ":"))}')
-        rows.append("  {" + ", ".join(parts) + "}")
-    tail = ('{\n'
-            f' "v": {NHLRC_VERSION},\n'
-            f' "gen": "{GEN}",\n'
-            f' "body": "{_hash8(body)}",\n'
-            ' "lines": [\n' + ",\n".join(rows) + '\n ]')
-    if trans:
-        trows = []
-        for ent in trans:
-            t = json.dumps(ent["text"], ensure_ascii=False)
-            trows.append(f'  {{"i": {ent["i"]}, "h": "{ent["h"]}", "text": {t}}}')
-        tail += (f',\n "trans_lang": {json.dumps(str(trans_lang or "zh"), ensure_ascii=False)},\n'
-                 ' "trans": [\n' + ",\n".join(trows) + '\n ]')
-    tail += '\n}'
-    return body + "\n" + NHLRC_MARK + f" {NHLRC_VERSION}\n" + tail + "\n"
-
-
 def parse(text: str) -> list[dict]:
     """按文件顺序读取编辑行，保留还未打时间戳的非空文本。
 
@@ -354,35 +282,6 @@ def parse(text: str) -> list[dict]:
     JSON： {"t":毫秒,"c":[{"tx":"作词: "},{"tx":"Ayase"}]}
     """
     return _parse_document(text)[0]
-
-
-def align_annotations(lines: list[dict],
-                      annotations: dict[int, list]) -> dict[int, list]:
-    """把已有标注按内容对齐到新行序（插入/删除/移动后仍然跟着行走）。
-
-    位置优先（没动过的行最精确），再按文本先进先出；拼接不成立的一律不用。
-    """
-    entries = [(i, seg) for i, seg in sorted((annotations or {}).items()) if seg]
-    texts = {i: "".join(x[0] for x in seg) for i, seg in entries}
-    used: set[int] = set()
-    out: dict[int, list] = {}
-
-    for i, seg in entries:                       # 第一轮：位置 + 内容都一致
-        if i < len(lines) and texts[i] == (lines[i].get("text") or ""):
-            out[i] = seg
-            used.add(i)
-
-    remaining = [(i, seg) for i, seg in entries if i not in used]
-    for i, ln in enumerate(lines):               # 第二轮：按内容找（FIFO）
-        if i in out:
-            continue
-        want = ln.get("text") or ""
-        for k, (j, seg) in enumerate(remaining):
-            if texts[j] == want:
-                out[i] = seg
-                remaining.pop(k)
-                break
-    return out
 
 
 def parse_timed(text: str) -> list[dict]:
@@ -447,10 +346,6 @@ def _parse_rows(text: str) -> tuple[list[dict], list[dict], list[dict]]:
 def _parse_document(text: str) -> tuple[list[dict], list[dict]]:
     lines, metadata, _body_rows = _parse_rows(text)
     return lines, metadata
-
-
-def _parse_body_rows(text: str) -> list[dict]:
-    return _parse_rows(text)[2]
 
 
 def fmt(t: float | None) -> str:
