@@ -420,10 +420,40 @@ def song_payload(ref, _item=None) -> dict:
 
 
 def edit_line(uid, li, start, reading):
-    """改一处的读音：重算该行、立即写回 nhlrc，返回新 HTML 与罗马音。"""
+    """改一处的读音：v2 用 lid/tid，旧文档走原路径。"""
     item = LIB.resolve(uid)
     if not item or not reading:
         return None
+    from . import lyric_document as LD
+    v2 = LD.load_rows(uid)
+    if v2.get("ok") and v2.get("model") == 2:
+        rows = v2.get("rows") or []
+        items = LD.playable_rows(rows)
+        if not (0 <= li < len(items)):
+            return None
+        row = items[li]
+        token = next((t for t in (row.get("tokens") or [])
+                      if int(t.get("start", -1)) == int(start)), None)
+        if not token:
+            return None
+        res = LD.edit_reading(uid, row.get("lid"), token.get("tid"), reading,
+                              expected_version=v2.get("version"))
+        if not res.get("ok"):
+            return None
+        again = LD.load_rows(uid)
+        if not again.get("ok"):
+            return None
+        target = next((r for r in (again.get("rows") or [])
+                       if r.get("kind") == "lyric" and r.get("lid") == row.get("lid")), None)
+        if not target:
+            return None
+        segs = [[t.get("base", ""), t.get("ruby"), t.get("level")]
+                for t in (target.get("tokens") or [])]
+        fields = ANN_CACHE.line_fields(target.get("text") or "", segs or None)
+        return {"line": li, "ruby": fields.get("ruby", ""),
+                "rm": fields.get("rm", ""), "ky": fields.get("ky", ""),
+                "rmH": fields.get("rmH", ""), "kyH": fields.get("kyH", ""),
+                "version": again.get("version")}
     with LRC.LOCK, FS.locked(LRC.lock_path()):
         doc = LRC.load(item["file"], item.get("uid"), item["title"], item.get("artist", ""))
         lines = doc["lines"]
