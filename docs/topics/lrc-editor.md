@@ -455,6 +455,8 @@ LRC 工具栏“导出”
 ```text
 导出使用当前编辑行，不要求先保存。
 导出时空行保留在正文，annotation 仍按非空行编号。
+metadata 的 before 会从 compact 行映射到 body 行。
+trans_lang 原样带出。
 ```
 
 ## 12. 删除 / 恢复最初

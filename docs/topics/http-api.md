@@ -255,6 +255,8 @@ save:
 ```text
 export 返回 nhlrc + 纯 lrc
 导出时空行保留，annotation 按非空行编号
+metadata 的 before 映射到 body 行
+trans_lang 原样带出
 ```
 
 ### 2.7 `/api/jobs`

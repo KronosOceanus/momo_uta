@@ -219,47 +219,9 @@ _body() 只被 _pair 使用
 src/nihonco_player/core/importing.py
 ```
 
-## 5. README 的导入说明未同步
+## 5. `doImport` 的 `btn` 参数没有实际意义
 
 - 编号：BUG-005
-- 状态：⬜ 待修
-- 优先级：低
-- 影响：用户以为“导入音乐”会自动配同名 LRC
-- 范围：README
-
-### 现状
-
-README 仍写着：
-
-```text
-音频导入
-同名 .lrc / .nhlrc 导入
-```
-
-没有区分：
-
-```text
-导入音乐
-导入音乐+LRC
-```
-
-### 修复方向
-
-```text
-说明两个入口
-说明只导入音乐不会扫描 LRC
-说明已有 nhlrc 仍然优先
-```
-
-### 相关
-
-```text
-README.md
-```
-
-## 6. `doImport` 的 `btn` 参数没有实际意义
-
-- 编号：BUG-006
 - 状态：⬜ 待修
 - 优先级：低
 - 影响：无功能崩溃，但参数误导
@@ -302,6 +264,5 @@ BUG-001 覆盖计数
 BUG-002 忽略 LRC 提示
 BUG-003 路径去重
 BUG-004 死代码
-BUG-005 README
-BUG-006 doImport btn
+BUG-005 doImport btn
 ```
