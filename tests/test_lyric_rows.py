@@ -116,7 +116,10 @@ class TestRowsStorage(unittest.TestCase):
                 saved = LRF.save_rows(audio, [{"kind": "lyric", "text": "君", "t": 1.0,
                                                "lid": "l_aaa", "tokens": [], "trans": ""}])
                 self.assertTrue(saved["ok"])
-                conflict = LRF.save_rows(audio, [], expected_version="wrong")
+                conflict = LRF.save_rows(audio, [{"kind": "lyric", "text": "花",
+                                                 "t": 2.0, "lid": "l_bbb",
+                                                 "tokens": [], "trans": ""}],
+                                            expected_version="wrong")
                 self.assertTrue(conflict.get("conflict"))
                 path = LRF.store_path(audio)
                 path.write_text("[00:01.00]君\n\n#NHLRC 1\n{\"v\":1}\n", encoding="utf-8")

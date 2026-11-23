@@ -346,6 +346,8 @@ def save_rows(audio: str | Path, rows: list[dict],
               artist: str | None = None, expected_version: str | None = None,
               trans_lang: str | None = None) -> dict:
     """写 v2 rows；版本校验、首次备份、原子替换。"""
+    if not rows:
+        return {"ok": False, "error": "没有歌词行"}
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)

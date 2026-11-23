@@ -403,3 +403,24 @@ class TestV2CoreTransLang(unittest.TestCase):
                     {"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_a",
                      "tokens": [], "trans": "you!"}])["ok"])
                 self.assertEqual(LRF.load_rows(audio)["trans_lang"], "en")
+
+
+class TestV2EmptyRows(unittest.TestCase):
+    def test_save_rows_rejects_empty_rows_without_overwrite(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                rows = [{"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_a",
+                         "tokens": [], "trans": ""}]
+                self.assertTrue(LRF.save_rows(audio, rows)["ok"])
+                before = LRF.store_path(audio).read_text(encoding="utf-8")
+                out = LRF.save_rows(audio, [])
+                self.assertFalse(out["ok"])
+                self.assertEqual(LRF.store_path(audio).read_text(encoding="utf-8"), before)
