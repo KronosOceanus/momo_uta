@@ -467,3 +467,19 @@ class TestV2DisabledPlayback(unittest.TestCase):
                 played = LD.playback(item["uid"])
                 self.assertTrue(played.get("disabled"))
                 self.assertEqual(played["lines"], [])
+
+
+class TestV2LegacyExportRows(unittest.TestCase):
+    def test_added_body_rows_survive_rows_from_legacy(self):
+        from nihonco_player.core import lrc_files as LRF
+
+        doc = {
+            "text": "[00:01.00]a\n[00:02.00]b\n",
+            "body_rows": [{"t": 1.0, "text": "a"}, {"t": 2.0, "text": "b"}],
+        }
+        lines = [{"t": 1.0, "text": "a"}, {"t": 2.0, "text": "b"},
+                 {"t": 3.0, "text": "c"}]
+        rows = LRF.rows_from_legacy(doc, lines)
+        self.assertEqual([r["text"] for r in rows], ["a", "b", "c"])
+        self.assertEqual(rows[2]["kind"], "lyric")
+        self.assertTrue(rows[2]["lid"])

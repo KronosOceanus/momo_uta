@@ -307,6 +307,22 @@ def rows_from_legacy(doc: dict, lines: list[dict] | None = None) -> list[dict]:
             row["tokens"] = []
             row["trans"] = ""
         bi += 1
+    # 编辑器可能比旧正文多出行：追加到末尾，不能因为骨架短就静默丢弃。
+    while bi < len(body):
+        ln = body[bi]
+        text = str(ln.get("text") or "")
+        if not text.strip():
+            skeleton.append({"kind": "blank", "text": "", "t": ln.get("t")})
+        else:
+            lid = lids.get(lyric) or new_line_id()
+            seg = ann.get(lyric) or []
+            ids = tids.get(lyric) or new_token_ids(len(seg))
+            skeleton.append({
+                "kind": "lyric", "text": text, "t": ln.get("t"), "lid": lid,
+                "tokens": tokens_with_spans(seg, ids, text) if seg else [],
+                "trans": str(ln.get("trans") or trans.get(lyric) or "")})
+            lyric += 1
+        bi += 1
     return skeleton
 
 
