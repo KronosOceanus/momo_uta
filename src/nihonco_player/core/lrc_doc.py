@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import secrets
 
 NHLRC_MARK = "#NHLRC"
 NHLRC_VERSION = 1
@@ -45,6 +46,85 @@ def _seg_list(raw) -> list[list]:
             out.append([item[0], (item[1] if len(item) > 1 else None),
                         (item[2] if len(item) > 2 else None)])
     return out
+
+
+ID_RE = re.compile(r"^[lt]_[0-9a-f]{8}$")
+
+
+def _new_lid() -> str:
+    return "l_" + secrets.token_hex(4)
+
+
+def _new_tid() -> str:
+    return "t_" + secrets.token_hex(4)
+
+
+def new_line_id() -> str:
+    return _new_lid()
+
+
+def new_token_ids(count: int) -> list[str]:
+    return [_new_tid() for _ in range(max(0, int(count)))]
+
+
+def _legacy_lid(i: int, text: str) -> str:
+    raw = f"line\0{i}\0{text}".encode("utf-8")
+    return "l_" + hashlib.sha1(raw).hexdigest()[:8]
+
+
+def _legacy_tid(i: int, text: str, ti: int, base: str) -> str:
+    raw = f"token\0{i}\0{ti}\0{base}\0{text}".encode("utf-8")
+    return "t_" + hashlib.sha1(raw).hexdigest()[:8]
+
+
+def _valid_id(value, prefix: str) -> bool:
+    return isinstance(value, str) and value.startswith(prefix + "_") and bool(ID_RE.fullmatch(value))
+
+
+def annotations_and_ids_for(lines: list[dict], tail: dict | None,
+                            strict: bool = True) -> tuple[dict[int, list], dict[int, str], dict[int, list[str]]]:
+    """按旧逻辑校验 seg，同时返回行/token 身份。
+
+    旧文件没有 lid/tid 时生成确定性 legacy id；不写回。
+    """
+    if not tail or not tail.get("lines"):
+        return {}, {}, {}
+    ok: dict[int, list] = {}
+    lids: dict[int, str] = {}
+    tids: dict[int, list[str]] = {}
+    seen_l: set[str] = set()
+    seen_t: set[str] = set()
+    for ent in tail["lines"]:
+        try:
+            i = int(ent.get("i"))
+        except (TypeError, ValueError):
+            continue
+        if not (0 <= i < len(lines)):
+            continue
+        text = lines[i].get("text") or ""
+        if strict and ent.get("h") and ent["h"] != _hash8(text):
+            continue
+        seg = _seg_list(ent.get("seg"))
+        if not seg or "".join(x[0] for x in seg) != text:
+            continue
+        lid = ent.get("lid")
+        if not _valid_id(lid, "l") or lid in seen_l:
+            lid = _legacy_lid(i, text)
+        seen_l.add(lid)
+        ids = ent.get("tid")
+        if not isinstance(ids, list) or len(ids) != len(seg):
+            ids = []
+        out_ids = []
+        for ti, part in enumerate(seg):
+            tid = ids[ti] if ti < len(ids) else None
+            if not _valid_id(tid, "t") or tid in seen_t:
+                tid = _legacy_tid(i, text, ti, str(part[0] or ""))
+            seen_t.add(tid)
+            out_ids.append(tid)
+        ok[i] = seg
+        lids[i] = lid
+        tids[i] = out_ids
+    return ok, lids, tids
 
 
 def annotations_for(lines: list[dict], tail: dict | None,
@@ -173,13 +253,21 @@ def render_body(lines: list[dict], metadata: list[dict] | None = None) -> str:
 def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
                  annotations: dict[int, list] | None = None,
                  translations: dict[int, str] | None = None,
-                 trans_lang: str = "zh") -> str:
+                 trans_lang: str = "zh",
+                 line_ids: dict[int, str] | None = None,
+                 token_ids: dict[int, list[str]] | None = None) -> str:
     body = render(lines, metadata)
     entries = []
     for i, seg in sorted((annotations or {}).items()):
         if 0 <= i < len(lines) and seg:
-            entries.append({"i": i, "h": _hash8(lines[i].get("text") or ""),
-                            "seg": seg})
+            ent = {"i": i, "h": _hash8(lines[i].get("text") or ""), "seg": seg}
+            lid = (line_ids or {}).get(i)
+            if _valid_id(lid, "l"):
+                ent["lid"] = lid
+            tids = (token_ids or {}).get(i)
+            if isinstance(tids, list) and len(tids) == len(seg) and all(_valid_id(x, "t") for x in tids):
+                ent["tid"] = tids
+            entries.append(ent)
     trans = []
     for i, text in sorted((translations or {}).items()):
         text = str(text or "").strip()
@@ -191,8 +279,13 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
     # 尾部一行一条：体积小、diff 可读、每行都能单独定位
     rows = []
     for ent in entries:
-        seg = json.dumps(ent["seg"], ensure_ascii=False, separators=(",", ":"))
-        rows.append(f'  {{"i": {ent["i"]}, "h": "{ent["h"]}", "seg": {seg}}}')
+        parts = [f'"i": {ent["i"]}', f'"h": "{ent["h"]}"']
+        if ent.get("lid"):
+            parts.append(f'"lid": {json.dumps(ent["lid"], ensure_ascii=False)}')
+        parts.append(f'"seg": {json.dumps(ent["seg"], ensure_ascii=False, separators=(",", ":"))}')
+        if ent.get("tid"):
+            parts.append(f'"tid": {json.dumps(ent["tid"], ensure_ascii=False, separators=(",", ":"))}')
+        rows.append("  {" + ", ".join(parts) + "}")
     tail = ('{\n'
             f' "v": {NHLRC_VERSION},\n'
             f' "gen": "{GEN}",\n'

@@ -139,6 +139,42 @@ class TestManualReading(unittest.TestCase):
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertIn("きみだ", raw)
 
+    def test_save_preserves_ids_for_unchanged_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                uid = LRF.uid_of(audio)
+                SONG.song_payload(uid)
+                SONG.save_lyrics(CACHE["0"], rows(), "align")
+                before = LRF.load(audio, uid)
+                SONG.save_lyrics(CACHE["0"], rows(), "align")
+                after = LRF.load(audio, uid)
+                self.assertEqual(before["line_ids"], after["line_ids"])
+                self.assertEqual(before["token_ids"], after["token_ids"])
+
+    def test_save_keeps_lid_but_renews_tids_when_text_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                uid = LRF.uid_of(audio)
+                SONG.song_payload(uid)
+                SONG.save_lyrics(CACHE["0"], rows(), "align")
+                before = LRF.load(audio, uid)
+                lines = [{"t": 5.0, "text": "君の名"}, {"t": 9.0, "text": "呼んでくれた"},
+                         {"t": 13.0, "text": "また会おう"}]
+                SONG.save_lyrics(CACHE["0"], lines, "align")
+                after = LRF.load(audio, uid)
+                self.assertEqual(before["line_ids"][0], after["line_ids"][0])
+                self.assertNotEqual(before["token_ids"][0], after["token_ids"][0])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

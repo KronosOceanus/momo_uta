@@ -20,8 +20,9 @@ from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
 from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
-                      _parse_document, _split_nhlrc, annotations_for, parse,
-                      render, render_body, render_nhlrc, translations_for, translations_from_lrc)
+                      _parse_document, _split_nhlrc, annotations_for,
+                      annotations_and_ids_for, parse, render, render_body,
+                      render_nhlrc, translations_for, translations_from_lrc)
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
 LOCK = threading.RLock()
@@ -193,13 +194,14 @@ def load(audio: str | Path, uid: str | None = None,
         return {"ok": True, "exists": True, "from_cache": False,
                 "path": str(path), "kind": "nhlrc", "source": "disabled",
                 "text": "", "lines": [], "metadata": [],
-                "annotations": {}, "translations": {}, "nhlrc": True, "disabled": True,
+                "annotations": {}, "line_ids": {}, "token_ids": {},
+                "translations": {}, "nhlrc": True, "disabled": True,
                 "version": version}
 
     lines, metadata = _parse_document(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
     strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
-    annotations = annotations_for(lines, tail, strict=strict)
+    annotations, line_ids, token_ids = annotations_and_ids_for(lines, tail, strict=strict)
     if from_cache:
         translations = translations_from_lrc((hit or {}).get("tlyric") or "", lines)
     else:
@@ -207,6 +209,7 @@ def load(audio: str | Path, uid: str | None = None,
     return {"ok": True, "exists": kind != "cache", "from_cache": from_cache,
             "path": str(path), "kind": kind, "source": source, "text": body,
             "lines": lines, "metadata": metadata, "annotations": annotations,
+            "line_ids": line_ids, "token_ids": token_ids,
             "translations": translations,
             "nhlrc": kind == "nhlrc", "disabled": False, "version": version}
 
@@ -329,10 +332,12 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                     "version": _version(out)}
         body = body if body.endswith("\n") else body + "\n"
         lines, metadata = _parse_document(body)
-        annotations = annotations_for(lines, tail) if tail else {}
+        annotations, line_ids, token_ids = annotations_and_ids_for(lines, tail) if tail else ({}, {}, {})
         if translations is None:
             translations = translations_for(lines, tail) if tail else {}
-        out = render_nhlrc(lines, metadata, annotations, translations, trans_lang) if (annotations or translations) else body
+        out = (render_nhlrc(lines, metadata, annotations, translations, trans_lang,
+                            line_ids=line_ids, token_ids=token_ids)
+               if (annotations or translations) else body)
         _atomic_write(sp, out)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "annotated": len(annotations), "backed_up": backed,
@@ -344,7 +349,9 @@ def save(audio: str | Path, lines: list[dict],
          translations: dict[int, str] | None = None,
          uid: str | None = None,
          title: str | None = None, artist: str | None = None,
-         expected_version: str | None = None, trans_lang: str = "zh") -> dict:
+         expected_version: str | None = None, trans_lang: str = "zh",
+         line_ids: dict[int, str] | None = None,
+         token_ids: dict[int, list[str]] | None = None) -> dict:
     """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -363,7 +370,8 @@ def save(audio: str | Path, lines: list[dict],
             annotations = annotations_for(lines, _tail)
         if translations is None:
             translations = translations_for(lines, _tail)
-        text = render_nhlrc(lines, metadata, annotations, translations, trans_lang)
+        text = render_nhlrc(lines, metadata, annotations, translations, trans_lang,
+                            line_ids=line_ids, token_ids=token_ids)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}

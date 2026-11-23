@@ -20,6 +20,7 @@ from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
                                annotate_line_with_notes, ruby_html,
                                segs_of, strip_paren_ruby, words_html_of)
+from ..core.lrc_doc import new_line_id, new_token_ids
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
 HAN_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -61,7 +62,7 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None):
 
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 text=None, expected_version=None, translations=None,
-                trans_lang="zh") -> dict:
+                trans_lang="zh", line_ids=None, token_ids=None) -> dict:
     """唯一的歌词权威写入口：锁内读改写 + 版本校验 + 原子替换。
 
     mode:
@@ -111,9 +112,35 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                     translations = doc.get("translations") or {}
             trans = DOC.align_translations(lines or [], doc.get("lines") or [],
                                            translations)
+            # 保留行身份；正文没变的行同时保留 token 身份。
+            old_lids = doc.get("line_ids") or {}
+            old_tids = doc.get("token_ids") or {}
+            out_lids = dict(line_ids or {})
+            out_tids = dict(token_ids or {})
+            old_lines = doc.get("lines") or []
+            for i, ln in enumerate(lines or []):
+                if i in out_lids:
+                    continue
+                if i < len(old_lines):
+                    out_lids[i] = old_lids.get(i) or new_line_id()
+                else:
+                    out_lids[i] = new_line_id()
+                seg = (ann or {}).get(i)
+                if not seg:
+                    continue
+                if i in out_tids:
+                    continue
+                old_text = old_lines[i].get("text") if i < len(old_lines) else None
+                new_text = ln.get("text") or ""
+                old_ids = old_tids.get(i)
+                if old_text == new_text and isinstance(old_ids, list) and len(old_ids) == len(seg):
+                    out_tids[i] = old_ids
+                else:
+                    out_tids[i] = new_token_ids(len(seg))
             res = LRC.save(item["file"], lines or [], ann, uid=uid, title=title,
                            artist=artist, expected_version=expected_version,
-                           translations=trans, trans_lang=trans_lang)
+                           translations=trans, trans_lang=trans_lang,
+                           line_ids=out_lids, token_ids=out_tids)
     if uid and res.get("ok"):
         try:
             res["library"] = LIB.refresh(uid)

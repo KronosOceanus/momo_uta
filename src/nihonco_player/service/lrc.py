@@ -57,7 +57,11 @@ def lrc_action(req):
                      if (x.get("trans") or "").strip()}
         elif req.get("translations"):
             trans = {int(k): str(v) for k, v in req["translations"].items() if str(v or "").strip()}
-        return {"ok": True, "nhlrc": DOC.render_nhlrc(lines, doc["metadata"], ann, trans),
+        same_lines = [ln.get("text") for ln in lines] == [ln.get("text") for ln in doc["lines"]]
+        lids = doc.get("line_ids") if same_lines else None
+        tids = doc.get("token_ids") if same_lines else None
+        return {"ok": True, "nhlrc": DOC.render_nhlrc(lines, doc["metadata"], ann, trans,
+                                                       line_ids=lids, token_ids=tids),
                 "lrc": DOC.render_body(lines, doc["metadata"])}
     if act == "import_lrc":
         text = str(req.get("text") or "")

@@ -22,6 +22,28 @@ class TestNhlrc(unittest.TestCase):
         self.assertTrue(body.startswith("[00:05.00]君の名前"))
         self.assertEqual(DOC.annotations_for(rows(), tail), ann)
 
+    def test_line_and_token_ids_roundtrip(self):
+        ann = {0: [["君", "きみ", "A"], ["の名前", "のなまえ", "B"]]}
+        lids = {0: "l_00112233"}
+        tids = {0: ["t_44556677", "t_8899aabb"]}
+        text = DOC.render_nhlrc(rows(), [], ann, line_ids=lids, token_ids=tids)
+        self.assertIn('"lid": "l_00112233"', text)
+        self.assertIn('"tid": ["t_44556677","t_8899aabb"]', text)
+        _body, tail = DOC._split_nhlrc(text)
+        got_ann, got_lids, got_tids = DOC.annotations_and_ids_for(rows(), tail)
+        self.assertEqual(got_ann, ann)
+        self.assertEqual(got_lids, lids)
+        self.assertEqual(got_tids, tids)
+
+    def test_missing_ids_get_stable_legacy_ids(self):
+        text = DOC.render_nhlrc(rows(), [], {0: [["君", "きみ", "A"], ["の名前", "のなまえ", "B"]]})
+        _body, tail = DOC._split_nhlrc(text)
+        first = DOC.annotations_and_ids_for(rows(), tail)
+        second = DOC.annotations_and_ids_for(rows(), tail)
+        self.assertEqual(first, second)
+        self.assertRegex(first[1][0], r"^l_[0-9a-f]{8}$")
+        self.assertRegex(first[2][0][0], r"^t_[0-9a-f]{8}$")
+
     def test_annotation_dropped_when_text_changed(self):
         ann = {0: [["君", "きみ", "A"], ["の名前", "のなまえ", "B"]]}
         text = DOC.render_nhlrc(rows(), [], ann)
