@@ -367,11 +367,11 @@ def save_rows(audio: str | Path, rows: list[dict],
         if expected_version is not None and current_version != str(expected_version):
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
                     "version": current_version}
-        backed = _backup_once(sp, bak)
         if trans_lang is None:
             _body, tail = _split_v2_tail(original)
             trans_lang = (tail or {}).get("trans_lang") or "zh"
         text = render_v2_rows(rows, trans_lang)
+        backed = _backup_once(sp, bak)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "rows": len(rows),
                 "backed_up": backed, "version": _version(text)}
@@ -512,10 +512,10 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
         if expected_version is not None and current_version != str(expected_version):
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
                     "version": current_version}
-        backed = _backup_once(sp, bak)
         body, tail = _split_nhlrc(text)
         if tail and tail.get("disabled"):
             out = _disabled_text()
+            backed = _backup_once(sp, bak)
             _atomic_write(sp, out)
             return {"ok": True, "disabled": True, "path": str(sp),
                     "lines": 0, "annotated": 0, "backed_up": backed,
@@ -529,6 +529,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
             if translations is not None and i in translations:
                 row["trans"] = str(translations[i] or "")
         out = render_v2_rows(rows, trans_lang or (tail or {}).get("trans_lang") or "zh")
+        backed = _backup_once(sp, bak)
         _atomic_write(sp, out)
         return {"ok": True, "path": str(sp), "lines": len(lyric_rows),
                 "annotated": sum(1 for row in lyric_rows if row.get("tokens")),
@@ -610,7 +611,6 @@ def save(audio: str | Path, lines: list[dict],
         if expected_version is not None and current_version != str(expected_version):
             return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
                     "version": current_version}
-        backed = _backup_once(sp, bak)
         body, _tail = _split_nhlrc(original)
         if trans_lang is None:
             trans_lang = (_tail or {}).get("trans_lang") or "zh"
@@ -631,6 +631,7 @@ def save(audio: str | Path, lines: list[dict],
         rows = _rows_from_body(lines, body_meta, annotations, translations,
                                line_ids, token_ids, annotation_index)
         text = render_v2_rows(rows, trans_lang)
+        backed = _backup_once(sp, bak)
         _atomic_write(sp, text)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}
