@@ -38,7 +38,18 @@ function markDirty(){
   NH.SAVE_T=setTimeout(()=>saveLrc(true), NH.UI.autosave_ms||1500);   // 停止编辑后自动保存
   NH.paintTicks?.();
 }
+function newLid(){
+  const bytes = new Uint8Array(4);
+  if(window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+  else for(let i=0;i<bytes.length;i++) bytes[i]=Math.floor(Math.random()*256);
+  return 'l_'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+}
+function ensureLid(row){
+  if(!row.lid) row.lid=newLid();
+  return row.lid;
+}
 function retokenizeRow(row, nextText){
+  ensureLid(row);
   const old=row.text||'';
   if(old===nextText) return;
   const tokens=Array.isArray(row.tokens)?row.tokens:[];
@@ -65,10 +76,12 @@ function splitRow(row, pos){
   const left=text.slice(0,pos), right=text.slice(pos);
   const leftTokens=sliceTokens(row,0,pos);
   const rightTokens=sliceTokens(row,pos,text.length,-pos);
+  ensureLid(row);
   row.text=left; row.tokens=leftTokens;
-  return {t:null, text:right, trans:'', tokens:rightTokens};
+  return {t:null, text:right, trans:'', lid:newLid(), tokens:rightTokens};
 }
 function mergeRows(prev, cur){
+  ensureLid(prev);
   const offset=(prev.text||'').length;
   prev.text=(prev.text||'')+(cur.text||'');
   prev.tokens=[...(prev.tokens||[]), ...(cur.tokens||[]).map(t=>({
@@ -312,8 +325,8 @@ function renderLrcTable(){
       const at=Math.max(0,+el.dataset.i+1);
       const fresh=lines.map(x=>{
         const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
-        return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:''}
-                 : {t:null, text:x, trans:''};
+        return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:'', lid:newLid()}
+                 : {t:null, text:x, trans:'', lid:newLid()};
       });
       NH.EROWS.splice(at,0,...fresh);
       NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
@@ -396,8 +409,8 @@ function insertLines(text){
   const at=insertPos();
   const fresh=lines.map(x=>{
     const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
-    return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:''}
-             : {t:null, text:x, trans:''};
+    return m ? {t:Math.round((+m[1]*60 + +m[2])*100)/100, text:m[3], trans:'', lid:newLid()}
+             : {t:null, text:x, trans:'', lid:newLid()};
   });
   NH.EROWS.splice(at,0,...fresh);
   NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
@@ -407,7 +420,7 @@ function insertLines(text){
 function addRow(at){
   snapshot();
   const pos = (at===undefined) ? insertPos() : at;
-  NH.EROWS.splice(pos,0,{t:null,text:'',trans:''});
+  NH.EROWS.splice(pos,0,{t:null,text:'',trans:'',lid:newLid()});
   NH.ESEL=pos; NH.SEL.clear(); renderLrcTable();
   document.querySelector(`.lerow[data-i="${pos}"]`)?.scrollIntoView({block:'center'});
 }
@@ -718,6 +731,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, sliceTokens, splitRow, mergeRows, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
+Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();
