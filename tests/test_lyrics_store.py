@@ -352,6 +352,90 @@ class TestManualReading(unittest.TestCase):
                 self.assertNotEqual(row["tokens"][-1]["tid"],
                                     before["token_ids"][0][-1])
 
+    def test_translation_body_keyed_survives_first_save_and_insert(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                first = [{"t": 5.0, "text": "君", "trans": "you"},
+                         {"t": 9.0, "text": "花", "trans": "flower"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], first, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                self.assertEqual(LRF.load(audio, uid)["translations"],
+                                 {0: "you", 1: "flower"})
+                second = [{"t": 4.0, "text": "空", "trans": "sky"},
+                          {"t": 4.5, "text": "空", "trans": ""},
+                          {"t": 5.0, "text": "君", "trans": "you"},
+                          {"t": 9.0, "text": "花", "trans": "flower"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], second, "align")["ok"])
+                self.assertEqual(LRF.load(audio, uid)["translations"],
+                                 {0: "sky", 2: "you", 3: "flower"})
+
+    def test_translation_explicit_empty_clears_and_missing_preserves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                rows_with = [{"t": 5.0, "text": "君", "trans": "you"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], rows_with, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                # 显式 {} 是完整快照：清空全部翻译。
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], rows_with, "align",
+                                                 translations={})["ok"])
+                self.assertEqual(LRF.load(audio, uid)["translations"], {})
+                # 缺省 translations，且 lines 没有 trans：沿用旧翻译。
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], rows_with, "align")["ok"])
+                self.assertTrue(SONG.save_lyrics(CACHE["0"],
+                                                 [{"t": 5.0, "text": "君"}],
+                                                 "align")["ok"])
+                self.assertEqual(LRF.load(audio, uid)["translations"], {0: "you"})
+
+    def test_timed_empty_line_translation_does_not_shift(self):
+        from nihonco_player.service import lrc as SVC_LRC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                lines = [{"t": 1.0, "text": "君", "trans": "you"},
+                         {"t": 2.0, "text": "", "trans": ""},
+                         {"t": 3.0, "text": "花", "trans": "flower"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], lines, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                doc = SVC_LRC.lrc_action({"action": "load", "uid": uid})
+                self.assertEqual([(x["text"], x["trans"]) for x in doc["lines"]],
+                                 [("君", "you"), ("", ""), ("花", "flower")])
+                self.assertEqual(doc["translations"], {0: "you", 1: "flower"})
+
+    def test_lrc_action_missing_translations_preserves_but_empty_clears(self):
+        from nihonco_player.service import lrc as SVC_LRC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                rows_with = [{"t": 5.0, "text": "君", "trans": "you"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], rows_with, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                # lines 不带 trans：缺省，沿用旧翻译。
+                no_trans = [{"t": 5.0, "text": "君"}]
+                saved = SVC_LRC.lrc_action({"action": "save", "uid": uid,
+                                            "lines": no_trans})
+                self.assertTrue(saved.get("ok"), saved)
+                self.assertEqual(LRF.load(audio, uid)["translations"], {0: "you"})
+                # 显式 {}：清空全部。
+                saved = SVC_LRC.lrc_action({"action": "save", "uid": uid,
+                                            "lines": rows_with,
+                                            "translations": {}})
+                self.assertTrue(saved.get("ok"), saved)
+                self.assertEqual(LRF.load(audio, uid)["translations"], {})
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

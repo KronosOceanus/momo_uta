@@ -392,6 +392,22 @@ lrcPayload()
 关闭列后保存，trans 仍然保留。
 ```
 
+保存契约：
+
+```text
+translations 是 body-keyed 快照
+  key = 编辑器 body 行号
+
+{}            → 清空全部翻译
+"行": ""      → 清空该行翻译
+缺省          → 先看 lines[].trans，再沿用旧文档
+```
+
+```text
+只有 body_to_lyric 中存在的非空歌词行会写入 nhlrc trans。
+带时间戳的空行可以留在正文，但不占翻译 i。
+```
+
 ## 10. 导入
 
 ```text

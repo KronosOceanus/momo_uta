@@ -116,9 +116,9 @@ def _old_save_layout(doc):
         for ti, seg in enumerate(segs):
             if ti < len(ids):
                 old_token_values[ids[ti]] = seg
-    return {"body_rows": old_body_rows, "ann": old_ann, "lids": old_lids,
-            "tids": old_tids, "texts": old_texts,
-            "token_values": old_token_values}
+    return {"body_rows": old_body_rows, "body_to_lyric": old_body_to_lyric,
+            "ann": old_ann, "lids": old_lids, "tids": old_tids,
+            "texts": old_texts, "token_values": old_token_values}
 
 
 def _annotate_for_save(mode, body_rows, lyric_rows, body_to_lyric,
@@ -150,14 +150,22 @@ def _annotate_for_save(mode, body_rows, lyric_rows, body_to_lyric,
 
 
 def _save_translations(body_rows, body_to_lyric, doc, old, translations):
+    """translations 缺省时从显式行/旧文档回退；否则是 body-keyed 快照。"""
     if translations is None:
         if any("trans" in x for x in body_rows):
             translations = {bi: x.get("trans") or ""
                             for bi, x in enumerate(body_rows)}
         else:
-            translations = {bi: (doc.get("translations") or {}).get(li, "")
-                            for bi, li in body_to_lyric.items()}
-    return DOC.align_translations(body_rows, old["body_rows"], translations)
+            old_body_trans = {}
+            for bi, li in old["body_to_lyric"].items():
+                text = (doc.get("translations") or {}).get(li, "")
+                if str(text or "").strip():
+                    old_body_trans[bi] = text
+            return DOC.align_translations(body_rows, old["body_rows"], old_body_trans)
+    # 显式快照：{} 表示清空全部；只接受非空歌词 body 行。
+    return {int(k): str(v or "").strip()
+            for k, v in (translations or {}).items()
+            if str(v or "").strip() and int(k) in body_to_lyric}
 
 
 def _resolve_save_ids(body_rows, ann, old, line_ids, token_ids):
@@ -203,7 +211,8 @@ def _resolve_save_ids(body_rows, ann, old, line_ids, token_ids):
 
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 text=None, expected_version=None, translations=None,
-                trans_lang="zh", line_ids=None, token_ids=None) -> dict:
+                trans_lang="zh", line_ids=None, token_ids=None,
+                compact_translations=None) -> dict:
     """唯一的歌词权威写入口：锁内读改写 + 版本校验 + 原子替换。
 
     mode:
@@ -218,9 +227,10 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     saved_ids = []
     with LRC.LOCK, FS.locked(LRC.lock_path()):
         if mode == "replace" and text is not None:
+            compact = compact_translations if compact_translations is not None else translations
             res = LRC.import_text(item["file"], text, uid, title, artist,
                                   expected_version=expected_version,
-                                  translations=translations,
+                                  translations=compact,
                                   trans_lang=trans_lang)
         else:
             doc = LRC.load(item["file"], uid, title, artist)
@@ -325,7 +335,8 @@ def edit_line(uid, li, start, reading):
         r = annotate_line_with_notes(text, stored=ann.get(li),
                                      extra_start=start, extra_reading=reading)
         ann[li] = segs_of(r)
-        res = save_lyrics(item, lines, "annotated", ann)
+        body_rows = doc.get("body_rows") or lines
+        res = save_lyrics(item, body_rows, "annotated", ann)
         if not res.get("ok"):
             return None
     return {"line": li, "ruby": ruby_html(r), "rm": r.get("romaji", {}).get("text", ""),
@@ -376,7 +387,8 @@ def pick(uid, song_id) -> dict:
     trans = DOC.translations_from_lrc(hit.get("tlyric") or "", DOC.parse(lrc))
     # 重写当前歌曲的 nhlrc 正文（备份旧文件），旧读音不保留
     try:
-        res = save_lyrics(item, mode="replace", text=lrc, translations=trans)
+        res = save_lyrics(item, mode="replace", text=lrc,
+                          compact_translations=trans)
     except Exception as e:
         return {"ok": False, "error": "写歌词失败：" + str(e)}
     if not res.get("ok"):

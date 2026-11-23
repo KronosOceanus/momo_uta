@@ -420,8 +420,10 @@ def _parse_rows(text: str) -> tuple[list[dict], list[dict], list[dict]]:
 
         if parsed is None:
             parsed = {"t": None, "text": raw}
-        lines.append(parsed)
+        # 编辑器保留这一行；空正文（即使带时间戳）不进入 compact lines。
         body_rows.append(dict(parsed))
+        if str(parsed.get("text") or "").strip():
+            lines.append(parsed)
 
     return lines, metadata, body_rows
 

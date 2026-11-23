@@ -5,72 +5,9 @@
 >
 > 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
-## 1. 翻译保存后丢失或错行
+## 1. 重复歌词的读音 / token ID 跟错行
 
 - 编号：BUG-001
-- 状态：⬜ 待修
-- 优先级：高
-- 影响：数据错误，用户手工翻译或抓取翻译会丢/错配
-- 复现：已确认
-
-### 现象
-
-```text
-原歌词：
-  君 → you
-  花 → flower
-```
-
-首次保存后重新打开：
-
-```text
-翻译为空
-```
-
-在「君」前插入「空 → sky」再保存：
-
-```text
-sky 跑到「君」上
-原有翻译丢失
-```
-
-### 原因
-
-`service/song.py` 的 `_save_translations()`：
-
-```text
-首次保存时 old_body_rows 为空
-  → align_translations 没有旧文本可匹配
-  → 所有翻译被丢弃
-```
-
-插入行时：
-
-```text
-translations 是按新 body 行号传入的
-align_translations 却把它当成旧行号对应的翻译
-  → 新 0「空」的 sky
-  → 被配到旧 0「君」上
-```
-
-### 方向
-
-```text
-1. 首次保存且没有旧正文时，直接按 body 行号接受 translations
-2. 有旧正文时，优先按 lid 对齐；没有 lid 才按文本
-3. 不要用“新行号 + 旧文本”混配
-```
-
-### 相关
-
-```text
-src/nihonco_player/service/song.py: _save_translations
-src/nihonco_player/core/lrc_doc.py: align_translations
-```
-
-## 2. 重复歌词的读音 / token ID 跟错行
-
-- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：高
 - 影响：交换或移动重复歌词后，读音和 token 身份留在原位置
@@ -131,9 +68,9 @@ src/nihonco_player/service/song.py: _annotate_lines / _annotate_for_save
 src/nihonco_player/core/lrc_doc.py: align_annotations
 ```
 
-## 3. 并发播放后暂停可能还有声音
+## 2. 并发播放后暂停可能还有声音
 
-- 编号：BUG-003
+- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：高
 - 影响：双音源叠加，暂停不彻底
@@ -175,9 +112,9 @@ _playing 只在 _startSrc() 里变成 true
 src/nihonco_player/static/05-audio.js: play / _startSrc
 ```
 
-## 4. 同一后台任务能启动两次
+## 3. 同一后台任务能启动两次
 
-- 编号：BUG-004
+- 编号：BUG-003
 - 状态：⬜ 待修
 - 优先级：中高
 - 影响：人声分离等昂贵任务重复执行，资源和取消状态错乱
@@ -226,9 +163,9 @@ find_active + 插入放进同一个 _lock 临界区
 src/nihonco_player/core/jobs.py: start / find_active
 ```
 
-## 5. 首次保存丢失歌词元数据
+## 4. 首次保存丢失歌词元数据
 
-- 编号：BUG-005
+- 编号：BUG-004
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`[ar:]`、`[ti:]`、`[offset:]` 等元数据丢失
@@ -278,9 +215,9 @@ src/nihonco_player/core/lrc_files.py: save
 src/nihonco_player/service/song.py: save_lyrics
 ```
 
-## 6. wheel 缺少默认配置和前端静态资源
+## 5. wheel 缺少默认配置和前端静态资源
 
-- 编号：BUG-006
+- 编号：BUG-005
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`pip install` 后命令入口运行时报错
@@ -329,11 +266,11 @@ pyproject.toml
 
 ```text
 BUG-001 翻译错行/丢失
-BUG-002 重复歌词身份错位
-BUG-003 并发播放
-BUG-004 后台任务重复
-BUG-005 元数据丢失
-BUG-006 wheel 资源
+BUG-001 重复歌词身份错位
+BUG-002 并发播放
+BUG-003 后台任务重复
+BUG-004 元数据丢失
+BUG-005 wheel 资源
 ```
 
 ## 说明

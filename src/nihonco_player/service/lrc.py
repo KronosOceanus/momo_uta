@@ -110,9 +110,8 @@ def lrc_action(req):
         if not lines or not any((ln.get("text") or "").strip() for ln in lines):
             return {"ok": False, "error": "没有歌词行"}
         trans = req.get("translations")
-        if trans is None:
-            trans = {i: ln.get("trans") or "" for i, ln in enumerate(lines)
-                     if "trans" in ln}
+        if trans is None and any("trans" in ln for ln in lines):
+            trans = {i: ln.get("trans") or "" for i, ln in enumerate(lines)}
         return save_lyrics(item, lines, "align", expected_version=req.get("version"),
                            translations=trans)
     return {"ok": False, "error": "未知动作"}

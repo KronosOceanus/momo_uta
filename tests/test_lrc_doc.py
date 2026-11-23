@@ -20,6 +20,13 @@ class TestLrcDoc(unittest.TestCase):
         self.assertEqual(D.parse(text), rows)
         self.assertEqual(D._parse_body_rows(text), body)
 
+    def test_timed_empty_line_keeps_body_position_but_not_compact(self):
+        text = "[00:01.00]君\n[00:02.00]\n[00:03.00]花\n"
+        rows, _meta, body = D._parse_rows(text)
+        self.assertEqual([r["text"] for r in rows], ["君", "花"])
+        self.assertEqual([r["text"] for r in body], ["君", "", "花"])
+        self.assertEqual(body[1]["t"], 2.0)
+
     def test_parse_netease_json(self):
         rows = D.parse('{"t":1234,"c":[{"tx":"あの日"}]}\n')
         self.assertEqual(rows, [{"t": 1.23, "text": "あの日"}])
