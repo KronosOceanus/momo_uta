@@ -388,6 +388,13 @@ def save(audio: str | Path, lines: list[dict],
             annotations = annotations_for(lines, _tail)
         if translations is None:
             translations = translations_for(lines, _tail)
+        if annotation_index is None:
+            annotation_index = {}
+            lyric = 0
+            for bi, ln in enumerate(lines):
+                if (ln.get("text") or "").strip():
+                    annotation_index[bi] = lyric
+                    lyric += 1
         text = render_nhlrc(lines, metadata, annotations, translations, trans_lang,
                             line_ids=line_ids, token_ids=token_ids,
                             annotation_index=annotation_index)

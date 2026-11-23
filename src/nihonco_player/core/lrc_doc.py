@@ -142,28 +142,8 @@ def annotations_and_ids_for(lines: list[dict], tail: dict | None,
 
 def annotations_for(lines: list[dict], tail: dict | None,
                     strict: bool = True) -> dict[int, list]:
-    """校验尾部标注：行号存在、哈希一致、拼起来等于正文 → 才认。
-
-    strict=False 时跳过逐行哈希比对（正文整体哈希已验证，见 lrc_files.load）。
-    """
-    if not tail or not tail.get("lines"):
-        return {}
-    ok: dict[int, list] = {}
-    for ent in tail["lines"]:
-        try:
-            i = int(ent.get("i"))
-        except (TypeError, ValueError):
-            continue
-        if not (0 <= i < len(lines)):
-            continue
-        text = lines[i].get("text") or ""
-        if strict and ent.get("h") and ent["h"] != _hash8(text):
-            continue
-        seg = _seg_list(ent.get("seg"))
-        if not seg or "".join(x[0] for x in seg) != text:
-            continue
-        ok[i] = seg
-    return ok
+    """校验尾部标注；与带身份版本共用同一套校验。"""
+    return annotations_and_ids_for(lines, tail, strict=strict)[0]
 
 
 def translations_for(lines: list[dict], tail: dict | None,

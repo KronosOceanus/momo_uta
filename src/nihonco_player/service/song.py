@@ -93,6 +93,122 @@ def _saved_identities(body_rows, ann, line_ids, token_ids):
     return out
 
 
+def _body_layout(rows):
+    """把编辑器行拆成非空歌词行与 body → lyric 映射。"""
+    lyric_rows = []
+    body_to_lyric = {}
+    for bi, ln in enumerate(rows or []):
+        if (ln.get("text") or "").strip():
+            body_to_lyric[bi] = len(lyric_rows)
+            lyric_rows.append(ln)
+    return lyric_rows, body_to_lyric
+
+
+def _old_save_layout(doc):
+    """收集旧文档的 compact/body 标注、身份和 token 值。"""
+    old_body_rows = doc.get("body_rows") or doc.get("lines") or []
+    _old_lyric_rows, old_body_to_lyric = _body_layout(old_body_rows)
+    old_ann = {bi: (doc.get("annotations") or {}).get(li)
+               for bi, li in old_body_to_lyric.items()
+               if (doc.get("annotations") or {}).get(li)}
+    old_lids = {bi: (doc.get("line_ids") or {}).get(li)
+                for bi, li in old_body_to_lyric.items()}
+    old_tids = {bi: (doc.get("token_ids") or {}).get(li)
+                for bi, li in old_body_to_lyric.items()}
+    old_texts = {bi: (ln.get("text") or "").strip()
+                 for bi, ln in enumerate(old_body_rows)}
+    old_token_values = {}
+    compact_tids = doc.get("token_ids") or {}
+    for i, segs in (doc.get("annotations") or {}).items():
+        ids = compact_tids.get(i) or []
+        for ti, seg in enumerate(segs):
+            if ti < len(ids):
+                old_token_values[ids[ti]] = seg
+    return {"body_rows": old_body_rows, "ann": old_ann, "lids": old_lids,
+            "tids": old_tids, "texts": old_texts,
+            "token_values": old_token_values}
+
+
+def _annotate_for_save(mode, body_rows, lyric_rows, body_to_lyric,
+                       doc, old, annotations):
+    """按保存模式生成 body-keyed annotation。"""
+    if mode == "align":
+        old_compact = DOC.align_annotations(lyric_rows,
+                                            doc.get("annotations") or {})
+        old_ann = {bi: old_compact[li] for bi, li in body_to_lyric.items()
+                   if li in old_compact}
+        # 空行以外的行数没变时，同位置的已编辑行也交给 token 对齐。
+        if len(old["body_rows"]) == len(body_rows):
+            for bi, st in old["ann"].items():
+                if bi not in old_ann and st:
+                    old_ann[bi] = st
+        tokens = {bi: (ln.get("tokens") or [])
+                  for bi, ln in enumerate(body_rows)}
+        return _annotate_lines(body_rows, old_ann, keep_unchanged=True,
+                               old_texts=old["texts"], tokens=tokens,
+                               old_token_values=old["token_values"])
+    if mode == "annotated":
+        return {bi: annotations[li] for bi, li in body_to_lyric.items()
+                if annotations and li in annotations}
+    if mode == "reset":
+        return _annotate_lines(body_rows)
+    if mode == "replace":
+        return annotations or {}
+    raise ValueError("未知歌词保存模式：" + str(mode))
+
+
+def _save_translations(body_rows, body_to_lyric, doc, old, translations):
+    if translations is None:
+        if any("trans" in x for x in body_rows):
+            translations = {bi: x.get("trans") or ""
+                            for bi, x in enumerate(body_rows)}
+        else:
+            translations = {bi: (doc.get("translations") or {}).get(li, "")
+                            for bi, li in body_to_lyric.items()}
+    return DOC.align_translations(body_rows, old["body_rows"], translations)
+
+
+def _resolve_save_ids(body_rows, ann, old, line_ids, token_ids):
+    """保留未改行的身份；改行只保留能按 tid/span 对上的 token。"""
+    out_lids = dict(line_ids or {})
+    for bi, ln in enumerate(body_rows):
+        if ln.get("lid"):
+            out_lids.setdefault(bi, ln["lid"])
+    out_tids = dict(token_ids or {})
+    for bi, ln in enumerate(body_rows):
+        if bi not in out_lids:
+            out_lids[bi] = old["lids"].get(bi) or new_line_id()
+        seg = (ann or {}).get(bi)
+        if not seg or bi in out_tids:
+            continue
+        old_text = old["texts"].get(bi)
+        new_text = ln.get("text") or ""
+        old_ids = old["tids"].get(bi)
+        if old_text == new_text and isinstance(old_ids, list) and len(old_ids) == len(seg):
+            out_tids[bi] = old_ids
+            continue
+        fresh = new_token_ids(len(seg))
+        used = set()
+        pos = 0
+        for ti, new_seg in enumerate(seg):
+            base = new_seg[0] if new_seg else ""
+            start, end = pos, pos + len(base)
+            pos = end
+            for tok in (ln.get("tokens") or []):
+                tid = tok.get("tid")
+                if not tid or tid in used:
+                    continue
+                if tok.get("start") == start and \
+                   tok.get("end") == end and \
+                   tok.get("base") == base and \
+                   tid in old["token_values"]:
+                    fresh[ti] = tid
+                    used.add(tid)
+                    break
+        out_tids[bi] = fresh
+    return out_lids, out_tids
+
+
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 text=None, expected_version=None, translations=None,
                 trans_lang="zh", line_ids=None, token_ids=None) -> dict:
@@ -116,125 +232,21 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                                   trans_lang=trans_lang)
         else:
             doc = LRC.load(item["file"], uid, title, artist)
-            old_token_values = {}
-            old_tids = doc.get("token_ids") or {}
-            for i, segs in (doc.get("annotations") or {}).items():
-                ids = old_tids.get(i) or []
-                for ti, seg in enumerate(segs):
-                    if ti < len(ids):
-                        old_token_values[ids[ti]] = seg
-
+            if mode == "reset" and lines is None:
+                lines = doc.get("body_rows") or doc.get("lines") or []
             body_rows = lines or []
-            lyric_rows = []
-            body_to_lyric = {}
-            for bi, ln in enumerate(body_rows):
-                if (ln.get("text") or "").strip():
-                    body_to_lyric[bi] = len(lyric_rows)
-                    lyric_rows.append(ln)
-
-            old_body_rows = doc.get("body_rows") or doc.get("lines") or []
-            old_body_to_lyric = {}
-            old_lyric_rows = []
-            for bi, ln in enumerate(old_body_rows):
-                if (ln.get("text") or "").strip():
-                    old_body_to_lyric[bi] = len(old_lyric_rows)
-                    old_lyric_rows.append(ln)
-            old_body_ann = {bi: (doc.get("annotations") or {}).get(li)
-                            for bi, li in old_body_to_lyric.items()
-                            if (doc.get("annotations") or {}).get(li)}
-            old_body_lids = {bi: (doc.get("line_ids") or {}).get(li)
-                             for bi, li in old_body_to_lyric.items()}
-            old_body_tids = {bi: (doc.get("token_ids") or {}).get(li)
-                             for bi, li in old_body_to_lyric.items()}
-            old_texts = {bi: (ln.get("text") or "").strip()
-                         for bi, ln in enumerate(old_body_rows)}
-
-            if mode == "align":
-                old_compact = DOC.align_annotations(lyric_rows,
-                                                    doc.get("annotations") or {})
-                old = {bi: old_compact[li] for bi, li in body_to_lyric.items()
-                       if li in old_compact}
-                # 空行以外的行数没变时，同位置的已编辑行也交给 token 对齐。
-                if len(old_body_rows) == len(body_rows):
-                    for bi, st in old_body_ann.items():
-                        if bi not in old and st:
-                            old[bi] = st
-                tokens = {bi: (ln.get("tokens") or [])
-                          for bi, ln in enumerate(body_rows)}
-                ann = _annotate_lines(body_rows, old, keep_unchanged=True,
-                                      old_texts=old_texts, tokens=tokens,
-                                      old_token_values=old_token_values)
-            elif mode == "annotated":
-                ann = {bi: annotations[li] for bi, li in body_to_lyric.items()
-                       if annotations and li in annotations}
-            elif mode == "reset":
-                if lines is None:
-                    body_rows = doc.get("body_rows") or doc.get("lines") or []
-                    body_to_lyric = {}
-                    lyric_rows = []
-                    for bi, ln in enumerate(body_rows):
-                        if (ln.get("text") or "").strip():
-                            body_to_lyric[bi] = len(lyric_rows)
-                            lyric_rows.append(ln)
-                ann = _annotate_lines(body_rows)
-            elif mode == "replace":
-                ann = annotations or {}
-            else:
-                raise ValueError("未知歌词保存模式：" + str(mode))
-
-            if translations is None:
-                if any("trans" in x for x in body_rows):
-                    translations = {bi: x.get("trans") or ""
-                                    for bi, x in enumerate(body_rows)}
-                else:
-                    translations = {bi: (doc.get("translations") or {}).get(li, "")
-                                    for bi, li in body_to_lyric.items()}
-            trans = DOC.align_translations(body_rows, old_body_rows, translations)
-
-            # 保留行身份；正文没变的行同时保留 token 身份。
-            out_lids = dict(line_ids or {})
-            for bi, ln in enumerate(body_rows):
-                if ln.get("lid"):
-                    out_lids.setdefault(bi, ln["lid"])
-            out_tids = dict(token_ids or {})
-            for bi, ln in enumerate(body_rows):
-                if bi not in out_lids:
-                    out_lids[bi] = old_body_lids.get(bi) or new_line_id()
-                seg = (ann or {}).get(bi)
-                if not seg:
-                    continue
-                if bi in out_tids:
-                    continue
-                old_text = old_texts.get(bi)
-                new_text = ln.get("text") or ""
-                old_ids = old_body_tids.get(bi)
-                if old_text == new_text and isinstance(old_ids, list) and len(old_ids) == len(seg):
-                    out_tids[bi] = old_ids
-                else:
-                    fresh = new_token_ids(len(seg))
-                    used = set()
-                    pos = 0
-                    for ti, new_seg in enumerate(seg):
-                        base = new_seg[0] if new_seg else ""
-                        start, end = pos, pos + len(base)
-                        pos = end
-                        for tok in (ln.get("tokens") or []):
-                            tid = tok.get("tid")
-                            if not tid or tid in used:
-                                continue
-                            if tok.get("start") == start and \
-                               tok.get("end") == end and \
-                               tok.get("base") == base and \
-                               tid in old_token_values:
-                                fresh[ti] = tid
-                                used.add(tid)
-                                break
-                    out_tids[bi] = fresh
+            lyric_rows, body_to_lyric = _body_layout(body_rows)
+            old = _old_save_layout(doc)
+            ann = _annotate_for_save(mode, body_rows, lyric_rows, body_to_lyric,
+                                     doc, old, annotations)
+            trans = _save_translations(body_rows, body_to_lyric, doc, old,
+                                       translations)
+            out_lids, out_tids = _resolve_save_ids(body_rows, ann, old,
+                                                   line_ids, token_ids)
             res = LRC.save(item["file"], body_rows, ann, uid=uid, title=title,
                            artist=artist, expected_version=expected_version,
                            translations=trans, trans_lang=trans_lang,
-                           line_ids=out_lids, token_ids=out_tids,
-                           annotation_index=body_to_lyric)
+                           line_ids=out_lids, token_ids=out_tids)
             if res.get("ok"):
                 saved_ids = _saved_identities(body_rows, ann, out_lids, out_tids)
     if res.get("ok") and saved_ids:
