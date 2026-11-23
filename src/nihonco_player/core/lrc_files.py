@@ -206,6 +206,11 @@ def body_text_of(rows: list[dict]) -> str:
     return body_text(rows)
 
 
+def doc_from_rows(rows: list[dict], version: str = VERSION_NONE,
+                  path: str = "", source: str = "nhlrc") -> dict:
+    return _doc_from_v2_rows(rows, Path(path), version, source)
+
+
 def load(audio: str | Path, uid: str | None = None,
          title: str | None = None, artist: str | None = None,
          network: bool = False) -> dict:
@@ -281,6 +286,41 @@ def _split_v2_tail(text: str) -> tuple[str, dict | None]:
             except Exception:
                 return "\n".join(lines[:i]), None
     return text, None
+
+
+def rows_from_legacy(doc: dict, lines: list[dict] | None = None) -> list[dict]:
+    """旧/缓存文档保留正文里的 metadata 顺序，构造导出用 rows。"""
+    skeleton = parse_v2_rows(doc.get("text") or "")
+    body = lines if lines is not None else (doc.get("body_rows") or doc.get("lines") or [])
+    ann = doc.get("annotations") or {}
+    tids = doc.get("token_ids") or {}
+    lids = doc.get("line_ids") or {}
+    trans = doc.get("translations") or {}
+    bi = lyric = 0
+    for row in skeleton:
+        if row.get("kind") == "metadata":
+            continue
+        if bi >= len(body):
+            continue
+        ln = body[bi]
+        text = str(ln.get("text") or "")
+        row["t"] = ln.get("t")
+        row["text"] = text
+        row["kind"] = "lyric" if text.strip() else "blank"
+        if row["kind"] == "lyric":
+            if lids.get(lyric):
+                row["lid"] = lids[lyric]
+            seg = ann.get(lyric) or []
+            row["tokens"] = tokens_with_spans(seg, tids.get(lyric) or [],
+                                              text) if seg else []
+            row["trans"] = str(ln.get("trans") or trans.get(lyric) or "")
+            lyric += 1
+        else:
+            row["lid"] = None
+            row["tokens"] = []
+            row["trans"] = ""
+        bi += 1
+    return skeleton
 
 
 def load_rows(audio: str | Path, uid: str | None = None,

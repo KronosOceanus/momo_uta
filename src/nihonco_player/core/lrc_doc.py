@@ -272,7 +272,7 @@ def tokens_with_spans(seg, tids, text: str) -> list[dict]:
                     "ruby": part[1] if len(part) > 1 else None,
                     "level": part[2] if len(part) > 2 else None})
         cp, u16 = end_cp, end_u16
-    return out if cp == len(text) else []
+    return out if not text[cp:].strip() else []
 
 
 def render_body(lines: list[dict], metadata: list[dict] | None = None) -> str:

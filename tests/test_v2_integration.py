@@ -349,3 +349,35 @@ class TestV2StaleFallback(unittest.TestCase):
                                           "lines": [{"t": 1.0, "text": "君"}]})
                 self.assertTrue(out["ok"], out)
                 self.assertIn("#NHLRC 2", out["nhlrc"])
+
+
+class TestV2TrailingSpace(unittest.TestCase):
+    def test_trailing_space_keeps_lid_tokens_and_trans(self):
+        rows = [{"kind": "lyric", "text": "君 ", "t": 1.0, "lid": "l_a",
+                 "tokens": [{"tid": "t1", "start": 0, "end": 1,
+                             "base": "君", "ruby": "きみ", "level": "A"}],
+                 "trans": "你"}]
+        got = R.parse_rows(R.render_rows(rows))
+        self.assertEqual(got[0]["text"], "君 ")
+        self.assertEqual(got[0]["lid"], "l_a")
+        self.assertEqual(got[0]["tokens"][0]["tid"], "t1")
+        self.assertEqual(got[0]["trans"], "你")
+
+
+class TestV2LegacyExportMetadata(unittest.TestCase):
+    def test_cache_export_keeps_metadata_after_blank(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            text = "\n[ar:X]\n[00:01.00]君\n"
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)
+                LRF.store_path(audio).write_text(text, encoding="utf-8")
+                out = SVC_LRC.lrc_action({
+                    "action": "export", "uid": item["uid"],
+                    "lines": [{"t": None, "text": ""},
+                              {"t": 1.0, "text": "君"}]})
+                self.assertTrue(out["ok"], out)
+                self.assertTrue(out["nhlrc"].startswith("\n[ar:X]"), out["nhlrc"])

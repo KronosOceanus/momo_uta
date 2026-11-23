@@ -55,11 +55,11 @@ def _row_from_line(raw: str, first: bool = False) -> dict:
         return {"kind": "blank", "text": "", "t": None}
     if DOC.METADATA.fullmatch(stripped):
         return {"kind": "metadata", "text": raw, "t": None}
-    m = DOC.LINE.match(stripped)
+    m = DOC.LINE.match(line)
     if m:
         t = round(int(m.group(1)) * 60 + float(m.group(2)), 2)
-        text = m.group(3).strip()
-        return ({"kind": "lyric", "text": text, "t": t} if text
+        text = m.group(3)
+        return ({"kind": "lyric", "text": text, "t": t} if text.strip()
                 else {"kind": "blank", "text": "", "t": t})
     if stripped.startswith("{") and '"t"' in stripped:
         try:
@@ -90,7 +90,7 @@ def _tokens(seg, tids, text: str) -> list[dict]:
                     "ruby": part[1] if len(part) > 1 else None,
                     "level": part[2] if len(part) > 2 else None})
         pos, u16 = end_cp, end
-    return out if pos == len(text) else []
+    return out if not text[pos:].strip() else []
 
 
 def parse_rows(text: str) -> list[dict]:
@@ -124,7 +124,7 @@ def parse_rows(text: str) -> list[dict]:
                for x in (ent.get("seg") or [])]
         seg = [[x.get("b", ""), x.get("r"), x.get("lv")] if isinstance(x, dict) else x
                for x in seg]
-        if seg and "".join(str(x[0] or "") for x in seg) != row["text"]:
+        if seg and "".join(str(x[0] or "") for x in seg) != row["text"].rstrip():
             continue
         row["lid"] = ent.get("lid") or _new_lid()
         tids = ent.get("tid") or []
@@ -178,7 +178,7 @@ def _tokens_valid(row: dict) -> bool:
         u16 += DOC.utf16_len(base)
         if tok.get("end") != u16:
             return False
-    return bool(row.get("tokens")) and cp == len(text)
+    return bool(row.get("tokens")) and not text[cp:].strip()
 
 
 def repair_tokens(row: dict) -> None:
@@ -213,7 +213,7 @@ def repair_tokens(row: dict) -> None:
         out.append({"tid": tid, "start": u16, "end": end_u16, "base": base,
                     "ruby": ruby, "level": level})
         cp, u16 = end_cp, end_u16
-    if cp == len(text):
+    if not text[cp:].strip():
         row["tokens"] = out
 
 
