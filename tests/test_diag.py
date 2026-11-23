@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import diag
+from momo_player.core import diag
 
 
 class TestDiag(unittest.TestCase):

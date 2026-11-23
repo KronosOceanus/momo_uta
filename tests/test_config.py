@@ -1,7 +1,7 @@
 """默认配置只来自 config/defaults.json。"""
 import unittest
 
-from nihonco_yomi.config import CFG
+from momo_yomi.config import CFG
 
 
 class TestConfig(unittest.TestCase):

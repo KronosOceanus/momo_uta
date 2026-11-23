@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from nihonco_yomi.config import PUI
-from nihonco_player.core import user_config as UC
-from nihonco_player.service import settings
+from momo_yomi.config import PUI
+from momo_player.core import user_config as UC
+from momo_player.service import settings
 
 
 class TestThemeSetting(unittest.TestCase):

@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const test = require('node:test');
 
-const code = fs.readFileSync('src/nihonco_player/static/06-state.js', 'utf8');
+const code = fs.readFileSync('src/momo_player/static/06-state.js', 'utf8');
 const ctx = {window: {}};
 vm.runInNewContext(code, ctx);
 const NH = ctx.window.NH;

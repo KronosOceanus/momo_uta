@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import lyrics_cache as LC
-from nihonco_player.core import lyrics_fetch as LF
+from momo_player.core import lyrics_cache as LC
+from momo_player.core import lyrics_fetch as LF
 
 
 class TestNegativeCache(unittest.TestCase):

@@ -25,19 +25,19 @@
 ### 1.1 依赖图
 
 ```text
-nihonco_player_app        桌面壳：起服务、开窗口、文件对话框、全局热键
+momo_uta_app        桌面壳：起服务、开窗口、文件对话框、全局热键
         │
         ▼
-nihonco_player.http       路由、静态文件、Range、页面装配
+momo_player.http       路由、静态文件、Range、页面装配
         │
         ▼
-nihonco_player.service    单曲、歌词、歌单、任务、主题的编排
+momo_player.service    单曲、歌词、歌单、任务、主题的编排
         │
         ▼
-nihonco_player.core       数据、文件、缓存、网络、进程
+momo_player.core       数据、文件、缓存、网络、进程
         │
         ▼
-nihonco_yomi              注音计算与运行时资源
+momo_yomi              注音计算与运行时资源
 ```
 
 ```text
@@ -47,7 +47,7 @@ nihonco_yomi              注音计算与运行时资源
 `scripts/check_arch.py` 实际检查的禁止前缀：
 
 ```text
-nihonco_yomi       × nihonco_player* / nihonco_player_app
+momo_yomi       × momo_player* / momo_uta_app
 core               × service / http / app
 service            × http / app
 http               × app
@@ -77,10 +77,10 @@ routes 中确实有 library / diag 这类只读辅助引用。
   → http.routes
   → service.*
   → core.*
-  → nihonco_yomi 或 data/
+  → momo_yomi 或 data/
 ```
 
-`nihonco_player_app` 不参与请求链。它只负责启动 HTTP 服务、创建窗口、提供本地文件对话框和系统级热键。
+`momo_uta_app` 不参与请求链。它只负责启动 HTTP 服务、创建窗口、提供本地文件对话框和系统级热键。
 
 ### 1.3 yomi 的定位
 
@@ -114,8 +114,8 @@ annotate / romaji / render / kana / counters / invariants / thresholds
   <repo>/data
 
 打包：
-  ~/Library/Application Support/nihonco uta/data
-  可用 NIHONCO_HOME 覆盖
+  ~/Library/Application Support/momo uta/data
+  可用 MOMO_HOME 覆盖
 ```
 
 ```text
@@ -226,7 +226,7 @@ service.song.save_lyrics()
 
 ## 3. 模块地图
 
-### nihonco_yomi
+### momo_yomi
 
 ```text
 annotate       分词 → 片段 → 档位 → 整行注音
@@ -470,7 +470,7 @@ lrcPayload() 仍然携带 trans
 
 ```text
 应用内：40-shortcuts.js
-全局：nihonco_player_app/hotkeys.py（⌃⌥←/→/P）
+全局：momo_uta_app/hotkeys.py（⌃⌥←/→/P）
 ```
 
 ```text

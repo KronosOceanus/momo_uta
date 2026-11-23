@@ -3,12 +3,12 @@ import time
 import unittest
 from unittest.mock import patch
 
-from nihonco_player.core import jobs as JOBS
-from nihonco_player.core import library as LIB
-from nihonco_player.core import vocals as VOC
-from nihonco_player.core.library import CACHE
-from nihonco_player.service import jobs as SJ
-from nihonco_player.service import song as SONG
+from momo_player.core import jobs as JOBS
+from momo_player.core import library as LIB
+from momo_player.core import vocals as VOC
+from momo_player.core.library import CACHE
+from momo_player.service import jobs as SJ
+from momo_player.service import song as SONG
 
 
 def wait(job_id, timeout=3):

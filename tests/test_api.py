@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_yomi import Annotator  # noqa: E402
+from momo_yomi import Annotator  # noqa: E402
 
 
 class TestApi(unittest.TestCase):

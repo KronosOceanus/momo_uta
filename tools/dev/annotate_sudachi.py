@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from nihonco_yomi.kana import kata_to_hira  # noqa: E402
-from nihonco_yomi.annotate import split_pieces  # noqa: E402
+from momo_yomi.kana import kata_to_hira  # noqa: E402
+from momo_yomi.annotate import split_pieces  # noqa: E402
 
 KANJI = re.compile(r"[\u4e00-\u9fff\u3005\u3006]")
 _TOK = None

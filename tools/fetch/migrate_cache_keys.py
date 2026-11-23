@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from nihonco_player.core import lyrics as LY
-from nihonco_player.core.lyrics_cache import CACHE
+from momo_player.core import lyrics as LY
+from momo_player.core.lyrics_cache import CACHE
 
 
 def main() -> None:

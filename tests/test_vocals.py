@@ -7,8 +7,8 @@ import wave
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import vocals
-from nihonco_player.core import vocals as vocals_mod
+from momo_player.core import vocals
+from momo_player.core import vocals as vocals_mod
 
 
 def _write_wav(path: Path, segments):

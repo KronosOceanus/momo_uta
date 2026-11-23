@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.service import song as SONG
+from momo_player.core import lrc_files as LRF
+from momo_player.service import song as SONG
 
 
 class TestLrcTranslations(unittest.TestCase):
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
 class TestCacheTranslation(unittest.TestCase):
     def test_cache_tlyric_is_paired_on_load(self):
-        from nihonco_player.core import lyrics as LY
+        from momo_player.core import lyrics as LY
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(LRF, "LYRICS", Path(tmp) / "lyrics"), \
                  patch.object(LY, "get_lrc", return_value={

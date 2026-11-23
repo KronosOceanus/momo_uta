@@ -2,7 +2,7 @@
 import time
 import unittest
 
-from nihonco_player.core import jobs as JOBS
+from momo_player.core import jobs as JOBS
 
 
 def wait(job_id, timeout=3):

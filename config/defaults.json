@@ -1,5 +1,5 @@
 {
-  "_note": "运行参数（B 类）。改了重启生效。A 类设计常量在 nihonco_yomi/thresholds.py，改完必须重跑 eval。本文件为仓库默认值；本机覆盖写在 data/config.json（同结构、深层合并）。",
+  "_note": "运行参数（B 类）。改了重启生效。A 类设计常量在 momo_yomi/thresholds.py，改完必须重跑 eval。本文件为仓库默认值；本机覆盖写在 data/config.json（同结构、深层合并）。",
   "lyrics": {
     "_note": "歌词匹配与打分。影响「自动挑哪一条歌词」，不影响注音。",
     "fallback_max_delta": 30.0,

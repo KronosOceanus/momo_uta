@@ -1,7 +1,7 @@
 """歌词 v2 单一行模型：body/rows 往返、metadata、空行、译文。"""
 import unittest
 
-from nihonco_player.core import lyric_rows as R
+from momo_player.core import lyric_rows as R
 
 
 class TestLyricRows(unittest.TestCase):
@@ -97,7 +97,7 @@ class TestRowsStorage(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -126,7 +126,7 @@ class TestRowsStorage(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -150,10 +150,10 @@ class TestRowsService(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import lyric_document as LD
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import lyric_document as LD
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -182,10 +182,10 @@ class TestRowsEditReading(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import lyric_document as LD
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import lyric_document as LD
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -216,10 +216,10 @@ class TestRowsPlayback(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import lyric_document as LD
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import lyric_document as LD
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -297,10 +297,10 @@ class TestV2Payload(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import song as SONG
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import song as SONG
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -333,10 +333,10 @@ class TestV2EditLine(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import song as SONG
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import song as SONG
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

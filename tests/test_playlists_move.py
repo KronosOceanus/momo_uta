@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from nihonco_player.core import playlists as PL
+from momo_player.core import playlists as PL
 
 
 class TestMoveMany(unittest.TestCase):

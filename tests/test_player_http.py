@@ -10,15 +10,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player.core import diag                  # noqa: E402
-from nihonco_player.core import library as LIB        # noqa: E402
-from nihonco_player.core import lyrics as LY         # noqa: E402
-from nihonco_player.core import lrc_files as LRF     # noqa: E402
-from nihonco_player.core import user_config as UC    # noqa: E402
-from nihonco_yomi.config import PUI                  # noqa: E402
-from nihonco_player.core.library import CACHE        # noqa: E402
-from nihonco_player.http import routes as ROUTES      # noqa: E402
-from nihonco_player.http.server import make_server   # noqa: E402
+from momo_player.core import diag                  # noqa: E402
+from momo_player.core import library as LIB        # noqa: E402
+from momo_player.core import lyrics as LY         # noqa: E402
+from momo_player.core import lrc_files as LRF     # noqa: E402
+from momo_player.core import user_config as UC    # noqa: E402
+from momo_yomi.config import PUI                  # noqa: E402
+from momo_player.core.library import CACHE        # noqa: E402
+from momo_player.http import routes as ROUTES      # noqa: E402
+from momo_player.http.server import make_server   # noqa: E402
 
 FAKE_LRC = "\n".join([
     "[00:00.00]作词 : X",
@@ -84,7 +84,7 @@ class TestPlayerHttp(unittest.TestCase):
 
     def test_page(self):
         html = urllib.request.urlopen(self.url("/")).read().decode()
-        self.assertIn("nihonco uta", html)
+        self.assertIn("momo uta", html)
         self.assertIn("resetall", html)
 
     def test_library(self):

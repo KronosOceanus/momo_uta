@@ -5,13 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import lrc_doc as DOC
-from nihonco_player.core import library as LIB
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.core import lyrics as LY
-from nihonco_player.core import lyrics_cache as LC
-from nihonco_player.core.library import CACHE
-from nihonco_player.service import song as SONG
+from momo_player.core import lrc_doc as DOC
+from momo_player.core import library as LIB
+from momo_player.core import lrc_files as LRF
+from momo_player.core import lyrics as LY
+from momo_player.core import lyrics_cache as LC
+from momo_player.core.library import CACHE
+from momo_player.service import song as SONG
 
 
 def rows():
@@ -152,7 +152,7 @@ class TestManualReading(unittest.TestCase):
                 self.assertNotEqual(before["token_ids"][0], after["token_ids"][0])
 
     def test_lrc_load_exposes_lid_and_token_spans(self):
-        from nihonco_player.service import lrc as SVC_LRC
+        from momo_player.service import lrc as SVC_LRC
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = self._env(root)
@@ -256,7 +256,7 @@ class TestManualReading(unittest.TestCase):
                 self.assertNotEqual(after["line_ids"][1], before["line_ids"][0])
 
     def test_blank_line_keeps_following_annotation_index(self):
-        from nihonco_player.service import lrc as SVC_LRC
+        from momo_player.service import lrc as SVC_LRC
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = self._env(root)
@@ -288,7 +288,7 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual("".join(x[0] for x in doc["annotations"][1]), "呼んでくれた")
 
     def test_api_save_reload_keeps_token_identity(self):
-        from nihonco_player.service import lrc as SVC_LRC
+        from momo_player.service import lrc as SVC_LRC
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = self._env(root)
@@ -371,7 +371,7 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(LRF.load(audio, uid)["translations"], {0: "you"})
 
     def test_timed_empty_line_translation_does_not_shift(self):
-        from nihonco_player.service import lrc as SVC_LRC
+        from momo_player.service import lrc as SVC_LRC
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = self._env(root)
@@ -389,7 +389,7 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(doc["translations"], {0: "you", 1: "flower"})
 
     def test_lrc_action_missing_translations_preserves_but_empty_clears(self):
-        from nihonco_player.service import lrc as SVC_LRC
+        from momo_player.service import lrc as SVC_LRC
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = self._env(root)
@@ -566,8 +566,8 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual([x["text"] for x in after["lines"]], ["君"])
 
     def test_export_maps_metadata_around_blank_body_rows(self):
-        from nihonco_player.service import lrc as SVC_LRC
-        from nihonco_player.core import lrc_doc as DOC
+        from momo_player.service import lrc as SVC_LRC
+        from momo_player.core import lrc_doc as DOC
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = self._env(root)
@@ -602,8 +602,8 @@ class TestManualReading(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = self._env(root)
-            from nihonco_player.core import playlists as PL
-            from nihonco_player.service import playlist as SVC_PL
+            from momo_player.core import playlists as PL
+            from momo_player.service import playlist as SVC_PL
             with patch.object(LRF, "LYRICS", root / "lyrics"), \
                  patch.object(LC, "CACHE", root / "cache"), \
                  patch.object(PL, "FILE", root / "playlists.json"), \
@@ -638,7 +638,7 @@ class TestSaveAlignment(unittest.TestCase):
                         1: [["呼んで", None, None], ["くれた", None, None]]}
                 LRF.save(audio, rows()[:2], seed)
                 before = LRF.load(audio)["annotations"]
-                from nihonco_player.service import lrc as SVC
+                from momo_player.service import lrc as SVC
                 res = SVC.lrc_action({"action": "save", "uid": LRF.uid_of(audio), "lines": [
                     {"t": 1.0, "text": "新しい行"},
                     {"t": 5.0, "text": "君の名前"},
@@ -677,7 +677,7 @@ class TestDeleteStore(unittest.TestCase):
 
 class TestSharedLyricsSource(unittest.TestCase):
     def test_store_only_is_not_pending_and_lrc_sees_same(self):
-        from nihonco_player.service import lrc as SVC_LRC
+        from momo_player.service import lrc as SVC_LRC
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = root / "歌手 - 曲.mp3"

@@ -2,10 +2,10 @@
 """架构边界检查：违反依赖规则就退出码 1。
 
 规则（见 docs/architecture.md §2）：
-  1. nihonco_yomi 不能 import 任何 nihonco_player*
+  1. momo_yomi 不能 import 任何 momo_player*
   2. core 不能 import service / http
   3. service 不能 import http
-  4. http 不能 import nihonco_player_app
+  4. http 不能 import momo_uta_app
 """
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 RULES = {
-    "src/nihonco_yomi": ("nihonco_player", "nihonco_player_app"),
-    "src/nihonco_player/core": ("nihonco_player.service", "nihonco_player.http",
-                                "nihonco_player_app"),
-    "src/nihonco_player/service": ("nihonco_player.http", "nihonco_player_app"),
-    "src/nihonco_player/http": ("nihonco_player_app",),
+    "src/momo_yomi": ("momo_player", "momo_uta_app"),
+    "src/momo_player/core": ("momo_player.service", "momo_player.http",
+                                "momo_uta_app"),
+    "src/momo_player/service": ("momo_player.http", "momo_uta_app"),
+    "src/momo_player/http": ("momo_uta_app",),
 }
 
 

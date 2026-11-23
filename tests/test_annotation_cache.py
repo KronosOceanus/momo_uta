@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import annotation as A
-from nihonco_player.core import annotation_cache as AC
+from momo_player.core import annotation as A
+from momo_player.core import annotation_cache as AC
 
 
 def fields(text, stored=None):

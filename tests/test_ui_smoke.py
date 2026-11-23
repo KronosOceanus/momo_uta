@@ -18,11 +18,11 @@ try:
 except Exception:                     # pragma: no cover
     HAVE_WEBVIEW = False
 
-from nihonco_player.core import library as LIB
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.core import vocals as VOC
-from nihonco_player.core.library import CACHE
-from nihonco_player.http.server import make_server
+from momo_player.core import library as LIB
+from momo_player.core import lrc_files as LRF
+from momo_player.core import vocals as VOC
+from momo_player.core.library import CACHE
+from momo_player.http.server import make_server
 
 
 @unittest.skipUnless(HAVE_WEBVIEW, "没有 pywebview")

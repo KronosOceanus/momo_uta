@@ -21,7 +21,7 @@ from pathlib import Path
 
 from tools.common import (CORPUS, CURATED, GOLD, REPORTS, ROOT, TABLES, Annotator,
                     load_gold, normalize, run_all, segments_of)
-from nihonco_yomi.kana import kata_to_hira
+from momo_yomi.kana import kata_to_hira
 
 
 #!/usr/bin/env python3
@@ -37,7 +37,7 @@ from nihonco_yomi.kana import kata_to_hira
     python3 tools/evalkit.py run --dummy
 
     # 正式跑
-    python3 tools/evalkit.py run --annotator "python3 -m nihonco_yomi.annotate --stdio"
+    python3 tools/evalkit.py run --annotator "python3 -m momo_yomi.annotate --stdio"
 
 指标:
     precision = 判对的已标注 span / 全部已标注 span   ← 核心指标（目标 ≥99.5%）
@@ -172,7 +172,7 @@ def score(gold: list[dict], annotate, responses: list[dict] | None = None) -> di
 def cmd_run(argv=None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--gold", default=str(PROSE))
-    ap.add_argument("--annotator", help="stdio 标注器命令，例如 'python3 -m nihonco_yomi.annotate --stdio'")
+    ap.add_argument("--annotator", help="stdio 标注器命令，例如 'python3 -m momo_yomi.annotate --stdio'")
     ap.add_argument("--dummy", action="store_true", help="用空标注器验证管线")
     ap.add_argument("--lyrics", action="store_true", help="同时加载歌词开发集")
     ap.add_argument("--exclude-latin", action="store_true",
@@ -501,7 +501,7 @@ def cmd_patches(argv=None) -> None:
 
     用法: python3 tools/evalkit.py patches [--top 12]
     """
-    import nihonco_yomi.annotate as A
+    import momo_yomi.annotate as A
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=12)

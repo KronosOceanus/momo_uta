@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.core import lyric_rows as R
+from momo_player.core import lrc_files as LRF
+from momo_player.core import lyric_rows as R
 
 
 class TestImportValidation(unittest.TestCase):

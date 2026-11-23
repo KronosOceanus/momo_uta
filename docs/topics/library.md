@@ -181,7 +181,7 @@ data/curated/playlists.json
 
 ```text
 开发时 data = 项目/data；
-打包后 data = ~/Library/Application Support/nihonco uta/data。
+打包后 data = ~/Library/Application Support/momo uta/data。
 ```
 
 结构：

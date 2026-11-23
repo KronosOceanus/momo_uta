@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CMD = [sys.executable, "-m", "nihonco_yomi.annotate", "--stdio"]
+CMD = [sys.executable, "-m", "momo_yomi.annotate", "--stdio"]
 
 
 def call(req: dict) -> dict:
@@ -96,7 +96,7 @@ class TestGlossary(unittest.TestCase):
     def test_glossary_overrides_tokenizer(self):
         """人工词表（data/curated/glossary_lyrics.json）优先于分词器：私→わたし 而不是 わたくし。"""
         import importlib  # noqa: E402
-        A = importlib.import_module("nihonco_yomi.annotate")
+        A = importlib.import_module("momo_yomi.annotate")
         A.load_tables()
         self.assertEqual(A.GLOSSARY.get("私"), "わたし")
         seg = self._first("私の声")
@@ -112,7 +112,7 @@ class TestTokenizerConcurrency(unittest.TestCase):
         """HTTP 是多线程的：Sudachi Tokenizer 不能并发使用。"""
         import importlib
         import threading
-        A = importlib.import_module("nihonco_yomi.annotate")
+        A = importlib.import_module("momo_yomi.annotate")
 
         errs, outs = [], []
         lock = threading.Lock()

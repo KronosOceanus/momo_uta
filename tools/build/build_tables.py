@@ -22,7 +22,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from nihonco_yomi.kana import kata_to_hira
+from momo_yomi.kana import kata_to_hira
 
 from tools.common import SOURCES, TABLES as OUT
 CACHE = SOURCES / "jmdict"

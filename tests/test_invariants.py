@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import nihonco_yomi.invariants as IV  # noqa: E402
+import momo_yomi.invariants as IV  # noqa: E402
 
 
 def seg(base, ruby, start, end, level="A"):
@@ -26,7 +26,7 @@ class TestInvariants(unittest.TestCase):
     def test_okurigana_is_checked_at_split_time(self):
         """送り仮名对齐由 split_pieces 的 DP 保证：对不上就返回 None。"""
         import importlib  # noqa: E402
-        A = importlib.import_module("nihonco_yomi.annotate")
+        A = importlib.import_module("momo_yomi.annotate")
         A.load_tables()
         self.assertIsNone(A.split_pieces("行う", "いき"))
 
@@ -48,7 +48,7 @@ class TestInvariants(unittest.TestCase):
 class TestAlignment(unittest.TestCase):
     def setUp(self):
         import importlib  # noqa: E402
-        A = importlib.import_module("nihonco_yomi.annotate")
+        A = importlib.import_module("momo_yomi.annotate")
         A.load_tables()
         self.A = A
 
@@ -67,7 +67,7 @@ class TestAlignment(unittest.TestCase):
 class TestEmitPolicy(unittest.TestCase):
     def test_emit_a_suppresses_ab_and_b(self):
         import importlib  # noqa: E402
-        A = importlib.import_module("nihonco_yomi.annotate")
+        A = importlib.import_module("momo_yomi.annotate")
         A.load_tables()
         A.CONFIG.emit = "A"
         try:

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from nihonco_player.core import song_meta as META
+from momo_player.core import song_meta as META
 
 
 class TestSongMeta(unittest.TestCase):

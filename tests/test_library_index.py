@@ -4,11 +4,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import fingerprint as FP
-from nihonco_player.core import library as LIB
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.core import library_index as LI
-from nihonco_player.core.library import CACHE
+from momo_player.core import fingerprint as FP
+from momo_player.core import library as LIB
+from momo_player.core import lrc_files as LRF
+from momo_player.core import library_index as LI
+from momo_player.core.library import CACHE
 
 
 class TestLibraryIndex(unittest.TestCase):

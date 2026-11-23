@@ -21,8 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.common import CORPUS, TABLES  # noqa: E402
 
 KANJI_ONLY = re.compile(r"^[\u4e00-\u9fff\u3005\u3006]+$")
-from nihonco_yomi.thresholds import STATS_MULTI_SHARE as MULTI_SHARE   # noqa: E402
-from nihonco_yomi.thresholds import STATS_MIN_TOTAL as MIN_TOTAL        # noqa: E402
+from momo_yomi.thresholds import STATS_MULTI_SHARE as MULTI_SHARE   # noqa: E402
+from momo_yomi.thresholds import STATS_MIN_TOTAL as MIN_TOTAL        # noqa: E402
 
 
 def main() -> None:

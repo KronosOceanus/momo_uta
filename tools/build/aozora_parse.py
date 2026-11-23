@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 
-from nihonco_yomi.kana import kata_to_hira
+from momo_yomi.kana import kata_to_hira
 
 KANJI = re.compile(r"[\u4e00-\u9fff\u3005\u3006]")   # 漢字 + 々 + 〆
 NOTE = re.compile(r"※?［＃.*?］", re.S)

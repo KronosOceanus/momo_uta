@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player.core import lyrics as L  # noqa: E402
+from momo_player.core import lyrics as L  # noqa: E402
 
 
 
@@ -23,7 +23,7 @@ class TestTimedLyrics(unittest.TestCase):
 class TestLocalOnlyLoad(unittest.TestCase):
     def test_local_only_does_not_call_network(self):
         import tempfile
-        from nihonco_player.core import lyrics_fetch as LF
+        from momo_player.core import lyrics_fetch as LF
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(LF, "cache_path", return_value=Path(tmp) / "none.json"), \
                  patch.object(LF, "auto_match", side_effect=AssertionError("不该联网")):
@@ -33,7 +33,7 @@ class TestLocalOnlyLoad(unittest.TestCase):
 class TestSearchUsesPayload(unittest.TestCase):
     def test_search_uses_search_payload_without_detail(self):
         import json
-        from nihonco_player.core import lyrics_fetch as LF
+        from momo_player.core import lyrics_fetch as LF
         payload = {"result": {"songs": [{
             "id": 94214994, "name": "群青",
             "artists": [{"name": "YOASOBI"}], "duration": 248444,
@@ -48,7 +48,7 @@ class TestSearchUsesPayload(unittest.TestCase):
 
 class TestUnifiedMatch(unittest.TestCase):
     def test_auto_skips_candidate_without_valid_lyrics(self):
-        from nihonco_player.core import lyrics_fetch as LF
+        from momo_player.core import lyrics_fetch as LF
         c1 = {"id": 1, "name": "曲", "artist": "歌手", "duration": 60.0}
         c2 = {"id": 2, "name": "曲", "artist": "歌手", "duration": 60.0}
         hit = {"id": 2, "name": "曲", "lrc": "[00:01.00]あの日"}

@@ -39,7 +39,7 @@ function makeEngine() {
     AbortController,
     requestAnimationFrame() {},
   };
-  vm.runInNewContext(fs.readFileSync('src/nihonco_player/static/05-audio.js', 'utf8'), ctx);
+  vm.runInNewContext(fs.readFileSync('src/momo_player/static/05-audio.js', 'utf8'), ctx);
   return {engine: new ctx.window.NH.AudioEngine(), pending, signals, starts};
 }
 

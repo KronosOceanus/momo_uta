@@ -4,10 +4,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import fingerprint as FP
-from nihonco_player.core import library as LIB
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.core.library import CACHE
+from momo_player.core import fingerprint as FP
+from momo_player.core import library as LIB
+from momo_player.core import lrc_files as LRF
+from momo_player.core.library import CACHE
 
 
 class TestSelectiveLibrary(unittest.TestCase):
@@ -37,7 +37,7 @@ class TestSelectiveLibrary(unittest.TestCase):
                  patch.object(FP, "fingerprint", side_effect=lambda p: "u1" if str(p) == str(a) else "u2"), \
                  patch.object(LIB, "scan_library", side_effect=AssertionError("不该全量扫描")):
                 # all_uids 通过临时 playlists 文件提供
-                from nihonco_player.core import playlists as PL
+                from momo_player.core import playlists as PL
                 old = PL.FILE
                 PL.set_file(root / "playlists.json")
                 try:
@@ -48,7 +48,7 @@ class TestSelectiveLibrary(unittest.TestCase):
             self.assertEqual([x["file"] for x in lib], [str(a)])
 
     def test_index_record_avoids_fingerprint(self):
-        from nihonco_player.core import library_index as LI
+        from momo_player.core import library_index as LI
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             a = root / "X - A.mp3"; a.touch()
@@ -66,7 +66,7 @@ class TestSelectiveLibrary(unittest.TestCase):
         with patch.object(FP, "paths_for_uids", return_value={}), \
              patch.object(LIB, "load_imports", return_value=[]), \
              patch.object(LIB, "scan_library", side_effect=AssertionError("不该全量扫描")):
-            from nihonco_player.core import playlists as PL
+            from momo_player.core import playlists as PL
             with tempfile.TemporaryDirectory() as tmp:
                 old = PL.FILE
                 PL.set_file(Path(tmp) / "playlists.json")
@@ -84,7 +84,7 @@ class TestSelectiveLibrary(unittest.TestCase):
                  patch.object(FP, "paths_for_uids", return_value={"u1": [str(a)]}), \
                  patch.object(FP, "fingerprint", side_effect=lambda p: "u1" if str(p) == str(a) else "u2"), \
                  patch.object(LIB, "scan_library", side_effect=AssertionError("不该全量扫描")):
-                from nihonco_player.core import playlists as PL
+                from momo_player.core import playlists as PL
                 old = PL.FILE
                 PL.set_file(root / "playlists.json")
                 try:
@@ -102,7 +102,7 @@ class TestSelectiveLibrary(unittest.TestCase):
                  patch.object(FP, "paths_for_uids", return_value={}), \
                  patch.object(FP, "fingerprint", return_value="u2"), \
                  patch.object(LIB, "scan_library", side_effect=AssertionError("不该全量扫描")):
-                from nihonco_player.core import playlists as PL
+                from momo_player.core import playlists as PL
                 old = PL.FILE
                 PL.set_file(root / "playlists.json")
                 try:
@@ -119,7 +119,7 @@ class TestSelectiveLibrary(unittest.TestCase):
             with patch.object(LIB, "load_imports", return_value=[]), \
                  patch.object(FP, "paths_for_uids", return_value={}), \
                  patch.object(LIB, "scan_library", side_effect=AssertionError("不该全量扫描")) as scan:
-                from nihonco_player.core import playlists as PL
+                from momo_player.core import playlists as PL
                 old = PL.FILE
                 PL.set_file(root / "playlists.json")
                 try:
@@ -141,7 +141,7 @@ class TestSelectiveLibrary(unittest.TestCase):
             LIB.LAST_MISSING = ["u1"]
             try:
                 with patch.object(LIB, "scan_library", return_value=[entry]), \
-                     patch("nihonco_player.core.playlists.all_uids", return_value=["u1"]), \
+                     patch("momo_player.core.playlists.all_uids", return_value=["u1"]), \
                      patch.object(LIB.LI, "meta", return_value={}), \
                      patch.object(LIB.LI, "set_meta") as set_meta, \
                      patch.object(LIB.LI, "flush"):

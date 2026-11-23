@@ -5,13 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import importing as IMP
-from nihonco_player.core import library as LIB
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.core import lyrics as LY
-from nihonco_player.core import lyrics_cache as LC
-from nihonco_player.core.library import CACHE
-from nihonco_player.service import song as SONG
+from momo_player.core import importing as IMP
+from momo_player.core import library as LIB
+from momo_player.core import lrc_files as LRF
+from momo_player.core import lyrics as LY
+from momo_player.core import lyrics_cache as LC
+from momo_player.core.library import CACHE
+from momo_player.service import song as SONG
 
 
 def rows():

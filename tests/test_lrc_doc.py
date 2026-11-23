@@ -1,7 +1,7 @@
 """lrc_doc：纯格式层，不碰文件。"""
 import unittest
 
-from nihonco_player.core import lrc_doc as D
+from momo_player.core import lrc_doc as D
 
 
 class TestLrcDoc(unittest.TestCase):

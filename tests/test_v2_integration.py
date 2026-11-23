@@ -4,15 +4,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import importing as IMP
-from nihonco_player.core import library as LIB
-from nihonco_player.core import lrc_doc as D
-from nihonco_player.core import lyric_rows as R
-from nihonco_player.core import lrc_files as LRF
-from nihonco_player.core import lyrics_cache as LC
-from nihonco_player.core.library import CACHE
-from nihonco_player.service import lrc as SVC_LRC
-from nihonco_player.service import song as SONG
+from momo_player.core import importing as IMP
+from momo_player.core import library as LIB
+from momo_player.core import lrc_doc as D
+from momo_player.core import lyric_rows as R
+from momo_player.core import lrc_files as LRF
+from momo_player.core import lyrics_cache as LC
+from momo_player.core.library import CACHE
+from momo_player.service import lrc as SVC_LRC
+from momo_player.service import song as SONG
 
 
 def _item(audio):
@@ -352,7 +352,7 @@ class TestV2CoreTransLang(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -373,7 +373,7 @@ class TestV2EmptyRows(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -390,7 +390,7 @@ class TestV2EmptyRows(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -411,7 +411,7 @@ class TestV2BlankOnlyDocument(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -432,8 +432,8 @@ class TestV2DisabledPlayback(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
-        from nihonco_player.service import lyric_document as LD
+        from momo_player.core import lrc_files as LRF
+        from momo_player.service import lyric_document as LD
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -451,7 +451,7 @@ class TestV2DisabledPlayback(unittest.TestCase):
 
 class TestV2LegacyExportRows(unittest.TestCase):
     def test_added_body_rows_survive_rows_from_legacy(self):
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         doc = {
             "text": "[00:01.00]a\n[00:02.00]b\n",
@@ -470,7 +470,7 @@ class TestV2LegacySaveTransLang(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -486,14 +486,14 @@ class TestV2LegacySaveTransLang(unittest.TestCase):
 
 class TestV2ExportRows(unittest.TestCase):
     def test_export_rows_prefers_explicit_rows(self):
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         doc = {"text": "[00:01.00]a\n", "body_rows": [{"t": 1.0, "text": "a"}]}
         rows = [{"kind": "lyric", "text": "x", "t": 1.0, "lid": "l_x", "tokens": []}]
         self.assertEqual(LRF.export_rows(doc, rows=rows), rows)
 
     def test_export_rows_accepts_kind_rows_in_lines(self):
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         doc = {"text": "", "body_rows": []}
         rows = [{"kind": "lyric", "text": "x", "t": 1.0, "lid": "l_x", "tokens": []}]
@@ -502,7 +502,7 @@ class TestV2ExportRows(unittest.TestCase):
 
 class TestV2LegacyExportDeletion(unittest.TestCase):
     def test_deleted_body_rows_are_removed(self):
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         doc = {"text": "[00:01.00]a\n[00:02.00]b\n[00:03.00]c\n",
                "body_rows": [{"t": 1.0, "text": "a"}, {"t": 2.0, "text": "b"},
@@ -515,7 +515,7 @@ class TestV2LegacyExportDeletion(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -525,7 +525,7 @@ class TestV2LegacyExportDeletion(unittest.TestCase):
                 self.assertFalse(LRF.save(audio, [])["ok"])
 
     def test_doc_from_rows_keeps_trans_lang(self):
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         doc = LRF.doc_from_rows(
             [{"kind": "lyric", "text": "a", "t": 1.0, "lid": "l_x",
@@ -538,7 +538,7 @@ class TestV2SaveRowIds(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -560,7 +560,7 @@ class TestV2SaveFillsTokens(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -575,7 +575,7 @@ class TestV2SaveFillsTokens(unittest.TestCase):
 
 class TestV2PlainLrcPlan(unittest.TestCase):
     def test_plain_lrc_import_generates_tokens(self):
-        from nihonco_player.core import lrc_files as LRF
+        from momo_player.core import lrc_files as LRF
 
         rows = LRF.plain_lrc_rows("[00:01.00]君の名前\n")
         self.assertTrue(rows[0]["tokens"])

@@ -6,7 +6,7 @@
 ```text
 本文路径相对 data 根：
   开发：<repo>/data
-  打包：~/Library/Application Support/nihonco uta/data
+  打包：~/Library/Application Support/momo uta/data
 ```
 
 ## 0. 一句话分类

@@ -314,7 +314,7 @@ rematch 本身不读写歌词缓存。
 ## 12. 扫描 CLI
 
 ```bash
-python -m nihonco_player.core.lyrics_fetch --scan <folder>
+python -m momo_player.core.lyrics_fetch --scan <folder>
 ```
 
 ```text

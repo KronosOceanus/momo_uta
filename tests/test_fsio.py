@@ -5,7 +5,7 @@ import threading
 import unittest
 from pathlib import Path
 
-from nihonco_player.core import fsio
+from momo_player.core import fsio
 
 
 class TestFsio(unittest.TestCase):

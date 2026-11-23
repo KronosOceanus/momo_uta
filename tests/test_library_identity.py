@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from nihonco_player.core import library as LIB
+from momo_player.core import library as LIB
 
 
 class TestLibraryIdentity(unittest.TestCase):
@@ -119,7 +119,7 @@ class TestLibraryIdentity(unittest.TestCase):
         import struct
         import wave
         from unittest.mock import patch
-        from nihonco_player.core import fingerprint as FP
+        from momo_player.core import fingerprint as FP
         with tempfile.TemporaryDirectory() as tmp:
             paths = [Path(tmp) / n for n in ("a.wav", "b.wav", "c.wav")]
             def make(path, sample):

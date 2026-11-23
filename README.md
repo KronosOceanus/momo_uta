@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/nihonco-uta-logo.png" width="112" alt="nihonco uta">
+  <img src="assets/momo-uta-logo.png" width="112" alt="momo uta">
 </p>
 
-<h1 align="center">nihonco uta</h1>
+<h1 align="center">桃歌 · momo uta</h1>
 
 <p align="center">
   日文歌词标注与练习播放器
@@ -11,12 +11,12 @@
 </p>
 
 <p align="center">
-  <img src="assets/nihonco-uta-screenshot.png" alt="nihonco uta 界面">
+  <img src="assets/momo-uta-screenshot.png" alt="momo uta 界面">
 </p>
 
 ## 它是什么
 
-nihonco uta 是一个本地日文歌曲播放器。
+桃歌（momo uta）是一个本地日文歌曲播放器。
 
 它把**播放、歌词、注音、翻译、时间轴编辑**放在同一个窗口里：
 
@@ -123,9 +123,9 @@ base / thin / full 同时只建议运行一个。
 本地构建后：
 
 ```text
-dist/base/nihonco-uta-base.app
-dist/thin/nihonco-uta-thin.app
-dist/full/nihonco-uta-full.app
+dist/base/momo-uta-base.app
+dist/thin/momo-uta-thin.app
+dist/full/momo-uta-full.app
 ```
 
 使用步骤：
@@ -162,7 +162,7 @@ dist/full/nihonco-uta-full.app
 底栏的 **📁 数据路径** 会直接用 Finder 打开当前数据目录。
 
 ```text
-~/Library/Application Support/nihonco uta/data/
+~/Library/Application Support/momo uta/data/
 ```
 
 主要内容：
@@ -230,7 +230,7 @@ make app
 产物：
 
 ```text
-dist/<variant>/nihonco-uta-<variant>.app
+dist/<variant>/momo-uta-<variant>.app
 ```
 
 ## 测试

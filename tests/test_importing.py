@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import importing, lrc_files as LRF, lyrics_cache, lyric_rows as R
+from momo_player.core import importing, lrc_files as LRF, lyrics_cache, lyric_rows as R
 
 
 class TestImportPreferNhlrc(unittest.TestCase):

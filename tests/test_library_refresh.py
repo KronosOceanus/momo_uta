@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import library as LIB
-from nihonco_player.core.library import CACHE
+from momo_player.core import library as LIB
+from momo_player.core.library import CACHE
 
 
 def item(uid, title):

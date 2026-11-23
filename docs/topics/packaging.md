@@ -7,7 +7,7 @@
 ```text
 开发入口：
   make app
-  .venv/bin/python -m nihonco_player_app
+  .venv/bin/python -m momo_uta_app
 ```
 
 ```text
@@ -30,9 +30,9 @@
 
 ```text
 产物：
-  dist/base/nihonco-uta-base.app   ~230 MB
-  dist/thin/nihonco-uta-thin.app   ~230 MB
-  dist/full/nihonco-uta-full.app   ~859 MB
+  dist/base/momo-uta-base.app   ~230 MB
+  dist/thin/momo-uta-thin.app   ~230 MB
+  dist/full/momo-uta-full.app   ~859 MB
 ```
 
 ```text
@@ -42,24 +42,24 @@
 ```text
 不支持 wheel / pip 安装入口。
 交付形态只有 macOS .app；wheel 不包含 config、static、tables、corpus。
-pyproject 不注册 console script，避免安装出一个不可用的 nihonco-uta 命令。
+pyproject 不注册 console script，避免安装出一个不可用的 momo-uta 命令。
 ```
 
 ### 三个版本
 
 | 版本 | 文件 | 内容 | 体积 |
 |---|---|---|---|
-| base | `nihonco-uta-base.app` | 播放器 + 歌词 + LRC + 翻译，不含人声依赖 | ~230 MB |
-| thin | `nihonco-uta-thin.app` | 同 base，但检测外部 demucs / ffmpeg | ~230 MB |
-| full | `nihonco-uta-full.app` | base + demucs + torch + ffmpeg | ~859 MB |
+| base | `momo-uta-base.app` | 播放器 + 歌词 + LRC + 翻译，不含人声依赖 | ~230 MB |
+| thin | `momo-uta-thin.app` | 同 base，但检测外部 demucs / ffmpeg | ~230 MB |
+| full | `momo-uta-full.app` | base + demucs + torch + ffmpeg | ~859 MB |
 
 ```text
 三者共享同一份用户数据：
-  ~/Library/Application Support/nihonco uta/data
+  ~/Library/Application Support/momo uta/data
 ```
 
 ```text
-full 里的 demucs 通过 app 的 --nihonco-demucs 子命令运行；
+full 里的 demucs 通过 app 的 --momo-demucs 子命令运行；
 入口先调用 multiprocessing.freeze_support()，避免子进程重开窗口。
 ```
 
@@ -82,9 +82,9 @@ Python 进程
 
 ```text
 Python 运行时
-src/nihonco_yomi
-src/nihonco_player
-src/nihonco_player_app
+src/momo_yomi
+src/momo_player
+src/momo_uta_app
 config/defaults.json
 static/player.html/.css/.js
 data/tables/jmdict_*.json
@@ -92,7 +92,7 @@ data/curated/glossary_lyrics.json
 data/curated/counters.json
 data/curated/lyrics_exclude.json
 data/corpus/ndl_reading_stats.json
-assets/nihonco-uta-logo.icns
+assets/momo-uta-logo.icns
 ```
 
 ```text
@@ -206,8 +206,8 @@ paths.BUNDLE
 
 paths.ROOT
   = 可写用户目录
-    ~/Library/Application Support/nihonco uta
-    可用 NIHONCO_HOME 覆盖
+    ~/Library/Application Support/momo uta
+    可用 MOMO_HOME 覆盖
 
 开发时：
   BUNDLE = ROOT = 项目根
@@ -242,8 +242,8 @@ data/config.json
 ## 8. 菜单栏名称
 
 ```text
-window title：nihonco uta
-CFBundleName / CFBundleDisplayName：nihonco uta
+window title：桃歌
+CFBundleName / CFBundleDisplayName：桃歌
 ```
 
 ```text

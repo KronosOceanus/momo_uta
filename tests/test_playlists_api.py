@@ -9,10 +9,10 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player.core import playlists as PL   # noqa: E402
-from nihonco_player.core import library as LIB       # noqa: E402
-from nihonco_player.core.library import CACHE        # noqa: E402
-from nihonco_player.http.server import make_server   # noqa: E402
+from momo_player.core import playlists as PL   # noqa: E402
+from momo_player.core import library as LIB       # noqa: E402
+from momo_player.core.library import CACHE        # noqa: E402
+from momo_player.http.server import make_server   # noqa: E402
 
 FAKE = {"key": "k1", "uid": "u1", "file": "/tmp/a.mp3", "stem": "X - A", "orig": "A",
         "title": "A", "artist": "X", "group": "", "has_lyric": True}
@@ -111,11 +111,11 @@ class TestImportToList(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import fingerprint as FP
-        from nihonco_player.core import importing as IMP
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import playlist as SVC
+        from momo_player.core import fingerprint as FP
+        from momo_player.core import importing as IMP
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import playlist as SVC
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -146,9 +146,9 @@ class TestUnknownUid(unittest.TestCase):
     def test_song_action_reports_missing_uid(self):
         import tempfile
         from pathlib import Path
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import playlist as SVC
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import playlist as SVC
         with tempfile.TemporaryDirectory() as tmp:
             CACHE.clear(); LIB.BY_UID.clear()
             old = PL.FILE
@@ -167,10 +167,10 @@ class TestMatchAction(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from unittest.mock import patch
-        from nihonco_player.core import library as LIB
-        from nihonco_player.core.library import CACHE
-        from nihonco_player.service import playlist as SVC
-        from nihonco_player.service import song as SONG
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import playlist as SVC
+        from momo_player.service import song as SONG
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

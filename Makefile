@@ -1,4 +1,4 @@
-# Nihongo_Acc · 常用命令
+# momo uta · 常用命令
 PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
 .PHONY: help test test-python arch arch-python config-check app \
@@ -36,14 +36,14 @@ help:
 	@echo "make eval-llm        # 带 LLM 的评测（默认不参与门禁）"
 
 config-check:
-	@$(PY) -m nihonco_yomi.config
+	@$(PY) -m momo_yomi.config
 
 
 app:
-	@$(PY) -m nihonco_player_app
+	@$(PY) -m momo_uta_app
 
 api:
-	@$(PY) -c "import nihonco_yomi; print(nihonco_yomi.Annotator().annotate('今日は雨が降る')['romaji']['text'])"
+	@$(PY) -c "import momo_yomi; print(momo_yomi.Annotator().annotate('今日は雨が降る')['romaji']['text'])"
 
 test: arch test-python
 	node --test tests/lrc_editor.test.cjs tests/state_machine.test.cjs tests/audio_engine.test.cjs
@@ -79,19 +79,19 @@ eval:
 	$(PY) -m tools.eval.evalkit run --annotator "$(CMD)" --lyrics
 
 eval-real:
-	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --lyrics
+	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m momo_yomi.annotate --stdio" --lyrics
 
 eval-kanji:
-	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --lyrics --exclude-latin
+	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m momo_yomi.annotate --stdio" --lyrics --exclude-latin
 
 eval-gen:
-	$(PY) -m tools.eval.evalkit run --gold eval/gold/lyrics_gen.jsonl --annotator "$(PY) -m nihonco_yomi.annotate --stdio" --exclude-latin
+	$(PY) -m tools.eval.evalkit run --gold eval/gold/lyrics_gen.jsonl --annotator "$(PY) -m momo_yomi.annotate --stdio" --exclude-latin
 
 eval-test:
-	$(PY) -m tools.eval.evalkit run --gold eval/gold/lyrics_test.jsonl --annotator "$(PY) -m nihonco_yomi.annotate --stdio"
+	$(PY) -m tools.eval.evalkit run --gold eval/gold/lyrics_test.jsonl --annotator "$(PY) -m momo_yomi.annotate --stdio"
 
 eval-llm:
-	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m nihonco_yomi.annotate --stdio --llm --llm-min-conf 0.95" --lyrics
+	$(PY) -m tools.eval.evalkit run --annotator "$(PY) -m momo_yomi.annotate --stdio --llm --llm-min-conf 0.95" --lyrics
 
 ceiling:
 	$(PY) -m tools.eval.evalkit ceiling
@@ -100,7 +100,7 @@ stats:
 	$(PY) -m tools.eval.evalkit stats
 
 tables-check:
-	$(PY) -m nihonco_yomi.annotate --check-tables
+	$(PY) -m momo_yomi.annotate --check-tables
 
 build-stats:
 	$(PY) -m tools.build.build_corpus_stats

@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nihonco_player.core import waveform
+from momo_player.core import waveform
 
 
 class TestWaveformCache(unittest.TestCase):

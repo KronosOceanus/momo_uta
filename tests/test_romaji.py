@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_yomi.romaji import KEYS, ROMAJI, keys_of, morae, romaji_of  # noqa: E402
+from momo_yomi.romaji import KEYS, ROMAJI, keys_of, morae, romaji_of  # noqa: E402
 
 
 class TestTables(unittest.TestCase):

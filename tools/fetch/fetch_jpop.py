@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.eval.rules import label_line                     # noqa: E402
-from nihonco_yomi.kana import kata_to_hira
+from momo_yomi.kana import kata_to_hira
 
 from tools.common import CORPUS, GOLD, REPORTS, SOURCES
 

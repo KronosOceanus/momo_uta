@@ -7,8 +7,8 @@ from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from nihonco_player.core import library as LIB  # noqa: E402
-from nihonco_player.core import lrc_files as LRF  # noqa: E402
+from momo_player.core import library as LIB  # noqa: E402
+from momo_player.core import lrc_files as LRF  # noqa: E402
 
 
 class TestLibrary(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestLibrary(unittest.TestCase):
         LRF.LYRICS = self.dir / "lyrics"
 
     def tearDown(self):
-        LIB.LY.set_cache_dir(Path.home() / "Documents" / "nihonco_uta" / "data" / "cache" / "lyrics")
+        LIB.LY.set_cache_dir(Path.home() / "Documents" / "momo_uta" / "data" / "cache" / "lyrics")
         LRF.LYRICS = self.old_lyrics
         self.tmp.cleanup()
 

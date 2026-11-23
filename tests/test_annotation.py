@@ -1,7 +1,7 @@
 """注音装配：括号注音、手改读音、nhlrc 标注对齐。"""
 import unittest
 
-from nihonco_player.core import annotation as A
+from momo_player.core import annotation as A
 
 
 class TestAnnotation(unittest.TestCase):

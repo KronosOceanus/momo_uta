@@ -164,8 +164,8 @@ job 失败
 
 ```bash
 make api
-.venv/bin/python -m nihonco_yomi.annotate --stdio
-.venv/bin/python -m nihonco_player_app
+.venv/bin/python -m momo_yomi.annotate --stdio
+.venv/bin/python -m momo_uta_app
 ```
 
 ```text
@@ -188,7 +188,7 @@ zip 在 dist/
 
 ```text
 打包后用户数据：
-  ~/Library/Application Support/nihonco uta/data
+  ~/Library/Application Support/momo uta/data
 开发时数据：
   <repo>/data
 ```

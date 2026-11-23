@@ -29,7 +29,7 @@ data/lyrics/.lock
 
 ```text
 开发时 data = 项目/data；
-打包后 data = ~/Library/Application Support/nihonco uta/data。
+打包后 data = ~/Library/Application Support/momo uta/data。
 ```
 
 规则：
@@ -168,7 +168,7 @@ t 是毫秒。
 ```json
 {
   "v": 2,
-  "gen": "nihonco 0.1",
+  "gen": "momo 0.1",
   "body": "a1b2c3d4",
   "lines": [],
   "trans_lang": "zh",
@@ -390,7 +390,7 @@ disabled v2 文档
 #NHLRC 2
 {
  "v": 2,
- "gen": "nihonco 0.1",
+ "gen": "momo 0.1",
  "disabled": true
 }
 ```
@@ -467,7 +467,7 @@ disabled .nhlrc
 #NHLRC 2
 {
  "v": 2,
- "gen": "nihonco 0.1",
+ "gen": "momo 0.1",
  "body": "a1b2c3d4",
  "lines": [
   {
@@ -489,7 +489,7 @@ disabled .nhlrc
 #NHLRC 2
 {
  "v": 2,
- "gen": "nihonco 0.1",
+ "gen": "momo 0.1",
  "body": "a1b2c3d4",
  "lines": [
   {
@@ -513,7 +513,7 @@ disabled .nhlrc
 #NHLRC 2
 {
  "v": 2,
- "gen": "nihonco 0.1",
+ "gen": "momo 0.1",
  "disabled": true
 }
 ```
