@@ -195,3 +195,64 @@ def playable(rows: list[dict]) -> list[dict]:
              if r.get("kind") == "lyric" and r.get("t") is not None]
     items.sort(key=lambda item: (item[1]["t"], item[0]))
     return [r for _, r in items]
+
+
+def split_row(row: dict, pos: int) -> tuple[dict, dict]:
+    """按正文位置拆 lyric row；原内容和 lid 留在非空侧。"""
+    if row.get("kind") != "lyric":
+        raise ValueError("只能拆 lyric 行")
+    text = row.get("text") or ""
+    pos = max(0, min(len(text), int(pos)))
+    left_text, right_text = text[:pos], text[pos:]
+    tokens = row.get("tokens") or []
+    left_tokens = [dict(t) for t in tokens if t["end"] <= pos]
+    right_tokens = [{**t, "start": t["start"] - pos, "end": t["end"] - pos}
+                    for t in tokens if t["start"] >= pos]
+    left_empty, right_empty = not left_text.strip(), not right_text.strip()
+    origin_lid = row.get("lid") or _new_lid()
+    origin_id = row.get("id") or _new_row_id()
+    trans = row.get("trans") or ""
+    if left_empty and not right_empty:
+        left = {"id": _new_row_id(), "kind": "blank", "text": "", "t": row.get("t"),
+                "lid": _new_lid(), "tokens": [], "trans": ""}
+        right = {"id": origin_id, "kind": "lyric", "text": right_text,
+                 "t": row.get("t") if row.get("t") is not None else None,
+                 "lid": origin_lid, "tokens": right_tokens, "trans": trans}
+        return left, right
+    left = {"id": origin_id, "kind": "lyric" if left_text else "blank",
+            "text": left_text, "t": row.get("t") if left_text else None,
+            "lid": origin_lid if left_text else _new_lid(),
+            "tokens": left_tokens, "trans": trans if left_text else ""}
+    right = {"id": _new_row_id(), "kind": "blank" if not right_text else "lyric",
+             "text": right_text, "t": None,
+             "lid": _new_lid(), "tokens": right_tokens,
+             "trans": ""}
+    return left, right
+
+
+def merge_rows(left: dict, right: dict) -> dict:
+    """合并两行；非空内容侧的 row.id/lid 优先，tokens 平移。"""
+    left_text = left.get("text") or ""
+    right_text = right.get("text") or ""
+    left_content = bool(left_text.strip())
+    right_content = bool(right_text.strip())
+    if left_content or not right_content:
+        target = left
+        tokens = [dict(t) for t in (left.get("tokens") or [])]
+        offset = len(left_text)
+        tokens += [{**t, "start": t["start"] + offset, "end": t["end"] + offset}
+                   for t in (right.get("tokens") or [])]
+    else:
+        target = right
+        tokens = [dict(t) for t in (right.get("tokens") or [])]
+    parts = [str(x).strip() for x in (left.get("trans"), right.get("trans"))
+             if x and str(x).strip()]
+    target = dict(target)
+    target["text"] = left_text + right_text
+    target["t"] = left.get("t") if left.get("t") is not None else right.get("t")
+    target["kind"] = "lyric" if (left_text + right_text).strip() else "blank"
+    target["tokens"] = tokens
+    target["trans"] = " ".join(parts)
+    if not target.get("lid"):
+        target["lid"] = _new_lid()
+    return target

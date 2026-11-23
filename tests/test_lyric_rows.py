@@ -228,3 +228,44 @@ class TestRowsPlayback(unittest.TestCase):
                                  ["first", "late", "tie"])
                 self.assertEqual(out["lines"][0]["body_index"], 2)
                 self.assertEqual(out["lines"][1]["lid"], "l_late")
+
+
+class TestRowOperations(unittest.TestCase):
+    def test_split_keeps_lid_on_content_side_and_moves_tokens(self):
+        row = {"id": "r1", "kind": "lyric", "text": "君の名", "t": 1.0,
+               "lid": "l_aaa", "trans": "你的名字",
+               "tokens": [
+                   {"tid": "t1", "start": 0, "end": 1, "base": "君", "ruby": "きみ", "level": "A"},
+                   {"tid": "t2", "start": 1, "end": 2, "base": "の", "ruby": None, "level": "K"},
+                   {"tid": "t3", "start": 2, "end": 3, "base": "名", "ruby": "な", "level": "A"},
+               ]}
+        left, right = R.split_row(row, 2)
+        self.assertEqual((left["text"], left["lid"]), ("君の", "l_aaa"))
+        self.assertEqual(left["trans"], "你的名字")
+        self.assertEqual([t["tid"] for t in left["tokens"]], ["t1", "t2"])
+        self.assertEqual((right["text"], right["lid"]), ("名", right["lid"]))
+        self.assertEqual(right["trans"], "")
+        self.assertEqual([t["tid"] for t in right["tokens"]], ["t3"])
+        self.assertEqual(right["tokens"][0]["start"], 0)
+
+    def test_split_at_start_moves_lid_to_right(self):
+        row = {"id": "r1", "kind": "lyric", "text": "君", "t": 1.0,
+               "lid": "l_aaa", "trans": "你", "tokens": []}
+        left, right = R.split_row(row, 0)
+        self.assertEqual(left["kind"], "blank")
+        self.assertEqual(right["lid"], "l_aaa")
+        self.assertEqual(right["trans"], "你")
+
+    def test_merge_joins_tokens_and_translations_in_document_order(self):
+        left = {"id": "r1", "kind": "lyric", "text": "君", "t": 1.0,
+                "lid": "l_aaa", "trans": "你",
+                "tokens": [{"tid": "t1", "start": 0, "end": 1, "base": "君"}]}
+        right = {"id": "r2", "kind": "lyric", "text": "花", "t": 2.0,
+                 "lid": "l_bbb", "trans": "花",
+                 "tokens": [{"tid": "t2", "start": 0, "end": 1, "base": "花"}]}
+        out = R.merge_rows(left, right)
+        self.assertEqual(out["text"], "君花")
+        self.assertEqual(out["lid"], "l_aaa")
+        self.assertEqual(out["trans"], "你 花")
+        self.assertEqual([t["tid"] for t in out["tokens"]], ["t1", "t2"])
+        self.assertEqual(out["tokens"][1]["start"], 1)
