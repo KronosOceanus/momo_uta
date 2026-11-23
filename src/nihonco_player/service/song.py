@@ -329,7 +329,8 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             res = LRC.save(item["file"], body_rows, ann, uid=uid, title=title,
                            artist=artist, expected_version=expected_version,
                            translations=trans, trans_lang=trans_lang,
-                           line_ids=out_lids, token_ids=out_tids)
+                           line_ids=out_lids, token_ids=out_tids,
+                           metadata=doc.get("metadata"))
             if res.get("ok"):
                 saved_ids = _saved_identities(body_rows, ann, out_lids, out_tids)
     if res.get("ok") and saved_ids:

@@ -5,61 +5,9 @@
 >
 > 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
-## 1. 首次保存丢失歌词元数据
+## 1. wheel 缺少默认配置和前端静态资源
 
 - 编号：BUG-001
-- 状态：⬜ 待修
-- 优先级：中
-- 影响：`[ar:]`、`[ti:]`、`[offset:]` 等元数据丢失
-- 复现：代码路径已确认
-
-### 现象
-
-从歌词缓存加载时能看到：
-
-```text
-[ar:歌手]
-```
-
-首次保存为 `.nhlrc` 后重新加载，字段消失。
-
-### 原因
-
-`core/lrc_files.py` 的 `save()`：
-
-```python
-original = 旧 nhlrc 内容
-body, _tail = _split_nhlrc(original)
-_, metadata = _parse_document(body)
-```
-
-首次保存：
-
-```text
-original = ""
-metadata = []
-```
-
-编辑行里没有 metadata，`save()` 又没有从当前 doc 接收 metadata，于是写入空。
-
-### 方向
-
-```text
-save() 接收当前 metadata
-  或
-从 load 的 doc 带入
-```
-
-### 相关
-
-```text
-src/nihonco_player/core/lrc_files.py: save
-src/nihonco_player/service/song.py: save_lyrics
-```
-
-## 2. wheel 缺少默认配置和前端静态资源
-
-- 编号：BUG-002
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：`pip install` 后命令入口运行时报错
@@ -112,7 +60,7 @@ BUG-001 重复歌词身份错位
 BUG-001 并发播放
 BUG-001 后台任务重复
 BUG-001 元数据丢失
-BUG-002 wheel 资源
+BUG-001 wheel 资源
 ```
 
 ## 说明

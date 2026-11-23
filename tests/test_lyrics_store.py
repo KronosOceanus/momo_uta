@@ -570,6 +570,25 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(after["line_ids"][0], before["line_ids"][1])
                 self.assertEqual(after["line_ids"][1], before["line_ids"][0])
 
+    def test_first_save_preserves_cached_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60), \
+                 patch.object(LRF.LY, "get_lrc", return_value={
+                     "lrc": "[ar:歌手]\n[ti:曲名]\n[00:01.00]君\n",
+                     "source": "test"}):
+                doc = LRF.load(audio)
+                self.assertEqual(doc["metadata"][0]["text"], "[ar:歌手]")
+                self.assertTrue(SONG.save_lyrics(
+                    CACHE["0"], doc["body_rows"], "align")["ok"])
+                after = LRF.load(audio)
+                self.assertEqual([x["text"] for x in after["metadata"]],
+                                 ["[ar:歌手]", "[ti:曲名]"])
+                self.assertEqual([x["text"] for x in after["lines"]], ["君"])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

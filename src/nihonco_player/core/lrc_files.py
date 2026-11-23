@@ -354,6 +354,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                      if li in token_ids}
         if trans_lang is None:
             trans_lang = (tail or {}).get("trans_lang") or "zh"
+        metadata = _metadata_for_body(metadata, body_to_lyric, len(body_rows))
         out = (render_nhlrc(body_rows, metadata, ann_body, trans_body, trans_lang,
                             line_ids=lids_body, token_ids=tids_body,
                             annotation_index=body_to_lyric)
@@ -364,6 +365,29 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                 "version": _version(out)}
 
 
+def _metadata_for_body(metadata, annotation_index, body_len):
+    """把 compact 行前的 metadata 位置映射到 body 行前。"""
+    tags = list(metadata or ())
+    if not tags:
+        return []
+    by_lyric = {int(li): int(bi) for bi, li in (annotation_index or {}).items()}
+    lyric_count = len(by_lyric)
+    out = []
+    for tag in tags:
+        try:
+            before = int(tag.get("before", 0))
+        except (TypeError, ValueError):
+            before = 0
+        if before <= 0:
+            body_before = 0
+        elif before >= lyric_count:
+            body_before = body_len
+        else:
+            body_before = by_lyric.get(before, body_len)
+        out.append({"before": body_before, "text": tag.get("text", "")})
+    return out
+
+
 def save(audio: str | Path, lines: list[dict],
          annotations: dict[int, list] | None = None,
          translations: dict[int, str] | None = None,
@@ -372,7 +396,8 @@ def save(audio: str | Path, lines: list[dict],
          expected_version: str | None = None, trans_lang: str = "zh",
          line_ids: dict[int, str] | None = None,
          token_ids: dict[int, list[str]] | None = None,
-         annotation_index: dict[int, int] | None = None) -> dict:
+         annotation_index: dict[int, int] | None = None,
+         metadata: list[dict] | None = None) -> dict:
     """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
@@ -386,7 +411,8 @@ def save(audio: str | Path, lines: list[dict],
                     "version": current_version}
         backed = _backup_once(sp, bak)
         body, _tail = _split_nhlrc(original)
-        _, metadata = _parse_document(body)
+        if metadata is None:
+            _, metadata = _parse_document(body)
         if annotations is None:
             annotations = annotations_for(lines, _tail)
         if translations is None:
@@ -398,6 +424,7 @@ def save(audio: str | Path, lines: list[dict],
                 if (ln.get("text") or "").strip():
                     annotation_index[bi] = lyric
                     lyric += 1
+        metadata = _metadata_for_body(metadata, annotation_index, len(lines))
         text = render_nhlrc(lines, metadata, annotations, translations, trans_lang,
                             line_ids=line_ids, token_ids=token_ids,
                             annotation_index=annotation_index)
