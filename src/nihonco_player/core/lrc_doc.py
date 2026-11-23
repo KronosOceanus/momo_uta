@@ -384,59 +384,55 @@ def parse_timed(text: str) -> list[dict]:
     return out
 
 
-def _parse_document(text: str) -> tuple[list[dict], list[dict]]:
-    out, metadata = [], []
+def _parse_rows(text: str) -> tuple[list[dict], list[dict], list[dict]]:
+    """一次扫描产出 compact lines / metadata / 编辑器 body_rows。
+
+    - compact lines：只保留非空歌词行，供播放和 annotation 使用
+    - metadata：保留原始 metadata 行和 before 位置
+    - body_rows：编辑器行，保留空行，不包含 metadata
+    """
+    lines: list[dict] = []
+    metadata: list[dict] = []
+    body_rows: list[dict] = []
+
     for i, raw in enumerate((text or "").splitlines()):
         line = (raw.lstrip("\ufeff") if i == 0 else raw).strip()
         if not line:
+            body_rows.append({"t": None, "text": ""})
             continue
         if METADATA.fullmatch(line):
-            metadata.append({"before": len(out), "text": raw})
+            metadata.append({"before": len(lines), "text": raw})
             continue
+
+        parsed = None
         m = LINE.match(line)
         if m:
-            t = int(m.group(1)) * 60 + float(m.group(2))
-            out.append({"t": round(t, 2), "text": m.group(3).strip()})
-            continue
-        if line.startswith("{") and '"t"' in line:      # 网易云 JSON 行
-            try:
-                obj = json.loads(line)
-                t = float(obj.get("t", 0)) / 1000.0     # 毫秒 → 秒
-                body = "".join((c or {}).get("tx", "") for c in (obj.get("c") or []))
-                out.append({"t": round(t, 2), "text": body.strip()})
-                continue
-            except (AttributeError, TypeError, ValueError):
-                pass
-        out.append({"t": None, "text": raw})
-    return out, metadata
-
-
-def _parse_body_rows(text: str) -> list[dict]:
-    """编辑器行：保留空行，排除 metadata；与 compact lines 分开。"""
-    out = []
-    for i, raw in enumerate((text or "").splitlines()):
-        line = (raw.lstrip("\ufeff") if i == 0 else raw).strip()
-        if not line:
-            out.append({"t": None, "text": ""})
-            continue
-        if METADATA.fullmatch(line):
-            continue
-        m = LINE.match(line)
-        if m:
-            out.append({"t": round(int(m.group(1)) * 60 + float(m.group(2)), 2),
-                        "text": m.group(3).strip()})
-            continue
-        if line.startswith("{") and '"t"' in line:
+            parsed = {"t": round(int(m.group(1)) * 60 + float(m.group(2)), 2),
+                      "text": m.group(3).strip()}
+        elif line.startswith("{") and '"t"' in line:
             try:
                 obj = json.loads(line)
                 t = float(obj.get("t", 0)) / 1000.0
                 body = "".join((c or {}).get("tx", "") for c in (obj.get("c") or []))
-                out.append({"t": round(t, 2), "text": body.strip()})
-                continue
+                parsed = {"t": round(t, 2), "text": body.strip()}
             except (AttributeError, TypeError, ValueError):
-                pass
-        out.append({"t": None, "text": raw})
-    return out
+                parsed = None
+
+        if parsed is None:
+            parsed = {"t": None, "text": raw}
+        lines.append(parsed)
+        body_rows.append(dict(parsed))
+
+    return lines, metadata, body_rows
+
+
+def _parse_document(text: str) -> tuple[list[dict], list[dict]]:
+    lines, metadata, _body_rows = _parse_rows(text)
+    return lines, metadata
+
+
+def _parse_body_rows(text: str) -> list[dict]:
+    return _parse_rows(text)[2]
 
 
 def fmt(t: float | None) -> str:

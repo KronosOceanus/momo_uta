@@ -11,6 +11,15 @@ class TestLrcDoc(unittest.TestCase):
         self.assertIsNone(rows[1]["t"])
         self.assertEqual(meta[0]["before"], 0)
 
+    def test_one_parser_keeps_blank_metadata_and_drafts_consistent(self):
+        text = '[ar:X]\n[00:05.00]词\n\n草稿\n{"t":1234,"c":[{"tx":"あの日"}]}\n'
+        rows, meta, body = D._parse_rows(text)
+        self.assertEqual([r["text"] for r in rows], ["词", "草稿", "あの日"])
+        self.assertEqual(meta[0]["before"], 0)
+        self.assertEqual([r["text"] for r in body], ["词", "", "草稿", "あの日"])
+        self.assertEqual(D.parse(text), rows)
+        self.assertEqual(D._parse_body_rows(text), body)
+
     def test_parse_netease_json(self):
         rows = D.parse('{"t":1234,"c":[{"tx":"あの日"}]}\n')
         self.assertEqual(rows, [{"t": 1.23, "text": "あの日"}])

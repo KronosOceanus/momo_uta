@@ -20,10 +20,10 @@ from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
 from .lrc_doc import (NHLRC_MARK, NHLRC_VERSION, GEN, _hash8,  # noqa: F401
-                      _parse_body_rows, _parse_document, _split_nhlrc,
-                      annotations_for, annotations_and_ids_for, parse, render,
-                      render_body, render_nhlrc, translations_for,
-                      translations_from_lrc)
+                      _parse_body_rows, _parse_document, _parse_rows,
+                      _split_nhlrc, annotations_for, annotations_and_ids_for,
+                      parse, render, render_body, render_nhlrc,
+                      translations_for, translations_from_lrc)
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
 LOCK = threading.RLock()
@@ -199,8 +199,7 @@ def load(audio: str | Path, uid: str | None = None,
                 "translations": {}, "nhlrc": True, "disabled": True,
                 "version": version}
 
-    lines, metadata = _parse_document(body)
-    body_rows = _parse_body_rows(body)
+    lines, metadata, body_rows = _parse_rows(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）
     strict = not (tail and tail.get("body") and tail["body"] == _hash8(body))
     annotations, line_ids, token_ids = annotations_and_ids_for(lines, tail, strict=strict)
@@ -334,8 +333,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                     "lines": 0, "annotated": 0, "backed_up": backed,
                     "version": _version(out)}
         body = body if body.endswith("\n") else body + "\n"
-        lines, metadata = _parse_document(body)
-        body_rows = _parse_body_rows(body)
+        lines, metadata, body_rows = _parse_rows(body)
         body_to_lyric = {}
         lyric = 0
         for bi, ln in enumerate(body_rows):
