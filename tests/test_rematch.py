@@ -24,7 +24,8 @@ class TestRematch(unittest.TestCase):
             audio = Path(tmp) / "歌手 - 曲.mp3"
             audio.touch()
             it = item(audio); CACHE.clear(); CACHE["0"] = it; LIB.BY_UID[it["uid"]] = it
-            with patch.object(LY, "search_candidates", return_value=[]), \
+            with patch.object(LY, "search_candidates_status",
+                              return_value=([], "no_match")), \
                  patch.object(LY, "get_lrc", return_value={"id": 999, "lrc": "[00:01.00]旧"}):
                 d = SONG.rematch(it["uid"], 60)
             self.assertEqual(d["candidates"], [])      # 不再把本地当前项插进来
@@ -35,7 +36,8 @@ class TestRematch(unittest.TestCase):
             audio.touch()
             it = item(audio); CACHE.clear(); CACHE["0"] = it; LIB.BY_UID[it["uid"]] = it
             cand = {"id": 999, "name": "曲", "artist": "歌手", "duration": 60.0}
-            with patch.object(LY, "search_candidates", return_value=[cand]), \
+            with patch.object(LY, "search_candidates_status",
+                              return_value=([cand], "ok")), \
                  patch.object(LY, "get_lrc") as gl:
                 d = SONG.rematch(it["uid"], 60)
             self.assertEqual(d["candidates"][0]["id"], 999)

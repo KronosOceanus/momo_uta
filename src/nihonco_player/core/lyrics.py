@@ -13,9 +13,12 @@ from __future__ import annotations
 from nihonco_yomi.config import LY as CFG  # noqa: F401
 
 from .lyrics_cache import _cached, cache_path, set_cache_dir  # noqa: F401
-from .lyrics_fetch import (audio_duration, auto_match, accept_candidate,  # noqa: F401
+from .lyrics_fetch import (MATCH_NETWORK, MATCH_NO_LYRICS, MATCH_NO_MATCH,  # noqa: F401
+                           MATCH_OK, LyricsNetworkError, audio_duration,
+                           auto_match, auto_match_status, accept_candidate,
                            fetch_candidate, fetch_lyrics_by_id, get_lrc,
-                           score_candidate, search_candidates, valid_lrc)
+                           get_lrc_status, score_candidate, search_candidates,
+                           search_candidates_status, valid_lrc)
 from .lyrics_text import (JP, KANA_RE, HAN_RE, LAT_RE, LRC,  # noqa: F401
                           clean_artist, content_lines, has_timed, is_excluded,
                           is_likely_song, kind, lang_guess, split_name)

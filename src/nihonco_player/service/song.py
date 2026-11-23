@@ -436,6 +436,7 @@ def song_payload(ref, _item=None) -> dict:
     if not has_lines:
         item["has_lyric"] = False
         return {**base, "pending": True, "disabled": False, "lines": [],
+                "match_status": item.get("match_status") or "",
                 "nhlrc": doc.get("kind") == "nhlrc"}
     item["has_lyric"] = True
     lines = doc["lines"]
@@ -567,11 +568,15 @@ def rematch(ref, duration):
                      "duration": c.get("duration") or 0, "delta": delta, "source": src,
                      "score": LY.score_candidate(c, title, artist, duration)})
 
-    for c in LY.search_candidates(title, artist):
+    cands, status = LY.search_candidates_status(title, artist)
+    for c in cands:
         add(c, "netease")
 
     rows.sort(key=lambda r: -r["score"])
-    return {"stem": item["stem"], "candidates": rows[:int(LY.CFG["manual_limit"])]}
+    if status == LY.MATCH_OK and not rows:
+        status = LY.MATCH_NO_LYRICS
+    return {"stem": item["stem"], "candidates": rows[:int(LY.CFG["manual_limit"])],
+            "status": status}
 
 
 def pick(uid, song_id) -> dict:
@@ -597,13 +602,20 @@ def pick(uid, song_id) -> dict:
     return {"ok": True, "uid": item.get("uid"), "idx": d.get("idx"),
             "lines": len(d.get("lines") or [])}
 
-def lazy_match(item: dict) -> None:
-    """按需抓歌词；明确禁用歌词的歌不联网。"""
+def lazy_match(item: dict) -> str:
+    """按需抓歌词；返回 ok/no_match/no_lyrics/network_error。"""
     if LRC.load(item["file"], item.get("uid"), item.get("title"), item.get("artist", "")).get("disabled"):
-        return
+        item["match_status"] = "disabled"
+        return "disabled"
     artist, title = LY.split_name(item["stem"])
-    LY.get_lrc(title, artist, duration=LY.audio_duration(item["file"]), force=True)
+    _hit, status = LY.get_lrc_status(
+        title, artist, duration=LY.audio_duration(item["file"]), force=True)
     LIB.refresh(item.get("uid"))
+    fresh = LIB.resolve(item.get("uid"))
+    if fresh:
+        fresh["match_status"] = status
+    item["match_status"] = status
+    return status
 
 
 # ── HTTP 用得着的两个封装 ─────────────────────────────

@@ -16,6 +16,14 @@ from .lyrics_cache import cache_path
 from .lyrics_text import _match, content_lines, has_timed, is_excluded, lang_guess
 
 UA = {"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"}
+MATCH_OK = "ok"
+MATCH_NO_MATCH = "no_match"
+MATCH_NO_LYRICS = "no_lyrics"
+MATCH_NETWORK = "network_error"
+
+
+class LyricsNetworkError(RuntimeError):
+    pass
 def _get(url: str, timeout: float | None = None) -> str:
     timeout = float(CFG["http_timeout_s"]) if timeout is None else timeout
     try:
@@ -25,16 +33,27 @@ def _get(url: str, timeout: float | None = None) -> str:
 
 
 def search_candidates(title: str, artist: str, limit: int | None = None) -> list[dict]:
-    """多路搜索；搜索结果本身已带歌手/时长，不再请求 detail。"""
+    """多路搜索；搜索结果本身已带歌手/时长，不再请求 detail。
+
+    没有任何一个查询得到合法响应时抛 LyricsNetworkError，调用方不要把它
+    当成“确实没有”。
+    """
     limit = int(CFG["search_limit"]) if limit is None else limit
     found: dict[int, dict] = {}
+    got_response = False
     for q in (f"{title} {artist}".strip(), title, f"{artist} {title}".strip()):
         r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode(
             {"s": q, "type": 1, "limit": limit}))
+        if not r:
+            continue
         try:
-            songs = json.loads(r)["result"]["songs"]
+            data = json.loads(r)
+            songs = data["result"]["songs"]
         except Exception:
             continue
+        if not isinstance(songs, list):
+            continue
+        got_response = True
         for x in songs:
             try:
                 song_id = int(x["id"])
@@ -53,7 +72,18 @@ def search_candidates(title: str, artist: str, limit: int | None = None) -> list
             }
         if len(found) >= limit * 2:
             break
+    if not got_response:
+        raise LyricsNetworkError("网络请求失败")
     return list(found.values())[:int(CFG["max_ids"])]
+
+
+def search_candidates_status(title: str, artist: str,
+                             limit: int | None = None) -> tuple[list[dict], str]:
+    try:
+        rows = search_candidates(title, artist, limit)
+    except LyricsNetworkError:
+        return [], MATCH_NETWORK
+    return rows, (MATCH_OK if rows else MATCH_NO_MATCH)
 
 
 def score_candidate(c: dict, title: str, artist: str, duration: float) -> float:
@@ -112,11 +142,15 @@ def fetch_candidate(c: dict) -> dict | None:
             "lang": lang, "kana_ratio": ratio, "lrc": lyr}
 
 
-def auto_match(title: str, artist: str, duration: float) -> dict | None:
-    """自动匹配：和 rematch 用同一批候选、同一套过滤，自动取分数最高。"""
-    cands = search_candidates(title, artist)
-    if not cands:
-        return None
+def auto_match_status(title: str, artist: str,
+                      duration: float) -> tuple[dict | None, str]:
+    """自动匹配；返回 (hit, status)，status 区分无候选/无可用歌词/网络错误。"""
+    try:
+        cands, status = search_candidates_status(title, artist)
+    except LyricsNetworkError:
+        return None, MATCH_NETWORK
+    if status != MATCH_OK:
+        return None, status
     for c in cands:
         c["score"] = score_candidate(c, title, artist, duration)
     cands.sort(key=lambda c: -c["score"])
@@ -125,8 +159,12 @@ def auto_match(title: str, artist: str, duration: float) -> dict | None:
             continue
         hit = fetch_candidate(c)
         if hit:
-            return hit
-    return None
+            return hit, MATCH_OK
+    return None, MATCH_NO_LYRICS
+
+
+def auto_match(title: str, artist: str, duration: float) -> dict | None:
+    return auto_match_status(title, artist, duration)[0]
 
 
 def _negative_fresh(old: dict, path: Path) -> bool:
@@ -145,28 +183,34 @@ def _negative_fresh(old: dict, path: Path) -> bool:
         return False
 
 
-def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0.0,
-            force: bool = False, network: bool = True) -> dict | None:
+def get_lrc_status(title: str, artist: str, use_cache: bool = True,
+                   duration: float = 0.0, force: bool = False,
+                   network: bool = True) -> tuple[dict | None, str]:
     p = cache_path(title, artist)
     if use_cache and not force and p.exists():
         try:
             old = json.loads(p.read_text(encoding="utf-8"))
             old_lrc = old.get("lrc") or ""
             cached_ok = (not old_lrc or valid_lrc(old_lrc))
-            # 旧缓存没按时长匹配过 → 重算一次；无时间轴的旧结果直接作废
             if cached_ok and (not duration or old.get("duration") or old.get("miss")):
                 if not old.get("miss") or _negative_fresh(old, p):
-                    return old
+                    return old, (MATCH_OK if old_lrc else
+                                 (old.get("reason") or MATCH_NO_MATCH))
         except Exception:
             pass
-    if not network:                     # 加载路径只读本地；联网只由匹配阶段触发
-        return None
-    hit = auto_match(title, artist, duration)
-    # 失败也缓存，避免每次启动都重新联网（负缓存）
+    if not network:
+        return None, "offline"
+    hit, status = auto_match_status(title, artist, duration)
+    if status == MATCH_NETWORK:
+        return None, status            # 网络失败不写负缓存
     FS.atomic_write_json(p, {**hit, "title": title, "artist_q": artist} if hit else {
-        "miss": True, "reason": "no_match", "checked_at": time.time()}, indent=None)
-    return hit
+        "miss": True, "reason": status, "checked_at": time.time()}, indent=None)
+    return hit, status
 
+
+def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0.0,
+            force: bool = False, network: bool = True) -> dict | None:
+    return get_lrc_status(title, artist, use_cache, duration, force, network)[0]
 
 
 def fetch_lyrics_by_id(song_id) -> dict:

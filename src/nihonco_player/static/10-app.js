@@ -392,23 +392,28 @@ async function load(ref, autoplay, nextMode){
     lyr.innerHTML='';
     NH.startVocals(d.uid);
     busy('匹配歌词中…');
+    let d2=null;
     try{
       const job=await api('/api/jobs',{kind:'match', uid:d.uid});
       const st=await waitJob(job.id);
       if(!NH.isCurrent('load',request)) return false;
       if(st.state==='failed') throw new Error(st.error || '匹配失败');
-      const d2=await api('/api/song/'+encodeURIComponent(d.uid));
+      d2=await api('/api/song/'+encodeURIComponent(d.uid));
       if(!NH.isCurrent('load',request)) return false;
       if(!d2.pending) return load(d.uid, autoplay, nextMode);
     }catch(e){
       if(!NH.isCurrent('load',request)) return false;
     }
     if(!NH.isCurrent('load',request)) return false;
-    NH.NO_MATCH.add(String(d.uid));
-    NH.viewDispatch({type:'MATCH_FAILED', idx:d.uid, request, error:'no match'});
+    const matchStatus = (d2 && d2.match_status) || d.match_status || 'no_match';
+    if(matchStatus !== 'network_error') NH.NO_MATCH.add(String(d.uid));
+    NH.viewDispatch({type:'MATCH_FAILED', idx:d.uid, request, error:matchStatus});
     NH.syncModes?.();
     lyr.innerHTML='';
-    done('这首歌没匹配到歌词，仍可播放');
+    const msg = matchStatus==='network_error' ? '网络请求失败，暂未匹配到歌词'
+      : matchStatus==='no_lyrics' ? '找到了候选，但没有可用歌词'
+      : '这首歌没匹配到歌词，仍可播放';
+    done(msg);
     return true;
   }
   {
