@@ -156,6 +156,14 @@ zip 是 .app 的 --keepParent 压缩；
 体积受文件系统块大小影响，du 会显示略大。
 ```
 
+本次 V2 构建 sha256：
+
+```text
+base  d166d7ce806231c9172222b076428cf5acd494029f26498853ddd41dc1614a33
+thin  df64d91f59716ca7bcf2e4c91b51c1c88cccc84ee5dfa216a436b54e90d2b230
+full  7fb9631a0839340028f0693e50f2f255e627023fa35c7544f33c663b50aa1512
+```
+
 主要占用：
 
 ```text
