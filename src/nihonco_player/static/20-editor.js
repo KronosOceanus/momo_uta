@@ -56,6 +56,25 @@ function retokenizeRow(row, nextText){
     return [];
   });
 }
+function sliceTokens(row, start, end, shift=0){
+  return (row.tokens||[]).filter(t=>t.start>=start && t.end<=end)
+    .map(t=>({...t, start:t.start+shift, end:t.end+shift}));
+}
+function splitRow(row, pos){
+  const text=row.text||'';
+  const left=text.slice(0,pos), right=text.slice(pos);
+  const leftTokens=sliceTokens(row,0,pos);
+  const rightTokens=sliceTokens(row,pos,text.length,-pos);
+  row.text=left; row.tokens=leftTokens;
+  return {t:null, text:right, trans:'', tokens:rightTokens};
+}
+function mergeRows(prev, cur){
+  const offset=(prev.text||'').length;
+  prev.text=(prev.text||'')+(cur.text||'');
+  prev.tokens=[...(prev.tokens||[]), ...(cur.tokens||[]).map(t=>({
+    ...t, start:t.start+offset, end:t.end+offset
+  }))];
+}
 function lrcPayload(){
   return NH.EROWS.map(x=>{
     const row={t:x.t, text:x.text, trans:x.trans||''};
@@ -259,7 +278,7 @@ function renderLrcTable(){
         const prev=NH.EROWS[i-1], cur=NH.EROWS[i];
         const joinAt=(prev.text||'').length;
         snapshot();
-        prev.text=(prev.text||'')+(cur.text||'');
+        mergeRows(prev, cur);
         prev.trans=[prev.trans||'', cur.trans||''].filter(x=>x).join(' ');
         NH.EROWS.splice(i,1);
         NH.ESEL=i-1; NH.SEL.clear();
@@ -271,11 +290,10 @@ function renderLrcTable(){
       }
       if(ev.key==='Enter'){
         ev.preventDefault();
-        const i=+el.dataset.i, pos=el.selectionStart, v=el.value;
-        const left=v.slice(0,pos), right=v.slice(pos);
+        const i=+el.dataset.i, pos=el.selectionStart;
         snapshot();
-        NH.EROWS[i].text=left;
-        NH.EROWS.splice(i+1, 0, {t:null, text:right, trans:''});
+        const right=splitRow(NH.EROWS[i], pos);
+        NH.EROWS.splice(i+1, 0, right);
         NH.ESEL=i+1; NH.SEL.clear(); NH.EDIRTY=true;
         renderLrcTable();
         const nx=document.querySelector(`.lerow[data-i="${i+1}"] input.tx`);
@@ -700,6 +718,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
+Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, sliceTokens, splitRow, mergeRows, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

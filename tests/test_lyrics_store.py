@@ -231,6 +231,47 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(after["token_ids"][0][0], before["token_ids"][0][0])
                 self.assertNotEqual(after["token_ids"][0][-1], before["token_ids"][0][-1])
 
+    def test_split_line_keeps_token_readings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                uid = LRF.uid_of(audio)
+                SONG.song_payload(uid)
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみだ"})
+                before = LRF.load(audio, uid)
+
+                def toks(i, start=0, end=None):
+                    out, pos = [], 0
+                    for ti, seg in enumerate(before["annotations"][i]):
+                        e = pos + len(seg[0])
+                        if pos >= start and e <= (end if end is not None else len(before["lines"][i]["text"])):
+                            out.append({"tid": before["token_ids"][i][ti],
+                                        "start": pos - start, "end": e - start,
+                                        "base": seg[0]})
+                        pos = e
+                    return out
+
+                lines = [
+                    {"t": 5.0, "text": "君の", "trans": "",
+                     "lid": before["line_ids"][0], "tokens": toks(0, 0, 2)},
+                    {"t": 5.0, "text": "名前", "trans": "", "tokens": toks(0, 2)},
+                    {"t": 9.0, "text": "呼んでくれた", "trans": ""},
+                    {"t": 13.0, "text": "また会おう", "trans": ""},
+                ]
+                res = SONG.save_lyrics(CACHE["0"], lines, "align")
+                self.assertTrue(res.get("ok"), res)
+                raw = LRF.store_path(audio).read_text(encoding="utf-8")
+                self.assertIn("きみだ", raw)
+                after = LRF.load(audio, uid)
+                self.assertEqual(len(after["lines"]), 4)
+                self.assertEqual(after["line_ids"][0], before["line_ids"][0])
+                self.assertNotEqual(after["line_ids"][1], before["line_ids"][0])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

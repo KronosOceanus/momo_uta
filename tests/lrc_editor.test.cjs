@@ -373,3 +373,29 @@ test('editing inside a token drops that token but shifts later tokens', () => {
   assert.deepEqual(tokens.map(t => t.tid), ['t_aaaaaaaa', 't_bbbbbbbb', 't_dddddddd', 't_eeeeeeee']);
   assert.deepEqual(tokens.at(-1), {tid:'t_eeeeeeee', start:4, end:6, base:'呼ぶ', ruby:'よぶ', level:'A'});
 });
+
+test('splitting a row moves right-side tokens to the new row', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'君の名前',lid:'l_aaaaaaaa',tokens:[
+    {tid:'t_aaaaaaaa',start:0,end:1,base:'君'},
+    {tid:'t_bbbbbbbb',start:1,end:2,base:'の'},
+    {tid:'t_cccccccc',start:2,end:4,base:'名前'}]}];
+    globalThis.__right = splitRow(EROWS[0], 2);
+    globalThis.__state = JSON.stringify(EROWS[0]) + '|' + JSON.stringify(__right);`);
+  const [left, right] = p.run('__state').split('|').map(JSON.parse);
+  assert.equal(left.text, '君の');
+  assert.deepEqual(left.tokens.map(t => t.tid), ['t_aaaaaaaa', 't_bbbbbbbb']);
+  assert.equal(right.text, '名前');
+  assert.deepEqual(right.tokens, [{tid:'t_cccccccc', start:0, end:2, base:'名前'}]);
+});
+
+test('merging rows keeps both sides token ids and shifts the right side', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'君の',tokens:[{tid:'t_aaaaaaaa',start:0,end:1,base:'君'}]},
+                 {t:2,text:'名前',tokens:[{tid:'t_cccccccc',start:0,end:2,base:'名前'}]}];
+    mergeRows(EROWS[0], ER0WS_PLACEHOLDER);`.replace('ER0WS_PLACEHOLDER', 'EROWS[1]'));
+  assert.equal(p.run('EROWS[0].text'), '君の名前');
+  assert.deepEqual(JSON.parse(p.run('JSON.stringify(EROWS[0].tokens)')).map(t => [t.tid, t.start, t.end]), [
+    ['t_aaaaaaaa', 0, 1], ['t_cccccccc', 2, 4]
+  ]);
+});
