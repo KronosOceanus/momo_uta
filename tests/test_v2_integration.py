@@ -445,3 +445,25 @@ class TestV2BlankOnlyDocument(unittest.TestCase):
                 self.assertTrue(LRF.save_rows(audio, rows)["ok"])
                 got = LRF.load_rows(audio)["rows"]
                 self.assertEqual([r["kind"] for r in got], ["metadata", "blank"])
+
+
+class TestV2DisabledPlayback(unittest.TestCase):
+    def test_disabled_rows_and_playback_are_explicit(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+        from nihonco_player.service import lyric_document as LD
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                self.assertTrue(LRF.delete_store(audio)["ok"])
+                loaded = LD.load_rows(item["uid"])
+                self.assertTrue(loaded["disabled"])
+                played = LD.playback(item["uid"])
+                self.assertTrue(played.get("disabled"))
+                self.assertEqual(played["lines"], [])

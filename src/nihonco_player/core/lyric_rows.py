@@ -99,15 +99,12 @@ def parse_rows(text: str) -> list[dict]:
         raise ValueError("unsupported nhlrc version")
     raw_lines = body.splitlines()
     rows = []
-    lyric_by_i = {}
     for i, raw in enumerate(raw_lines):
         row = _row_from_line(raw, first=(i == 0))
         row = {"id": _new_row_id(), **row, "lid": None, "tokens": [], "trans": ""}
         rows.append(row)
-        if row["kind"] == "lyric":
-            lyric_by_i[i] = row
 
-    entries = {}
+
     for ent in (tail or {}).get("lines") or []:
         try:
             i = int(ent.get("i"))
@@ -128,7 +125,6 @@ def parse_rows(text: str) -> list[dict]:
         row["lid"] = ent.get("lid") or _new_lid()
         tids = ent.get("tid") or []
         row["tokens"] = _tokens(seg, tids, row["text"])
-        entries[i] = row
 
     for ent in (tail or {}).get("trans") or []:
         try:

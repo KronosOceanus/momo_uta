@@ -245,13 +245,6 @@ def load(audio: str | Path, uid: str | None = None,
         doc = _doc_from_v2_rows(rows, path, version, source)
         doc["trans_lang"] = (tail.get("trans_lang") or "zh")
         return doc
-    if disabled:
-        return {"ok": True, "exists": True, "from_cache": False,
-                "path": str(path), "kind": "nhlrc", "source": "disabled",
-                "text": "", "lines": [], "body_rows": [], "metadata": [],
-                "annotations": {}, "line_ids": {}, "token_ids": {},
-                "translations": {}, "trans_lang": "zh",
-                "nhlrc": True, "disabled": True, "version": version}
 
     lines, metadata, body_rows = _parse_rows(body)
     # 整篇正文哈希一致 → 跳过逐行哈希比对（仍校验下标与拼接）

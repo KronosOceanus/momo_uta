@@ -20,7 +20,8 @@ def load_rows(ref) -> dict:
     return {"ok": True, "uid": item.get("uid"), "rows": doc.get("rows") or [],
             "version": doc.get("version"), "exists": bool(doc.get("exists")),
             "model": doc.get("model") or 0,
-            "trans_lang": doc.get("trans_lang") or "zh"}
+            "trans_lang": doc.get("trans_lang") or "zh",
+            "disabled": bool(doc.get("disabled"))}
 
 
 def save_rows(ref, rows, expected_version=None, trans_lang=None) -> dict:
@@ -100,6 +101,9 @@ def playback(ref) -> dict:
     doc = load_rows(ref)
     if not doc.get("ok"):
         return doc
+    if doc.get("disabled"):
+        return {"ok": True, "uid": doc.get("uid"), "version": doc.get("version"),
+                "disabled": True, "lines": []}
     rows = doc.get("rows") or []
     body_index = {id(row): i for i, row in enumerate(rows)}
     items = playable_rows(rows)
