@@ -11,6 +11,13 @@
 ```
 
 ```text
+当前源码已切到 V2 歌词模型。
+2026-11-23 已重建：
+  base / thin / full 三种 .app
+  base / thin / full 三种 zip
+```
+
+```text
 已配置 PyInstaller onedir，三种 .app 都能构建：
   base  基础版
   thin  薄壳版
@@ -142,6 +149,11 @@ full.app    ~859 MB
 base.zip    ~88 MB
 thin.zip    ~88 MB
 full.zip    ~284 MB
+```
+
+```text
+zip 是 .app 的 --keepParent 压缩；
+体积受文件系统块大小影响，du 会显示略大。
 ```
 
 主要占用：

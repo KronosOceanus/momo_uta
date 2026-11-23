@@ -153,18 +153,19 @@ data/tables、data/sources、data/corpus、eval/ 是仓库/评测数据，不是
 ### 2.4 `.nhlrc` 内部
 
 ```text
-正文       原文，权威
-body_rows  编辑器行，保留空行
-lines      读音，i + h + seg + 可选 lid/tid
-trans      翻译，i + h + text
-trans_lang 翻译语言，当前默认 zh
+正文       rows 顺序，权威
+rows       lyric / blank / metadata
+lines      读音，i(body) + lid + h + seg + tid
+trans      翻译，i(body) + lid + h + text
+trans_lang 翻译语言，缺省 zh
 disabled   持久化的“用户删除了这首歌的歌词”
 ```
 
 ```text
-body_rows 是编辑器/正文顺序
-lines 是非空歌词行
-annotation / trans / lid / tid 的 i 都相对 lines，不相对 body_rows
+i 是 body 行号，只负责锚定
+lid 是行身份
+tid 是 token 身份
+blank / metadata 不进入 lines / trans
 ```
 
 ```text
@@ -176,11 +177,13 @@ disabled 也是持久化用户选择，不是缓存。
 
 ```text
 uid   歌曲身份，也是 offset 的键
+row.id 编辑器行身份
 lid   歌词行身份，跨插入/删除/移动保持
 tid   歌词 token 身份
 idx   曲库展示位置，不是身份
 key   历史字段，不再作为 offset / 身份
 h     行正文变更检测，不是身份
+i     正文锚点，不是身份
 ```
 
 ```text
@@ -193,30 +196,32 @@ lid/tid 只解决歌词编辑内部的身份；
 ```text
 data/cache/lyrics 里的 tlyric 只是抓取结果。
 没有 .nhlrc 时，tlyric 可用于显示。
-pick / 保存后，翻译才进入 .nhlrc 的 trans。
+pick / 保存后，翻译才进入权威文档的 trans。
 有 .nhlrc 但没有 trans 时，不自动回填缓存翻译。
 ```
 
 ### 2.7 歌词解析与保存链
 
 ```text
-lrc_doc._parse_rows(text)
-  → compact lines / metadata / body_rows
-       │
-       ├─ 播放/注音：compact lines
-       └─ 编辑器：body_rows
+core.lyric_rows.parse_rows()
+  → rows:
+      lyric / blank / metadata
+  → playable()
+      lyric && t != null
+      按时间排序，同时间按文档顺序
+
+service.lyric_document
+  → load_rows / save_rows
+  → rows 直接读写
 
 service.song.save_lyrics()
-  → _body_layout
-  → 旧标注/身份准备
-  → annotation / token 合并
-  → lrc_files.save()
-       → render_nhlrc(annotation_index=body → lyric)
+  → 旧兼容入口：body 入参 → rows
+  → LRC.save() 写 v2
 ```
 
 ```text
-正文解析只有一套入口：lrc_doc._parse_rows。
-保存时 body 索引到 lyric 索引的映射由 core 计算，调用方不传。
+新代码只有一套行模型：rows。
+不再维护 body_rows / compact 两套权威行号。
 ```
 
 ## 3. 模块地图
@@ -241,7 +246,7 @@ llm            可选 LLM 消歧
 ```text
 曲库     library / library_index / fingerprint
 歌词     lyrics / lyrics_fetch / lyrics_text / lyrics_cache
-格式     lrc_doc（统一解析/IDs）/ lrc_files（权威写入）
+格式     lyric_rows（v2 rows）/ lrc_doc（旧解析）/ lrc_files（权威写入）
 注音     annotation / annotation_cache
 歌单     playlists
 属性     song_meta
@@ -253,8 +258,9 @@ llm            可选 LLM 消歧
 ### service
 
 ```text
-song       载荷、保存编排、改读音、匹配、pick
-lrc        编辑、保存、导入导出、备份
+song       载荷、旧保存兼容、改读音、匹配、pick
+lyric_document  v2 rows 读写、播放派生、按 lid 改读音
+lrc        编辑、导入导出、备份、v2/旧 API
 playlist   歌单动作、导入、ui_offset
 jobs       任务编排
 settings   主题校验与持久化编排
@@ -298,9 +304,12 @@ hotkeys    macOS 全局快捷键
 NH.load
   → GET /api/song/<uid>
   → service.song.song_payload
-  → core.lrc_files.load
-      有 nhlrc：正文 + lines + trans
-      无 nhlrc：歌词缓存；tlyric 按时间配对
+  → service.lyric_document.load_rows
+      v2：rows
+      V1：内存转 rows
+      无 nhlrc：歌词缓存/旧路径
+  → core.lyric_rows.playable
+      按时间排序，同时间按文档顺序
   → core.annotation_cache.line_fields（逐行）
       命中：直接返回
       未命中：调用 yomi 引擎，再写缓存
@@ -335,7 +344,7 @@ pick
   → 一次显式返回 {lrc, tlyric}
   → tlyric 按时间/行序配对原文
   → save_lyrics(mode="replace")
-  → 重写 nhlrc
+  → 重写 v2 nhlrc
 ```
 
 ```text
@@ -347,10 +356,14 @@ pick
 ### 4.4 LRC 保存
 
 ```text
-POST /api/lrc {action:save, lines, version}
+POST /api/lrc {action:save_rows, rows, version}
+  → service.lyric_document.save_rows
+  → lrc_files.save_rows（版本校验 + 备份 + 原子替换）
+
+旧 lines 入口：
   → service.song.save_lyrics
-  → 对齐 annotations / translations
-  → lrc_files.save（版本校验 + 备份 + 原子替换）
+  → 内部转 rows
+  → lrc_files.save 写 v2
 ```
 
 ```text

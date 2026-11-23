@@ -148,24 +148,18 @@ Enter → 失焦，不拆行
 ```text
 显示在 LRC 编辑器
 保留在正文
-不占用 annotation i
+是 rows 中的 kind=blank
 不出现在播放行
+不写入 lines / trans
 ```
-
-例如：
 
 ```text
-编辑器：
-  0 涙流すことすら無いまま
-  1 （空行）
-  2 過ごした日々の痕一つも残さずに
+lyric → blank
+  → lid/tokens/trans 清空
 
-annotation：
-  i=0 涙流すことすら無いまま
-  i=1 過ごした日々の痕一つも残さずに
+blank → lyric
+  → 新 lid、新 token、空 trans
 ```
-
-保存时由服务端把 `body_rows` 映射到非空歌词行，避免空行把后面的读音整体错位。
 
 ### 行 / token 身份
 
@@ -202,11 +196,17 @@ tokens: [{tid, start, end, base, ruby, level}]
 保存时 `lrcPayload()` 会带：
 
 ```text
+id
+kind
+text
+t
 lid
-tokens: [{tid, start, end, base}]
+trans
+tokens: [{tid, start, end, base, ruby, level}]
 ```
 
-服务端按 `tid + span` 保留读音，不按 base 猜测。
+服务端按 `lid + tid + span/base` 保留读音，不按 base 猜测。
+正文改了但 token 只覆盖一部分时，服务端先补齐分段，再恢复未改 token。
 
 完整格式见 [nhlrc-token-ids](nhlrc-token-ids.md)。
 
@@ -290,33 +290,18 @@ saveLrc 发送 NH.LRC_VERSION
 
 ```text
 保存成功后更新 LRC_VERSION。
+普通页改读音响应同时更新 NH.S.version。
 ```
 
-### 保存回传身份
-
-保存响应可能带：
-
-```json
-{"ids": [
-  {"i": 0, "text": "君の名", "lid": "l_...", "tokens": [
-    {"tid": "t_...", "start": 0, "end": 1, "base": "君",
-     "ruby": "きみ", "level": "A"}
-  ]}
-]}
-```
-
-前端只在 revision 没变时合并：
+### 保存响应
 
 ```text
-文本仍一致
-  → 更新该行 lid/tokens
-  → 后端新生成的 tid 立即回到 EROWS
+save_rows → ok + version + refresh 状态
 ```
 
 ```text
-revision 已变
-  → 不覆盖
-  → 避免把用户新的编辑改回去
+v2 编辑器不再依赖响应 ids 合并；
+lid/tid 已在 rows 中。
 ```
 
 ### 保存提示
@@ -383,9 +368,9 @@ EROWS[i].trans 可编辑
 
 ```text
 lrcPayload()
-  → 每行带 trans
-  → 有身份时带 lid/tokens
-  → 服务端写 nhlrc 尾部 trans
+  → rows
+  → 每行带 kind/t/text/trans/lid/tokens
+  → 服务端写 v2 尾部
 ```
 
 ```text
@@ -412,8 +397,8 @@ translations 是 body-keyed 快照
 ```
 
 ```text
-只有 body_to_lyric 中存在的非空歌词行会写入 nhlrc trans。
-带时间戳的空行可以留在正文，但不占翻译 i。
+只有 kind=lyric 的行会写入 trans。
+blank / metadata 留在正文，但不写 lines/trans。
 ```
 
 ## 10. 导入
@@ -434,6 +419,7 @@ LRC 工具栏“导入”
 ```text
 导入不是合并，是整份替换。
 旧读音和旧翻译不保留。
+V1 输入会转成 v2 后写入。
 ```
 
 统一校验由 `lrc_files.valid_import` 执行，详见 [nhlrc](nhlrc.md) 的导入校验。
@@ -454,8 +440,9 @@ LRC 工具栏“导出”
 
 ```text
 导出使用当前编辑行，不要求先保存。
-导出时空行保留在正文，annotation 仍按非空行编号。
-metadata 的 before 会从 compact 行映射到 body 行。
+rows 模式下直接序列化 rows。
+旧/缓存模式下先按正文还原 rows，再写 v2。
+空行、metadata 位置、译文和身份原样带出。
 trans_lang 原样带出。
 ```
 

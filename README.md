@@ -30,6 +30,14 @@ nihonco uta 是一个本地日文歌曲播放器。
 
 歌词和歌单默认保存在本机，不上传。
 
+歌词文档使用 v2 单一行模型：
+
+```text
+lyric / blank / metadata 统一为 rows
+播放视图按时间从 rows 派生
+V1 仍可读取，写入统一为 v2
+```
+
 ## 功能
 
 ### 播放
@@ -285,4 +293,7 @@ docs/topics/library.md        曲库、歌单、导入
 docs/topics/http-api.md       本机 HTTP API
 docs/topics/development.md    开发与测试
 docs/topics/packaging.md      打包
+docs/歌词数据模型.md           单一行模型
+docs/代码审查.md               待处理代码问题
+docs/优化.md                   待评估优化
 ```

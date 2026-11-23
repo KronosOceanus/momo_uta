@@ -133,6 +133,7 @@ classic script，无构建器。
 |---|---|
 | 分层 / import | `make arch` |
 | nhlrc / 翻译 / offset | Python 领域测试 |
+| v2 rows / 行身份 / 导出 | `test_lyric_rows.py` + `test_v2_integration.py` |
 | 切歌 / 保存 / 音频 | 前端 VM 测试 |
 | API / 跨层 | `make test` |
 | 前端脚本装配 | `check_js.py` + `lrc_editor.test.cjs` |

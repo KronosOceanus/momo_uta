@@ -78,6 +78,7 @@ HTTP 层由 http/routes.py 分发；
 ```text
 有歌词：
   {uid, idx, key, title, artist, lines, trans, version, ...}
+  v2 文档的 lines 从 rows 派生，按时间排序
 
 pending：
   {..., pending:true, lines:[]}
@@ -219,7 +220,9 @@ paths
 
 ```text
 音频 + 同名 .lrc/.nhlrc 的目录导入
-import 可带 with_lrc；缺省只收音频，显式歌词会被拒绝并返回 rejected_lrc
+import 可带 with_lrc；缺省只收音频
+显式歌词在只导入音乐时拒绝并返回 rejected_lrc
+显式歌词在 +LRC 时写 v2
 返回 import_paths 结果 + lists
 ```
 
@@ -244,34 +247,29 @@ save 带 version；冲突 → 409 {ok:false, conflict:true}
 
 ```text
 load:
-  v2 文档返回 model:2 + rows
-  v1/旧文档返回 lines
-  lines 是编辑器行，保留空行
-  body_rows 同 lines
-  每行可带 lid/tokens
-  token 含 tid/start/end/base/ruby/level
-  annotation i 仍按非空歌词行编号
+  有 v2 文档：model:2 + rows
+  有 V1 文档：内存转 rows，返回 model:2
+  没有 nhlrc：缓存/旧路径返回 lines
+  v2 文档的 rows 与 version 来自同一次读取
+  每行：id/kind/text/t/lid/tokens/trans
 
 save:
-  lines 可包含空行
-  服务端先映射 body_rows → 非空歌词行
-  lid/tokens 随行提交
+  旧 lines 入口仍接受，内部转 v2
+  v2 编辑器使用 save_rows
   translations 是 body-keyed 快照；{} 表示清空全部
   trans_lang 缺省时沿用旧文档
-  响应可带 ids（回传新生成的 lid/token spans）
 ```
 
 ```text
 load_rows / save_rows 是 v2 单一行文档入口
 edit_reading 使用 lid + tid + version，不使用 line/start
 playback 返回 v2 playable lines + body_index
-export 返回 nhlrc + 纯 lrc
-导出时空行保留，annotation 按非空行编号
-metadata 的 before 映射到 body 行
+export 直接序列化 rows，返回 v2 nhlrc + 纯 lrc
+导出时空行、metadata 位置、译文、lid/tid 都保留
 trans_lang 原样带出
 ```
 
-### 2.7 `/api/jobs`
+### 2.8 `/api/jobs`
 
 ```json
 {"kind": "vocals|match|rebuild", "uid": "..."}
@@ -287,7 +285,7 @@ rebuild 不需要
 返回 job 对象：id / kind / state / stage
 ```
 
-### 2.8 job 取消
+### 2.9 job 取消
 
 ```text
 POST /api/jobs/<id>/cancel
@@ -298,7 +296,7 @@ POST /api/jobs/cancel_all
 cancel_all 只接受 {"kind":"vocals"}
 ```
 
-### 2.9 `/api/theme`
+### 2.10 `/api/theme`
 
 必填：
 
@@ -311,7 +309,7 @@ theme = dark | light
 更新当前进程 PUI
 ```
 
-### 2.10 `/api/log`
+### 2.11 `/api/log`
 
 ```text
 前端未捕获错误上报

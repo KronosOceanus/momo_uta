@@ -265,7 +265,7 @@ fetch_lyrics_by_id
   → valid_lrc
   → translations_from_lrc
   → save_lyrics(mode="replace")
-  → 重写 nhlrc
+  → 重写 v2 nhlrc
 ```
 
 ```text
@@ -376,7 +376,8 @@ disabled 跳过懒匹配
 ## 16. 相关
 
 ```text
-nhlrc 格式 → nhlrc.md
+v2 格式 → nhlrc.md
+单一行模型 → ../歌词数据模型.md
 缓存 TTL/失效 → cache.md
 LRC 翻译列 → lrc-editor.md
 ```

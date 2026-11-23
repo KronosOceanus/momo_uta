@@ -266,6 +266,7 @@ data/curated/imports.json
   → nhlrc 优先
   → 校验 valid_import
   → LRC.import_text 写 v2 nhlrc
+  → 显式 V1 输入也在内存转 v2
 ```
 
 ```text

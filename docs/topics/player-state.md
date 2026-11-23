@@ -256,6 +256,7 @@ SAVE_PENDING  当前保存请求
 LRC_REPLACING 替换/恢复/删除排他锁
 LRC_LOCKED    flush/保存期间禁止编辑/切歌
 LRC_VERSION   nhlrc 全文件版本
+S.version     普通页改读音请求/响应使用的同一版本
 ```
 
 ```text
@@ -328,6 +329,8 @@ EDIRTY
 
 LRC_VERSION
   → 必须对应当前文档
+S.version
+  → 普通页改读音成功后同步更新
 
 PLAYING_UID 与 S
   → 可以不同
