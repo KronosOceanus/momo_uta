@@ -594,7 +594,7 @@ def save(audio: str | Path, lines: list[dict],
          translations: dict[int, str] | None = None,
          uid: str | None = None,
          title: str | None = None, artist: str | None = None,
-         expected_version: str | None = None, trans_lang: str = "zh",
+         expected_version: str | None = None, trans_lang: str | None = None,
          line_ids: dict[int, str] | None = None,
          token_ids: dict[int, list[str]] | None = None,
          annotation_index: dict[int, int] | None = None,
@@ -612,6 +612,8 @@ def save(audio: str | Path, lines: list[dict],
                     "version": current_version}
         backed = _backup_once(sp, bak)
         body, _tail = _split_nhlrc(original)
+        if trans_lang is None:
+            trans_lang = (_tail or {}).get("trans_lang") or "zh"
         if metadata is None:
             _, metadata = _parse_document(body)
         if annotations is None:

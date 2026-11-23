@@ -483,3 +483,22 @@ class TestV2LegacyExportRows(unittest.TestCase):
         self.assertEqual([r["text"] for r in rows], ["a", "b", "c"])
         self.assertEqual(rows[2]["kind"], "lyric")
         self.assertTrue(rows[2]["lid"])
+
+
+class TestV2LegacySaveTransLang(unittest.TestCase):
+    def test_old_save_inherits_existing_trans_lang(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from nihonco_player.core import lrc_files as LRF
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                line = [{"t": 1.0, "text": "君"}]
+                self.assertTrue(LRF.save(audio, line, translations={0: "you"},
+                                          trans_lang="en")["ok"])
+                self.assertTrue(LRF.save(audio, line)["ok"])
+                self.assertEqual(LRF.load_rows(audio)["trans_lang"], "en")
