@@ -9,6 +9,27 @@ from ..core import lrc_doc as DOC
 from ..core import lrc_files as LRC
 from .song import load_lyrics, save_lyrics
 
+
+def _tokens_for(seg, ids, text):
+    """把 seg + tid 转成带字符 span 的编辑器 token。"""
+    if not seg or not isinstance(ids, list) or len(ids) != len(seg):
+        return []
+    pos = 0
+    out = []
+    for i, part in enumerate(seg):
+        base = str(part[0] or "") if part else ""
+        if not base:
+            return []
+        end = pos + len(base)
+        if text[pos:end] != base:
+            return []
+        out.append({"tid": ids[i], "start": pos, "end": end,
+                    "base": base, "ruby": part[1] if len(part) > 1 else None,
+                    "level": part[2] if len(part) > 2 else None})
+        pos = end
+    return out if pos == len(text) else []
+
+
 def lrc_action(req):
     act = req.get("action") or "load"
     item = LIB.resolve(req.get("uid"))
@@ -18,7 +39,18 @@ def lrc_action(req):
     if act == "load":
         doc, has_lines = load_lyrics(item)
         trans = doc.get("translations") or {}
-        lines = [{**ln, "trans": trans.get(i, "")} for i, ln in enumerate(doc.get("lines") or [])]
+        ann = doc.get("annotations") or {}
+        lids = doc.get("line_ids") or {}
+        tids = doc.get("token_ids") or {}
+        lines = []
+        for i, ln in enumerate(doc.get("lines") or []):
+            row = {**ln, "trans": trans.get(i, "")}
+            if lids.get(i):
+                row["lid"] = lids[i]
+            tokens = _tokens_for(ann.get(i), tids.get(i), ln.get("text") or "")
+            if tokens:
+                row["tokens"] = tokens
+            lines.append(row)
         return {**doc, "lines": lines,
                 "pending": not has_lines and not doc.get("disabled")}
     if act == "backup":

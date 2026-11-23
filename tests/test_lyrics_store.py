@@ -175,6 +175,26 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(before["line_ids"][0], after["line_ids"][0])
                 self.assertNotEqual(before["token_ids"][0], after["token_ids"][0])
 
+    def test_lrc_load_exposes_lid_and_token_spans(self):
+        from nihonco_player.service import lrc as SVC_LRC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                uid = LRF.uid_of(audio)
+                SONG.song_payload(uid)
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみだ"})
+                doc = SVC_LRC.lrc_action({"action": "load", "uid": uid})
+                row = doc["lines"][0]
+                self.assertTrue(row["lid"].startswith("l_"))
+                self.assertEqual([t["base"] for t in row["tokens"]][0], "君")
+                self.assertEqual(row["tokens"][0]["ruby"], "きみだ")
+                self.assertEqual(row["tokens"][-1]["end"], len(row["text"]))
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

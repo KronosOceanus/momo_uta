@@ -131,7 +131,29 @@ async function openLrcEditor(entering=false){
   // 编辑器保留文件顺序及未打点的行，播放视图只展示有时间戳的行。
   NH.LRC_VERSION=d.version||null;
   NH.LRC_METADATA=d.metadata||[];
-  NH.EROWS=(d.lines||[]).map(x=>({t:x.t, text:x.text, trans:x.trans||''}));
+  const lids=d.line_ids||{}, tids=d.token_ids||{}, ann=d.annotations||{};
+  const tokensOf=(i,text)=>{
+    const seg=ann[i]||[], ids=tids[i]||[];
+    if(!seg.length || ids.length!==seg.length) return [];
+    let pos=0, out=[];
+    for(let k=0;k<seg.length;k++){
+      const base=String(seg[k][0]||'');
+      const end=pos+base.length;
+      if(!base || text.slice(pos,end)!==base) return [];
+      out.push({tid:ids[k], start:pos, end, base,
+                ruby:seg[k][1], level:seg[k][2]});
+      pos=end;
+    }
+    return pos===text.length ? out : [];
+  };
+  NH.EROWS=(d.lines||[]).map((x,i)=>{
+    const row={t:x.t, text:x.text, trans:x.trans||''};
+    const lid=x.lid||lids[i];
+    if(lid) row.lid=lid;
+    const tokens=x.tokens||tokensOf(i,x.text||'');
+    if(tokens.length) row.tokens=tokens;
+    return row;
+  });
   NH.TRANS_EDIT=false; syncTransBtn();
   if(!NH.EROWS.length) NH.EROWS=[{t:null,text:''}];
   NH.ESEL=0; NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
