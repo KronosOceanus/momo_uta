@@ -259,16 +259,22 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
                  annotation_index: dict[int, int] | None = None) -> str:
     body = render(lines, metadata)
     entries = []
+    seen_l: set[str] = set()
+    seen_t: set[str] = set()
     for i, seg in sorted((annotations or {}).items()):
         if 0 <= i < len(lines) and seg:
             tail_i = (annotation_index or {}).get(i, i)
             ent = {"i": tail_i, "h": _hash8(lines[i].get("text") or ""), "seg": seg}
             lid = (line_ids or {}).get(i)
-            if _valid_id(lid, "l"):
+            if _valid_id(lid, "l") and lid not in seen_l:
                 ent["lid"] = lid
+                seen_l.add(lid)
             tids = (token_ids or {}).get(i)
-            if isinstance(tids, list) and len(tids) == len(seg) and all(_valid_id(x, "t") for x in tids):
+            if (isinstance(tids, list) and len(tids) == len(seg)
+                    and all(_valid_id(x, "t") for x in tids)
+                    and not any(x in seen_t for x in tids)):
                 ent["tid"] = tids
+                seen_t.update(tids)
             entries.append(ent)
     trans = []
     for i, text in sorted((translations or {}).items()):

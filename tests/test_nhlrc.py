@@ -44,6 +44,21 @@ class TestNhlrc(unittest.TestCase):
         self.assertRegex(first[1][0], r"^l_[0-9a-f]{8}$")
         self.assertRegex(first[2][0][0], r"^t_[0-9a-f]{8}$")
 
+    def test_duplicate_ids_are_not_written(self):
+        ann = {0: [["君", "きみ", "A"]], 1: [["の", "の", "K"]]}
+        lids = {0: "l_00112233", 1: "l_00112233"}
+        tids = {0: ["t_44556677"], 1: ["t_44556677"]}
+        text = DOC.render_nhlrc([{"t": 1.0, "text": "君"},
+                                 {"t": 2.0, "text": "の"}], [], ann,
+                                line_ids=lids, token_ids=tids)
+        _body, tail = DOC._split_nhlrc(text)
+        _ann, got_lids, got_tids = DOC.annotations_and_ids_for(
+            [{"t": 1.0, "text": "君"}, {"t": 2.0, "text": "の"}], tail)
+        self.assertEqual(len(got_lids), 2)
+        self.assertEqual(len(set(got_lids.values())), 2)
+        self.assertEqual(len(got_tids), 2)
+        self.assertEqual(len(set(got_tids[0] + got_tids[1])), 2)
+
     def test_blank_body_row_does_not_shift_annotation_index(self):
         lines = [{"t": 5.0, "text": "君の名前"}, {"t": None, "text": ""},
                  {"t": 9.0, "text": "呼んでくれた"}]
