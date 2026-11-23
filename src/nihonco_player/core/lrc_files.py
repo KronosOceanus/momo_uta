@@ -47,6 +47,28 @@ def _atomic_write(path: Path, text: str) -> None:
     FS.atomic_write_text(path, text)
 
 
+def _read_original(path: Path) -> tuple[str, bool]:
+    exists = path.is_file()
+    return (path.read_text(encoding="utf-8", errors="ignore") if exists else ""), exists
+
+
+def _version_conflict(original: str, exists: bool,
+                      expected_version: str | None) -> tuple[str, dict | None]:
+    current = _version(original) if exists else VERSION_NONE
+    if expected_version is not None and current != str(expected_version):
+        return current, {"ok": False, "conflict": True,
+                         "error": "歌词已更新，请重新加载", "version": current}
+    return current, None
+
+
+def _write_v2(path: Path, backup: Path, rows: list[dict],
+              trans_lang: str) -> tuple[str, bool]:
+    text = render_v2_rows(rows, trans_lang)
+    backed = _backup_once(path, backup)
+    _atomic_write(path, text)
+    return text, backed
+
+
 def lock_path() -> Path:
     return LYRICS / ".lock"
 
@@ -362,17 +384,14 @@ def save_rows(audio: str | Path, rows: list[dict],
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
-        original = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        current_version = _version(original) if sp.is_file() else VERSION_NONE
-        if expected_version is not None and current_version != str(expected_version):
-            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": current_version}
+        original, exists = _read_original(sp)
+        _current, conflict = _version_conflict(original, exists, expected_version)
+        if conflict:
+            return conflict
         if trans_lang is None:
             _body, tail = _split_v2_tail(original)
             trans_lang = (tail or {}).get("trans_lang") or "zh"
-        text = render_v2_rows(rows, trans_lang)
-        backed = _backup_once(sp, bak)
-        _atomic_write(sp, text)
+        text, backed = _write_v2(sp, bak, rows, trans_lang)
         return {"ok": True, "path": str(sp), "rows": len(rows),
                 "backed_up": backed, "version": _version(text)}
 
@@ -436,11 +455,10 @@ def restore_backup(audio: str | Path, uid: str | None = None,
         if not b:
             return {"ok": False, "error": "没有备份文件"}
         sp = store_path(audio, u, title, artist)
-        current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        current_version = _version(current) if sp.is_file() else VERSION_NONE
-        if expected_version is not None and current_version != str(expected_version):
-            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": current_version}
+        original, exists = _read_original(sp)
+        _current, conflict = _version_conflict(original, exists, expected_version)
+        if conflict:
+            return conflict
         text = b.read_text(encoding="utf-8", errors="ignore")
         if _is_disabled_text(text):
             return {"ok": False, "error": "没有可恢复的歌词备份"}
@@ -459,11 +477,10 @@ def delete_store(audio: str | Path, uid: str | None = None,
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
-        current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        current_version = _version(current) if sp.is_file() else VERSION_NONE
-        if expected_version is not None and current_version != str(expected_version):
-            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": current_version}
+        original, exists = _read_original(sp)
+        _current, conflict = _version_conflict(original, exists, expected_version)
+        if conflict:
+            return conflict
         if sp.is_file():
             _backup_once(sp, bak)
         text = _disabled_text()
@@ -507,11 +524,10 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
-        current = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        current_version = _version(current) if sp.is_file() else VERSION_NONE
-        if expected_version is not None and current_version != str(expected_version):
-            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": current_version}
+        original, exists = _read_original(sp)
+        _current, conflict = _version_conflict(original, exists, expected_version)
+        if conflict:
+            return conflict
         body, tail = _split_nhlrc(text)
         if tail and tail.get("disabled"):
             out = _disabled_text()
@@ -528,9 +544,8 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
         for i, row in enumerate(lyric_rows):
             if translations is not None and i in translations:
                 row["trans"] = str(translations[i] or "")
-        out = render_v2_rows(rows, trans_lang or (tail or {}).get("trans_lang") or "zh")
-        backed = _backup_once(sp, bak)
-        _atomic_write(sp, out)
+        out, backed = _write_v2(sp, bak, rows,
+                                trans_lang or (tail or {}).get("trans_lang") or "zh")
         return {"ok": True, "path": str(sp), "lines": len(lyric_rows),
                 "annotated": sum(1 for row in lyric_rows if row.get("tokens")),
                 "backed_up": backed, "version": _version(out)}
@@ -606,11 +621,10 @@ def save(audio: str | Path, lines: list[dict],
     sp = store_path(audio, u, title, artist)
     bak = store_backup(audio, u, title, artist)
     with LOCK, FS.locked(lock_path()):
-        original = sp.read_text(encoding="utf-8", errors="ignore") if sp.is_file() else ""
-        current_version = _version(original) if sp.is_file() else VERSION_NONE
-        if expected_version is not None and current_version != str(expected_version):
-            return {"ok": False, "conflict": True, "error": "歌词已更新，请重新加载",
-                    "version": current_version}
+        original, exists = _read_original(sp)
+        _current, conflict = _version_conflict(original, exists, expected_version)
+        if conflict:
+            return conflict
         body, _tail = _split_nhlrc(original)
         if trans_lang is None:
             trans_lang = (_tail or {}).get("trans_lang") or "zh"
@@ -630,8 +644,6 @@ def save(audio: str | Path, lines: list[dict],
         body_meta = _metadata_for_body(metadata, annotation_index, len(lines))
         rows = _rows_from_body(lines, body_meta, annotations, translations,
                                line_ids, token_ids, annotation_index)
-        text = render_v2_rows(rows, trans_lang)
-        backed = _backup_once(sp, bak)
-        _atomic_write(sp, text)
+        text, backed = _write_v2(sp, bak, rows, trans_lang)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}
