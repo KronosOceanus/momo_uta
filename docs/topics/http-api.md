@@ -212,7 +212,7 @@ paths
 
 ```text
 音频 + 同名 .lrc/.nhlrc 的目录导入
-import 可带 with_lrc；缺省只收音频
+import 可带 with_lrc；缺省只收音频，显式歌词会被拒绝并返回 rejected_lrc
 返回 import_paths 结果 + lists
 ```
 

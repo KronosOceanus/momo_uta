@@ -5,9 +5,9 @@
 >
 > 相关：[优化记录](优化.md) · [架构](architecture.md) · [nhlrc](topics/nhlrc.md)
 
-## 1. 导入音乐+LRC 覆盖 nhlrc 时不计入 overwritten
+## 0. 导入音乐+LRC 覆盖 nhlrc 时不计入 overwritten
 
-- 编号：BUG-001
+- 编号：BUG-000
 - 状态：⬜ 待修
 - 优先级：高
 - 影响：覆盖已有 nhlrc，但前端只显示“新增 N 首”
@@ -62,80 +62,9 @@ LRC.import_text(str(a), raw, ...)
 src/nihonco_player/core/importing.py: import_paths
 ```
 
-## 2. 只导入音乐时，显式 LRC 被静默忽略
+## 2. 导入路径重复时，统计可能偏大
 
 - 编号：BUG-002
-- 状态：⬜ 待修
-- 优先级：中
-- 影响：用户同时选音频和 LRC，但 LRC 被丢弃且没有提示
-- 范围：导入音乐
-
-### 现象
-
-用户选择：
-
-```text
-audio.mp3
-audio.lrc
-```
-
-点击“导入音乐”后：
-
-```text
-新增 1 首
-```
-
-没有说明：
-
-```text
-LRC 被忽略
-```
-
-### 原因
-
-`import_paths(with_lrc=False)`：
-
-```python
-lrcs = [p for p in files if with_lrc and p.suffix.lower() in LYRIC_EXT]
-```
-
-直接丢弃，不返回 ignored 信息。
-
-### 修复方向
-
-```text
-返回 ignored_lrc 数量
-或
-导入音乐入口直接拒绝包含 LRC 的选择
-```
-
-前端提示：
-
-```text
-已忽略 2 个歌词文件（当前是“只导入音乐”）
-```
-
-### 测试
-
-```text
-只导入音乐
-  → 同时选 audio + lrc
-  → added 有 audio
-  → ignored_lrc == 1
-  → 不写 nhlrc
-```
-
-### 相关
-
-```text
-core/importing.py
-service/playlist.py
-static/12-library.js
-```
-
-## 3. 导入路径重复时，统计可能偏大
-
-- 编号：BUG-003
 - 状态：⬜ 待修
 - 优先级：中
 - 影响：重复计数、重复写，虽然下游会去重
@@ -186,9 +115,9 @@ lrcs   = unique([p.resolve() ...])
 core/importing.py: import_paths
 ```
 
-## 4. 导入模块残留死代码
+## 3. 导入模块残留死代码
 
-- 编号：BUG-004
+- 编号：BUG-003
 - 状态：⬜ 待修
 - 优先级：低
 - 影响：维护风险；旧自动配对逻辑可能被误用
@@ -219,9 +148,9 @@ _body() 只被 _pair 使用
 src/nihonco_player/core/importing.py
 ```
 
-## 5. `doImport` 的 `btn` 参数没有实际意义
+## 4. `doImport` 的 `btn` 参数没有实际意义
 
-- 编号：BUG-005
+- 编号：BUG-004
 - 状态：⬜ 待修
 - 优先级：低
 - 影响：无功能崩溃，但参数误导
@@ -261,8 +190,7 @@ src/nihonco_player/static/12-library.js: doImport
 
 ```text
 BUG-001 覆盖计数
-BUG-002 忽略 LRC 提示
-BUG-003 路径去重
-BUG-004 死代码
-BUG-005 doImport btn
+BUG-002 路径去重
+BUG-003 死代码
+BUG-004 doImport btn
 ```

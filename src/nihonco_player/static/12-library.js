@@ -307,6 +307,7 @@ async function doImport(listId, withLrc, btn){
     if(r.pending_count) bits.push(`其中 ${r.pending_count} 首待匹配歌词`);
     if(r.overwritten) bits.push(`覆盖 ${r.overwritten} 首歌词`);
     if(r.unpaired) bits.push(`${r.unpaired} 个 lrc 未配对`);
+    if(r.rejected_lrc) bits.push(`已拒绝 ${r.rejected_lrc} 个歌词文件，请用「导入音乐+LRC」`);
     if(r.already) bits.push(`${r.already} 首已在歌单`);
     NH.done(bits.join('，')); lock(btn, false);
   }catch(err){

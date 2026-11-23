@@ -113,6 +113,7 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
             files.append(p)
 
     audios = [p for p in files if p.suffix.lower() in AUDIO_EXT]
+    rejected = [p for p in files if not with_lrc and p.suffix.lower() in LYRIC_EXT]
     lrcs = [p for p in files if with_lrc and p.suffix.lower() in LYRIC_EXT]
     for d in dirs:                                  # ① 目录递归
         for p in sorted(d.rglob("*")):
@@ -183,4 +184,5 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
             added.append(str(target))
 
     return {"added": added, "pending": pending, "overwritten": overwritten,
-            "unpaired": unpaired, "audio_found": len(audios), "lrc_found": len(lrcs)}
+            "unpaired": unpaired, "rejected_lrc": len(rejected),
+            "audio_found": len(audios), "lrc_found": len(lrcs)}

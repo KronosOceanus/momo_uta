@@ -255,6 +255,7 @@ data/curated/imports.json
   import_paths(paths, with_lrc=False)
   → 只收音频
   → 目录里的 .lrc / .nhlrc 不扫描
+  → 显式选中的 .lrc / .nhlrc 被拒绝并提示
   → 不写 nhlrc
   → 歌词走待匹配
 
