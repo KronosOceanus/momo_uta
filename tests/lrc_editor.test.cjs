@@ -339,3 +339,37 @@ test('translation column is opt-in and keeps the second input', () => {
   assert.ok(on.includes('tx trans'));
   assert.ok(on.includes('译文'));
 });
+
+test('editing text keeps tokens fully outside the changed span', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'君の名前',lid:'l_aaaaaaaa',tokens:[
+    {tid:'t_aaaaaaaa',start:0,end:1,base:'君',ruby:'きみ',level:'A'},
+    {tid:'t_bbbbbbbb',start:1,end:2,base:'の',ruby:null,level:'K'},
+    {tid:'t_cccccccc',start:2,end:4,base:'名前',ruby:'なまえ',level:'A'}]}];
+    retokenizeRow(EROWS[0],'君の名');
+    globalThis.__tokens = JSON.stringify(EROWS[0].tokens);
+    globalThis.__payload = JSON.stringify(lrcPayload());`);
+  assert.equal(p.run('EROWS[0].text'), '君の名');
+  const tokens = JSON.parse(p.run('__tokens'));
+  assert.deepEqual(tokens.map(t => t.tid), ['t_aaaaaaaa', 't_bbbbbbbb']);
+  const payload = JSON.parse(p.run('__payload'));
+  assert.equal(payload[0].lid, 'l_aaaaaaaa');
+  assert.deepEqual(payload[0].tokens.map(t => [t.start, t.end, t.tid]), [
+    [0, 1, 't_aaaaaaaa'], [1, 2, 't_bbbbbbbb']
+  ]);
+});
+
+test('editing inside a token drops that token but shifts later tokens', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'君の名前を呼ぶ',tokens:[
+    {tid:'t_aaaaaaaa',start:0,end:1,base:'君',ruby:'きみ',level:'A'},
+    {tid:'t_bbbbbbbb',start:1,end:2,base:'の',ruby:null,level:'K'},
+    {tid:'t_cccccccc',start:2,end:4,base:'名前',ruby:'なまえ',level:'A'},
+    {tid:'t_dddddddd',start:4,end:5,base:'を',ruby:null,level:'K'},
+    {tid:'t_eeeeeeee',start:5,end:7,base:'呼ぶ',ruby:'よぶ',level:'A'}]}];
+    retokenizeRow(EROWS[0],'君の名を呼ぶ');
+    globalThis.__tokens = JSON.stringify(EROWS[0].tokens);`);
+  const tokens = JSON.parse(p.run('__tokens'));
+  assert.deepEqual(tokens.map(t => t.tid), ['t_aaaaaaaa', 't_bbbbbbbb', 't_dddddddd', 't_eeeeeeee']);
+  assert.deepEqual(tokens.at(-1), {tid:'t_eeeeeeee', start:4, end:6, base:'呼ぶ', ruby:'よぶ', level:'A'});
+});

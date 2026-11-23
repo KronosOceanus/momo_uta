@@ -18,8 +18,8 @@ from ..core import fsio as FS
 from ..core import lyrics as LY
 from ..core import song_meta as META
 from ..core.annotation import (AN, annotations_from_lines,  # noqa: F401
-                               annotate_line_with_notes, ruby_html,
-                               segs_of, strip_paren_ruby, words_html_of)
+                               annotate_line_with_notes, annotate_line_with_token_overrides,
+                               ruby_html, segs_of, strip_paren_ruby, words_html_of)
 from ..core.lrc_doc import new_line_id, new_token_ids
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
@@ -36,11 +36,14 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
     return doc, LRC.usable_doc(doc)
 
 
-def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None):
-    """按行生成读音；行内正文变化时保守保留未改 token 的读音。"""
+def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None,
+                    tokens=None, old_token_values=None):
+    """按行生成读音；行内正文变化时按 token id 保留读音。"""
     ann = {}
     stored = stored or {}
     old_texts = old_texts or {}
+    tokens = tokens or {}
+    old_token_values = old_token_values or {}
     for i, ln in enumerate(lines):
         text = (ln.get("text") or "").strip()
         if not text:
@@ -50,7 +53,11 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None):
             ann[i] = st
             continue
         try:
-            if st and old_texts.get(i) not in (None, text):
+            line_tokens = tokens.get(i) or []
+            if line_tokens and old_token_values:
+                ann[i] = segs_of(annotate_line_with_token_overrides(
+                    text, line_tokens, old_token_values))
+            elif st and old_texts.get(i) not in (None, text):
                 from ..core.annotation import annotate_line_preserving_notes
                 ann[i] = segs_of(annotate_line_preserving_notes(text, old_texts[i], st))
             else:
@@ -82,6 +89,13 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                                   trans_lang=trans_lang)
         else:
             doc = LRC.load(item["file"], uid, title, artist)
+            old_token_values = {}
+            old_tids = doc.get("token_ids") or {}
+            for i, segs in (doc.get("annotations") or {}).items():
+                ids = old_tids.get(i) or []
+                for ti, seg in enumerate(segs):
+                    if ti < len(ids):
+                        old_token_values[ids[ti]] = seg
             if mode == "align":
                 old = DOC.align_annotations(lines or [], doc.get("annotations") or {})
                 old_texts = {i: (ln.get("text") or "").strip()
@@ -92,8 +106,11 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                     for i, st in (doc.get("annotations") or {}).items():
                         if i not in old and st:
                             old[i] = st
+                tokens = {i: (ln.get("tokens") or [])
+                          for i, ln in enumerate(lines or [])}
                 ann = _annotate_lines(lines or [], old, keep_unchanged=True,
-                                      old_texts=old_texts)
+                                      old_texts=old_texts, tokens=tokens,
+                                      old_token_values=old_token_values)
             elif mode == "annotated":
                 ann = annotations or {}
             elif mode == "reset":
@@ -116,15 +133,17 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             old_lids = doc.get("line_ids") or {}
             old_tids = doc.get("token_ids") or {}
             out_lids = dict(line_ids or {})
+            for i, ln in enumerate(lines or []):
+                if ln.get("lid"):
+                    out_lids.setdefault(i, ln["lid"])
             out_tids = dict(token_ids or {})
             old_lines = doc.get("lines") or []
             for i, ln in enumerate(lines or []):
-                if i in out_lids:
-                    continue
-                if i < len(old_lines):
-                    out_lids[i] = old_lids.get(i) or new_line_id()
-                else:
-                    out_lids[i] = new_line_id()
+                if i not in out_lids:
+                    if i < len(old_lines):
+                        out_lids[i] = old_lids.get(i) or new_line_id()
+                    else:
+                        out_lids[i] = new_line_id()
                 seg = (ann or {}).get(i)
                 if not seg:
                     continue
@@ -136,7 +155,25 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 if old_text == new_text and isinstance(old_ids, list) and len(old_ids) == len(seg):
                     out_tids[i] = old_ids
                 else:
-                    out_tids[i] = new_token_ids(len(seg))
+                    fresh = new_token_ids(len(seg))
+                    used = set()
+                    pos = 0
+                    for ti, new_seg in enumerate(seg):
+                        base = new_seg[0] if new_seg else ""
+                        start, end = pos, pos + len(base)
+                        pos = end
+                        for tok in (ln.get("tokens") or []):
+                            tid = tok.get("tid")
+                            if not tid or tid in used:
+                                continue
+                            if tok.get("start") == start and \
+                               tok.get("end") == end and \
+                               tok.get("base") == base and \
+                               tid in old_token_values:
+                                fresh[ti] = tid
+                                used.add(tid)
+                                break
+                    out_tids[i] = fresh
             res = LRC.save(item["file"], lines or [], ann, uid=uid, title=title,
                            artist=artist, expected_version=expected_version,
                            translations=trans, trans_lang=trans_lang,

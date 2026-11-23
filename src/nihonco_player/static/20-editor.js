@@ -38,8 +38,33 @@ function markDirty(){
   NH.SAVE_T=setTimeout(()=>saveLrc(true), NH.UI.autosave_ms||1500);   // 停止编辑后自动保存
   NH.paintTicks?.();
 }
+function retokenizeRow(row, nextText){
+  const old=row.text||'';
+  if(old===nextText) return;
+  const tokens=Array.isArray(row.tokens)?row.tokens:[];
+  let p=0;
+  while(p<old.length && p<nextText.length && old[p]===nextText[p]) p++;
+  let s=0;
+  while(s<old.length-p && s<nextText.length-p &&
+        old[old.length-1-s]===nextText[nextText.length-1-s]) s++;
+  const changedEnd=old.length-s;
+  const shift=nextText.length-old.length;
+  row.text=nextText;
+  row.tokens=tokens.flatMap(t=>{
+    if(t.end<=p) return [t];
+    if(t.start>=changedEnd) return [{...t, start:t.start+shift, end:t.end+shift}];
+    return [];
+  });
+}
 function lrcPayload(){
-  return NH.EROWS.map(x=>({t:x.t, text:x.text, trans:x.trans||''}));
+  return NH.EROWS.map(x=>{
+    const row={t:x.t, text:x.text, trans:x.trans||''};
+    if(x.lid) row.lid=x.lid;
+    if(Array.isArray(x.tokens) && x.tokens.length){
+      row.tokens=x.tokens.map(t=>({tid:t.tid, start:t.start, end:t.end, base:t.base}));
+    }
+    return row;
+  });
 }
 function syncTransBtn(){
   const b=document.getElementById('lrctrans'); if(!b) return;
@@ -220,7 +245,8 @@ function renderLrcTable(){
     el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
     el.oninput=()=>{
       if(NH.LRC_LOCKED) return;
-      NH.EROWS[+el.dataset.i].text=el.value; markDirty();
+      retokenizeRow(NH.EROWS[+el.dataset.i], el.value);
+      markDirty();
     };
     el.onkeydown=ev=>{
       if(NH.LRC_LOCKED || ev.isComposing||ev.keyCode===229) return;
@@ -674,6 +700,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
+Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

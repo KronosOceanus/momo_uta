@@ -195,6 +195,42 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(row["tokens"][0]["ruby"], "きみだ")
                 self.assertEqual(row["tokens"][-1]["end"], len(row["text"]))
 
+    def test_save_with_tid_payload_keeps_edited_line_token(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                uid = LRF.uid_of(audio)
+                SONG.song_payload(uid)
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみだ"})
+                before = LRF.load(audio, uid)
+                tokens = []
+                pos = 0
+                for ti, seg in enumerate(before["annotations"][0]):
+                    base = seg[0]
+                    end = pos + len(base)
+                    if ti < 2:
+                        tokens.append({"tid": before["token_ids"][0][ti],
+                                       "start": pos, "end": end, "base": base})
+                    pos = end
+                lines = [
+                    {"t": 5.0, "text": "君の名", "trans": "",
+                     "lid": before["line_ids"][0], "tokens": tokens},
+                    {"t": 9.0, "text": "呼んでくれた", "trans": ""},
+                    {"t": 13.0, "text": "また会おう", "trans": ""},
+                ]
+                res = SONG.save_lyrics(CACHE["0"], lines, "align")
+                self.assertTrue(res.get("ok"), res)
+                after = LRF.load(audio, uid)
+                self.assertIn("きみだ", LRF.store_path(audio).read_text(encoding="utf-8"))
+                self.assertEqual(after["line_ids"][0], before["line_ids"][0])
+                self.assertEqual(after["token_ids"][0][0], before["token_ids"][0][0])
+                self.assertNotEqual(after["token_ids"][0][-1], before["token_ids"][0][-1])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

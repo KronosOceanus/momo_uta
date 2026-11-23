@@ -90,6 +90,46 @@ def annotate_line_with_notes(text: str, extra_start: int | None = None,
     return AN.annotate(clean, ov) if ov else base
 
 
+def annotate_line_with_token_overrides(text: str, tokens: list,
+                                       old_values: dict) -> dict:
+    """按编辑器给出的 tid/span 保留读音；只接受 engine segment 完全匹配。"""
+    base_result = annotate_line_with_notes(text)
+    by_start = {seg.get("start"): seg for seg in base_result["lines"][0]["segments"]}
+    extras = []
+    levels = {}
+    for token in tokens or ():
+        if not isinstance(token, dict):
+            continue
+        tid = token.get("tid")
+        start = token.get("start")
+        end = token.get("end")
+        base = token.get("base")
+        if not isinstance(tid, str) or not isinstance(start, int) or not isinstance(end, int):
+            continue
+        if start < 0 or end > len(text) or text[start:end] != base:
+            continue
+        seg = by_start.get(start)
+        if not seg or seg.get("end") != end or seg.get("base") != base:
+            continue
+        old = old_values.get(tid)
+        if not old or len(old) < 2 or not old[1]:
+            continue
+        if old[0] != base:
+            continue
+        extras.append((start, old[1]))
+        if len(old) > 2 and old[2]:
+            levels[start] = old[2]
+    if not extras:
+        return base_result
+    result = annotate_line_with_notes(text, extras=extras)
+    if levels:
+        for seg in result["lines"][0]["segments"]:
+            level = levels.get(seg.get("start"))
+            if level:
+                seg["level"] = level
+    return result
+
+
 def annotate_line_preserving_notes(text: str, old_text: str,
                                     stored: list | None) -> dict:
     """正文被编辑后，保守保留仍然完整的旧 token 读音。
