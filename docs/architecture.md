@@ -306,7 +306,7 @@ NH.load
   → service.song.song_payload
   → service.lyric_document.load_rows
       v2：rows
-      V1：内存转 rows
+      V1：不再读取
       无 nhlrc：歌词缓存/旧路径
   → core.lyric_rows.playable
       按时间排序，同时间按文档顺序

@@ -64,7 +64,7 @@ data/cache/lyrics/<md5(title|artist)>.json
 它是抓取结果，不是权威歌词。
 有 .nhlrc 时，歌词缓存不参与歌词读取。
 没有 .nhlrc 时，lrc 用于显示，tlyric 可配对翻译。
-V1/V2 转换只在内存/保存时发生，不写回歌词缓存。
+歌词缓存只作为普通 LRC 显示来源；nhlrc 只接受 v2。
 ```
 
 ```text

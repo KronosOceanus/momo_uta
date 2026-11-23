@@ -248,7 +248,7 @@ save 带 version；冲突 → 409 {ok:false, conflict:true}
 ```text
 load:
   有 v2 文档：model:2 + rows
-  有 V1 文档：内存转 rows，返回 model:2
+  有 V1 文档：不支持的 nhlrc 版本
   没有 nhlrc：缓存/旧路径返回 lines
   v2 文档的 rows 与 version 来自同一次读取
   每行：id/kind/text/t/lid/tokens/trans
