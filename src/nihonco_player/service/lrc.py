@@ -8,6 +8,7 @@ from ..core import library as LIB
 from ..core import lrc_doc as DOC
 from ..core import lrc_files as LRC
 from ..core.lrc_doc import tokens_with_spans
+from . import lyric_document as LD
 from .song import load_lyrics, save_lyrics
 
 
@@ -68,6 +69,12 @@ def lrc_action(req):
                 res["refresh_ok"] = False
                 res["refresh_error"] = str(e)
         return res
+    if act == "load_rows":
+        return LD.load_rows(uid)
+    if act == "save_rows":
+        return LD.save_rows(uid, req.get("rows") or [],
+                            expected_version=req.get("version"),
+                            trans_lang=req.get("trans_lang") or "zh")
     if act == "export":
         lines = req.get("lines")
         doc = LRC.load(item["file"], uid, title, artist)

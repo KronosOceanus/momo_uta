@@ -228,7 +228,7 @@ uid
 
 ```text
 load / save / export / backup / restore
-delete / import_lrc
+delete / import_lrc / load_rows / save_rows
 ```
 
 ```text
@@ -253,6 +253,7 @@ save:
 ```
 
 ```text
+load_rows / save_rows 是 v2 单一行文档入口
 export 返回 nhlrc + 纯 lrc
 导出时空行保留，annotation 按非空行编号
 metadata 的 before 映射到 body 行
