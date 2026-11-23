@@ -123,32 +123,21 @@ def _old_save_layout(doc):
 
 
 def _map_new_to_old(body_rows, old):
-    """新 body 行 → 旧 body 行：lid 优先，文本兜底，每条旧行最多认领一次。"""
+    """新 body 行 → 旧 body 行：lid 优先，文本匹配，最后位置兜底。"""
     used = set()
     mapped = {}
+    old_body = old.get("body_rows") or []
     old_by_lid = {lid: bi for bi, lid in (old.get("lids") or {}).items() if lid}
+
+    # 第一轮：能对上的 lid。
     for bi, ln in enumerate(body_rows):
         lid = ln.get("lid")
         old_bi = old_by_lid.get(lid) if lid else None
         if old_bi is not None and old_bi not in used:
             mapped[bi] = old_bi
             used.add(old_bi)
-    # 第二轮：只处理完全没有 lid 的行，先位置+文本，再文本 FIFO。
-    old_body = old.get("body_rows") or []
-    for bi, ln in enumerate(body_rows):
-        if bi in mapped or ln.get("lid"):
-            continue
-        text = ln.get("text") or ""
-        if bi < len(old_body) and bi not in used and (old_body[bi].get("text") or "") == text:
-            mapped[bi] = bi
-            used.add(bi)
-    # 兼容旧数据：行数不变、没有 lid 的编辑行仍按位置取旧标注。
-    if len(body_rows) == len(old_body):
-        for bi, ln in enumerate(body_rows):
-            if bi in mapped or ln.get("lid") or bi in used:
-                continue
-            mapped[bi] = bi
-            used.add(bi)
+
+    # 第二轮：没有 lid 的行先按文本匹配，交换/重排也能找回读音。
     for bi, ln in enumerate(body_rows):
         if bi in mapped or ln.get("lid"):
             continue
@@ -158,6 +147,14 @@ def _map_new_to_old(body_rows, old):
                 mapped[bi] = old_bi
                 used.add(old_bi)
                 break
+
+    # 第三轮：剩下的、行数不变的无 lid 编辑行才按位置兜底。
+    if len(body_rows) == len(old_body):
+        for bi, ln in enumerate(body_rows):
+            if bi in mapped or ln.get("lid") or bi in used:
+                continue
+            mapped[bi] = bi
+            used.add(bi)
     return mapped
 
 
@@ -184,38 +181,49 @@ def _tokens_match_old(line, old_bi, old):
     return pos == len(text)
 
 
+def _line_reuse(line, old_bi, old):
+    """整行复用的唯一判定：注音和 ID 必须共用。"""
+    if old_bi is None:
+        return False
+    st = (old.get("ann") or {}).get(old_bi)
+    if not st:
+        return False
+    if (line.get("text") or "") != (old.get("texts") or {}).get(old_bi, ""):
+        return False
+    tokens = line.get("tokens") or []
+    if not tokens:
+        return True
+    return _tokens_match_old(line, old_bi, old)
+
+
+def _build_reuse(body_rows, mapped, old):
+    return {bi for bi, ln in enumerate(body_rows)
+            if _line_reuse(ln, mapped.get(bi), old)}
+
+
 def _annotate_for_save(mode, body_rows, lyric_rows, body_to_lyric,
                        doc, old, annotations):
-    """按保存模式生成 body-keyed annotation。"""
+    """按保存模式生成 body-keyed annotation，并返回共用身份映射。"""
+    mapped = _map_new_to_old(body_rows, old)
+    reuse = _build_reuse(body_rows, mapped, old)
     if mode == "align":
-        mapped = _map_new_to_old(body_rows, old)
         old_ann = {bi: old["ann"][old_bi] for bi, old_bi in mapped.items()
                    if old.get("ann", {}).get(old_bi)}
         old_texts = {bi: old["texts"].get(old_bi, "")
                      for bi, old_bi in mapped.items()}
         tokens = {bi: (ln.get("tokens") or [])
                   for bi, ln in enumerate(body_rows)}
-        reuse = set()
-        for bi, ln in enumerate(body_rows):
-            old_bi = mapped.get(bi)
-            st = old["ann"].get(old_bi) if old_bi is not None else None
-            if not st or (ln.get("text") or "") != (old["texts"].get(old_bi) or ""):
-                continue
-            line_tokens = tokens.get(bi) or []
-            if not line_tokens or _tokens_match_old(ln, old_bi, old):
-                reuse.add(bi)
         ann = _annotate_lines(body_rows, old_ann, reuse=reuse,
                               old_texts=old_texts, tokens=tokens,
                               old_token_values=old["token_values"])
-        return ann, mapped
+        return ann, mapped, reuse
     if mode == "annotated":
         return ({bi: annotations[li] for bi, li in body_to_lyric.items()
-                 if annotations and li in annotations},
-                _map_new_to_old(body_rows, old))
+                 if annotations and li in annotations}, mapped, reuse)
     if mode == "reset":
-        return _annotate_lines(body_rows), _map_new_to_old(body_rows, old)
+        return _annotate_lines(body_rows), mapped, reuse
     if mode == "replace":
-        return annotations or {}, _map_new_to_old(body_rows, old)
+        return annotations or {}, mapped, reuse
     raise ValueError("未知歌词保存模式：" + str(mode))
 
 
@@ -238,7 +246,7 @@ def _save_translations(body_rows, body_to_lyric, doc, old, translations):
             if str(v or "").strip() and int(k) in body_to_lyric}
 
 
-def _resolve_save_ids(body_rows, ann, old, old_map, line_ids, token_ids):
+def _resolve_save_ids(body_rows, ann, old, old_map, reuse, line_ids, token_ids):
     """保留未改行的身份；改行只保留能按 tid/span 对上的 token。"""
     out_lids = dict(line_ids or {})
     for bi, ln in enumerate(body_rows):
@@ -253,9 +261,8 @@ def _resolve_save_ids(body_rows, ann, old, old_map, line_ids, token_ids):
         if not seg or bi in out_tids:
             continue
         old_text = old["texts"].get(old_bi) if old_bi is not None else None
-        new_text = ln.get("text") or ""
         old_ids = old["tids"].get(old_bi) if old_bi is not None else None
-        if old_text == new_text and isinstance(old_ids, list) and len(old_ids) == len(seg):
+        if bi in reuse and isinstance(old_ids, list) and len(old_ids) == len(seg):
             out_tids[bi] = old_ids
             continue
         fresh = new_token_ids(len(seg))
@@ -313,12 +320,12 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
             body_rows = lines or []
             lyric_rows, body_to_lyric = _body_layout(body_rows)
             old = _old_save_layout(doc)
-            ann, old_map = _annotate_for_save(mode, body_rows, lyric_rows,
-                                              body_to_lyric, doc, old, annotations)
+            ann, old_map, reuse = _annotate_for_save(mode, body_rows, lyric_rows,
+                                                     body_to_lyric, doc, old, annotations)
             trans = _save_translations(body_rows, body_to_lyric, doc, old,
                                        translations)
             out_lids, out_tids = _resolve_save_ids(body_rows, ann, old, old_map,
-                                                   line_ids, token_ids)
+                                                   reuse, line_ids, token_ids)
             res = LRC.save(item["file"], body_rows, ann, uid=uid, title=title,
                            artist=artist, expected_version=expected_version,
                            translations=trans, trans_lang=trans_lang,

@@ -517,6 +517,59 @@ class TestManualReading(unittest.TestCase):
                 self.assertNotIn(after["token_ids"][1][0],
                                  before["token_ids"][0] + before["token_ids"][1])
 
+    def test_token_swap_with_same_lid_keeps_readings_and_tids_together(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                lines = [{"t": 5.0, "text": "君"}, {"t": 9.0, "text": "君"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], lines, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみ"})
+                SONG.edit_line_action({"uid": uid, "line": 1, "start": 0,
+                                       "reading": "くん"})
+                before = LRF.load(audio, uid)
+                swapped_tokens = [
+                    {"t": 5.0, "text": "君", "lid": before["line_ids"][0],
+                     "tokens": [{"tid": before["token_ids"][1][0], "start": 0,
+                                 "end": 1, "base": "君"}]},
+                    {"t": 9.0, "text": "君", "lid": before["line_ids"][1],
+                     "tokens": [{"tid": before["token_ids"][0][0], "start": 0,
+                                 "end": 1, "base": "君"}]},
+                ]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], swapped_tokens, "align")["ok"])
+                after = LRF.load(audio, uid)
+                self.assertEqual(after["annotations"][0][0][1], "くん")
+                self.assertEqual(after["annotations"][1][0][1], "きみ")
+                self.assertEqual(after["token_ids"][0], [before["token_ids"][1][0]])
+                self.assertEqual(after["token_ids"][1], [before["token_ids"][0][0]])
+
+    def test_no_lid_reorder_different_texts_keeps_readings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                lines = [{"t": 5.0, "text": "君"}, {"t": 9.0, "text": "花"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], lines, "align")["ok"])
+                uid = LRF.uid_of(audio)
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみ"})
+                SONG.edit_line_action({"uid": uid, "line": 1, "start": 0,
+                                       "reading": "はな"})
+                before = LRF.load(audio, uid)
+                swapped = [{"t": 9.0, "text": "花"}, {"t": 5.0, "text": "君"}]
+                self.assertTrue(SONG.save_lyrics(CACHE["0"], swapped, "align")["ok"])
+                after = LRF.load(audio, uid)
+                self.assertEqual(after["annotations"][0][0][1], "はな")
+                self.assertEqual(after["annotations"][1][0][1], "きみ")
+                self.assertEqual(after["line_ids"][0], before["line_ids"][1])
+                self.assertEqual(after["line_ids"][1], before["line_ids"][0])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
