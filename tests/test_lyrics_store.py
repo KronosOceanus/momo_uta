@@ -311,6 +311,47 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(len(doc["annotations"]), 3)
                 self.assertEqual("".join(x[0] for x in doc["annotations"][1]), "呼んでくれた")
 
+    def test_api_save_reload_keeps_token_identity(self):
+        from nihonco_player.service import lrc as SVC_LRC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                uid = LRF.uid_of(audio)
+                SONG.song_payload(uid)
+                SONG.save_lyrics(CACHE["0"], rows(), "align")
+                SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
+                                       "reading": "きみだ"})
+                before = LRF.load(audio, uid)
+                tokens = []
+                pos = 0
+                for ti, seg in enumerate(before["annotations"][0]):
+                    end = pos + len(seg[0])
+                    if ti < 2:
+                        tokens.append({"tid": before["token_ids"][0][ti],
+                                       "start": pos, "end": end, "base": seg[0]})
+                    pos = end
+                lines = [
+                    {"t": 5.0, "text": "君の名", "trans": "",
+                     "lid": before["line_ids"][0], "tokens": tokens},
+                    {"t": 9.0, "text": "呼んでくれた", "trans": ""},
+                    {"t": 13.0, "text": "また会おう", "trans": ""},
+                ]
+                saved = SVC_LRC.lrc_action({"action": "save", "uid": uid,
+                                            "lines": lines})
+                self.assertTrue(saved.get("ok"), saved)
+                loaded = SVC_LRC.lrc_action({"action": "load", "uid": uid})
+                row = loaded["lines"][0]
+                self.assertEqual(row["text"], "君の名")
+                self.assertIn("きみだ", row["tokens"][0]["ruby"])
+                self.assertEqual(row["tokens"][0]["tid"],
+                                 before["token_ids"][0][0])
+                self.assertNotEqual(row["tokens"][-1]["tid"],
+                                    before["token_ids"][0][-1])
+
     def test_edit_clear_resets_to_engine_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

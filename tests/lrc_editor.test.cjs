@@ -454,3 +454,17 @@ test('merge response carries ruby and level', () => {
     tid:'t_bbbbbbbb', start:0, end:1, base:'君', ruby:'きみ', level:'A'
   });
 });
+
+test('save ids do not merge when the editor revision changed', async () => {
+  const p = player();
+  p.run(`VIEW_MODE='lrc'; S={idx:'0',uid:'u0'};
+    EROWS=[{t:1,text:'old'}]; EDIRTY=true; EDIT_REVISION=0;`);
+  const saving = p.run('saveLrc(true)');
+  p.run(`EROWS[0].text='new'; markDirty();`);
+  p.requests[0].resolve({ok:true, version:'v2', ids:[
+    {i:0,text:'old',lid:'l_old',tokens:[
+      {tid:'t_old',start:0,end:3,base:'old'}]}]});
+  await saving;
+  assert.equal(p.run('EROWS[0].text'), 'new');
+  assert.equal(p.run('EROWS[0].lid'), undefined);
+});
