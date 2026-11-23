@@ -272,6 +272,7 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
             tids = (token_ids or {}).get(i)
             if (isinstance(tids, list) and len(tids) == len(seg)
                     and all(_valid_id(x, "t") for x in tids)
+                    and len(set(tids)) == len(tids)
                     and not any(x in seen_t for x in tids)):
                 ent["tid"] = tids
                 seen_t.update(tids)
