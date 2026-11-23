@@ -465,6 +465,7 @@ check_js.py
 topics/nhlrc.md            歌词文件格式
 topics/nhlrc-token-ids.md  行/token 身份升级
 topics/cache.md            缓存/持久化
+topics/optimization.md     未完成优化
 topics/fingerprint.md      音频指纹与 uid
 topics/lyrics-matching.md  歌词搜索/过滤/配对
 topics/player-state.md     查看/播放/编辑状态
