@@ -469,5 +469,6 @@ v = 1
 ```text
 tlyric 来源/时间配对 → lyrics-matching.md
 翻译列编辑 → lrc-editor.md
+行/token ID 升级 → nhlrc-token-ids.md
 播放器状态机 → player-state.md
 ```
