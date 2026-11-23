@@ -67,6 +67,32 @@ def _annotate_lines(lines, stored=None, keep_unchanged=False, old_texts=None,
     return ann
 
 
+def _saved_identities(body_rows, ann, line_ids, token_ids):
+    """保存响应：把后端新生成的 lid/tid 回传给编辑器。"""
+    out = []
+    for bi, seg in sorted((ann or {}).items()):
+        if bi >= len(body_rows) or not seg:
+            continue
+        lid = (line_ids or {}).get(bi)
+        tids = (token_ids or {}).get(bi) or []
+        if not lid or len(tids) != len(seg):
+            continue
+        pos = 0
+        tokens = []
+        for ti, part in enumerate(seg):
+            base = str(part[0] or "") if part else ""
+            if not base:
+                tokens = []
+                break
+            end = pos + len(base)
+            tokens.append({"tid": tids[ti], "start": pos, "end": end, "base": base})
+            pos = end
+        if tokens and pos == len(body_rows[bi].get("text") or ""):
+            out.append({"i": bi, "text": body_rows[bi].get("text") or "",
+                        "lid": lid, "tokens": tokens})
+    return out
+
+
 def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                 text=None, expected_version=None, translations=None,
                 trans_lang="zh", line_ids=None, token_ids=None) -> dict:
@@ -81,6 +107,7 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
     uid = item.get("uid")
     title = item.get("title", "")
     artist = item.get("artist", "")
+    saved_ids = []
     with LRC.LOCK, FS.locked(LRC.lock_path()):
         if mode == "replace" and text is not None:
             res = LRC.import_text(item["file"], text, uid, title, artist,
@@ -208,6 +235,10 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                            translations=trans, trans_lang=trans_lang,
                            line_ids=out_lids, token_ids=out_tids,
                            annotation_index=body_to_lyric)
+            if res.get("ok"):
+                saved_ids = _saved_identities(body_rows, ann, out_lids, out_tids)
+    if res.get("ok") and saved_ids:
+        res["ids"] = saved_ids
     if uid and res.get("ok"):
         try:
             res["library"] = LIB.refresh(uid)

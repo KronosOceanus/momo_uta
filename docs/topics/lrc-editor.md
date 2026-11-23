@@ -282,6 +282,32 @@ saveLrc 发送 NH.LRC_VERSION
 保存成功后更新 LRC_VERSION。
 ```
 
+### 保存回传身份
+
+保存响应可能带：
+
+```json
+{"ids": [
+  {"i": 0, "text": "君の名", "lid": "l_...", "tokens": [
+    {"tid": "t_...", "start": 0, "end": 1, "base": "君"}
+  ]}
+]}
+```
+
+前端只在 revision 没变时合并：
+
+```text
+文本仍一致
+  → 更新该行 lid/tokens
+  → 后端新生成的 tid 立即回到 EROWS
+```
+
+```text
+revision 已变
+  → 不覆盖
+  → 避免把用户新的编辑改回去
+```
+
 ### 保存提示
 
 ```text

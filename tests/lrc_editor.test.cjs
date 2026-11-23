@@ -399,3 +399,19 @@ test('merging rows keeps both sides token ids and shifts the right side', () => 
     ['t_aaaaaaaa', 0, 1], ['t_cccccccc', 2, 4]
   ]);
 });
+
+test('save response ids are merged back into matching rows', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'君の名'}];
+    mergeSavedIds([{i:0,text:'君の名',lid:'l_aaaaaaaa',tokens:[
+      {tid:'t_bbbbbbbb',start:0,end:1,base:'君'}]}]);
+    globalThis.__row = JSON.stringify(EROWS[0]);`);
+  assert.deepEqual(JSON.parse(p.run('__row')), {
+    t: 1, text: '君の名', lid: 'l_aaaaaaaa',
+    tokens: [{tid: 't_bbbbbbbb', start: 0, end: 1, base: '君'}]
+  });
+  p.run(`EROWS=[{t:1,text:'changed'}];
+    mergeSavedIds([{i:0,text:'old',lid:'l_aaaaaaaa',tokens:[]}]);
+    globalThis.__row = JSON.stringify(EROWS[0]);`);
+  assert.equal(JSON.parse(p.run('__row')).lid, undefined);
+});

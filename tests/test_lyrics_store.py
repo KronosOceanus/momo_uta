@@ -225,6 +225,10 @@ class TestManualReading(unittest.TestCase):
                 ]
                 res = SONG.save_lyrics(CACHE["0"], lines, "align")
                 self.assertTrue(res.get("ok"), res)
+                self.assertTrue(res.get("ids"))
+                self.assertEqual(res["ids"][0]["text"], "君の名")
+                self.assertTrue(res["ids"][0]["lid"].startswith("l_"))
+                self.assertTrue(res["ids"][0]["tokens"])
                 after = LRF.load(audio, uid)
                 self.assertIn("きみだ", LRF.store_path(audio).read_text(encoding="utf-8"))
                 self.assertEqual(after["line_ids"][0], before["line_ids"][0])

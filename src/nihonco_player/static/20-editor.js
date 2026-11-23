@@ -88,6 +88,15 @@ function mergeRows(prev, cur){
     ...t, start:t.start+offset, end:t.end+offset
   }))];
 }
+function mergeSavedIds(ids){
+  if(!Array.isArray(ids)) return;
+  for(const item of ids){
+    const i=+item.i, row=NH.EROWS[i];
+    if(!row || (row.text||'')!==(item.text||'')) continue;
+    if(item.lid) row.lid=item.lid;
+    if(Array.isArray(item.tokens)) row.tokens=item.tokens;
+  }
+}
 function lrcPayload(){
   return NH.EROWS.map(x=>{
     const row={t:x.t, text:x.text, trans:x.trans||''};
@@ -121,6 +130,7 @@ async function saveLrc(silent, force){
       if(!r.ok) throw new Error(r.error||'保存失败');
       if(r.version) NH.LRC_VERSION=r.version;
       if(NH.EDIT_REVISION===revision){
+        mergeSavedIds(r.ids);
         NH.EDIRTY=false;
         if(h){ h.textContent=r.refresh_ok===false
           ? '已保存，但曲库刷新失败；重启后仍以磁盘为准'
@@ -731,6 +741,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
+Object.assign(NH, {setLrcLocked, snapshot, markDirty, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, syncSideToTime, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();
