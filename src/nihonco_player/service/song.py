@@ -487,7 +487,9 @@ def edit_line(uid, li, start, reading, lid=None, expected_version=None):
             row["tokens"] = tokens_with_spans(segs, tids, row.get("text") or "")
             saved = LRC.save_rows(item["file"], rows, uid=item.get("uid"),
                                   title=item["title"], artist=item.get("artist", ""),
-                                  expected_version=v2.get("version"),
+                                  expected_version=(expected_version
+                                                    if expected_version is not None
+                                                    else v2.get("version")),
                                   trans_lang=v2.get("trans_lang") or "zh")
             if not saved.get("ok"):
                 return None
@@ -619,4 +621,5 @@ def edit_line_action(req) -> dict:
                   expected_version=req.get("version"))
     if not r:
         return {"ok": False, "error": "读音保存失败"}
+    r["uid"] = uid
     return r

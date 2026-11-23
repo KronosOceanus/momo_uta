@@ -126,12 +126,12 @@ def lrc_action(req):
                 for bi, li in body_to_lyric.items()} if same_lines else None
         metadata = LRC._metadata_for_body(doc.get("metadata"), body_to_lyric,
                                           len(lines))
-        return {"ok": True, "nhlrc": DOC.render_nhlrc(
-                    lines, metadata, ann, trans,
-                    trans_lang=doc.get("trans_lang") or "zh",
-                    line_ids=lids, token_ids=tids,
-                    annotation_index=body_to_lyric),
-                "lrc": DOC.render_body(lines, metadata)}
+        from ..core.lyric_rows import body_text, render_rows
+        rows = LRC._rows_from_body(lines, metadata, ann, trans,
+                                   lids, tids, body_to_lyric)
+        return {"ok": True, "nhlrc": render_rows(
+                    rows, doc.get("trans_lang") or "zh"),
+                "lrc": body_text(rows)}
     if act == "import_lrc":
         text = str(req.get("text") or "")
         if not text.strip():

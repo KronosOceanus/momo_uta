@@ -312,3 +312,40 @@ class TestV2DisabledAndRestore(unittest.TestCase):
                 restored = LRF.store_path(audio).read_text(encoding="utf-8")
                 self.assertIn("#NHLRC 2", restored)
                 self.assertNotIn("#NHLRC 1", restored)
+
+
+class TestV2StaleFallback(unittest.TestCase):
+    def test_text_changed_same_lid_with_old_version_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            old = [{"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_a",
+                    "tokens": [], "trans": ""}]
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                first = LRF.save_rows(audio, old)
+                LRF.save_rows(audio, [{"kind": "lyric", "text": "僕", "t": 1.0,
+                                       "lid": "l_a", "tokens": [], "trans": ""}])
+                out = SONG.edit_line_action({"uid": item["uid"], "line": 0,
+                                             "lid": "l_a", "start": 0,
+                                             "reading": "きみだ",
+                                             "version": first["version"]})
+                self.assertFalse(out.get("ok", True), out)
+                self.assertEqual(LRF.load_rows(audio)["rows"][0]["text"], "僕")
+
+    def test_export_legacy_body_is_v2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            v1 = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
+                                  {0: [["君", "きみ", "A"]]})
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                LRF.store_path(audio).parent.mkdir(parents=True, exist_ok=True)
+                LRF.store_path(audio).write_text(v1, encoding="utf-8")
+                out = SVC_LRC.lrc_action({"action": "export", "uid": item["uid"],
+                                          "lines": [{"t": 1.0, "text": "君"}]})
+                self.assertTrue(out["ok"], out)
+                self.assertIn("#NHLRC 2", out["nhlrc"])

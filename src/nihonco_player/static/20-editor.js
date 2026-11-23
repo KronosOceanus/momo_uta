@@ -772,18 +772,24 @@ function flashAt(li, word){
   }
 }
 function applyEdit(d){
-  if(d.version){ NH.LRC_VERSION=d.version; if(NH.S) NH.S.version=d.version; }
+  if(!NH.S) return;
+  if(d.uid && String(d.uid)!==String(NH.S.uid)) return;
   let li = d.line;
   if(d.lid){
     const found = NH.LINES.findIndex(x=>x.lid===d.lid);
     if(found<0){ NH.done('歌词行已变化，请重新加载'); return; }
     li = found;
   }
+  if(d.version){ NH.LRC_VERSION=d.version; NH.S.version=d.version; }
   const el = document.querySelectorAll('.ln')[li];
-  if(el){ el.innerHTML = `<span class="tx">${String(li+1).padStart(2,'0')}</span> ` + d.ruby;
-          NH.LINES[li].rm = d.rm; NH.LINES[li].ky = d.ky; NH.LINES[li].ruby = d.ruby;
-          if(d.rmH) NH.LINES[li].rmH = d.rmH;
-          if(d.kyH) NH.LINES[li].kyH = d.kyH; }
+  if(!el) return;
+  const trans = NH.LINES[li].trans
+    ? `<div class="lntrans">${String(NH.LINES[li].trans).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
+    : '';
+  el.innerHTML = `<span class="tx">${String(li+1).padStart(2,'0')}</span> ` + d.ruby + trans;
+  NH.LINES[li].rm = d.rm; NH.LINES[li].ky = d.ky; NH.LINES[li].ruby = d.ruby;
+  if(d.rmH) NH.LINES[li].rmH = d.rmH;
+  if(d.kyH) NH.LINES[li].kyH = d.kyH;
   renderSide();
 }
 

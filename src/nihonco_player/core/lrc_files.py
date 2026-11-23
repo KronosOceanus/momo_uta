@@ -285,7 +285,7 @@ def _split_v2_tail(text: str) -> tuple[str, dict | None]:
 
 def load_rows(audio: str | Path, uid: str | None = None,
               title: str | None = None, artist: str | None = None) -> dict:
-    """只读 v2 rows；没有文件返回空 rows，v1 直接报错。"""
+    """读 rows；没有文件返回空 rows，v1 在内存转成 rows。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
