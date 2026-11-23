@@ -261,8 +261,12 @@ tid 数量 ≠ seg 数量 → 回退 legacy id
 ```
 
 ```text
-写入时只写合法且不重复的 lid/tid。
-失效 annotation 不会被写入。
+写入时：
+  合法且不重复的 lid/tid → 原样保留
+  非法/重复的单项       → 生成新的合法 id
+  失效 annotation       → 不写入
+
+不会因为一个坏 tid 丢掉整行其他 tid。
 下一次保存后，旧的悬空/重复 id 自然被清掉。
 ```
 

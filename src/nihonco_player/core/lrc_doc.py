@@ -67,6 +67,19 @@ def new_token_ids(count: int) -> list[str]:
     return [_new_tid() for _ in range(max(0, int(count)))]
 
 
+def _unique_id(prefix: str, seen: set[str]) -> str:
+    for _ in range(100):
+        candidate = _new_lid() if prefix == "l" else _new_tid()
+        if candidate not in seen:
+            return candidate
+    # 极端情况下退回确定性序号，仍满足格式
+    for n in range(10000):
+        candidate = f"{prefix}_{n:08x}"
+        if candidate not in seen:
+            return candidate
+    raise RuntimeError("无法生成唯一歌词身份")
+
+
 def _legacy_lid(i: int, text: str) -> str:
     raw = f"line\0{i}\0{text}".encode("utf-8")
     return "l_" + hashlib.sha1(raw).hexdigest()[:8]
@@ -266,16 +279,22 @@ def render_nhlrc(lines: list[dict], metadata: list[dict] | None = None,
             tail_i = (annotation_index or {}).get(i, i)
             ent = {"i": tail_i, "h": _hash8(lines[i].get("text") or ""), "seg": seg}
             lid = (line_ids or {}).get(i)
-            if _valid_id(lid, "l") and lid not in seen_l:
+            if lid is not None:
+                if not _valid_id(lid, "l") or lid in seen_l:
+                    lid = _unique_id("l", seen_l)
                 ent["lid"] = lid
                 seen_l.add(lid)
             tids = (token_ids or {}).get(i)
-            if (isinstance(tids, list) and len(tids) == len(seg)
-                    and all(_valid_id(x, "t") for x in tids)
-                    and len(set(tids)) == len(tids)
-                    and not any(x in seen_t for x in tids)):
-                ent["tid"] = tids
-                seen_t.update(tids)
+            if tids is not None:
+                if not isinstance(tids, list) or len(tids) != len(seg):
+                    tids = [None] * len(seg)
+                final = []
+                for tid in tids:
+                    if not _valid_id(tid, "t") or tid in seen_t:
+                        tid = _unique_id("t", seen_t)
+                    final.append(tid)
+                    seen_t.add(tid)
+                ent["tid"] = final
             entries.append(ent)
     trans = []
     for i, text in sorted((translations or {}).items()):

@@ -44,18 +44,31 @@ class TestNhlrc(unittest.TestCase):
         self.assertRegex(first[1][0], r"^l_[0-9a-f]{8}$")
         self.assertRegex(first[2][0][0], r"^t_[0-9a-f]{8}$")
 
-    def test_duplicate_tid_inside_one_line_is_not_written(self):
+    def test_duplicate_tid_inside_one_line_is_replaced(self):
         text = DOC.render_nhlrc([{"t": 1.0, "text": "君"}], [],
                                 {0: [["君", "きみ", "A"]]},
                                 line_ids={0: "l_00112233"},
                                 token_ids={0: ["t_44556677", "t_44556677"]})
         _body, tail = DOC._split_nhlrc(text)
-        self.assertNotIn('"tid"', text)
+        self.assertIn('"tid"', text)
         _ann, lids, tids = DOC.annotations_and_ids_for([{"t": 1.0, "text": "君"}], tail)
         self.assertTrue(lids)
-        self.assertEqual(len(set(tids[0])), 1)
+        self.assertEqual(len(tids[0]), 1)
+        self.assertRegex(tids[0][0], r"^t_[0-9a-f]{8}$")
 
-    def test_duplicate_ids_are_not_written(self):
+    def test_one_invalid_tid_does_not_drop_the_other_tokens(self):
+        ann = {0: [["君", "きみ", "A"], ["の", "の", "K"]]}
+        text = DOC.render_nhlrc([{"t": 1.0, "text": "君の"}], [], ann,
+                                line_ids={0: "l_00112233"},
+                                token_ids={0: ["t_44556677", "not-an-id"]})
+        _body, tail = DOC._split_nhlrc(text)
+        _ann, _lids, tids = DOC.annotations_and_ids_for(
+            [{"t": 1.0, "text": "君の"}], tail)
+        self.assertEqual(tids[0][0], "t_44556677")
+        self.assertRegex(tids[0][1], r"^t_[0-9a-f]{8}$")
+        self.assertNotEqual(tids[0][0], tids[0][1])
+
+    def test_duplicate_ids_are_replaced_when_writing(self):
         ann = {0: [["君", "きみ", "A"]], 1: [["の", "の", "K"]]}
         lids = {0: "l_00112233", 1: "l_00112233"}
         tids = {0: ["t_44556677"], 1: ["t_44556677"]}
