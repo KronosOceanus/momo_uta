@@ -449,7 +449,8 @@ def edit_line(uid, li, start, reading):
                                   trans_lang=v2.get("trans_lang") or "zh")
             if not saved.get("ok"):
                 return None
-            return {"line": li, "ruby": ruby_html(r),
+            return {"line": li, "lid": row.get("lid"),
+                    "ruby": ruby_html(r),
                     "rm": r.get("romaji", {}).get("text", ""),
                     "ky": r.get("keys", {}).get("text", ""),
                     "rmH": words_html_of(r, "romaji"),
@@ -469,7 +470,8 @@ def edit_line(uid, li, start, reading):
         segs = [[t.get("base", ""), t.get("ruby"), t.get("level")]
                 for t in (target.get("tokens") or [])]
         fields = ANN_CACHE.line_fields(target.get("text") or "", segs or None)
-        return {"line": li, "ruby": fields.get("ruby", ""),
+        return {"line": li, "lid": row.get("lid"), "tid": token.get("tid"),
+                "ruby": fields.get("ruby", ""),
                 "rm": fields.get("rm", ""), "ky": fields.get("ky", ""),
                 "rmH": fields.get("rmH", ""), "kyH": fields.get("kyH", ""),
                 "version": again.get("version")}
@@ -573,8 +575,13 @@ def edit_line_action(req) -> dict:
         from . import lyric_document as LD
         doc = LD.load_rows(uid)
         if doc.get("ok") and doc.get("model") == 2:
+            if req.get("version") and str(req["version"]) != str(doc.get("version")):
+                return {"ok": False, "error": "歌词已更新，请重新加载"}
             items = LD.playable_rows(doc.get("rows") or [])
-            line = next((i for i, x in enumerate(items) if x.get("lid") == lid), line)
+            idx = next((i for i, x in enumerate(items) if x.get("lid") == lid), None)
+            if idx is None:
+                return {"ok": False, "error": "歌词行已变化，请重新加载"}
+            line = idx
     r = edit_line(uid, line, start, reading)
     if not r:
         return {"error": "读音保存失败"}

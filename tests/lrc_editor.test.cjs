@@ -492,3 +492,41 @@ test('v2 rows mode loads, serializes and saves rows', async () => {
   await saving;
   assert.equal(p.run('EDIRTY'), false);
 });
+
+test('split at line start gives lid, time and translation to content side', () => {
+  const p = player();
+  const result = p.run(`(() => {
+    const row={t:1.0,text:'君',lid:'l_old',trans:'你',tokens:[]};
+    const right=splitRow(row,0);
+    return {leftT:row.t,leftTrans:row.trans,leftLid:row.lid,leftKind:row.kind,
+            rightT:right.t,rightTrans:right.trans,rightLid:right.lid,rightKind:right.kind};
+  })()`);
+  assert.equal(result.leftKind, 'blank');
+  assert.equal(result.leftTrans, '');
+  assert.equal(result.leftT, null);
+  assert.notEqual(result.leftLid, 'l_old');
+  assert.equal(result.rightKind, 'lyric');
+  assert.equal(result.rightTrans, '你');
+  assert.equal(result.rightT, 1.0);
+  assert.equal(result.rightLid, 'l_old');
+});
+
+test('clear then retype gives a new identity and empty translation', () => {
+  const p = player();
+  const result = p.run(`(() => {
+    const row={t:1.0,text:'君',lid:'l_old',trans:'你',
+               tokens:[{tid:'t1',start:0,end:1,base:'君',ruby:'きみ',level:'A'}]};
+    retokenizeRow(row,'');
+    const cleared={lid:row.lid,trans:row.trans,tokens:row.tokens.length,kind:row.kind};
+    retokenizeRow(row,'花');
+    return {cleared,lid:row.lid,trans:row.trans,tokens:row.tokens.length,kind:row.kind};
+  })()`);
+  assert.equal(result.cleared.kind, 'blank');
+  assert.equal(result.cleared.lid, null);
+  assert.equal(result.cleared.trans, '');
+  assert.equal(result.cleared.tokens, 0);
+  assert.equal(result.kind, 'lyric');
+  assert.notEqual(result.lid, 'l_old');
+  assert.equal(result.trans, '');
+  assert.equal(result.tokens, 0);
+});

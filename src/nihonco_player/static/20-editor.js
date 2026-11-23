@@ -68,9 +68,22 @@ function beginTextEdit(i){
   }
 }
 function retokenizeRow(row, nextText){
-  ensureLid(row);
   const old=row.text||'';
   if(old===nextText) return;
+  const wasEmpty=!old.trim(), nowEmpty=!nextText.trim();
+  if(nowEmpty){
+    // lyric → blank：内容身份和译文一起清掉。
+    row.text=nextText; row.kind='blank';
+    row.lid=null; row.tokens=[]; row.trans='';
+    return;
+  }
+  if(wasEmpty){
+    // blank → lyric：新内容，新身份，不继承旧译文。
+    row.text=nextText; row.kind=rowKind(nextText);
+    row.lid=newLid(); row.tokens=[]; row.trans='';
+    return;
+  }
+  ensureLid(row);
   const tokens=Array.isArray(row.tokens)?row.tokens:[];
   let p=0;
   while(p<old.length && p<nextText.length && old[p]===nextText[p]) p++;
@@ -97,14 +110,17 @@ function splitRow(row, pos){
   const leftTokens=sliceTokens(row,0,pos);
   const rightTokens=sliceTokens(row,pos,text.length,-pos);
   ensureLid(row);
-  const oldLid=row.lid;
+  const oldLid=row.lid, oldT=row.t, oldTrans=row.trans||'';
   const leftEmpty=!left.trim(), rightEmpty=!right.trim();
-  // 原内容在哪边，lid 跟哪边；空行拿新身份。
-  const rightLid=(leftEmpty && !rightEmpty) ? oldLid : newLid();
-  if(leftEmpty && !rightEmpty) row.lid=newLid();
+  // 内容侧保留 lid/t/trans；空侧新身份、无译文。
+  let rightLid=newLid(), rightT=null, rightTrans='';
+  if(leftEmpty && !rightEmpty){
+    row.lid=newLid(); row.t=null; row.trans='';
+    rightLid=oldLid; rightT=oldT; rightTrans=oldTrans;
+  }
   row.text=left; row.tokens=leftTokens; row.kind=rowKind(left);
-  return {id:newRowId(), kind:rowKind(right), t:null, text:right, trans:'', lid:rightLid,
-          tokens:rightTokens};
+  return {id:newRowId(), kind:rowKind(right), t:rightT, text:right,
+          trans:rightTrans, lid:rightLid, tokens:rightTokens};
 }
 function mergeRows(prev, cur){
   const prevText=prev.text||'', curText=cur.text||'';
@@ -676,7 +692,7 @@ document.addEventListener('click', async e=>{
     openPicker(ew, [], async v => {
       const lineEl=ew.closest('.ln'); const li=+lineEl.dataset.n; const start=+ew.dataset.start;
       try{
-        const d=await NH.api('/api/line',{uid:NH.S.uid,line:li,lid:lineEl.dataset.lid,
+        const d=await NH.api('/api/line',{uid:NH.S.uid,line:li,lid:lineEl.dataset.lid, version:NH.S?.version,
                                          start,reading:v});
         applyEdit(d);
         flashAt(li, ew.dataset.base);
@@ -733,7 +749,7 @@ async function doEdit(bc, reading){
   const lineEl = bc.closest('.ln'); const li = +lineEl.dataset.n; const start = +bc.dataset.start;
   try{
     const lid = lineEl.dataset.lid;
-    const d = await NH.api('/api/line',{uid:NH.S.uid, line:li, lid, start, reading});
+    const d = await NH.api('/api/line',{uid:NH.S.uid, line:li, lid, start, reading, version:NH.S?.version});
     applyEdit(d);
     flashAt(li, bc.dataset.base);
   }catch(err){ NH.done('改读音失败：'+err.message); }
@@ -755,11 +771,17 @@ function flashAt(li, word){
 }
 function applyEdit(d){
   if(d.version) NH.LRC_VERSION=d.version;
-  const el = document.querySelectorAll('.ln')[d.line];
-  if(el){ el.innerHTML = `<span class="tx">${String(d.line+1).padStart(2,'0')}</span> ` + d.ruby;
-          NH.LINES[d.line].rm = d.rm; NH.LINES[d.line].ky = d.ky; NH.LINES[d.line].ruby = d.ruby;
-          if(d.rmH) NH.LINES[d.line].rmH = d.rmH;
-          if(d.kyH) NH.LINES[d.line].kyH = d.kyH; }
+  let li = d.line;
+  if(d.lid){
+    const found = NH.LINES.findIndex(x=>x.lid===d.lid);
+    if(found<0){ NH.done('歌词行已变化，请重新加载'); return; }
+    li = found;
+  }
+  const el = document.querySelectorAll('.ln')[li];
+  if(el){ el.innerHTML = `<span class="tx">${String(li+1).padStart(2,'0')}</span> ` + d.ruby;
+          NH.LINES[li].rm = d.rm; NH.LINES[li].ky = d.ky; NH.LINES[li].ruby = d.ruby;
+          if(d.rmH) NH.LINES[li].rmH = d.rmH;
+          if(d.kyH) NH.LINES[li].kyH = d.kyH; }
   renderSide();
 }
 

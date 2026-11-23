@@ -196,3 +196,31 @@ class TestV2StalePlaybackEdit(unittest.TestCase):
                 got = LRF.load_rows(audio)
                 self.assertEqual(got["rows"][0]["tokens"][0]["ruby"], "きみだ")
                 self.assertEqual(got["rows"][1]["tokens"][0]["ruby"], "はな")
+
+
+class TestV2DeletedTarget(unittest.TestCase):
+    def test_deleted_lid_is_rejected_not_reassigned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            item = _cache(audio)
+            rows = [
+                {"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_jun",
+                 "tokens": [{"tid": "t_j", "start": 0, "end": 1, "base": "君",
+                             "ruby": "きみ", "level": "A"}], "trans": ""},
+                {"kind": "lyric", "text": "花", "t": 2.0, "lid": "l_hana",
+                 "tokens": [{"tid": "t_h", "start": 0, "end": 1, "base": "花",
+                             "ruby": "はな", "level": "A"}], "trans": ""},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"):
+                self.assertTrue(LRF.save_rows(audio, rows)["ok"])
+                # 删掉「君」，旧页面仍拿 l_jun 提交。
+                self.assertTrue(LRF.save_rows(audio, [rows[1]])["ok"])
+                out = SONG.edit_line_action({"uid": item["uid"], "line": 0,
+                                             "lid": "l_jun", "start": 0,
+                                             "reading": "くん"})
+                self.assertFalse(out.get("ok", True), out)
+                got = LRF.load_rows(audio)
+                self.assertEqual(got["rows"][0]["tokens"][0]["ruby"], "はな")
