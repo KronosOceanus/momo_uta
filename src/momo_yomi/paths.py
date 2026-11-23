@@ -18,7 +18,7 @@ if _FROZEN and not _NEW_HOME.exists() and _OLD_HOME.is_dir():
     try:
         _OLD_HOME.rename(_NEW_HOME)     # 一次性迁移旧品牌数据
     except OSError:
-        pass
+        _NEW_HOME = _OLD_HOME           # 迁移失败则继续读旧目录
 ROOT = Path(os.environ.get("MOMO_HOME") or os.environ.get("NIHONCO_HOME") or (
     _NEW_HOME if _FROZEN else _DEV_ROOT
 ))
