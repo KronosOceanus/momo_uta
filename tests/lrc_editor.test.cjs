@@ -624,3 +624,11 @@ test('transport seek works while viewing another song', async () => {
   assert.equal(p.run('window.NH.au.currentTime'), 5);
   assert.equal(p.run('S.uid'), 'b');
 });
+
+test('failed play mode persistence rolls back', async () => {
+  const p = player();
+  p.run("window.NH.api=()=>Promise.resolve({ok:false,error:'disk'}); setPlayMode('one', true);");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(p.run('playMode'), 'list');
+  assert.match(p.run('messages.at(-1)'), /disk/);
+});

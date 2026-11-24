@@ -503,8 +503,8 @@ function syncPlayMode(){
   songLoopBtn.textContent = PLAY_MODE_LABEL[NH.playMode] || PLAY_MODE_LABEL.list;
   songLoopBtn.classList.add('on');
 }
-function setPlayMode(mode, persist){
-  if(!PLAY_MODE_ORDER.includes(mode)) mode = 'list';
+let PLAY_MODE_SEQ = 0;
+function applyPlayMode(mode){
   NH.playMode = mode;
   if(mode === 'shuffle'){
     resetShufflePool(songOrderUids(), currentPlayUid());
@@ -512,10 +512,25 @@ function setPlayMode(mode, persist){
     NH.shufflePool = []; NH.shuffleListKey = '';
   }
   syncPlayMode();
+}
+
+function setPlayMode(mode, persist){
+  if(!PLAY_MODE_ORDER.includes(mode)) mode = 'list';
+  const prev = NH.playMode;
+  applyPlayMode(mode);
   if(persist && NH.api){
+    const seq = ++PLAY_MODE_SEQ;
     NH.api('/api/play_mode', {mode}).then(r=>{
-      if(r && r.ok === false) NH.done(r.error || '播放模式保存失败');
-    }).catch(e=>NH.done('播放模式保存失败：' + e.message));
+      if(seq !== PLAY_MODE_SEQ) return;
+      if(r && r.ok === false){
+        applyPlayMode(prev);
+        NH.done(r.error || '播放模式保存失败');
+      }
+    }).catch(e=>{
+      if(seq !== PLAY_MODE_SEQ) return;
+      applyPlayMode(prev);
+      NH.done('播放模式保存失败：' + e.message);
+    });
   }
 }
 function cyclePlayMode(){

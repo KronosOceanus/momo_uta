@@ -272,6 +272,8 @@ data/config.json
 player.ui.play_mode
 ```
 
+保存失败时回滚到切换前的模式，并提示错误。
+
 按钮当前只切换模式，不跳页。
 
 
