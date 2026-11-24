@@ -155,6 +155,19 @@ def exists(audio: str | Path, uid: str | None = None) -> bool:
     return store_path(audio, uid or uid_of(audio)).is_file()
 
 
+def is_no_lyric_document(text: str) -> bool:
+    """V2 文档合法但没有 lyric 行：明确无歌词，不是空文件。"""
+    _body, tail = _split_nhlrc(text)
+    if tail is None or tail.get("v") != 2:
+        return False
+    try:
+        rows = parse_v2_rows(text)
+    except Exception:
+        return False
+    return not any(row.get("kind") == "lyric"
+                   and (row.get("text") or "").strip() for row in rows)
+
+
 def _has_lyric_text(full: str, body: str, tail: dict | None) -> bool:
     """V2 只数 lyric 行；plain/legacy 用旧正文扫描。"""
     if tail and tail.get("v") == 2:

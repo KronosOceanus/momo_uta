@@ -36,7 +36,10 @@ def _pick(cands: list[Path], rank=None) -> Path | None:
         if rank is not None and top_rank <= 1 and rank(p) > top_rank:
             break                          # 显式候选无效时不回退自动候选
         try:
-            ok, _ = LRC.valid_import(p.read_text(encoding="utf-8", errors="ignore"))
+            raw = p.read_text(encoding="utf-8", errors="ignore")
+            ok, _ = LRC.valid_import(raw)
+            if not ok and LRC.is_no_lyric_document(raw):
+                ok = True
         except Exception:
             ok = False
         if ok:
@@ -194,6 +197,11 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
         raw = lrc.read_text(encoding="utf-8", errors="ignore")
         ok, _why = LRC.valid_import(raw)
         if not ok:
+            if LRC.is_no_lyric_document(raw):
+                # metadata/blank-only V2 是明确的“无歌词”文档，不导入 LRC。
+                if str(a) not in added:
+                    added.append(str(a))
+                continue
             pending.append(str(a))
             added.append(str(a))
             if lrc in explicit_lrc or lrc in explicit_nhlrc:
@@ -238,6 +246,11 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
         raw = lrc.read_text(encoding="utf-8", errors="ignore")
         ok, _why = LRC.valid_import(raw)
         if not ok:
+            if LRC.is_no_lyric_document(raw):
+                if str(target) not in added:
+                    added.append(str(target))
+                used_lrc.add(lrc)
+                continue
             unpaired += 1
             continue
         had = LRC.exists(target)

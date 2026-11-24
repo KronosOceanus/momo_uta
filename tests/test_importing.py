@@ -262,3 +262,37 @@ class TestExplicitPriority(unittest.TestCase):
             self.assertIn(str(audio), res["pending"])
             self.assertEqual(res["failed_count"], 1)
             self.assertFalse(exists)
+
+
+class TestMetadataOnlyImport(unittest.TestCase):
+    def _env(self, root):
+        audio = root / "歌手 - 曲.mp3"; audio.write_bytes(b"audio")
+        lrc = root / "歌手 - 曲.lrc"
+        lrc.write_text("[00:05.00]LRC\n[00:10.00]第二句\n[00:15.00]第三句\n",
+                       encoding="utf-8")
+        nhlrc = root / "歌手 - 曲.nhlrc"
+        nhlrc.write_text(R.render_rows([{"kind": "metadata", "text": "[ar:X]"}]),
+                         encoding="utf-8")
+        return audio, lrc, nhlrc
+
+    def test_auto_metadata_only_does_not_fall_back_to_lrc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio, lrc, nhlrc = self._env(root)
+            old = nhlrc.read_text(encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(audio)], with_lrc=True)
+                self.assertEqual(nhlrc.read_text(encoding="utf-8"), old)
+                self.assertEqual(res["pending"], [])
+                self.assertIn(str(audio), res["added"])
+
+    def test_explicit_metadata_only_wins_over_lrc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio, lrc, nhlrc = self._env(root)
+            old = nhlrc.read_text(encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(audio), str(nhlrc)], with_lrc=True)
+                self.assertEqual(nhlrc.read_text(encoding="utf-8"), old)
+                self.assertEqual(res["failed_count"], 0)
+                self.assertEqual(res["pending"], [])
