@@ -186,7 +186,9 @@ test('undo and redo mark persisted changes dirty, and history resets on open', a
   p.run('redo()');
   assert.equal(p.run('EDIRTY && EROWS[0].text === "changed"'), true);
   const reopen = p.run('openLrcEditor()');
-  p.requests[2].resolve({ok: true, lines: [{t: 1, text: 'reopened'}]});
+  p.requests[2].resolve({ok: true});              // 打开前先保存 redo 草稿
+  await nextTurn();
+  p.requests[3].resolve({ok: true, lines: [{t: 1, text: 'reopened'}]});
   await reopen;
   assert.equal(p.run('UNDO.length + REDO.length'), 0);
 });
@@ -658,5 +660,18 @@ test('replace does not overwrite when draft save fails', async () => {
   p.requests[0].resolve({ok:false,error:'disk'});
   await replacing;
   assert.equal(p.calls.length, 1);          // 没有发起 import
+  assert.equal(p.run('EDIRTY'), true);
+});
+
+test('openLrcEditor keeps draft when pre-open save fails', async () => {
+  const p = player();
+  p.run(`VIEW_MODE='lrc'; S={idx:'0',uid:'u1',title:'X',version:'v',lines:[]};
+         EROWS=[{t:1,text:'draft',trans:''}]; EDIRTY=true; LRC_VERSION='v';`);
+  const opening = p.run('openLrcEditor(true)');
+  assert.equal(p.calls[0].body.action, 'save');
+  p.requests[0].resolve({ok:false,error:'disk'});
+  await opening;
+  assert.equal(p.calls.length, 1);
+  assert.equal(p.run('EROWS[0].text'), 'draft');
   assert.equal(p.run('EDIRTY'), true);
 });

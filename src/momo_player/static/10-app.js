@@ -665,7 +665,7 @@ document.getElementById('resetall').onclick=async()=>{
   if(r && r.version) NH.LRC_VERSION=r.version;
   toast('已恢复默认标注');
   const wasLrc=NH.VIEW_MODE==='lrc';
-  await load(NH.S.uid);
+  if(!await load(NH.S.uid)) return;
   if(wasLrc && NH.VIEW_MODE==='lrc') await NH.openLrcEditor();
 };
 

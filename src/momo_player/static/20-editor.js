@@ -269,6 +269,10 @@ function editorRowIndex(line, rows){
 
 async function openLrcEditor(entering=false){
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
+  // 重新读取服务端文档前，先把当前草稿保存；失败则不能清掉 dirty。
+  if(NH.EDIRTY || NH.SAVE_PENDING){
+    if(!await flushLrc()) return;
+  }
   const song=NH.S, request=NH.currentToken('load'), opening=NH.track('lrcOpen');
   const d=await NH.api('/api/lrc',{action:'load', uid:song.uid});
   if(NH.S!==song || !NH.isCurrent('load',request) || !NH.isCurrent('lrcOpen',opening) || (!entering && NH.VIEW_MODE!=='lrc')) return;
