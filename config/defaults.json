@@ -79,7 +79,8 @@
     "window_width": 1280,
     "window_height": 820,
     "window_min": [960, 600],
-    "log_max_bytes": 2097152
+    "log_max_bytes": 2097152,
+    "log_keep_files": 3
   },
   "jobs": {
     "_note": "统一 job 的轮询和保留条数；人声超时在 vocals.queue_timeout_s/run_timeout_s。",
