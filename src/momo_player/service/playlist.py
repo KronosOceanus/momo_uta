@@ -97,10 +97,12 @@ def playlists_action(req) -> dict:
 
 
 def import_to_list(req) -> dict:
-    lid = str(req.get("list"))
+    lid = str(req.get("list") or "")
     paths = [str(x) for x in (req.get("paths") or [])]
     if not paths:
         return {"ok": False, "error": "没有选择文件", "lists": _lists()}
+    if not PL.exists(lid):
+        return {"ok": False, "error": "歌单不存在", "lists": _lists()}
 
     pool = [it["file"] for g in PL.build(cached_items()) if g["id"] == lid for it in g["items"]]
     res = IMP.import_paths(paths, pool, with_lrc=bool(req.get("with_lrc")))
@@ -112,9 +114,18 @@ def import_to_list(req) -> dict:
         artist, title = LIB.LY.split_name(p.stem)
         LIB.save_import(str(p), title, artist)
     LIB.add_paths(res["added"], "导入")
-    library_n = len(LIB.snapshot())
-    uids = [FP.fingerprint(f) for f in res["added"]]
+
+    # 以曲库实际存在的 uid 为准；不能把未进入 CACHE 的 uid 写进歌单。
+    uids = []
+    for f in dict.fromkeys(str(x) for x in res["added"]):
+        uid = FP.fingerprint(f)
+        if LIB.resolve(uid):
+            uids.append(uid)
+        else:
+            res.setdefault("failed", []).append(
+                {"audio": f, "error": "文件未进入曲库"})
     added_n = PL.add(lid, uids)
+    library_n = len(LIB.snapshot())
 
     # "待匹配" = 真正进了歌单、但当前还没有歌词的那些
     uids_set = set(uids)

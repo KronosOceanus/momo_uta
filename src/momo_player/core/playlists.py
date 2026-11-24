@@ -100,6 +100,10 @@ def all_uids() -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def exists(lid: str) -> bool:
+    return any(x.get("id") == lid for x in load().get("lists", []))
+
+
 def build(lib: list[dict]) -> list[dict]:
     d = load()
     by_uid = {it["uid"]: it for it in lib}
@@ -171,6 +175,8 @@ def clear(lid: str) -> None:
 def add(lid: str, uids: list[str]) -> int:
     with _locked():
         d = load()
+        if not any(x.get("id") == lid for x in d.get("lists", [])):
+            return 0
         seq = d["members"].setdefault(lid, [])
         n = 0
         for u in uids:

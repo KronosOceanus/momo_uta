@@ -114,17 +114,18 @@ class TestImportToList(unittest.TestCase):
         from momo_player.core import fingerprint as FP
         from momo_player.core import importing as IMP
         from momo_player.core import library as LIB
-        from momo_player.core.library import CACHE
+        from momo_player.core.library import CACHE, BY_UID
         from momo_player.service import playlist as SVC
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
-            CACHE.clear()
+            CACHE.clear(); BY_UID.clear()
             CACHE["0"] = {"key": "k", "uid": "fp1", "file": str(audio),
                           "stem": audio.stem, "orig": "曲", "title": "曲",
                           "artist": "歌手", "has_lyric": False, "group": ""}
+            BY_UID["fp1"] = CACHE["0"]
             old = PL.FILE
             PL.set_file(root / "playlists.json")
             try:
@@ -147,7 +148,7 @@ class TestUnknownUid(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from momo_player.core import library as LIB
-        from momo_player.core.library import CACHE
+        from momo_player.core.library import CACHE, BY_UID
         from momo_player.service import playlist as SVC
         with tempfile.TemporaryDirectory() as tmp:
             CACHE.clear(); LIB.BY_UID.clear()
@@ -168,7 +169,7 @@ class TestMatchAction(unittest.TestCase):
         from pathlib import Path
         from unittest.mock import patch
         from momo_player.core import library as LIB
-        from momo_player.core.library import CACHE
+        from momo_player.core.library import CACHE, BY_UID
         from momo_player.service import playlist as SVC
         from momo_player.service import song as SONG
 
@@ -227,3 +228,31 @@ class TestPlaylistBadData(unittest.TestCase):
                 PL.set_file(old)
             self.assertEqual([x["id"] for x in d["lists"]], ["default"])
             self.assertEqual(d["members"], {"default": []})
+
+
+class TestImportConsistency(unittest.TestCase):
+    def test_missing_list_is_rejected_before_import(self):
+        from unittest.mock import patch
+        from momo_player.service import playlist as SVC
+        from momo_player.core import importing as IMP
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            PL.set_file(Path(tmp) / "playlists.json")
+            try:
+                with patch.object(IMP, "import_paths") as imp:
+                    r = SVC.import_to_list({"list": "missing", "paths": ["/tmp/x.mp3"]})
+                self.assertFalse(r["ok"])
+                self.assertIn("歌单不存在", r["error"])
+                imp.assert_not_called()
+            finally:
+                PL.set_file(old)
+
+    def test_add_to_unknown_list_does_not_create_orphan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            PL.set_file(Path(tmp) / "playlists.json")
+            try:
+                self.assertEqual(PL.add("missing", ["u1"]), 0)
+                self.assertNotIn("missing", PL.load()["members"])
+            finally:
+                PL.set_file(old)
