@@ -18,7 +18,6 @@ from momo_player.core import user_config as UC    # noqa: E402
 from momo_yomi.config import PUI                  # noqa: E402
 from momo_player.core.library import CACHE        # noqa: E402
 from momo_player.http import routes as ROUTES      # noqa: E402
-from momo_player.http import routes as ROUTES      # noqa: E402
 from momo_player.http.server import make_server   # noqa: E402
 
 FAKE_LRC = "\n".join([

@@ -3,7 +3,6 @@
 这些都是"曾经出过 bug 或人工纠偏过"的条目。
 """
 import json
-import sys
 import unittest
 from pathlib import Path
 

@@ -1,14 +1,11 @@
 """歌词存储：data/lyrics、旧文件迁移、手改读音并入 nhlrc、按内容对齐。"""
-import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from momo_player.core import lrc_doc as DOC
 from momo_player.core import library as LIB
 from momo_player.core import lrc_files as LRF
-from momo_player.core import lyrics as LY
 from momo_player.core import lyrics_cache as LC
 from momo_player.core.library import CACHE
 from momo_player.service import song as SONG
@@ -106,10 +103,10 @@ class TestManualReading(unittest.TestCase):
                 uid = LRF.uid_of(audio)
                 SONG.edit_line_action({"uid": uid, "line": 0, "start": 0,
                                        "reading": "きみだ"})
-                item = CACHE["0"]
                 lines = [{"t": 5.0, "text": "君の名", "trans": ""},
                          {"t": 9.0, "text": "呼んでくれた", "trans": ""},
                          {"t": 13.0, "text": "また会おう", "trans": ""}]
+                item = CACHE["0"]
                 res = SONG.save_lyrics(item, lines, "align")
                 self.assertTrue(res.get("ok"), res)
                 raw = LRF.store_path(audio).read_text(encoding="utf-8")
@@ -585,7 +582,6 @@ class TestManualReading(unittest.TestCase):
                                          metadata=meta, trans_lang="en",
                                          line_ids=lids, token_ids=tids)["ok"])
                 uid = LRF.uid_of(audio)
-                item = CACHE["0"]
                 res = SVC_LRC.lrc_action({"action": "export", "uid": uid})
                 self.assertTrue(res["ok"])
                 exported, tail = DOC._split_nhlrc(res["nhlrc"])

@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.build.aozora_parse import (       # noqa: E402
-    parse, check, kata_to_hira, _ruby_tags_to_notation)
+    parse, check, kata_to_hira)
 
 
 class TestKana(unittest.TestCase):

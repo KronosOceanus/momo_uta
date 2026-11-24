@@ -90,7 +90,6 @@ class TestVocalTimeout(unittest.TestCase):
             self.assertEqual(list((root / "tmp" / "vocals").glob("*")), [])
 
     def test_timeout_kills_child_process_group(self):
-        import os
         import subprocess
         import sys
         import time

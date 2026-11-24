@@ -178,7 +178,6 @@ class TestStaleIndexUid(unittest.TestCase):
         from momo_player.core import library as LIB
         from momo_player.core import playlists as PL
         from momo_player.core import fingerprint as FP
-        from momo_player.core import library_index as LI
         from momo_player.core.library import CACHE
 
         old = dict(CACHE)

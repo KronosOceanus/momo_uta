@@ -156,7 +156,7 @@ class TestUnknownUid(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from momo_player.core import library as LIB
-        from momo_player.core.library import CACHE, BY_UID
+        from momo_player.core.library import CACHE
         from momo_player.service import playlist as SVC
         with tempfile.TemporaryDirectory() as tmp:
             CACHE.clear(); LIB.BY_UID.clear()
@@ -177,7 +177,7 @@ class TestMatchAction(unittest.TestCase):
         from pathlib import Path
         from unittest.mock import patch
         from momo_player.core import library as LIB
-        from momo_player.core.library import CACHE, BY_UID
+        from momo_player.core.library import CACHE
         from momo_player.service import playlist as SVC
         from momo_player.service import song as SONG
 

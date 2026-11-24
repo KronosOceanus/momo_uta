@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from momo_player.core import importing as IMP
 from momo_player.core import library as LIB
-from momo_player.core import lrc_doc as D
 from momo_player.core import lyric_rows as R
 from momo_player.core import lrc_files as LRF
 from momo_player.core import lyrics_cache as LC

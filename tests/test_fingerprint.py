@@ -9,9 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from momo_player.core import fingerprint as FP
-from momo_player.core import lrc_doc as DOC
 from momo_player.core import lrc_files as LRF
-from momo_player.core import lyrics as LY
 
 
 def make_wav(path: Path, freq: float = 440.0, seconds: float = 1.0) -> None:
