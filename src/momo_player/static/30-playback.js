@@ -62,7 +62,10 @@ function commitAudio(song){
 
 function playTarget(uid){
   const item = findSongItem(uid);
-  if(!item) return false;
+  if(!item){
+    NH.done?.('歌曲不可用');
+    return false;
+  }
   commitAudio(item);
   playFromStart(item);
   return true;

@@ -632,3 +632,9 @@ test('failed play mode persistence rolls back', async () => {
   assert.equal(p.run('playMode'), 'list');
   assert.match(p.run('messages.at(-1)'), /disk/);
 });
+
+test('playTarget reports missing target', () => {
+  const p = player();
+  p.run("window.NH.done=(m)=>window.NH._msg=m; playTarget('missing-uid')");
+  assert.equal(p.run('window.NH._msg'), '歌曲不可用');
+});
