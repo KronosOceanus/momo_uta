@@ -253,6 +253,31 @@ id / name / artist / duration / delta / source / score
 按分数降序。
 ```
 
+## 8.1 导入清洗
+
+外部普通 LRC 导入时，`plain_lrc_rows()` 会删除：
+
+```text
+空文本 且 时间倒序
+```
+
+保留：
+
+```text
+空文本但顺序正常
+无时间空行
+metadata
+```
+
+目的：
+
+```text
+去掉网易云等来源的占位空行
+不误删有序的间奏/分段标记
+```
+
+该清洗只作用于外部 LRC 导入，不自动改已有 nhlrc。
+
 ## 9. 手动 pick
 
 ```python

@@ -309,7 +309,32 @@ theme = dark | light
 更新当前进程 PUI
 ```
 
-### 2.11 `/api/log`
+### 2.11 `/api/play_mode`
+
+```text
+POST /api/play_mode
+```
+
+必填：
+
+```text
+mode = list | one | shuffle
+```
+
+```text
+写 data/config.json 的 player.ui.play_mode
+更新当前进程 PUI
+```
+
+保存失败时：
+
+```text
+{ok:false, error:"..."}
+```
+
+前端会回滚到切换前的模式。
+
+### 2.12 `/api/log`
 
 ```text
 前端未捕获错误上报
@@ -349,6 +374,7 @@ theme = dark | light
 /api/import/one  paths
 /api/lrc         uid
 /api/theme       theme
+/api/play_mode   mode
 ```
 
 ```text

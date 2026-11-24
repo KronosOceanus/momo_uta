@@ -213,7 +213,7 @@ position 由 AudioContext 时钟计算，
 
 ```text
 requestAnimationFrame
-  → 约每 timeupdate_ms 发一次 timeupdate
+  → 约每 50ms 发一次 timeupdate
   → 到期 dur-0.005 时：
       offset = dur
       stop
@@ -222,7 +222,7 @@ requestAnimationFrame
 ```
 
 ```text
-timeupdate_ms 默认 50，约 20Hz。
+timeupdate 由 AudioEngine 的 `TIMEUPDATE_MS = 50` 控制，约 20Hz。
 ```
 
 ## 7. 倍速

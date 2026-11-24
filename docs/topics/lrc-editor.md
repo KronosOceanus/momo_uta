@@ -116,6 +116,23 @@ EROWS 保留文件顺序、空行和未打点的草稿行。
 Enter → 失焦提交
 ```
 
+写入前检查：
+
+```text
+prev.t <= t <= next.t
+```
+
+允许相同时间；倒序时：
+
+```text
+toast 提示
+输入恢复旧值
+不 snapshot
+不 markDirty
+```
+
+绑定时同样检查。
+
 ### 原文
 
 ```text
@@ -124,6 +141,18 @@ Enter → 在光标处拆行
 行首 Backspace/Delete → 合并到上一行
 多行粘贴 → 插入多行
 ```
+
+IME 组合中不更新 EROWS：
+
+```text
+compositionstart
+  → 只做一次 snapshot
+
+compositionend / blur
+  → 一次性 retokenizeRow + markDirty
+```
+
+避免日语输入法中间态删除 token。
 
 ### 翻译
 
@@ -134,6 +163,20 @@ Enter → 失焦，不拆行
 
 ```text
 翻译不进入正文，不改变 r.text。
+```
+
+翻译列默认开启：
+
+```text
+打开编辑器时 TRANS_EDIT = true
+```
+
+翻译修改也会进入撤销栈：
+
+```text
+第一次输入 → snapshot
+连续输入 → 不重复 snapshot
+失焦 → 重置编辑批次
 ```
 
 ### 加行 / 删行
@@ -215,9 +258,12 @@ tokens: [{tid, start, end, base, ruby, level}]
 ```text
 先在波形上点一个位置
 再点行内 ↤
+  → 检查时间顺序
   → r.t = NH.MARK
   → 光标移到下一行
 ```
+
+时间不合法则拒绝绑定并提示。
 
 ## 5. 选择
 
@@ -288,6 +334,14 @@ saveLrc 发送 NH.LRC_VERSION
 冲突 → 保留草稿，不覆盖
 ```
 
+冲突选择：
+
+```text
+重新加载服务端（放弃本地草稿）
+用本地覆盖（先取最新版本）
+取消
+```
+
 ```text
 保存成功后更新 LRC_VERSION。
 普通页改读音响应同时更新 NH.S.version。
@@ -300,7 +354,7 @@ save_rows → ok + version + refresh 状态
 ```
 
 ```text
-v2 编辑器不再依赖响应 ids 合并；
+nhlrc 编辑器不再依赖响应 ids 合并；
 lid/tid 已在 rows 中。
 ```
 
@@ -516,7 +570,7 @@ TRANS_EDIT
 1. 表格操作大量使用整表重绘。
 2. 时间戳不支持编辑区间写法。
 3. 元数据不能直接在表格里编辑。
-4. 每次进入编辑器翻译列都重置为关。
+4. 每次进入编辑器翻译列默认重置为开。
 5. 导入是整份替换，不做逐行合并。
 ```
 
@@ -537,6 +591,9 @@ tests/lrc_editor.test.cjs
 删除/恢复
 导入
 翻译列
+时间顺序校验
+IME 组合
+冲突选择
 ```
 
 ## 17. 相关
