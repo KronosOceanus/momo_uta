@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import numbers
 import secrets
 import threading
 import time
@@ -143,6 +144,55 @@ class H(BaseHTTPRequestHandler):
         "/api/theme": ("theme",),
     }
 
+    def _is_int(self, v):
+        return isinstance(v, int) and not isinstance(v, bool)
+
+    def _is_num(self, v):
+        return isinstance(v, numbers.Real) and not isinstance(v, bool)
+
+    def _is_str_list(self, v):
+        return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+    def _check_types(self, p, req):
+        checks = {
+            "/api/pl": {"action": str, "list": (str, type(None)),
+                        "id": (str, type(None)), "name": (str, type(None)),
+                        "ids": self._is_str_list, "uids": self._is_str_list,
+                        "from": (str, type(None)), "to": (str, type(None)),
+                        "uid": (str, type(None)), "paths": self._is_str_list},
+            "/api/line": {"uid": str, "line": self._is_int,
+                          "start": self._is_int, "reading": str,
+                          "lid": (str, type(None)), "version": (str, type(None))},
+            "/api/rematch": {"uid": str, "duration": self._is_num},
+            "/api/pick": {"uid": str, "id": (str, int)},
+            "/api/import/one": {"paths": self._is_str_list,
+                                "list": (str, type(None)),
+                                "with_lrc": bool},
+            "/api/lrc": {"action": (str, type(None)), "uid": str,
+                         "version": (str, type(None)), "lines": list,
+                         "rows": list, "translations": dict,
+                         "compact_translations": dict, "text": str},
+            "/api/jobs": {"kind": str, "uid": (str, type(None))},
+            "/api/jobs/cancel_all": {"kind": str},
+            "/api/theme": {"theme": str},
+            "/api/log": {"kind": (str, type(None)), "message": (str, type(None)),
+                         "stack": (str, type(None)), "context": dict},
+        }.get(p, {})
+        for key, typ in checks.items():
+            if key not in req:
+                continue
+            v = req[key]
+            ok = False
+            if isinstance(typ, tuple):
+                ok = isinstance(v, typ)
+            elif isinstance(typ, type):
+                ok = isinstance(v, typ)
+            else:
+                ok = bool(typ(v))
+            if not ok:
+                return f"字段类型错误：{key}"
+        return None
+
     def do_POST(self):
         p = urllib.parse.urlparse(self.path).path
         if not self._guard(True):
@@ -160,6 +210,11 @@ class H(BaseHTTPRequestHandler):
             req = json.loads(self.rfile.read(length) or b"{}")
         except Exception:
             return self._json({"ok": False, "error": "请求不是合法 JSON"}, 400)
+        if not isinstance(req, dict):
+            return self._json({"ok": False, "error": "请求体必须是对象"}, 400)
+        bad = self._check_types(p, req)
+        if bad:
+            return self._json({"ok": False, "error": bad}, 400)
         if p.startswith("/api/jobs/") and p.endswith("/cancel"):
             return self._post_cancel_job(p[len("/api/jobs/"):-len("/cancel")])
         fn = self.POST.get(p)

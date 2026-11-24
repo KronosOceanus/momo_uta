@@ -1,17 +1,20 @@
 # HTTP 本地服务边界审计
 
 > 范围：本地 HTTP 服务、CORS、认证、静态文件、音频 Range、POST 边界。
-> P0 已实现：关闭 CORS、启动 token、Origin/Host 校验、POST 类型/大小限制。
+> P0/P1 已实现：关闭 CORS、启动 token、Origin/Host 校验、POST 类型/大小限制、
+> 静态路径越界防护、Range 语义、字段类型校验。
 
 ## 0. 结论
 
 ```text
 服务只监听 127.0.0.1：正确
-但浏览器里的任意网页仍可跨域访问
-且没有认证/Origin/Host 校验
+现在有启动 token + Origin/Host 校验
+CORS 已移除
+静态路径越界已防护
+Range 语义已修正
 ```
 
-这是目前最优先的隐私与安全边界。
+剩余风险集中在高成本接口和限流。
 
 ## 1. 服务监听
 
@@ -183,10 +186,10 @@ resolve 后确认仍在 STATIC 目录下
 
 ```text
 P0  ✅ CORS 已移除；已加入启动随机 token + Origin/Host 校验
-P1  ✅ POST Content-Type / body 大小已校验；字段白名单留待下一轮
-P1  保护 /audio、/api/wave、/api/jobs、/api/import/one
-P2  Range 语义修正
-P3  静态文件 resolve 校验
+P1  ✅ POST Content-Type / body 大小 / 字段类型已校验
+P1  ✅ /audio、/api/wave、/api/jobs、/api/import/one 需要 token
+P2  ✅ Range 语义修正
+P2  ✅ 静态文件 resolve/符号链接越界防护
 ```
 
 ## 11. 推荐方案
@@ -205,7 +208,7 @@ P3  静态文件 resolve 校验
 测试基线：
 
 ```text
-343 Python
+353 Python
 46 前端
 1 项环境跳过
 ```

@@ -11,14 +11,23 @@ CTYPE = {".css": "text/css; charset=utf-8",
 
 
 def static_file(path: str):
-    """返回 (bytes/str, content_type)；找不到返回 None。"""
+    """返回 (bytes/str, content_type)；找不到/越界返回 None。"""
     rel = path[len("/static/"):] if path.startswith("/static/") else path
-    if ".." in rel:
+    if not rel or ".." in rel:
         return None
-    f = STATIC / rel
+    try:
+        base = STATIC.resolve()
+        f = (base / rel).resolve()
+    except (OSError, RuntimeError):
+        return None
+    if f != base and base not in f.parents:
+        return None
     if not f.is_file():
         return None
-    return f.read_text(encoding="utf-8"), CTYPE.get(f.suffix, "application/octet-stream")
+    try:
+        return f.read_text(encoding="utf-8"), CTYPE.get(f.suffix, "application/octet-stream")
+    except (OSError, UnicodeError):
+        return None
 
 
 def audio_info(file: str, range_header: str | None):
@@ -27,18 +36,31 @@ def audio_info(file: str, range_header: str | None):
     if not f.is_file():
         return None
     size = f.stat().st_size
-    start, end, code = 0, size - 1, 200
-    rng = range_header or ""
-    if rng.startswith("bytes="):
-        a, _, b = rng[6:].partition("-")
-        try:
-            start = int(a) if a else 0
-            end = int(b) if b else size - 1
-            code = 206
-        except ValueError:
-            start, end, code = 0, size - 1, 200
-    end = min(end, size - 1)
     ctype = {".mp3": "audio/mpeg", ".flac": "audio/flac", ".wav": "audio/wav",
              ".m4a": "audio/mp4", ".aac": "audio/aac", ".ogg": "audio/ogg"
              }.get(f.suffix.lower(), "application/octet-stream")
-    return code, start, end, size, ctype, (f"bytes {start}-{end}/{size}" if code == 206 else None)
+    rng = (range_header or "").strip()
+    if not rng:
+        return 200, 0, size - 1, size, ctype, None
+    if not rng.startswith("bytes=") or "," in rng:
+        return 416, 0, -1, size, ctype, f"bytes */{size}"
+    spec = rng[6:].strip()
+    if "-" not in spec:
+        return 416, 0, -1, size, ctype, f"bytes */{size}"
+    a, b = spec.split("-", 1)
+    try:
+        if not a:
+            suffix = int(b)
+            if suffix <= 0 or size <= 0:
+                return 416, 0, -1, size, ctype, f"bytes */{size}"
+            start = max(0, size - suffix)
+            end = size - 1
+        else:
+            start = int(a)
+            end = int(b) if b else size - 1
+            if start < 0 or start >= size or end < start:
+                return 416, 0, -1, size, ctype, f"bytes */{size}"
+            end = min(end, size - 1)
+    except ValueError:
+        return 416, 0, -1, size, ctype, f"bytes */{size}"
+    return 206, start, end, size, ctype, f"bytes {start}-{end}/{size}"

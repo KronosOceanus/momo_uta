@@ -117,6 +117,36 @@ class TestPlayerHttp(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(cm.exception.code, 403)
 
+    def test_wrong_field_type_returns_400(self):
+        req = urllib.request.Request(
+            self.url("/api/line"),
+            data=json.dumps({"uid": CACHE_ITEM["uid"], "line": "x",
+                             "start": 0, "reading": "か"}).encode(),
+            headers=self.auth_headers({"Content-Type": "application/json"}))
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 400)
+        self.assertIn("line", json.loads(cm.exception.read())["error"])
+
+    def test_wrong_string_field_type_returns_400(self):
+        req = urllib.request.Request(
+            self.url("/api/line"),
+            data=json.dumps({"uid": CACHE_ITEM["uid"], "line": 1,
+                             "start": 0, "reading": 3}).encode(),
+            headers=self.auth_headers({"Content-Type": "application/json"}))
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 400)
+        self.assertIn("reading", json.loads(cm.exception.read())["error"])
+
+    def test_non_object_body_returns_400(self):
+        req = urllib.request.Request(
+            self.url("/api/line"), data=b"[]",
+            headers=self.auth_headers({"Content-Type": "application/json"}))
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 400)
+
     def test_post_requires_json_content_type(self):
         req = urllib.request.Request(
             self.url("/api/line"), data=b"{}",
