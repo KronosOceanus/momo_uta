@@ -580,3 +580,21 @@ class TestV2PlainLrcPlan(unittest.TestCase):
         rows = LRF.plain_lrc_rows("[00:01.00]君の名前\n")
         self.assertTrue(rows[0]["tokens"])
         self.assertTrue(any(t.get("ruby") for t in rows[0]["tokens"]))
+
+    def test_plain_lrc_drops_only_out_of_order_empty_timed_rows(self):
+        from momo_player.core import lrc_files as LRF
+
+        rows = LRF.plain_lrc_rows(
+            "[00:01.00]A\n[00:00.90]\n[00:02.00]B\n")
+        self.assertEqual([(r["t"], r["text"]) for r in rows],
+                         [(1.0, "A"), (2.0, "B")])
+
+        rows = LRF.plain_lrc_rows(
+            "[00:01.00]A\n[00:01.10]\n[00:02.00]B\n")
+        self.assertEqual([(r["t"], r["text"]) for r in rows],
+                         [(1.0, "A"), (1.1, ""), (2.0, "B")])
+
+        rows = LRF.plain_lrc_rows(
+            "[00:01.00]A\n\n[00:02.00]B\n")
+        self.assertEqual([(r["t"], r["text"]) for r in rows],
+                         [(1.0, "A"), (None, ""), (2.0, "B")])

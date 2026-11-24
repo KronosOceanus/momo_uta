@@ -526,6 +526,19 @@ def plain_lrc_rows(text: str) -> list[dict]:
     """外部普通 LRC → v2 rows；不读取任何 nhlrc 尾部。"""
     body, _tail = _split_nhlrc(text)
     _lines, metadata, body_rows = _parse_rows(body)
+    # 网易云等来源会带“空文本 + 时间倒序”的占位行；只清这一类，
+    # 保留有序空行、无时间空行和 metadata。
+    cleaned = []
+    last_t = None
+    for row in body_rows:
+        t = row.get("t")
+        empty = not str(row.get("text") or "").strip()
+        if t is not None and empty and last_t is not None and t < last_t:
+            continue
+        cleaned.append(row)
+        if t is not None:
+            last_t = t
+    body_rows = cleaned
     body_to_lyric = {}
     lyric = 0
     for bi, ln in enumerate(body_rows):
