@@ -77,13 +77,19 @@ def _acquire_instance_lock(path: str | Path | None = None):
 
 
 def _already_running() -> None:
+    """短暂提示后自动消失，不要求用户点确认。"""
     try:
-        from AppKit import NSAlert, NSApplication
+        from AppKit import NSAlert, NSApplication, NSModalPanelRunLoopMode
+        from Foundation import NSRunLoop, NSTimer
+        app = NSApplication.sharedApplication()
         alert = NSAlert.alloc().init()
         alert.setMessageText_("桃歌已经在运行")
         alert.setInformativeText_("请切换到已打开的窗口。")
         alert.addButtonWithTitle_("好")
-        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        timer = NSTimer.timerWithTimeInterval_repeats_block_(
+            1.5, False, lambda _t: app.abortModal())
+        NSRunLoop.currentRunLoop().addTimer_forMode_(timer, NSModalPanelRunLoopMode)
+        app.activateIgnoringOtherApps_(True)
         alert.runModal()
     except Exception:
         print("桃歌已经在运行", file=sys.stderr)
