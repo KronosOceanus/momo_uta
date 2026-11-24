@@ -314,7 +314,7 @@ async function stepSong(dir){
   const uids=songOrderUids();
   if(!uids.length) return;
   if(NH.playMode === 'shuffle'){
-    const target = randomTargetUid(dir);
+    const target = takeShuffleUid(uids, currentPlayUid());
     if(target) await NH.load(target,true);
     return;
   }
@@ -406,6 +406,8 @@ const PLAY_MODE_ORDER = ['list', 'one', 'shuffle'];
 const PLAY_MODE_LABEL = {list: '列表循环', one: '单曲循环', shuffle: '随机播放'};
 const initialPlayMode = (CFG.player && CFG.player.ui && CFG.player.ui.play_mode);
 NH.playMode = PLAY_MODE_ORDER.includes(initialPlayMode) ? initialPlayMode : 'list';
+NH.shufflePool = [];
+NH.shuffleListKey = '';
 const songLoopBtn = document.getElementById('songloop');
 function syncPlayMode(){
   if(!songLoopBtn) return;
@@ -415,6 +417,11 @@ function syncPlayMode(){
 function setPlayMode(mode, persist){
   if(!PLAY_MODE_ORDER.includes(mode)) mode = 'list';
   NH.playMode = mode;
+  if(mode === 'shuffle'){
+    resetShufflePool(songOrderUids(), currentPlayUid());
+  }else{
+    NH.shufflePool = []; NH.shuffleListKey = '';
+  }
   syncPlayMode();
   if(persist && NH.api){
     NH.api('/api/play_mode', {mode}).then(r=>{
@@ -429,14 +436,37 @@ function cyclePlayMode(){
 if(songLoopBtn) songLoopBtn.onclick = cyclePlayMode;
 syncPlayMode();
 
-function randomTargetUid(dir){
-  const uids = songOrderUids();
-  if(!uids.length) return null;
-  const cur = NH.PLAYING_UID !== null && NH.PLAYING_UID !== undefined
-    ? String(NH.PLAYING_UID) : '';
-  const pool = uids.filter(u => u !== cur);
-  const list = pool.length ? pool : uids;
-  return list[Math.floor(Math.random() * list.length)] || null;
+function currentPlayUid(){
+  return NH.PLAYING_UID !== null && NH.PLAYING_UID !== undefined
+    ? String(NH.PLAYING_UID) : (NH.S ? String(NH.S.uid) : '');
+}
+
+function resetShufflePool(uids, current){
+  const uniq = [...new Set((uids || []).map(String).filter(Boolean))];
+  NH.shuffleListKey = uniq.slice().sort().join('\n');
+  NH.shufflePool = uniq.filter(u => u !== String(current || ''))
+    .sort(() => Math.random() - 0.5);
+}
+
+function markShufflePlayed(uid){
+  if(NH.playMode !== 'shuffle' || !uid) return;
+  const u = String(uid);
+  NH.shufflePool = (NH.shufflePool || []).filter(x => String(x) !== u);
+}
+
+function takeShuffleUid(uids, current){
+  const list = [...new Set((uids || []).map(String).filter(Boolean))];
+  const key = list.slice().sort().join('\n');
+  if(key !== NH.shuffleListKey){
+    resetShufflePool(list, current);
+  } else {
+    NH.shufflePool = (NH.shufflePool || [])
+      .filter(u => list.includes(String(u)) && String(u) !== String(current || ''));
+  }
+  if(!NH.shufflePool.length){
+    resetShufflePool(list, current);
+  }
+  return NH.shufflePool.length ? NH.shufflePool.shift() : (list[0] || null);
 }
 
 NH.au.addEventListener('ended', () => {
@@ -458,5 +488,5 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode});
+Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
 })();

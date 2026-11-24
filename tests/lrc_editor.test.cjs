@@ -548,3 +548,22 @@ test('play mode cycles list -> one -> shuffle -> list', () => {
   p.run('cyclePlayMode()');
   assert.equal(p.run('playMode'), 'list');
 });
+
+test('shuffle plays every song once before reshuffling', () => {
+  const p = player();
+  const list = ['a','b','c','d','e'];
+  p.run(`window.NH.PLS=[{id:'x',items:${JSON.stringify(list.map(uid=>({uid})))} }];
+         SEL_LIST='x'; PLAYING_UID='a'; setPlayMode('shuffle');`);
+  assert.equal(p.run('shufflePool.length'), 4);
+  assert.equal(p.run("shufflePool.includes('a')"), false);
+  let cur = 'a';
+  const seen = new Set(['a']);
+  for(let i=0; i<4; i++){
+    cur = p.run(`takeShuffleUid(${JSON.stringify(list)}, '${cur}')`);
+    seen.add(cur);
+  }
+  assert.deepEqual([...seen].sort(), list);
+  // 池空后开始新一轮，且不会立刻重复上一首
+  const next = p.run(`takeShuffleUid(${JSON.stringify(list)}, '${cur}')`);
+  assert.notEqual(next, cur);
+});
