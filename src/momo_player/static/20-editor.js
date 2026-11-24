@@ -390,6 +390,23 @@ function rowHtml(r,i){
   </div>`;
 }
 
+function updateTextRow(el){
+  const i=+el.dataset.i;
+  const row=NH.EROWS[i];
+  if(!row) return;
+  beginTextEdit(i);
+  retokenizeRow(row, el.value);
+  markDirty();
+}
+
+function updateTransRow(el){
+  const i=+el.dataset.i;
+  const row=NH.EROWS[i];
+  if(!row) return;
+  row.trans=el.value;
+  markDirty();
+}
+
 function renderLrcTable(){
   const box=document.getElementById('lyr');
   box.innerHTML=`<div class="letable${NH.TRANS_EDIT?' transon':''}">`+NH.EROWS.map(rowHtml).join('')+'</div>';
@@ -433,13 +450,22 @@ function renderLrcTable(){
   box.querySelectorAll('input.tx:not(.trans)').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
     el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
-    el.onblur=()=>{ NH.TEXT_EDIT_ROW=null; };
-    el.oninput=()=>{
+    el.onblur=()=>{
+      if(el._composing){ el._composing=false; if(!NH.LRC_LOCKED) updateTextRow(el); }
+      NH.TEXT_EDIT_ROW=null;
+    };
+    el.oncompositionstart=()=>{
       if(NH.LRC_LOCKED) return;
-      const i=+el.dataset.i;
-      beginTextEdit(i);
-      retokenizeRow(NH.EROWS[i], el.value);
-      markDirty();
+      el._composing=true;
+      beginTextEdit(+el.dataset.i);
+    };
+    el.oncompositionend=()=>{
+      el._composing=false;
+      if(!NH.LRC_LOCKED) updateTextRow(el);
+    };
+    el.oninput=ev=>{
+      if(NH.LRC_LOCKED || el._composing || (ev && ev.isComposing)) return;
+      updateTextRow(el);
     };
     el.onkeydown=ev=>{
       if(NH.LRC_LOCKED || ev.isComposing||ev.keyCode===229) return;
@@ -500,10 +526,17 @@ function renderLrcTable(){
   box.querySelectorAll('input.tx.trans').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
     el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
-    el.oninput=()=>{
-      if(NH.LRC_LOCKED) return;
-      NH.EROWS[+el.dataset.i].trans=el.value;
-      markDirty();
+    el.onblur=()=>{
+      if(el._composing){ el._composing=false; if(!NH.LRC_LOCKED) updateTransRow(el); }
+    };
+    el.oncompositionstart=()=>{ if(!NH.LRC_LOCKED) el._composing=true; };
+    el.oncompositionend=()=>{
+      el._composing=false;
+      if(!NH.LRC_LOCKED) updateTransRow(el);
+    };
+    el.oninput=ev=>{
+      if(NH.LRC_LOCKED || el._composing || (ev && ev.isComposing)) return;
+      updateTransRow(el);
     };
     el.onkeydown=ev=>{
       if(NH.LRC_LOCKED || ev.isComposing||ev.keyCode===229) return;
@@ -919,6 +952,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {editorRowIndex, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+Object.assign(NH, {editorRowIndex, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();
