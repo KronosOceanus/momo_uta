@@ -167,6 +167,8 @@ def delete(lid: str) -> bool:
 def clear(lid: str) -> None:
     with _locked():
         d = load()
+        if not any(x.get("id") == lid for x in d.get("lists", [])):
+            return
         d["members"][lid] = []
         save(d)
 
@@ -226,6 +228,8 @@ def move_many(lid_from: str, lid_to: str, uids: list[str],
         return
     with _locked():
         d = load()
+        if not any(x.get("id") == lid_to for x in d.get("lists", [])):
+            return
         src = d["members"].get(lid_from, [])
         moved = [u for u in moved if u in src]
         if not moved:
@@ -245,6 +249,8 @@ def move_many(lid_from: str, lid_to: str, uids: list[str],
 def move(lid_from: str, lid_to: str, uid: str) -> None:
     with _locked():
         d = load()
+        if not any(x.get("id") == lid_to for x in d.get("lists", [])):
+            return
         d["members"][lid_from] = [u for u in d["members"].get(lid_from, []) if u != uid]
         seq = d["members"].setdefault(lid_to, [])
         if uid not in seq:

@@ -123,8 +123,8 @@ def refresh(uid: str | None = None) -> int:
             for k, v in list(CACHE.items()):
                 if str(v.get("uid")) == str(uid):
                     e = _entry(Path(v["file"]), v.get("group", ""), force_fp=True)
+                    old_uid = str(v.get("uid") or "")
                     if e:
-                        old_uid = str(v.get("uid") or "")
                         new_uid = str(e["uid"])
                         CACHE[k] = e
                         if old_uid:
@@ -135,9 +135,22 @@ def refresh(uid: str | None = None) -> int:
                             elif old_uid != new_uid:
                                 lost.add(old_uid)
                         BY_UID[new_uid] = e
+                    else:
+                        # 文件已经不在：删掉内存条目，避免库列表显示幽灵歌。
+                        CACHE.pop(k, None)
+                        if old_uid:
+                            BY_UID.pop(old_uid, None)
+                            remaining = _live_copy(old_uid, exclude=v["file"])
+                            if remaining:
+                                BY_UID[old_uid] = remaining
+                            else:
+                                lost.add(old_uid)
+                        LI.prune_paths([v["file"]])
+                        FP.prune_paths([v["file"]])
                     if lost:
                         LAST_MISSING = sorted(set(LAST_MISSING) | lost)
                     LI.flush()
+                    FP.flush()
                     return len(CACHE)
             found = _resolve_uid(str(uid))
             if found:
@@ -155,6 +168,10 @@ def refresh(uid: str | None = None) -> int:
                     elif old_uid != new_uid:
                         lost.add(old_uid)
                     BY_UID[new_uid] = e
+                else:
+                    lost.add(str(uid))
+                    LI.prune_paths([str(p)])
+                    FP.prune_paths([str(p)])
             if lost:
                 LAST_MISSING = sorted(set(LAST_MISSING) | lost)
             LI.flush()

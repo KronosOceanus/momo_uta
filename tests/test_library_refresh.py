@@ -43,6 +43,14 @@ class TestCacheRefresh(unittest.TestCase):
         self.assertEqual(LIB.LAST_MISSING, ["u1"])
         self.assertEqual(CACHE["0"]["uid"], "u2")
 
+    def test_missing_file_is_removed_and_marked_missing(self):
+        with patch.object(LIB, "_entry", return_value=None), \
+             patch.object(LIB, "_live_copy", return_value=None), \
+             patch.object(LIB, "LI"), patch.object(LIB, "FP"):
+            LIB.refresh("u1")
+        self.assertNotIn("0", CACHE)
+        self.assertEqual(LIB.LAST_MISSING, ["u1"])
+
     def test_unknown_uid_does_not_scan(self):
         with patch.object(LIB, "_resolve_uid", return_value=None), \
              patch.object(LIB, "scan_library", side_effect=AssertionError("不该全库扫描")):

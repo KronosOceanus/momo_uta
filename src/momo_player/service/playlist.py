@@ -124,7 +124,13 @@ def import_to_list(req) -> dict:
         else:
             res.setdefault("failed", []).append(
                 {"audio": f, "error": "文件未进入曲库"})
-    added_n = PL.add(lid, uids)
+    try:
+        added_n = PL.add(lid, uids)
+    except Exception as e:
+        return {"ok": False, "error": f"加入歌单失败：{e}",
+                "library": len(LIB.snapshot()), "lists": _lists(),
+                "failed": (res.get("failed") or [])[:5],
+                "failed_count": len(res.get("failed") or [])}
     library_n = len(LIB.snapshot())
 
     # "待匹配" = 真正进了歌单、但当前还没有歌词的那些

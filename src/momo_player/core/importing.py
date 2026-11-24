@@ -89,8 +89,10 @@ def _match_lrc(lrc: Path, audios: list[Path], used: set[Path]) -> tuple[Path | N
             cand = [a for a in audios if a not in used
                     and (not same_dir or a.parent == lrc.parent)
                     and keyfn(a.stem) == keyfn(_lyric_base(lrc))]
-            if cand:
-                return _choose(cand)
+            if len(cand) == 1:
+                return cand[0], []
+            if len(cand) > 1:
+                return None, cand
     return None, []
 
 

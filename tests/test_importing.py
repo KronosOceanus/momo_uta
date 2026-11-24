@@ -194,3 +194,20 @@ class TestStrictPairing(unittest.TestCase):
             self.assertIn(str(audio), res["pending"])
             self.assertEqual(res["ambiguous"], 1)
             self.assertFalse(LRF.store_path(audio).is_file())
+
+
+class TestReversePairingAmbiguity(unittest.TestCase):
+    def test_two_audio_candidates_are_ambiguous(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            a = root / "A" / "Song.mp3"; b = root / "B" / "Song.mp3"
+            a.parent.mkdir(); b.parent.mkdir()
+            a.write_bytes(b"a"); b.write_bytes(b"b")
+            lrc = root / "Song.lrc"
+            lrc.write_text("[00:05.00]君\n[00:10.00]花\n[00:15.00]夜\n", encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(lrc)], pool_audio=[str(a), str(b)], with_lrc=True)
+            self.assertEqual(res["ambiguous"], 1)
+            self.assertEqual(res["unpaired"], 1)
+            self.assertFalse(LRF.store_path(a).is_file())
+            self.assertFalse(LRF.store_path(b).is_file())
