@@ -218,7 +218,8 @@ async function reloadLrcFromServer(refresh){
   NH.EDIRTY=false;
   NH.LRC_CONFLICT=false;
   if(refresh && NH.VIEW_MODE==='lrc'){
-    await openLrcEditor(true,{discardDraft:true});
+    try{ return await openLrcEditor(true,{discardDraft:true}); }
+    catch(e){ NH.done('重新加载歌词失败：'+e.message); return false; }
   }
   return true;
 }
@@ -319,12 +320,17 @@ async function openLrcEditor(entering=false, opts={}){
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
   // 重新读取服务端文档前，先把当前草稿保存；失败则不能清掉 dirty。
   if(!opts.discardDraft && (NH.EDIRTY || NH.SAVE_PENDING)){
-    if(!await flushLrc()) return;
+    if(!await flushLrc()) return false;
   }
+  const revision=NH.EDIT_REVISION;
   const song=NH.S, request=NH.currentToken('load'), opening=NH.track('lrcOpen');
   const d=await NH.api('/api/lrc',{action:'load', uid:song.uid});
-  if(NH.S!==song || !NH.isCurrent('load',request) || !NH.isCurrent('lrcOpen',opening) || (!entering && NH.VIEW_MODE!=='lrc')) return;
+  if(NH.S!==song || !NH.isCurrent('load',request) || !NH.isCurrent('lrcOpen',opening) || (!entering && NH.VIEW_MODE!=='lrc')) return false;
   if(!d.ok) throw new Error(d.error||'无法读取歌词');
+  if(NH.EDIT_REVISION!==revision){
+    NH.done('加载期间有编辑，已保留当前草稿');
+    return false;
+  }
   if(entering){
     NH.clearToast();
     NH.VIEW_MODE='lrc';
@@ -369,6 +375,7 @@ async function openLrcEditor(entering=false, opts={}){
   }
   NH.paintTicks?.();
   if(entering){ NH.measureCanvas(); NH.syncWaveLabels(); NH.syncFollow(); if(!NH.WAVE) NH.loadWave(); }
+  return true;
 }
 
 function rowHtml(r,i){

@@ -710,3 +710,15 @@ test('conflict overwrite loads new version then saves local rows', async () => {
   assert.equal(p.run('EDIRTY'), false);
   assert.equal(p.run('EROWS[0].text'), 'local');
 });
+
+test('openLrcEditor keeps edits made while its request is in flight', async () => {
+  const p = player();
+  p.run(`VIEW_MODE='lrc'; S={idx:'0',uid:'u1',title:'X',version:'v',lines:[]};
+         EROWS=[{t:1,text:'before',trans:''}]; EDIRTY=false;`);
+  const opening = p.run('openLrcEditor(true)');
+  p.edit('during');
+  p.requests[0].resolve({ok:true, version:'v2', lines:[{t:1,text:'server',trans:''}]});
+  assert.equal(await opening, false);
+  assert.equal(p.run('EROWS[0].text'), 'during');
+  assert.equal(p.run('EDIRTY'), true);
+});

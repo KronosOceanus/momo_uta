@@ -594,6 +594,11 @@ function openDialog(opts){
       else if(e.key === 'Enter'){
         e.preventDefault();
         if(input && !inp.value.trim()) return;
+        if(!input && extra && document.activeElement === extra){
+          finish(extraValue);
+          return;
+        }
+        if(!input && document.activeElement === cancel){ finish(false); return; }
         finish(input ? (inp.value.trim() || null) : true);
       }
     };
