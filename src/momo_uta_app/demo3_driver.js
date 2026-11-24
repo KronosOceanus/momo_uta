@@ -104,6 +104,7 @@
     capTrack.style.transform = `translateY(${-(i * 58 - (230 - 58) / 2)}px)`;
     requestAnimationFrame(() => cap.classList.add('show'));
   };
+  const stepPause = async (ms=1000) => sleep(ms);
   const endToast = () => {
     let t = document.getElementById('demo3-done');
     if (!t) {
@@ -200,13 +201,17 @@
       await wait(() => NH.VIEW_MODE === 'lrc' && NH.EROWS && NH.EROWS.length);
       await sleep(700);
       caption('进入 LRC 编辑', 1);
+      await stepPause();
 
       // 1) 改两行歌词和翻译。
       const rows = [...document.querySelectorAll('.lerow')];
       const targets = rows.filter(el => {
+        const i = +el.dataset.i;
+        const row = NH.EROWS[i];
         const tx = el.querySelector('input.tx:not(.trans)');
         const ts = el.querySelector('input.ts');
-        return tx && tx.value.trim() && ts && ts.value.trim();
+        return row && row.kind === 'lyric'
+          && tx && tx.value.trim() && ts && ts.value.trim();
       }).slice(0, 2);
       if (targets.length < 2) throw new Error('演示 3: 可编辑歌词行不足两行');
       for (let k = 0; k < 2; k++) {
@@ -219,6 +224,7 @@
         await sleep(350);
       }
       caption('改两句歌词和翻译', 2);
+      await stepPause();
 
       // 2) 加行，再删掉刚加的行。
       await click(document.getElementById('lrcadd'));
@@ -226,11 +232,14 @@
       await click(document.getElementById('lrcdel'));
       await sleep(350);
       caption('加行 / 删行', 3);
+      await stepPause();
 
       // 3) 拆分：把一行从中间拆成两行。
       const splitRow = [...document.querySelectorAll('.lerow')].find(el => {
+        const i = +el.dataset.i;
         const tx = el.querySelector('input.tx:not(.trans)');
-        return tx && tx.value.trim().length >= 4;
+        return NH.EROWS[i]?.kind === 'lyric'
+          && tx && tx.value.trim().length >= 4;
       });
       if (!splitRow) throw new Error('演示 3: 没有可拆分的歌词行');
       const splitIndex = +splitRow.dataset.i;
@@ -243,9 +252,12 @@
       }));
       await sleep(650);
 
-      // 4) 合并：在第二行行首按 Backspace，接到上一行。
-      const mergeIndex = Math.min(1, NH.EROWS.length - 1);
-      const mergeInput = txInput(mergeIndex);
+      // 4) 合并：找一个歌词行，接到上一行；不碰 metadata。
+      const mergeIndex = NH.EROWS.findIndex((row, i) =>
+        i > 0 && row.kind === 'lyric'
+        && NH.EROWS[i - 1].kind !== 'metadata'
+        && (row.text || '').trim());
+      const mergeInput = mergeIndex >= 0 ? txInput(mergeIndex) : null;
       if (!mergeInput) throw new Error('演示 3: 没有可合并的歌词行');
       mergeInput.focus();
       mergeInput.setSelectionRange(0, 0);
@@ -254,6 +266,7 @@
       }));
       await sleep(650);
       caption('拆分 / 合并', 4);
+      await stepPause();
 
       // 5) 波形点两处并对轴。
       await wait(() => NH.WAVE && document.getElementById('wave'));
@@ -264,11 +277,13 @@
         const y = cr.top + cr.height / 2;
         await clickAt(cv, x, y);
         await wait(() => NH.MARK !== null);
-        let idx = NH.EROWS.findIndex((row, i) => NH.timeFitsRow(i, NH.MARK));
+        let idx = NH.EROWS.findIndex((row, i) =>
+          row.kind !== 'metadata' && NH.timeFitsRow(i, NH.MARK));
         if (idx < 0) {
           // 当前窗口内没有合适的行时，选最近的有时间行，按它的时间重新点一次。
           const timed = NH.EROWS.map((row, i) => ({row, i}))
-            .filter(x => x.row.t !== null && x.row.t !== undefined);
+            .filter(x => x.row.kind !== 'metadata'
+              && x.row.t !== null && x.row.t !== undefined);
           if (!timed.length) throw new Error('演示 3: 没有可对轴的行');
           const pick = timed[Math.min(timed.length - 1, Math.round(ratio * (timed.length - 1)))];
           const view = NH.DRAWN || {start: 0, span: NH.WAVE.duration || 1};
@@ -284,6 +299,7 @@
         await click(bind);
         await sleep(600);
         caption(label, step);
+        await stepPause();
       };
       await bindAt(0.30, '波形对轴 1', 5);
       await bindAt(0.62, '波形对轴 2', 6);
@@ -293,6 +309,7 @@
       await wait(() => !NH.EDIRTY && !NH.SAVE_PENDING, 10000);
       await sleep(800);
       caption('保存', 7);
+      await stepPause();
 
       // 7) 恢复最初。
       await click(document.getElementById('lrcreset'));
@@ -303,7 +320,7 @@
       await wait(() => !NH.LRC_LOCKED, 10000);
       await sleep(800);
       caption('恢复最初', 8);
-
+      await stepPause();
       endToast();
       if (b) { b.disabled = true; b.textContent = '第三段完成'; }
     } catch (e) {
