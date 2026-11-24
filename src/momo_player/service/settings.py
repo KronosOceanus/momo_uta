@@ -2,6 +2,7 @@
 """界面设置的持久化编排。"""
 from __future__ import annotations
 
+from momo_yomi import config as YC
 from momo_yomi.config import PUI
 
 from ..core import user_config as UC
@@ -16,7 +17,8 @@ def set_theme(req: dict) -> dict:
         PUI["theme"] = theme
     except Exception as e:
         return {"ok": False, "error": "保存主题失败：" + str(e)}
-    return {"ok": True, "theme": theme}
+    return {"ok": True, "theme": theme,
+            "warning": YC.LOCAL_CONFIG_WARNING}
 
 
 def set_play_mode(req: dict) -> dict:
@@ -28,4 +30,5 @@ def set_play_mode(req: dict) -> dict:
         PUI["play_mode"] = mode
     except Exception as e:
         return {"ok": False, "error": "保存播放模式失败：" + str(e)}
-    return {"ok": True, "mode": mode}
+    return {"ok": True, "mode": mode,
+            "warning": YC.LOCAL_CONFIG_WARNING}

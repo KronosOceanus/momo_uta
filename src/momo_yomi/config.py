@@ -7,12 +7,73 @@ A 类设计常量不放这里 —— 它们在 thresholds.py，改完必须重�
 from __future__ import annotations
 
 import json
+import os
+import shutil
+from datetime import datetime
 from pathlib import Path
 
 from .paths import CONFIG, ROOT
 
 DEFAULTS = CONFIG / "defaults.json"
 LOCAL = ROOT / "data" / "config.json"
+LOCAL_CONFIG_WARNING = ""
+
+
+class ConfigFileError(RuntimeError):
+    """用户配置损坏且无法安全备份，调用方不得继续写入。"""
+
+
+def _backup_bad(path: Path) -> str:
+    """把损坏文件移到唯一备份名；失败返回空串。"""
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    base = path.with_name(f"{path.name}.bad-{stamp}")
+    out = base
+    n = 1
+    while out.exists():
+        n += 1
+        out = base.with_name(f"{base.name}-{n}")
+    try:
+        path.replace(out)
+        return str(out)
+    except OSError:
+        # 跨卷/权限特殊情况下用复制，成功后删原文件。
+        try:
+            shutil.copy2(path, out)
+            os.unlink(path)
+            return str(out)
+        except OSError:
+            return ""
+
+
+def read_local_config(path: str | Path | None = None, *, strict: bool = False) -> dict:
+    """读 data/config.json；损坏时备份并回退，绝不让调用方覆盖原文件。"""
+    global LOCAL_CONFIG_WARNING
+    p = Path(path) if path is not None else LOCAL
+    if not p.is_file():
+        return {}
+    try:
+        raw = p.read_text(encoding="utf-8")
+    except Exception as e:
+        LOCAL_CONFIG_WARNING = f"配置文件无法读取：{e}"
+        if strict:
+            raise ConfigFileError(LOCAL_CONFIG_WARNING) from e
+        return {}
+    try:
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("顶层必须是对象")
+    except Exception as e:
+        bad = _backup_bad(p)
+        if bad:
+            LOCAL_CONFIG_WARNING = f"配置文件损坏，已备份为 {bad}，当前使用默认配置"
+        else:
+            LOCAL_CONFIG_WARNING = f"配置文件损坏且无法备份：{e}"
+        if strict and not bad:
+            raise ConfigFileError(LOCAL_CONFIG_WARNING) from e
+        return {}
+    LOCAL_CONFIG_WARNING = ""
+    return data
+
 
 def _load(path: Path) -> dict:
     try:
@@ -31,7 +92,8 @@ def _merge(base: dict, over: dict) -> dict:
     return out
 
 
-CFG = _merge(_load(DEFAULTS), _load(LOCAL))
+_LOCAL_CFG = read_local_config()
+CFG = _merge(_load(DEFAULTS), _LOCAL_CFG)
 if not CFG:
     raise RuntimeError(f"缺少默认配置：{DEFAULTS}")
 

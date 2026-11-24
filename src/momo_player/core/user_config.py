@@ -2,6 +2,7 @@
 """本机配置覆盖：只写 data/config.json，不碰 defaults。"""
 from __future__ import annotations
 
+from momo_yomi import config as YC
 from momo_yomi.paths import ROOT
 
 from . import fsio as FS
@@ -13,7 +14,7 @@ LOCK = FILE.with_suffix(".lock")
 def set_theme(theme: str) -> str:
     theme = "light" if str(theme) == "light" else "dark"
     with FS.locked(LOCK):
-        d = FS.read_json(FILE, {}) or {}
+        d = YC.read_local_config(FILE, strict=True)
         player = d.setdefault("player", {})
         ui = player.setdefault("ui", {})
         ui["theme"] = theme
@@ -29,7 +30,7 @@ def set_play_mode(mode: str) -> str:
     if mode not in PLAY_MODES:
         raise ValueError("未知播放模式")
     with FS.locked(LOCK):
-        d = FS.read_json(FILE, {}) or {}
+        d = YC.read_local_config(FILE, strict=True)
         player = d.setdefault("player", {})
         ui = player.setdefault("ui", {})
         ui["play_mode"] = mode

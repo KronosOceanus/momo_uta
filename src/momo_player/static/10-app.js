@@ -709,6 +709,7 @@ function applyTheme(theme, persist){
   if(persist){
     api('/api/theme',{theme:light?'light':'dark'}).then(r=>{
       if(r && r.ok===false) done(r.error||'主题保存失败');
+      else if(r && r.warning) done(r.warning);
     }).catch(e=>done('主题保存失败：'+e.message));
   }
 }
@@ -736,5 +737,6 @@ if(themeBtn) themeBtn.onclick=()=>{
   applyTheme(cur==='light'?'dark':'light',true);
 };
 
+if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
 Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme});
 })();

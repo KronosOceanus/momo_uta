@@ -529,7 +529,7 @@ function setPlayMode(mode, persist){
       if(r && r.ok === false){
         applyPlayMode(prev);
         NH.done(r.error || '播放模式保存失败');
-      }
+      }else if(r && r.warning) NH.done(r.warning);
     }).catch(e=>{
       if(seq !== PLAY_MODE_SEQ) return;
       applyPlayMode(prev);

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import json
 
-from momo_yomi.config import CFG, PUI
+from momo_yomi.config import CFG, LOCAL_CONFIG_WARNING, PUI
 
 STATIC = Path(__file__).parent / "static"
 
@@ -19,6 +19,8 @@ def page(token: str = "", nonce: str = "") -> str:
                         f'<html lang="ja" data-theme="{theme}">', 1)
     tok = json.dumps(token).replace("</", "<\\/")
     n = f' nonce="{nonce}"' if nonce else ""
+    warning = json.dumps(LOCAL_CONFIG_WARNING).replace("</", "<\\/")
     inject = (f'<script{n}>window.__CFG = {cfg};'
-              f'window.__MOMO_TOKEN = {tok};</script>\n')
+              f'window.__MOMO_TOKEN = {tok};'
+              f'window.__MOMO_CONFIG_WARNING = {warning};</script>\n')
     return html.replace("<head>", "<head>\n" + inject, 1)
