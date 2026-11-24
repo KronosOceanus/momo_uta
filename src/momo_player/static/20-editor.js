@@ -305,6 +305,7 @@ function redo(){
   if(!NH.REDO.length) return;
   NH.UNDO.push(JSON.stringify(NH.EROWS));
   NH.EROWS=JSON.parse(NH.REDO.pop()); NH.TEXT_EDIT_ROW=null;
+  NH.ESEL=Math.min(NH.ESEL, NH.EROWS.length-1);
   NH.SEL.clear(); markDirty(); renderLrcTable();
 }
 

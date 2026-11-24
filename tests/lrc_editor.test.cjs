@@ -776,3 +776,11 @@ test('translation edits are undoable and default column is on', () => {
   assert.equal(p.run('EROWS[0].trans'), 'newer');
   assert.equal(p.run('UNDO.length'), 1);
 });
+
+test('redo clamps the selected row to the restored row count', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'a'},{t:2,text:'b'},{t:3,text:'c'}];
+    ESEL=2; REDO=[JSON.stringify([{t:1,text:'only'}])];
+    redo();`);
+  assert.equal(p.run('ESEL'), 0);
+});
