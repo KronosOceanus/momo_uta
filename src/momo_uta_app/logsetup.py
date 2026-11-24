@@ -56,19 +56,30 @@ class _LogSink:
         self.max_bytes = max(0, int(max_bytes))
         self.keep = max(1, int(keep))
         self.lock = threading.RLock()
+        self._warned = False
         self.file = open(self.path, "a", encoding="utf-8", buffering=1)
+
+    def _warn(self, message: str) -> None:
+        if self._warned:
+            return
+        self._warned = True
+        try:
+            print(f"[log] {message}", file=sys.__stderr__)
+        except Exception:
+            pass
 
     def write(self, s: str) -> int:
         with self.lock:
             try:
                 if self.file is None:
+                    self._warn("日志文件不可用，后续日志仅写 stderr")
                     return len(s)
                 self.file.write(s)
                 self.file.flush()
                 if self.max_bytes and self.file.tell() >= self.max_bytes:
                     self._rotate()
-            except Exception:
-                pass
+            except Exception as e:
+                self._warn(f"写日志失败：{e}")
             return len(s)
 
     def _rotate(self) -> None:
@@ -78,12 +89,13 @@ class _LogSink:
             pass
         try:
             _rotate_files(self.path, self.keep)
-        except Exception:
-            pass
+        except Exception as e:
+            self._warn(f"日志轮转失败：{e}")
         try:
             self.file = open(self.path, "a", encoding="utf-8", buffering=1)
-        except Exception:
+        except Exception as e:
             self.file = None
+            self._warn(f"日志重新打开失败：{e}")
 
     def flush(self) -> None:
         with self.lock:

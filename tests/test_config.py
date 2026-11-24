@@ -73,6 +73,10 @@ class TestConfig(unittest.TestCase):
             {"lyrics": {"delta_tiers": "3,10,30"}},
             {"lyrics": {"delta_tiers": [1, 2]}},
             {"app": {"window_min": [1]}},
+            {"http": {"timeout_s": -1}},
+            {"jobs": {"max_active": 0}},
+            {"vocals": {"max_bytes": 0}},
+            {"app": {"log_keep_files": 0}},
         ]
         old = YC.LOCAL_CONFIG_WARNING
         try:

@@ -83,8 +83,34 @@ def _load(path: Path) -> dict:
         return {}
 
 
+_MIN_VALUES = {
+    "http.timeout_s": 1,
+    "http.max_body_bytes": 1024,
+    "jobs.max_active": 1,
+    "jobs.max_active_match": 1,
+    "jobs.poll_ms": 10,
+    "jobs.vocals_poll_ms": 10,
+    "jobs.keep_done": 0,
+    "vocals.max_bytes": 1,
+    "vocals.queue_timeout_s": 1,
+    "vocals.run_timeout_s": 1,
+    "waveform.timeout_s": 1,
+    "waveform.concurrent": 1,
+    "library.max_import_paths": 1,
+    "library.max_scan_files": 1,
+    "lyrics.max_name_bytes": 1,
+    "app.log_max_bytes": 1024,
+    "app.log_keep_files": 1,
+    "app.window_width": 1,
+    "app.window_height": 1,
+}
+
+
 def _validate_value(path: str, value, default) -> None:
     """只校验已知键的结构；未知键保留，避免把用户扩展当成损坏。"""
+    if path in _MIN_VALUES and isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value < _MIN_VALUES[path]:
+            raise ValueError(f"{path} 不能小于 {_MIN_VALUES[path]}")
     if path in ("lyrics.delta_tiers",) and (
             not isinstance(value, list) or len(value) != 3):
         raise ValueError(f"{path} 必须是 3 个元素的数组")

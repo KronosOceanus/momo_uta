@@ -97,6 +97,11 @@ def _already_running() -> None:
 
 def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     from momo_player.core import diag
+    # 先抢单实例锁，避免第二个实例写日志/轮转第一个实例的日志。
+    instance_lock = _acquire_instance_lock()
+    if instance_lock is None:
+        _already_running()
+        return
     try:
         log_path = logsetup.setup()
     except Exception as e:
@@ -106,10 +111,6 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     if log_path:
         print(f"日志：{log_path}")
     diag.log("app", f"frozen={getattr(sys, 'frozen', False)} exe={sys.executable} bundle={BUNDLE}")
-    instance_lock = _acquire_instance_lock()
-    if instance_lock is None:
-        _already_running()
-        return
     _bundle_path()
     bootstrap()
     LIB.load_cache_for_playlists()
@@ -224,7 +225,17 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
                 def windowShouldClose_(self, window):
                     i = cocoa.BrowserView.get_instance("window", window)
                     if i:
-                        i.pywebview_window.hide()
+                        w = i.pywebview_window
+                        # 隐藏窗口后仍让前端把当前 LRC 草稿落盘；不阻塞关闭。
+                        def flush():
+                            try:
+                                w.evaluate_js(
+                                    "NH.prepareBackgroundFlush && NH.prepareBackgroundFlush()")
+                            except Exception:
+                                pass
+                        threading.Thread(target=flush, daemon=True,
+                                         name="hide-flush").start()
+                        w.hide()
                     return False
 
             class ReopenOnDock(cocoa.BrowserView.AppDelegate):

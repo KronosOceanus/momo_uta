@@ -318,7 +318,8 @@ document.getElementById('offval').onclick=()=>{
 
 NH.OPEN = new Set();
 function saveOpen(){
-  api('/api/pl',{action:'ui_open', ids:[...NH.OPEN]}).catch(err=>reportClientError('ui_open', err.message));
+  return api('/api/pl',{action:'ui_open', ids:[...NH.OPEN]})
+    .catch(err=>reportClientError('ui_open', err.message));
 }
 
 async function load(ref, autoplay, nextMode){
@@ -751,6 +752,14 @@ async function prepareShutdown(){
   }catch(e){}
   return ok;
 }
+async function prepareBackgroundFlush(){
+  try{
+    if(NH.LRC_CONFLICT) return false;
+    if(NH.VIEW_MODE==='lrc' && NH.flushLrc) return await NH.flushLrc();
+  }catch(e){ return false; }
+  return true;
+}
+NH.prepareBackgroundFlush=prepareBackgroundFlush;
 NH.prepareShutdown=prepareShutdown;
 if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
 Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme});
