@@ -190,7 +190,7 @@ dist/full/momo-uta-full.app
 
 ```text
 lyrics/     歌词与备份
-curated/    歌单、offset、导入记录
+curated/    歌单、offset、导入记录（首次运行生成；仓库只提供 .example）
 cache/      可重建缓存、app.log
 vocals/     人声分离结果
 config.json 本机配置
@@ -309,6 +309,10 @@ full 首次人声分离需要下载模型
 thin 需要外部安装 demucs / ffmpeg
 thin / full 共享用户数据
 ```
+
+## 许可证
+
+MIT License，见 [LICENSE](LICENSE)。
 
 ## 网络
 

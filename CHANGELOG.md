@@ -81,9 +81,10 @@
   - `data/corpus/ndl_reading_stats.json`
 - 下载源码后不需要再下载 JMdict 或重建表。
 
-### 文档
+### 文档与许可证
 
 - 增加架构、打包、歌词格式、LRC 编辑、播放状态、音频、曲库、HTTP API、人声任务等专题文档。
+- 使用 MIT License。
 - 统一 nhlrc 术语：不再区分 V1 / V2，`"v": 2` 只是内部格式标记。
 - README 更新源码运行、构建、验证和文档入口。
 

@@ -1,0 +1,15 @@
+{
+  "lists": [
+    {
+      "id": "default",
+      "name": "默认歌单"
+    }
+  ],
+  "members": {
+    "default": []
+  },
+  "list_order": [
+    "default"
+  ],
+  "open": []
+}
