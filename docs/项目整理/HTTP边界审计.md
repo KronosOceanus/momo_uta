@@ -190,6 +190,8 @@ P1  ✅ POST Content-Type / body 大小 / 字段类型已校验
 P1  ✅ /audio、/api/wave、/api/jobs、/api/import/one 需要 token
 P2  ✅ Range 语义修正
 P2  ✅ 静态文件 resolve/符号链接越界防护
+P2  ✅ wave single-flight、jobs 并发上限、import 路径/扫描上限
+P2  ✅ 安全响应头 + CSP nonce（保留 unsafe-eval 供 pywebview）
 ```
 
 ## 11. 推荐方案
@@ -208,7 +210,7 @@ P2  ✅ 静态文件 resolve/符号链接越界防护
 测试基线：
 
 ```text
-353 Python
+356 Python
 46 前端
-1 项环境跳过
+UI 冒烟通过
 ```

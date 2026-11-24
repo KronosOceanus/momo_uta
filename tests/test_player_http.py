@@ -103,6 +103,12 @@ class TestPlayerHttp(unittest.TestCase):
         html = r.read().decode()
         self.assertIn(ROUTES.TOKEN, html)
         self.assertIsNone(r.headers.get("Access-Control-Allow-Origin"))
+        self.assertEqual(r.headers.get("X-Frame-Options"), "DENY")
+        self.assertEqual(r.headers.get("X-Content-Type-Options"), "nosniff")
+        csp = r.headers.get("Content-Security-Policy") or ""
+        self.assertIn("script-src 'self' 'unsafe-eval' 'nonce-", csp)
+        nonce = csp.split("'nonce-", 1)[1].split("'", 1)[0]
+        self.assertIn(f'nonce="{nonce}"', html)
 
     def test_api_requires_token(self):
         with self.assertRaises(urllib.error.HTTPError) as cm:

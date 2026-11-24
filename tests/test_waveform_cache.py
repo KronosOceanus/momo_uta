@@ -46,3 +46,36 @@ class TestWaveformCache(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWaveformSingleFlight(unittest.TestCase):
+    def test_concurrent_requests_start_one_ffmpeg(self):
+        import io
+        import threading
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "a.wav"; audio.write_bytes(b"abc")
+            wave_dir = root / "wave"; wave_dir.mkdir()
+            count = 0
+            guard = threading.Lock()
+
+            class Proc:
+                stdout = io.BytesIO(b"")
+                def wait(self):
+                    return 0
+
+            def popen(*a, **k):
+                nonlocal count
+                with guard:
+                    count += 1
+                time.sleep(0.05)
+                return Proc()
+
+            with patch.object(waveform, "WAVE_DIR", wave_dir), \
+                 patch.object(waveform.subprocess, "Popen", side_effect=popen):
+                with ThreadPoolExecutor(max_workers=2) as ex:
+                    list(ex.map(lambda _: waveform.peaks(str(audio), "mix"), range(2)))
+            self.assertEqual(count, 1)

@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import threading
 from pathlib import Path
 
 from momo_yomi.config import WV
@@ -18,6 +19,13 @@ from . import fsio as FS
 WAVE_DIR = CACHE / "wave"
 STEP = WV["step"]    # 峰值步长（秒）
 RATE = WV["rate"]    # 解码采样率
+_locks: dict[str, threading.Lock] = {}
+_locks_guard = threading.Lock()
+
+
+def _lock_for(key: str) -> threading.Lock:
+    with _locks_guard:
+        return _locks.setdefault(str(key), threading.Lock())
 
 
 def _key(path: str) -> str:
@@ -29,23 +37,7 @@ def cache_path(audio: str, source: str = "mix") -> Path:
     return WAVE_DIR / f"{_key(audio)}.{source}.{RATE}.{STEP}.json"
 
 
-def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:
-    """返回 {duration, step, peaks:[[min,max],...]}；失败返回 {"error": ...}。"""
-    wav = Path(audio)
-    try:
-        st = wav.stat()
-    except OSError:
-        return {"error": "音频文件不存在"}
-    p = cache_path(audio, source)
-    if p.exists() and not force:
-        try:
-            cached = json.loads(p.read_text(encoding="utf-8"))
-            if (cached.get("audio_size") == st.st_size
-                    and cached.get("audio_mtime") == st.st_mtime_ns):
-                return cached
-        except Exception:
-            pass
-
+def _build(wav: Path, st, p: Path, source: str) -> dict:
     per = int(RATE * STEP)
     peaks: list[list[int]] = []
     cur_min, cur_max, cur_n = 0, 0, 0
@@ -82,3 +74,23 @@ def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:
            "peaks": [[round(a, 4), round(b, 4)] for a, b in peaks]}
     FS.atomic_write_json(p, out, indent=None)
     return out
+
+
+def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:
+    """返回 {duration, step, peaks:[[min,max],...]}；失败返回 {"error": ...}。"""
+    wav = Path(audio)
+    try:
+        st = wav.stat()
+    except OSError:
+        return {"error": "音频文件不存在"}
+    p = cache_path(audio, source)
+    with _lock_for(str(p)):
+        if p.exists() and not force:
+            try:
+                cached = json.loads(p.read_text(encoding="utf-8"))
+                if (cached.get("audio_size") == st.st_size
+                        and cached.get("audio_mtime") == st.st_mtime_ns):
+                    return cached
+            except Exception:
+                pass
+        return _build(wav, st, p, source)

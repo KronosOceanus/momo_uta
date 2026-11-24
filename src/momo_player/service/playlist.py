@@ -104,8 +104,15 @@ def import_to_list(req) -> dict:
     if not PL.exists(lid):
         return {"ok": False, "error": "歌单不存在", "lists": _lists()}
 
+    if len(paths) > IMP.MAX_IMPORT_PATHS:
+        return {"ok": False,
+                "error": f"一次最多导入 {IMP.MAX_IMPORT_PATHS} 个路径",
+                "lists": _lists()}
     pool = [it["file"] for g in PL.build(cached_items()) if g["id"] == lid for it in g["items"]]
     res = IMP.import_paths(paths, pool, with_lrc=bool(req.get("with_lrc")))
+    if res.get("ok") is False:
+        return {"ok": False, "error": res.get("error") or "导入失败",
+                "lists": _lists()}
 
     # 导入的音频可能不在 music_dirs 里 → 先登记到 imports.json，
     # 再只把新增文件加进 CACHE，不动已有 idx、不扫全库。

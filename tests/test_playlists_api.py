@@ -357,3 +357,22 @@ class TestImportListDisappears(unittest.TestCase):
                 self.assertIn("歌单已不存在", r["error"])
             finally:
                 PL.set_file(old)
+
+
+class TestImportPathCap(unittest.TestCase):
+    def test_too_many_paths_are_rejected_before_import(self):
+        from unittest.mock import patch
+        from momo_player.service import playlist as SVC
+        from momo_player.core import importing as IMP
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            PL.set_file(Path(tmp) / "playlists.json")
+            try:
+                paths = [f"/tmp/momo-{i}.mp3" for i in range(IMP.MAX_IMPORT_PATHS + 1)]
+                with patch.object(IMP, "import_paths") as imp:
+                    r = SVC.import_to_list({"list": "default", "paths": paths})
+                self.assertFalse(r["ok"])
+                self.assertIn("最多导入", r["error"])
+                imp.assert_not_called()
+            finally:
+                PL.set_file(old)

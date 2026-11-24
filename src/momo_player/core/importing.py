@@ -17,6 +17,8 @@ from . import lyrics as LY
 
 AUDIO_EXT = set(LB["extensions"])
 LYRIC_EXT = {".lrc", ".nhlrc"}
+MAX_IMPORT_PATHS = 200
+MAX_SCAN_FILES = 5000
 
 
 def _pick(cands: list[Path], rank=None) -> Path | None:
@@ -108,6 +110,13 @@ def _match_lrc(lrc: Path, audios: list[Path], used: set[Path]) -> tuple[Path | N
     return None, []
 
 
+def _too_many(audios, lrcs, msg: str) -> dict:
+    return {"ok": False, "error": msg, "added": [], "pending": [],
+            "overwritten": 0, "unpaired": 0, "ambiguous": 0,
+            "rejected_lrc": 0, "failed": [], "failed_count": 0,
+            "audio_found": len(audios), "lrc_found": len(lrcs)}
+
+
 def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                  with_lrc: bool = False) -> dict:
     """按用户选中的路径导一批。
@@ -118,6 +127,9 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
     返回 {added:[audio str], pending:[audio str], overwritten:int,
           unpaired:int, skipped:list[str]}
     """
+    if len(paths) > MAX_IMPORT_PATHS:
+        return _too_many([], [], f"一次最多导入 {MAX_IMPORT_PATHS} 个路径")
+
     dirs, files = [], []
     for raw in paths:
         p = Path(str(raw)).expanduser()
@@ -135,6 +147,9 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                 audios.append(p)
             elif with_lrc and p.suffix.lower() in LYRIC_EXT:
                 lrcs.append(p)
+            if len(audios) + len(lrcs) > MAX_SCAN_FILES:
+                return _too_many(audios, lrcs,
+                                 f"扫描文件超过 {MAX_SCAN_FILES} 个")
 
     audios = _unique_paths(audios)
     if with_lrc:
@@ -143,6 +158,9 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                 if p.suffix.lower() in LYRIC_EXT:
                     lrcs.append(p)
     lrcs = _unique_paths(lrcs)
+    if len(audios) + len(lrcs) > MAX_SCAN_FILES:
+        return _too_many(audios, lrcs,
+                         f"扫描文件超过 {MAX_SCAN_FILES} 个")
     rejected = _unique_paths(rejected)
     explicit_nhlrc = {p for p in files if p.suffix.lower() == ".nhlrc"}
     explicit_lrc = {p for p in files if p.suffix.lower() == ".lrc"}
