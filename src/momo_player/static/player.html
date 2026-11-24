@@ -24,7 +24,7 @@
   <span class="modes">
    <button id="edit">振假名编辑模式：关</button><button id="lrcedit">LRC 编辑模式：关</button>
   </span></div>
- <div class="bar" id="fakbar" hidden><span class="legend" id="legend">A <span style="color:var(--accent-soft)">●</span> AB <span style="color:var(--amber)">●</span> B <span style="color:var(--muted-2)">●</span> C <span style="opacity:.5">●</span></span><button id="resetall">全部重置</button></div>
+ <div class="bar" id="fakbar" hidden><span class="legend">A <span style="color:var(--accent-soft)">●</span> AB <span style="color:var(--amber)">●</span> B <span style="color:var(--muted-2)">●</span> C <span style="opacity:.5">●</span></span><button id="resetall">全部重置</button></div>
  <div class="bar lrcrow" id="lrcrow2" hidden>
   <span class="left"><button id="lrcselall" title="选中所有行（⌘A）">全选</button>
    <button id="lrcadd" title="在选中行下面加一行">加行</button>
@@ -43,7 +43,7 @@
    <b id="offval" title="点击输入偏移">0.00s</b>
    <button data-off="0.1">+0.1s</button><button data-off="0.5">+0.5s</button></span>
  </div>
- <div class="wavewrap" id="wavewrap">
+ <div class="wavewrap">
   <canvas id="wave" height="120"></canvas>
   <div class="wavehint" id="wavehint"></div>
  </div>
@@ -82,7 +82,6 @@
   <span class="vol"><button id="mute" class="tb" title="静音">🔊</button>
     <input id="volume" type="range" min="0" max="1" step="0.05" value="1"></span>
  </div>
- <audio id="au" preload="metadata"></audio>
 </main>
 <script src="/static/05-audio.js?v=2"></script>
 <script src="/static/06-state.js?v=2"></script>

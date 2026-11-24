@@ -173,4 +173,4 @@ def setup() -> Path:
 
 
 def log_exception(exc_type, exc, tb) -> None:
-    traceback.print_exception(exc_type, exc, exc_tb)
+    traceback.print_exception(exc_type, exc, tb)

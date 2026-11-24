@@ -119,8 +119,6 @@ NUMERALS = set("一二三四五六七八九十百千万億零〇１２３４５�
 # 文件名带 _lyrics 就是这个意思：换领域（商务文书/古典）要另建一张，不要改这张。
 # 正式文书里「私」读 わたくし，这里会被强制成 わたし——不是通用规则。
 GLOSSARY: dict[str, str] = {}
-KANA_TAIL = re.compile(r"[ぁ-ん]+$")
-KANA_HEAD = re.compile(r"^[ぁ-ん]+")
 
 VERSION = {"engine": "sudachi", "dict": "sudachidict_core", "service": "0.3.0"}
 _TAGGER = None
@@ -501,13 +499,6 @@ def apply_llm(line: str, segs: list[dict]) -> list[dict]:
 _PHRASE_BY_FIRST: dict[str, list[str]] = {}
 
 
-VOICED = {"か": "が", "き": "ぎ", "く": "ぐ", "け": "げ", "こ": "ご",
-          "さ": "ざ", "し": "じ", "す": "ず", "せ": "ぜ", "そ": "ぞ",
-          "た": "だ", "ち": "ぢ", "つ": "づ", "て": "で", "と": "ど",
-          "は": "ば", "ひ": "び", "ふ": "ぶ", "へ": "べ", "ほ": "ぼ"}
-SOKUON = set("つちくき")
-
-
 def annotate_line(line: str, options: dict) -> dict:
     if not line:
         return {"text": line, "segments": []}
@@ -555,7 +546,6 @@ KANA_RE = re.compile(r"^[\u3041-\u3096\u30a1-\u30fa\u30fc]+$")
 
 
 OPEN_PUNCT = set("「『（(［[【〈《“‘")
-CLOSE_PUNCT = set("」』）)］]】〉》”’")
 SENTENCE_END = set("。！？!?．.")
 
 

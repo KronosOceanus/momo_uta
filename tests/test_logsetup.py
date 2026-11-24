@@ -42,3 +42,12 @@ class TestLogRotation(unittest.TestCase):
             self.assertTrue((Path(tmp) / "app.log.1").exists())
             self.assertEqual(sink.file.tell(), 0)
             sink.close()
+
+    def test_log_exception_accepts_sys_exc_info(self):
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            exc_info = sys.exc_info()
+        with patch.object(logsetup.traceback, "print_exception") as pe:
+            logsetup.log_exception(*exc_info)
+        pe.assert_called_once()

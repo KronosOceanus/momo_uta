@@ -14,7 +14,6 @@ import secrets
 from . import lrc_doc as DOC
 
 VERSION = 2
-ROW_KINDS = {"lyric", "blank", "metadata"}
 
 
 def _hash8(text: str) -> str:
