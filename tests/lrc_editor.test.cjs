@@ -790,3 +790,7 @@ test('rendering the table clears the text edit cursor', () => {
   p.run("EROWS=[{t:1,text:'old'}]; TEXT_EDIT_ROW=0; renderLrcTable();");
   assert.equal(p.run('TEXT_EDIT_ROW'), null);
 });
+
+test('wave draw throttle constant is defined', () => {
+  assert.match(scripts[2], /const WAVE_DRAW_MS\s*=\s*32\b/);
+});

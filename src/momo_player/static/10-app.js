@@ -19,6 +19,7 @@ NH.WMARK = {};   // 查看歌曲的波形播放头（静止时用）
 const CFG=(window.__CFG)||{};
 const UI=(CFG.player&&CFG.player.ui)||{};
 const JOB=(CFG.jobs)||{};
+const WAVE_DRAW_MS = 32;   // 波形播放时的重绘节流；实现常量，不进配置
 NH.WAVE = null; NH.VIEW = {span:UI.wave_span||5}; NH.OFFSET = 0; NH.FOLLOW = true; NH.DRAWN = null;
 const cv=document.getElementById('wave'), cx=cv.getContext('2d');
 if(cv.style) cv.style.height=(UI.wave_height||120)+'px';
