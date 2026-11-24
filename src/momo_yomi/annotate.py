@@ -79,7 +79,9 @@ def load_tables(force: bool = False) -> None:
     for fname, attr in required.items():
         fp = TABLE_DIR / fname
         if not fp.exists():
-            raise RuntimeError(f"缺表：{fp}（判定依赖它，不能用空表继续）")
+            raise RuntimeError(
+                f"缺表：{fp}（判定依赖它，不能用空表继续；"
+                "请确认 data/tables 已随仓库提供）")
         setattr(TABLES, attr, json.loads(fp.read_text(encoding="utf-8")))
 
     cp = TABLE_DIR / "jmdict_candidates.json"

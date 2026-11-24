@@ -222,6 +222,15 @@ make app
 .venv/bin/pip install -e '.[vocals]'
 ```
 
+源码运行所需词典表和语料统计已随仓库提供：
+
+```text
+data/tables/jmdict_*.json
+data/corpus/ndl_reading_stats.json
+```
+
+不需要再下载 JMdict 或重建表。
+
 thin 需要系统安装 `demucs` 和 `ffmpeg`；full 已内置。
 
 ## 构建

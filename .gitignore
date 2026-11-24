@@ -5,8 +5,9 @@ __pycache__/
 
 # 可重建的大数据（靠 make 目标生成，见 README）
 data/sources/
-data/corpus/
-data/tables/
+# 运行时表随仓库提供；语料只提交档位统计
+data/corpus/*
+!data/corpus/ndl_reading_stats.json
 data/cache/
 data/tmp/
 data/vocals/

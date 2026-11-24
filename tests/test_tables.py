@@ -43,3 +43,21 @@ class TestTables(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMissingTables(unittest.TestCase):
+    def test_missing_runtime_table_has_actionable_error(self):
+        import tempfile
+        from unittest.mock import patch
+        import momo_yomi.annotate as A
+
+        old_loaded = A.TABLES.loaded
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(A, "TABLE_DIR", Path(tmp)):
+            A.TABLES.loaded = False
+            try:
+                with self.assertRaises(RuntimeError) as cm:
+                    A.load_tables(force=True)
+                self.assertIn("data/tables", str(cm.exception))
+            finally:
+                A.TABLES.loaded = old_loaded
