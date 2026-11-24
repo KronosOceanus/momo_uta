@@ -189,3 +189,41 @@ class TestMatchAction(unittest.TestCase):
                 PL.set_file(old)
             lazy.assert_called_once()
             self.assertTrue(res["ok"])
+
+
+class TestPlaylistBadData(unittest.TestCase):
+    def test_bad_entries_are_discarded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            p = Path(tmp) / "playlists.json"
+            p.write_text(json.dumps({
+                "lists": [None, 3, {"id": 1, "name": "bad"},
+                          {"id": "x", "name": "X"},
+                          {"id": "x", "name": "dup"}],
+                "members": {"default": "not-a-list",
+                            "x": ["u1", None, 3, "u1", "u2"]},
+                "list_order": "bad", "open": [1, "x"],
+            }), encoding="utf-8")
+            PL.set_file(p)
+            try:
+                d = PL.load()
+            finally:
+                PL.set_file(old)
+            self.assertEqual([x["id"] for x in d["lists"]], ["default", "x"])
+            self.assertEqual(d["members"]["default"], [])
+            self.assertEqual(d["members"]["x"], ["u1", "u2"])
+            self.assertEqual(d["list_order"], [])
+            self.assertEqual(d["open"], ["x"])
+
+    def test_non_dict_file_falls_back_to_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            p = Path(tmp) / "playlists.json"
+            p.write_text("[]", encoding="utf-8")
+            PL.set_file(p)
+            try:
+                d = PL.load()
+            finally:
+                PL.set_file(old)
+            self.assertEqual([x["id"] for x in d["lists"]], ["default"])
+            self.assertEqual(d["members"], {"default": []})

@@ -24,12 +24,47 @@ def _empty() -> dict:
 
 
 def load() -> dict:
+    """读歌单；坏条目逐条丢弃，不因为一个坏 record 丢掉全部。"""
     d = FS.read_json(FILE, {}) or {}
+    if not isinstance(d, dict):
+        d = {}
     out = _empty()
-    out["lists"] = [x for x in d.get("lists", []) if x.get("id") and x.get("name")]
-    out["members"] = {k: list(v) for k, v in d.get("members", {}).items()}
-    out["list_order"] = [x for x in d.get("list_order", []) if isinstance(x, str)]
-    out["open"] = [x for x in d.get("open", []) if isinstance(x, str)]
+
+    raw_lists = d.get("lists")
+    seen = set()
+    if isinstance(raw_lists, list):
+        for x in raw_lists:
+            if not isinstance(x, dict):
+                continue
+            lid = x.get("id")
+            name = x.get("name")
+            if not isinstance(lid, str) or not lid:
+                continue
+            if not isinstance(name, str) or not name:
+                continue
+            if lid in seen:
+                continue
+            seen.add(lid)
+            out["lists"].append({"id": lid, "name": name})
+
+    raw_members = d.get("members")
+    if isinstance(raw_members, dict):
+        for lid, seq in raw_members.items():
+            if not isinstance(lid, str) or not lid:
+                continue
+            if not isinstance(seq, list):
+                continue
+            uids = [u for u in seq if isinstance(u, str) and u]
+            out["members"][lid] = list(dict.fromkeys(uids))
+
+    raw_order = d.get("list_order")
+    if isinstance(raw_order, list):
+        out["list_order"] = [x for x in raw_order if isinstance(x, str) and x]
+
+    raw_open = d.get("open")
+    if isinstance(raw_open, list):
+        out["open"] = [x for x in raw_open if isinstance(x, str) and x]
+
     if not any(x["id"] == DEFAULT_ID for x in out["lists"]):
         out["lists"].insert(0, {"id": DEFAULT_ID, "name": DEFAULT_NAME})
     out["members"].setdefault(DEFAULT_ID, [])
