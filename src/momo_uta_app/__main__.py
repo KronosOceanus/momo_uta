@@ -95,8 +95,7 @@ def _already_running() -> None:
         print("桃歌已经在运行", file=sys.stderr)
 
 
-def _run_app(demo: bool = False, demo_auto: bool = False,
-             demo_script: str = "demo_driver.js") -> None:
+def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     from momo_player.core import diag
     # 先抢单实例锁，避免第二个实例写日志/轮转第一个实例的日志。
     instance_lock = _acquire_instance_lock()
@@ -257,7 +256,7 @@ def _run_app(demo: bool = False, demo_auto: bool = False,
     window_ref["window"] = window
     if demo:
         from momo_uta_app import demo as DEMO
-        DEMO.install(window, auto=demo_auto, script_name=demo_script)
+        DEMO.install(window, auto=demo_auto)
 
     def on_hotkey(name):
         js = {"prev": "NH.mediaPrev && NH.mediaPrev()",
@@ -346,10 +345,9 @@ def _run_app(demo: bool = False, demo_auto: bool = False,
             pass
 
 
-def main(demo: bool = False, demo_auto: bool = False,
-         demo_script: str = "demo_driver.js") -> None:
+def main(demo: bool = False, demo_auto: bool = False) -> None:
     try:
-        _run_app(demo=demo, demo_auto=demo_auto, demo_script=demo_script)
+        _run_app(demo=demo, demo_auto=demo_auto)
     except Exception as e:
         _show_startup_error(e)
         raise
@@ -363,10 +361,5 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--momo-demucs":
         _run_demucs()
     else:
-        demo2 = "--demo2" in sys.argv or "--demo2-auto" in sys.argv
-        demo3 = "--demo3" in sys.argv or "--demo3-auto" in sys.argv
-        main(demo=("--demo" in sys.argv or "--demo-auto" in sys.argv or demo2 or demo3),
-             demo_auto=("--demo-auto" in sys.argv or "--demo2-auto" in sys.argv
-                        or "--demo3-auto" in sys.argv),
-             demo_script=("demo3_driver.js" if demo3 else
-                          "demo2_driver.js" if demo2 else "demo_driver.js"))
+        main(demo=("--demo" in sys.argv or "--demo-auto" in sys.argv),
+             demo_auto="--demo-auto" in sys.argv)

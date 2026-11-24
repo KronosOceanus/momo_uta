@@ -6,8 +6,8 @@ import time
 from pathlib import Path
 
 
-def install(window, auto: bool = False, script_name: str = "demo_driver.js") -> None:
-    script = Path(__file__).with_name(script_name).read_text(encoding="utf-8")
+def install(window, auto: bool = False) -> None:
+    script = Path(__file__).with_name("demo_driver.js").read_text(encoding="utf-8")
 
     def boot():
         for _ in range(120):

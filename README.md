@@ -251,8 +251,6 @@ thin 需要系统安装 `demucs` 和 `ffmpeg`；full 已内置。
 
 ```bash
 .venv/bin/python -m momo_uta_app --demo
-.venv/bin/python -m momo_uta_app --demo2
-.venv/bin/python -m momo_uta_app --demo3
 ```
 
 ## 构建
