@@ -116,7 +116,9 @@ def _resolve_uid(uid: str) -> tuple[Path, str] | None:
 
 def refresh(uid: str | None = None) -> int:
     """重建 CACHE。uid 不在 CACHE 时只尝试已有索引，不扫全库。"""
+    global LAST_MISSING
     with _LOCK:
+        lost: set[str] = set()
         if uid is not None:
             for k, v in list(CACHE.items()):
                 if str(v.get("uid")) == str(uid):
@@ -130,7 +132,11 @@ def refresh(uid: str | None = None) -> int:
                             remaining = _live_copy(old_uid, exclude=v["file"])
                             if remaining:
                                 BY_UID[old_uid] = remaining
+                            elif old_uid != new_uid:
+                                lost.add(old_uid)
                         BY_UID[new_uid] = e
+                    if lost:
+                        LAST_MISSING = sorted(set(LAST_MISSING) | lost)
                     LI.flush()
                     return len(CACHE)
             found = _resolve_uid(str(uid))
@@ -146,7 +152,11 @@ def refresh(uid: str | None = None) -> int:
                     remaining = _live_copy(old_uid, exclude=str(p))
                     if remaining:
                         BY_UID[old_uid] = remaining
+                    elif old_uid != new_uid:
+                        lost.add(old_uid)
                     BY_UID[new_uid] = e
+            if lost:
+                LAST_MISSING = sorted(set(LAST_MISSING) | lost)
             LI.flush()
             return len(CACHE)
         lib = scan_library()
@@ -266,13 +276,19 @@ def load_for_playlists() -> list[dict]:
     indexed = LI.paths_by_uid()
     stored = LRC.store_index(uids)
     chosen: dict[str, Path] = {}
+    stale_paths: list[str] = []
     for uid in uids:
         paths = [Path(x) for x in (resolved.get(uid) or []) + (indexed.get(uid) or [])]
         for p in paths:
             if p.is_file():
-                chosen[uid] = p
-                break
+                if uid not in chosen:
+                    chosen[uid] = p
+            else:
+                stale_paths.append(str(p))
 
+    if stale_paths:
+        LI.prune_paths(stale_paths)
+        FP.prune_paths(stale_paths)
     missing = wanted - set(chosen)
     if missing:                                  # 索引没有 → 只从 imports 里补
         for row in load_imports():

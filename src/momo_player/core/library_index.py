@@ -94,6 +94,17 @@ def prune(valid_paths) -> None:
             _dirty = True
 
 
+def prune_paths(paths) -> None:
+    global _dirty
+    with _lock:
+        recs = _load()
+        for raw in paths:
+            key = str(raw)
+            if key in recs:
+                recs.pop(key, None)
+                _dirty = True
+
+
 def paths_by_uid() -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     with _lock:

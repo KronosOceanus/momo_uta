@@ -50,3 +50,21 @@ class TestLibraryIndex(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTargetedPrune(unittest.TestCase):
+    def test_prune_paths_only_removes_given_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            a = root / "a.mp3"; b = root / "b.mp3"
+            a.touch(); b.touch()
+            with patch.object(LI, "INDEX", root / "index.json"), \
+                 patch.object(LI, "_data", {}), patch.object(LI, "_dirty", False):
+                LI.put({"file": str(a), "uid": "a", "title": "A",
+                        "artist": "X", "stem": a.stem, "group": "g"})
+                LI.put({"file": str(b), "uid": "b", "title": "B",
+                        "artist": "X", "stem": b.stem, "group": "g"})
+                LI.prune_paths([str(a)])
+                remaining = {p for paths in LI.paths_by_uid().values() for p in paths}
+            self.assertNotIn(str(a), remaining)
+            self.assertIn(str(b), remaining)

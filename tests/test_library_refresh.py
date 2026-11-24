@@ -17,12 +17,15 @@ def item(uid, title):
 class TestCacheRefresh(unittest.TestCase):
     def setUp(self):
         self.old = dict(CACHE)
+        self.old_missing = list(LIB.LAST_MISSING)
         CACHE.clear()
+        LIB.LAST_MISSING = []
         CACHE.update({"0": item("u1", "A"), "1": item("u2", "B")})
 
     def tearDown(self):
         CACHE.clear()
         CACHE.update(self.old)
+        LIB.LAST_MISSING = self.old_missing
 
     def test_single_uid_replaces_in_place(self):
         with patch.object(LIB, "scan_library", side_effect=AssertionError("不该全库扫描")), \
@@ -31,6 +34,14 @@ class TestCacheRefresh(unittest.TestCase):
         self.assertEqual(n, 2)
         self.assertEqual(CACHE["0"]["title"], "A2")
         self.assertEqual(CACHE["1"]["title"], "B")     # 其它条目没动
+
+    def test_changed_uid_marks_old_uid_missing(self):
+        with patch.object(LIB, "_entry", return_value=item("u2", "A2")), \
+             patch.object(LIB, "_live_copy", return_value=None), \
+             patch.object(LIB, "LI"):
+            LIB.refresh("u1")
+        self.assertEqual(LIB.LAST_MISSING, ["u1"])
+        self.assertEqual(CACHE["0"]["uid"], "u2")
 
     def test_unknown_uid_does_not_scan(self):
         with patch.object(LIB, "_resolve_uid", return_value=None), \

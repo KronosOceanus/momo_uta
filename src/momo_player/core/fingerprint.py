@@ -50,6 +50,17 @@ def _load() -> dict:
     return _CACHE
 
 
+def prune_paths(paths) -> None:
+    global _DIRTY
+    with _LOCK:
+        idx = _load()
+        for raw in paths:
+            key = str(raw)
+            if key in idx:
+                idx.pop(key, None)
+                _DIRTY = True
+
+
 def paths_for_uids(uids) -> dict[str, list[str]]:
     """从路径→指纹索引反查 uid→仍存在的路径（启动按需加载用）。"""
     wanted = {str(u) for u in uids if u}
