@@ -389,3 +389,30 @@ class TestMalformedTail(unittest.TestCase):
             rows = R.parse_rows(text)
             self.assertEqual(rows[0]["text"], "君")
             self.assertEqual(rows[0]["tokens"], [])
+
+
+class TestNhlrcEmptyPayload(unittest.TestCase):
+    def test_metadata_only_nhlrc_is_not_pending(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import song as SONG
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"; audio.write_bytes(b"audio")
+            uid = LRF.uid_of(audio)
+            item = {"key": "k", "uid": uid, "file": str(audio),
+                    "stem": "曲", "orig": "曲", "title": "曲", "artist": "歌手",
+                    "has_lyric": False, "group": ""}
+            CACHE.clear(); CACHE["0"] = item; LIB.BY_UID[uid] = item
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                self.assertTrue(LRF.save_rows(
+                    audio, [{"kind": "metadata", "text": "[ar:X]"}])["ok"])
+                out = SONG.song_payload(uid)
+            self.assertFalse(out["pending"])
+            self.assertEqual(out["lines"], [])
+            self.assertFalse(item["has_lyric"])
