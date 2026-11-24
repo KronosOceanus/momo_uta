@@ -42,7 +42,7 @@ def audio_info(file: str, range_header: str | None):
     rng = (range_header or "").strip()
     if not rng:
         return 200, 0, size - 1, size, ctype, None
-    if not rng.startswith("bytes=") or "," in rng:
+    if not rng.lower().startswith("bytes=") or "," in rng:
         return 416, 0, -1, size, ctype, f"bytes */{size}"
     spec = rng[6:].strip()
     if "-" not in spec:
