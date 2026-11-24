@@ -301,7 +301,7 @@ def _entry(p: Path, group: str, stored=None, force_fp: bool = False) -> dict | N
 
 
 def load_for_playlists() -> list[dict]:
-    """启动只加载歌单引用的歌，不再加载无关 imports。"""
+    """启动只加载歌单引用的歌；索引失效时用 imports 补查。"""
     global LAST_MISSING
 
     uids = list(dict.fromkeys(PL.all_uids()))
@@ -326,8 +326,15 @@ def load_for_playlists() -> list[dict]:
     if stale_paths:
         LI.prune_paths(stale_paths)
         FP.prune_paths(stale_paths)
-    missing = wanted - set(chosen)
-    if missing:                                  # 索引没有 → 只从 imports 里补
+
+    import_paths = {str(Path(str(r.get("audio") or "")).expanduser())
+                    for r in load_imports() if r.get("audio")}
+
+    def fill_from_imports(missing: set[str]) -> bool:
+        """用 imports 里仍存在的路径补 missing；返回是否补了条目。"""
+        if not missing:
+            return False
+        added = False
         for row in load_imports():
             if not missing:
                 break
@@ -338,23 +345,36 @@ def load_for_playlists() -> list[dict]:
             if e and str(e["uid"]) in missing:
                 chosen[str(e["uid"])] = p
                 missing.discard(str(e["uid"]))
+                added = True
+        return added
 
-    out: list[dict] = []
-    seen: set[str] = set()
-    loaded_uids: set[str] = set()
-    import_paths = {str(Path(str(r.get("audio") or "")).expanduser())
-                    for r in load_imports() if r.get("audio")}
-    for uid, p in sorted(chosen.items(), key=lambda x: str(x[1])):
-        e = _entry(p, "导入" if str(p) in import_paths else (p.parent.name or "曲库"), stored)
-        # 索引路径可能已经被替换成另一段音频；不能把新 uid 当成旧歌。
-        if not e or str(e.get("uid")) != str(uid):
-            continue
-        if e["file"] in seen:
-            continue
-        seen.add(e["file"])
-        loaded_uids.add(str(uid))
-        out.append(e)
+    def collect() -> tuple[list[dict], set[str]]:
+        out: list[dict] = []
+        seen: set[str] = set()
+        loaded: set[str] = set()
+        for uid, p in sorted(chosen.items(), key=lambda x: str(x[1])):
+            e = _entry(p, "导入" if str(p) in import_paths else (p.parent.name or "曲库"), stored)
+            # 索引路径可能已经被替换成另一段音频；不能把新 uid 当成旧歌。
+            if not e or str(e.get("uid")) != str(uid):
+                continue
+            if e["file"] in seen:
+                continue
+            seen.add(e["file"])
+            loaded.add(str(uid))
+            out.append(e)
+        return out, loaded
+
+    missing = wanted - set(chosen)
+    fill_from_imports(missing)
+    out, loaded_uids = collect()
+
+    # 第一次补查时 chosen 里可能已有“存在但 uid 已变”的路径。
+    # 校验后再补一次，避免直接掉到全量重建。
     missing = wanted - loaded_uids
+    if missing and fill_from_imports(missing):
+        out, loaded_uids = collect()
+        missing = wanted - loaded_uids
+
     LAST_MISSING = sorted(str(u) for u in missing)
     diag.log("library", f"loaded {len(out)}/{len(uids)} missing={len(missing)}")
     LI.flush()

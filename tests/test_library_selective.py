@@ -178,6 +178,7 @@ class TestStaleIndexUid(unittest.TestCase):
         from momo_player.core import library as LIB
         from momo_player.core import playlists as PL
         from momo_player.core import fingerprint as FP
+        from momo_player.core import library_index as LI
         from momo_player.core.library import CACHE
 
         old = dict(CACHE)
@@ -199,6 +200,45 @@ class TestStaleIndexUid(unittest.TestCase):
                     PL.set_file(old_file)
                 self.assertEqual(lib, [])
                 self.assertEqual(LIB.LAST_MISSING, ["u-old"])
+        finally:
+            CACHE.clear(); CACHE.update(old)
+            LIB.LAST_MISSING = old_missing
+
+
+class TestSecondImportsFill(unittest.TestCase):
+    def test_changed_index_uid_can_fall_back_to_imports(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from momo_player.core import library as LIB
+        from momo_player.core import playlists as PL
+        from momo_player.core import fingerprint as FP
+        from momo_player.core import library_index as LI
+        from momo_player.core.library import CACHE
+
+        old = dict(CACHE); old_missing = list(LIB.LAST_MISSING)
+        CACHE.clear(); LIB.LAST_MISSING = []
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                bad = root / "X - bad.mp3"; good = root / "X - good.mp3"
+                bad.write_bytes(b"bad"); good.write_bytes(b"good")
+                old_file = PL.FILE
+                PL.set_file(root / "playlists.json")
+                try:
+                    PL.add("default", ["u-old"])
+                    def entry(path, group, stored=None, **kw):
+                        return {"uid": "u-new" if path == bad else "u-old",
+                                "file": str(path), "title": path.stem, "group": group}
+                    with patch.object(FP, "paths_for_uids", return_value={"u-old": [str(bad)]}), \
+                         patch.object(LI, "paths_by_uid", return_value={}), \
+                         patch.object(LIB, "load_imports", return_value=[{"audio": str(good)}]), \
+                         patch.object(LIB, "_entry", side_effect=entry):
+                        lib = LIB.load_for_playlists()
+                finally:
+                    PL.set_file(old_file)
+                self.assertEqual([e["file"] for e in lib], [str(good)])
+                self.assertEqual(LIB.LAST_MISSING, [])
         finally:
             CACHE.clear(); CACHE.update(old)
             LIB.LAST_MISSING = old_missing
