@@ -784,3 +784,9 @@ test('redo clamps the selected row to the restored row count', () => {
     redo();`);
   assert.equal(p.run('ESEL'), 0);
 });
+
+test('rendering the table clears the text edit cursor', () => {
+  const p = player();
+  p.run("EROWS=[{t:1,text:'old'}]; TEXT_EDIT_ROW=0; renderLrcTable();");
+  assert.equal(p.run('TEXT_EDIT_ROW'), null);
+});

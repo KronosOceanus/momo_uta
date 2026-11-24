@@ -444,6 +444,7 @@ function updateTransRow(el){
 }
 
 function renderLrcTable(){
+  NH.TEXT_EDIT_ROW=null;
   const box=document.getElementById('lyr');
   box.innerHTML=`<div class="letable${NH.TRANS_EDIT?' transon':''}">`+NH.EROWS.map(rowHtml).join('')+'</div>';
   const rows=box.querySelectorAll('.lerow');
