@@ -296,3 +296,14 @@ class TestMetadataOnlyImport(unittest.TestCase):
                 self.assertEqual(nhlrc.read_text(encoding="utf-8"), old)
                 self.assertEqual(res["failed_count"], 0)
                 self.assertEqual(res["pending"], [])
+
+class TestScanCap(unittest.TestCase):
+    def test_total_scan_cap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.txt").write_text("x", encoding="utf-8")
+            (root / "b.txt").write_text("x", encoding="utf-8")
+            with patch.object(importing, "MAX_SCAN_FILES", 1):
+                res = importing.import_paths([str(root)])
+            self.assertFalse(res.get("ok", True))
+            self.assertIn("扫描文件超过", res["error"])

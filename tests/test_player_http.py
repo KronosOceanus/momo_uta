@@ -324,3 +324,21 @@ class TestPlayerHttp(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestLrcNestedTypes(unittest.TestCase):
+    def test_bad_lrc_lines(self):
+        # reuse an isolated server through the existing fixture-style setup
+        from tests.test_player_http import TestPlayerHttp
+        case = TestPlayerHttp("test_library")
+        case.setUpClass()
+        try:
+            case.setUp()
+            body = {"action": "save", "uid": CACHE_ITEM["uid"], "lines": ["x"]}
+            req = urllib.request.Request(
+                case.url("/api/lrc"), data=json.dumps(body).encode(),
+                headers=case.auth_headers({"Content-Type": "application/json"}))
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(req)
+            self.assertEqual(cm.exception.code, 400)
+        finally:
+            case.tearDownClass()

@@ -64,7 +64,7 @@ class TestWaveformSingleFlight(unittest.TestCase):
 
             class Proc:
                 stdout = io.BytesIO(b"")
-                def wait(self):
+                def wait(self, timeout=None):
                     return 0
 
             def popen(*a, **k):
@@ -79,3 +79,28 @@ class TestWaveformSingleFlight(unittest.TestCase):
                 with ThreadPoolExecutor(max_workers=2) as ex:
                     list(ex.map(lambda _: waveform.peaks(str(audio), "mix"), range(2)))
             self.assertEqual(count, 1)
+
+
+class TestWaveformTimeout(unittest.TestCase):
+    def test_timeout_kills_ffmpeg(self):
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "a.wav"; audio.write_bytes(b"abc")
+            wave_dir = root / "wave"; wave_dir.mkdir()
+            state = {"kill": False}
+
+            class Proc:
+                stdout = io.BytesIO(b"")
+                def kill(self):
+                    state["kill"] = True
+                def wait(self, timeout=None):
+                    return 0
+
+            with patch.object(waveform, "WAVE_DIR", wave_dir), \
+                 patch.object(waveform, "TIMEOUT", 0.01), \
+                 patch.object(waveform.subprocess, "Popen", return_value=Proc()), \
+                 patch.object(waveform.select, "select", return_value=([], [], [])):
+                out = waveform.peaks(str(audio), "mix")
+            self.assertEqual(out["error"], "波形生成超时")
+            self.assertTrue(state["kill"])

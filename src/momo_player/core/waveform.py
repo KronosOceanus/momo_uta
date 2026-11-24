@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import select
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 from momo_yomi.config import WV
@@ -19,6 +21,7 @@ from . import fsio as FS
 WAVE_DIR = CACHE / "wave"
 STEP = WV["step"]    # 峰值步长（秒）
 RATE = WV["rate"]    # 解码采样率
+TIMEOUT = float(WV.get("timeout_s", 60) or 60)
 _locks: dict[str, threading.Lock] = {}
 _locks_guard = threading.Lock()
 
@@ -51,7 +54,20 @@ def _build(wav: Path, st, p: Path, source: str) -> dict:
         return {"error": "没有 ffmpeg"}
 
     assert proc.stdout is not None
+    deadline = time.monotonic() + TIMEOUT
     while True:
+        try:
+            ready, _, _ = select.select([proc.stdout], [], [],
+                                        max(0.0, deadline - time.monotonic()))
+        except (OSError, ValueError):
+            ready = [proc.stdout]                    # BytesIO 等无 fileno 的测试桩
+        if not ready:
+            proc.kill()
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+            return {"error": "波形生成超时"}
         chunk = proc.stdout.read(per * 2 * 200)      # 一次读 200 个桶
         if not chunk:
             break
@@ -65,7 +81,11 @@ def _build(wav: Path, st, p: Path, source: str) -> dict:
             if cur_n == per:
                 peaks.append([cur_min / 32768.0, cur_max / 32768.0])
                 cur_min, cur_max, cur_n = 0, 0, 0
-    proc.wait()
+    try:
+        proc.wait(timeout=max(0.1, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return {"error": "波形生成超时"}
     if cur_n:                                        # 尾巴
         peaks.append([cur_min / 32768.0, cur_max / 32768.0])
 

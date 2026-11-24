@@ -24,6 +24,10 @@ _jobs: dict[str, dict] = {}
 MAX_DONE = int(JOB["keep_done"])
 
 
+class Busy(RuntimeError):
+    """活动任务已达到上限。"""
+
+
 def _copy(job: dict) -> dict:
     return {k: v for k, v in job.items() if not k.startswith("_")}
 
@@ -34,7 +38,7 @@ def get(job_id: str) -> dict | None:
         return _copy(job) if job else None
 
 
-def start(kind: str, key, runner, cancel=None) -> dict:
+def start(kind: str, key, runner, cancel=None, max_active=None) -> dict:
     """启动后台任务；同 kind+key 的 queued/running 任务原子复用。"""
     job_id = uuid.uuid4().hex
     now = time.time()
@@ -43,6 +47,12 @@ def start(kind: str, key, runner, cancel=None) -> dict:
             if job["kind"] == kind and str(job["key"]) == str(key) \
                     and job["state"] in ("queued", "running"):
                 return _copy(job)
+        if max_active is not None:
+            active = sum(1 for job in _jobs.values()
+                         if job["kind"] == kind
+                         and job["state"] in ("queued", "running"))
+            if active >= int(max_active):
+                raise Busy("任务队列已满，请稍后再试")
         job = {"id": job_id, "kind": kind, "key": str(key), "state": "queued",
                "stage": "queued", "error": None, "result": None,
                "since": now, "updated": now, "_cancel": cancel,

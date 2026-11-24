@@ -210,7 +210,7 @@ P2  ✅ 安全响应头 + CSP nonce（保留 unsafe-eval 供 pywebview）
 测试基线：
 
 ```text
-356 Python
+360 Python
 46 前端
 UI 冒烟通过
 ```
@@ -219,71 +219,26 @@ UI 冒烟通过
 
 P2 已实现后，再扫一遍，剩几个边界。
 
-### P2：jobs 并发上限检查不是原子的
+### P2：jobs 并发上限检查不是原子的 — 已修复
 
-`service/jobs.start`：
+现在检查与占位在 `JOBS.start` 的同一把锁内完成，
+超过 `jobs.max_active` 返回 429。
 
-```python
-active = JOBS.active("vocals")
-if len(active) >= MAX_ACTIVE_VOCALS:
-    raise JobBusy(...)
-```
+### P2：LRC 嵌套字段类型还未校验 — 已修复
 
-两个请求同时检查时，都可能看到未满，然后都进入 `JOBS.start`。
+现在会检查 `lines` / `rows` 的元素对象和 `translations` 的值类型，
+错误直接返回 400。
 
-建议把“检查 + 占位”放进 `JOBS.start` 的锁内，或在 job 表里预占一个 running 槽。
+### P2：wave 没有 ffmpeg 超时 — 已修复
 
-### P2：LRC 嵌套字段类型还未校验
+现在 `waveform.timeout_s`（默认 60 秒）会 kill 卡住的 ffmpeg，
+释放 single-flight 锁并返回错误。
 
-`/api/lrc` 只校验：
+### P3：目录扫描上限只统计音频/歌词 — 已修复
 
-```text
-lines 是 list
-rows 是 list
-```
+现在按总扫描条目计数，超过 5000 立即停止。
 
-没有校验元素：
-
-```json
-{"lines": ["x"]}
-```
-
-service 里会 `ln.get(...)`，最终变成 500。
-
-同样适用于：
-
-```text
-lines[i].text
-rows[i].kind
-translations 的值
-```
-
-### P2：wave 没有 ffmpeg 超时
-
-失败/卡住的 ffmpeg 会持有 single-flight 锁，后续同一首请求全部等待。
-
-建议：
-
-```text
-Popen 后设置超时
-超时 kill
-释放锁
-返回 error
-```
-
-### P3：目录扫描上限只统计音频/歌词
-
-`MAX_SCAN_FILES` 只统计：
-
-```text
-audio + lrc
-```
-
-如果一个目录有大量无关文件，仍会遍历。
-
-建议统计总扫描条目，或在对每个文件判断前先累计。
-
-### P3：Range 单位大小写
+### P3：Range 单位大小写 — 已修复
 
 `bytes=` 现在区分大小写。
 
@@ -298,7 +253,7 @@ Bytes=0-1
 ### 已通过
 
 ```text
-356 Python
+360 Python
 46 前端
 UI 冒烟通过
 ```

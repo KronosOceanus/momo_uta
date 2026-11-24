@@ -167,6 +167,39 @@ class H(BaseHTTPRequestHandler):
     def _is_str_list(self, v):
         return isinstance(v, list) and all(isinstance(x, str) for x in v)
 
+    def _is_lrc_lines(self, v):
+        if not isinstance(v, list):
+            return False
+        for item in v:
+            if not isinstance(item, dict):
+                return False
+            if "text" in item and not isinstance(item["text"], str):
+                return False
+            if "t" in item and item["t"] is not None and not self._is_num(item["t"]):
+                return False
+            if "trans" in item and item["trans"] is not None and not isinstance(item["trans"], str):
+                return False
+            if "tokens" in item and not isinstance(item["tokens"], list):
+                return False
+        return True
+
+    def _is_lrc_rows(self, v):
+        if not isinstance(v, list):
+            return False
+        for item in v:
+            if not isinstance(item, dict):
+                return False
+            if "kind" in item and not isinstance(item["kind"], str):
+                return False
+            if "text" in item and not isinstance(item["text"], str):
+                return False
+            if "t" in item and item["t"] is not None and not self._is_num(item["t"]):
+                return False
+        return True
+
+    def _is_trans_map(self, v):
+        return isinstance(v, dict) and all(isinstance(x, str) for x in v.values())
+
     def _check_types(self, p, req):
         checks = {
             "/api/pl": {"action": str, "list": (str, type(None)),
@@ -183,9 +216,11 @@ class H(BaseHTTPRequestHandler):
                                 "list": (str, type(None)),
                                 "with_lrc": bool},
             "/api/lrc": {"action": (str, type(None)), "uid": str,
-                         "version": (str, type(None)), "lines": list,
-                         "rows": list, "translations": dict,
-                         "compact_translations": dict, "text": str},
+                         "version": (str, type(None)), "lines": self._is_lrc_lines,
+                         "rows": self._is_lrc_rows,
+                         "translations": self._is_trans_map,
+                         "compact_translations": self._is_trans_map,
+                         "text": str},
             "/api/jobs": {"kind": str, "uid": (str, type(None))},
             "/api/jobs/cancel_all": {"kind": str},
             "/api/theme": {"theme": str},
@@ -205,6 +240,11 @@ class H(BaseHTTPRequestHandler):
                 ok = bool(typ(v))
             if not ok:
                 return f"字段类型错误：{key}"
+        if p == "/api/lrc":
+            for key in ("lines", "rows"):
+                if key in req and not (self._is_lrc_lines(req[key])
+                                       if key == "lines" else self._is_lrc_rows(req[key])):
+                    return f"字段类型错误：{key}"
         return None
 
     def do_POST(self):

@@ -54,6 +54,12 @@ class TestAudioRange(unittest.TestCase):
                 self.assertEqual(code, 416, r)
                 self.assertEqual(crange, "bytes */10", r)
 
+    def test_range_unit_is_case_insensitive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "a.mp3"; p.write_bytes(b"0123456789")
+            code, start, end, _, _, crange = static.audio_info(str(p), "Bytes=-3")
+        self.assertEqual((code, start, end, crange), (206, 7, 9, "bytes 7-9/10"))
+
     def test_no_range(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "a.mp3"; p.write_bytes(b"0123456789")

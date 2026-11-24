@@ -141,15 +141,17 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
     audios = [p for p in files if p.suffix.lower() in AUDIO_EXT]
     rejected = [p for p in files if not with_lrc and p.suffix.lower() in LYRIC_EXT]
     lrcs = [p for p in files if with_lrc and p.suffix.lower() in LYRIC_EXT]
+    scanned = 0
     for d in dirs:                                  # ① 目录递归
         for p in sorted(d.rglob("*")):
+            scanned += 1
+            if scanned > MAX_SCAN_FILES:
+                return _too_many(audios, lrcs,
+                                 f"扫描文件超过 {MAX_SCAN_FILES} 个")
             if p.suffix.lower() in AUDIO_EXT:
                 audios.append(p)
             elif with_lrc and p.suffix.lower() in LYRIC_EXT:
                 lrcs.append(p)
-            if len(audios) + len(lrcs) > MAX_SCAN_FILES:
-                return _too_many(audios, lrcs,
-                                 f"扫描文件超过 {MAX_SCAN_FILES} 个")
 
     audios = _unique_paths(audios)
     if with_lrc:

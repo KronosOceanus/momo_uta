@@ -14,8 +14,7 @@ KINDS = {"vocals", "match", "rebuild"}
 MAX_ACTIVE_VOCALS = int(JOB.get("max_active", 2))
 
 
-class JobBusy(Exception):
-    """高成本任务队列已满。"""
+JobBusy = JOBS.Busy
 
 
 def start(kind: str, uid=None) -> dict:
@@ -41,10 +40,6 @@ def start(kind: str, uid=None) -> dict:
     if kind == "vocals":
         uid = item["uid"]
         audio = item["file"]
-        active = JOBS.active("vocals")
-        if (len(active) >= MAX_ACTIVE_VOCALS
-                and not any(str(j.get("key")) == str(uid) for j in active)):
-            raise JobBusy("人声任务已满，请稍后再试")
 
         def run_vocals():
             VOC.ensure(uid, audio)
@@ -62,7 +57,8 @@ def start(kind: str, uid=None) -> dict:
                 time.sleep(float(JOB["vocals_poll_ms"]) / 1000)
 
         return JOBS.start(kind, uid, run_vocals,
-                          cancel=lambda: VOC.cancel(uid))
+                          cancel=lambda: VOC.cancel(uid),
+                          max_active=MAX_ACTIVE_VOCALS)
 
     def run_match():
         SONGS.lazy_match(item)

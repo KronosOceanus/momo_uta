@@ -69,7 +69,6 @@ if __name__ == "__main__":
 
 class TestVocalsBusy(unittest.TestCase):
     def test_vocals_over_limit_is_busy(self):
-        from unittest.mock import patch
         from momo_player.core import jobs as J
         old = J._jobs.copy()
         old_cache = dict(CACHE)
@@ -78,8 +77,11 @@ class TestVocalsBusy(unittest.TestCase):
             CACHE["0"] = {"uid": "u-test", "file": "/tmp/x.mp3", "title": "x",
                           "artist": "a", "key": "k", "has_lyric": False}
             LIB.BY_UID["u-test"] = CACHE["0"]
-            with patch.object(J, "active", return_value=[{"key": "a"}, {"key": "b"}]), \
-                 patch.object(SJ, "MAX_ACTIVE_VOCALS", 2):
+            J._jobs.update({
+                "a": {"id": "a", "kind": "vocals", "key": "a", "state": "queued"},
+                "b": {"id": "b", "kind": "vocals", "key": "b", "state": "running"},
+            })
+            with patch.object(SJ, "MAX_ACTIVE_VOCALS", 2):
                 with self.assertRaises(SJ.JobBusy):
                     SJ.start("vocals", "u-test")
         finally:
