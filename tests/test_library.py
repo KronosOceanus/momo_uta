@@ -51,6 +51,15 @@ class TestLibrary(unittest.TestCase):
         self.assertTrue(rows)
         self.assertTrue(rows[0]["has_lyric"])
 
+    def test_cache_only_entry_after_index_has_lyric(self):
+        """索引命中 rec 时也必须按 title, artist 查缓存，不能只看 nhlrc。"""
+        self._write_hit("曲A", "歌手A")
+        LIB.scan_library(self.dir)
+        rows = LIB.scan_library(self.dir)
+        target = [r for r in rows if r["stem"].endswith("曲A")]
+        self.assertTrue(target)
+        self.assertTrue(target[0]["has_lyric"])
+
     def test_empty_nhlrc_is_not_lyric(self):
         audio = self.dir / "歌手A - 曲A.mp3"
         with patch.object(LRF, "LYRICS", self.dir / "lyrics"):

@@ -216,6 +216,7 @@ def _entry(p: Path, group: str, stored=None, force_fp: bool = False) -> dict | N
     if forced_uid and rec and str(rec.get("uid")) != forced_uid:
         rec = None
     if rec:
+        rec_artist, rec_title = LY.split_name(rec.get("stem") or stem)
         return {"key": rec.get("key") or hashlib.md5(stem.encode()).hexdigest()[:12],
                 "uid": rec["uid"], "file": str(p), "stem": rec.get("stem") or stem,
                 "orig": rec.get("orig") or rec.get("title") or stem,
@@ -224,7 +225,7 @@ def _entry(p: Path, group: str, stored=None, force_fp: bool = False) -> dict | N
                 "artist": rec.get("artist", ""),
                 "source": rec.get("source", ""),
                 "lang": rec.get("lang") or "unknown",
-                "has_lyric": _has_lyric(*LY.split_name(rec.get("stem") or stem),
+                "has_lyric": _has_lyric(rec_title, rec_artist,
                                         uid=rec["uid"], stored=stored),
                 "suspect": bool(rec.get("suspect"))}
     artist, title = LY.split_name(stem)
