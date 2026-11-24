@@ -183,6 +183,42 @@ class TestPlayerHttp(unittest.TestCase):
             urllib.request.urlopen(self.url("/api/library?token=" + ROUTES.TOKEN))
         self.assertEqual(cm.exception.code, 403)
 
+    def test_forbidden_is_json(self):
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(self.url("/api/library"))
+        self.assertEqual(cm.exception.code, 403)
+        self.assertEqual(json.loads(cm.exception.read())["error"], "forbidden")
+
+    def test_head_page_has_headers_and_no_body(self):
+        req = urllib.request.Request(self.url("/"), method="HEAD")
+        r = urllib.request.urlopen(req)
+        self.assertEqual(r.read(), b"")
+        self.assertEqual(r.headers.get("X-Frame-Options"), "DENY")
+        self.assertGreater(int(r.headers.get("Content-Length", "0")), 0)
+
+    def test_head_audio_has_headers_and_no_body(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio = Path(tmp) / "fake.mp3"; audio.write_bytes(b"0123456789")
+            CACHE["0"]["file"] = str(audio)
+            req = urllib.request.Request(
+                self.url("/audio/" + CACHE_ITEM["uid"]), method="HEAD",
+                headers=self.auth_headers())
+            r = urllib.request.urlopen(req)
+            self.assertEqual(r.read(), b"")
+            self.assertEqual(r.headers.get("Accept-Ranges"), "bytes")
+            self.assertEqual(r.headers.get("Content-Length"), "10")
+
+    def test_song_error_does_not_leak_internal_detail(self):
+        from momo_player.service import song as SVC_SONG
+        with patch.object(SVC_SONG, "song_payload",
+                          side_effect=RuntimeError("/secret/path")):
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                self.get("/api/song/" + CACHE_ITEM["uid"])
+        body = cm.exception.read().decode()
+        self.assertEqual(cm.exception.code, 404)
+        self.assertNotIn("/secret/path", body)
+        self.assertIn("歌曲不可用", body)
+
     def test_library(self):
         rows = json.loads(self.get("/api/library").read())
         self.assertEqual(len(rows), 1)

@@ -66,7 +66,8 @@ class H(BaseHTTPRequestHandler):
         for k, v in (headers or {}).items():
             self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(b)
+        if not getattr(self, "_head", False):
+            self.wfile.write(b)
 
     def _json(self, obj, code=200):
         # 所有 JSON 响应统一带 ok 字段；版本冲突映射 409，前端可单独处理。
@@ -95,21 +96,31 @@ class H(BaseHTTPRequestHandler):
 
     def _guard(self, protected: bool) -> bool:
         if not self._origin_host_ok():
-            self._send(403, "forbidden")
+            self._json({"ok": False, "error": "forbidden"}, 403)
             return False
         if protected and not self._token_ok():
-            self._send(403, "forbidden")
+            self._json({"ok": False, "error": "forbidden"}, 403)
             return False
         return True
 
     def do_OPTIONS(self):
         # 不提供 CORS；明确拒绝跨域预检。
-        if not self._origin_host_ok():
-            return self._send(403, "forbidden")
-        return self._send(403, "forbidden")
+        return self._json({"ok": False, "error": "forbidden"}, 403)
 
     # ── 分发 ─────────────────────────────────────────
+    def do_HEAD(self):
+        self._head = True
+        try:
+            return self._do_GET()
+        except Exception as e:
+            diag.exception("http", e, method="HEAD", path=self.path)
+            try:
+                return self._json({"ok": False, "error": "内部错误"}, 500)
+            except Exception:
+                return None
+
     def do_GET(self):
+        self._head = False
         try:
             return self._do_GET()
         except Exception as e:
@@ -308,7 +319,8 @@ class H(BaseHTTPRequestHandler):
         try:
             return self._json(SVC_SONG.song_payload(ref))
         except Exception as e:
-            return self._json({"error": str(e)}, 404)
+            diag.exception("http.song", e, path=ref)
+            return self._json({"ok": False, "error": "歌曲不可用"}, 404)
 
     def _get_wave(self, ref):
         from ..core import waveform as WAVE
@@ -401,6 +413,8 @@ class H(BaseHTTPRequestHandler):
         if crange:
             self.send_header("Content-Range", crange)
         self.end_headers()
+        if getattr(self, "_head", False):
+            return
         try:
             with open(item["file"], "rb") as fh:
                 fh.seek(start)
