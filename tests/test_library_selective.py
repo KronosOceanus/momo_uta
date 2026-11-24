@@ -168,3 +168,37 @@ class TestSelectiveLibrary(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStaleIndexUid(unittest.TestCase):
+    def test_index_path_with_changed_uid_is_missing(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from momo_player.core import library as LIB
+        from momo_player.core import playlists as PL
+        from momo_player.core import fingerprint as FP
+        from momo_player.core.library import CACHE
+
+        old = dict(CACHE)
+        old_missing = list(LIB.LAST_MISSING)
+        CACHE.clear(); LIB.LAST_MISSING = []
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                a = root / "X - A.mp3"; a.touch()
+                old_file = PL.FILE
+                PL.set_file(root / "playlists.json")
+                try:
+                    PL.add("default", ["u-old"])
+                    with patch.object(LIB, "load_imports", return_value=[]), \
+                         patch.object(FP, "paths_for_uids", return_value={"u-old": [str(a)]}), \
+                         patch.object(LIB, "_entry", return_value={"uid": "u-new", "file": str(a)}):
+                        lib = LIB.load_for_playlists()
+                finally:
+                    PL.set_file(old_file)
+                self.assertEqual(lib, [])
+                self.assertEqual(LIB.LAST_MISSING, ["u-old"])
+        finally:
+            CACHE.clear(); CACHE.update(old)
+            LIB.LAST_MISSING = old_missing

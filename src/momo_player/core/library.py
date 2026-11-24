@@ -287,13 +287,20 @@ def load_for_playlists() -> list[dict]:
 
     out: list[dict] = []
     seen: set[str] = set()
+    loaded_uids: set[str] = set()
     import_paths = {str(Path(str(r.get("audio") or "")).expanduser())
                     for r in load_imports() if r.get("audio")}
     for uid, p in sorted(chosen.items(), key=lambda x: str(x[1])):
         e = _entry(p, "导入" if str(p) in import_paths else (p.parent.name or "曲库"), stored)
-        if e and e["file"] not in seen:
-            seen.add(e["file"])
-            out.append(e)
+        # 索引路径可能已经被替换成另一段音频；不能把新 uid 当成旧歌。
+        if not e or str(e.get("uid")) != str(uid):
+            continue
+        if e["file"] in seen:
+            continue
+        seen.add(e["file"])
+        loaded_uids.add(str(uid))
+        out.append(e)
+    missing = wanted - loaded_uids
     LAST_MISSING = sorted(str(u) for u in missing)
     diag.log("library", f"loaded {len(out)}/{len(uids)} missing={len(missing)}")
     LI.flush()
