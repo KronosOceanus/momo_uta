@@ -89,6 +89,7 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
         by_key.setdefault(_stem_key(p.stem), []).append(p)
 
     added, pending, overwritten, unpaired = [], [], 0, 0
+    failed = []
     used_lrc: set[Path] = set()
 
     for a in audios:                                # ② 音频 + lrc 配对
@@ -115,14 +116,23 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
             added.append(str(a))
             continue
         had = LRC.exists(str(a))
-        imported = LRC.import_text(str(a), raw, uid=FP.fingerprint(a),
-                                   title=title, artist=artist)
+        try:
+            imported = LRC.import_text(str(a), raw, uid=FP.fingerprint(a),
+                                       title=title, artist=artist)
+        except Exception as e:
+            imported = {"ok": False, "error": str(e)}
         if imported.get("ok"):
             if had:
                 overwritten += 1
             added.append(str(a))
         else:
-            pending.append(str(a))
+            # 音频本身有效；歌词失败也要让歌进库并待匹配。
+            if str(a) not in added:
+                added.append(str(a))
+            if str(a) not in pending:
+                pending.append(str(a))
+            failed.append({"audio": str(a), "lrc": str(lrc),
+                           "error": imported.get("error") or "歌词导入失败"})
 
     pool = [Path(x) for x in (pool_audio or [])]
     pool += [a for a in audios if str(a) not in added]
@@ -143,15 +153,26 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
             unpaired += 1
             continue
         had = LRC.exists(target)
-        imported = LRC.import_text(str(target), raw, uid=FP.fingerprint(target),
-                                   title=title, artist=artist)
+        try:
+            imported = LRC.import_text(str(target), raw, uid=FP.fingerprint(target),
+                                       title=title, artist=artist)
+        except Exception as e:
+            imported = {"ok": False, "error": str(e)}
         used_lrc.add(lrc)
         if imported.get("ok"):
             if had:
                 overwritten += 1
             else:
                 added.append(str(target))
+        else:
+            if str(target) not in added:
+                added.append(str(target))
+            if str(target) not in pending:
+                pending.append(str(target))
+            failed.append({"audio": str(target), "lrc": str(lrc),
+                           "error": imported.get("error") or "歌词导入失败"})
 
     return {"added": added, "pending": pending, "overwritten": overwritten,
             "unpaired": unpaired, "rejected_lrc": len(rejected),
+            "failed": failed, "failed_count": len(failed),
             "audio_found": len(audios), "lrc_found": len(lrcs)}

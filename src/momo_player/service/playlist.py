@@ -120,8 +120,11 @@ def import_to_list(req) -> dict:
     uids_set = set(uids)
     pending_n = sum(1 for k, v in LIB.snapshot()
                     if v["uid"] in uids_set and not v.get("has_lyric", True))
+    failed = res.get("failed") or []
     res.update({"ok": True, "library": library_n, "imported": added_n,
                 "pending_count": pending_n,
+                "failed": failed[:5],
+                "failed_count": len(failed),
                 "already": max(0, len(uids) - added_n)})
     res["lists"] = _lists()
     return res

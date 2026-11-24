@@ -308,6 +308,10 @@ async function doImport(listId, withLrc){
     if(r.overwritten) bits.push(`覆盖 ${r.overwritten} 首歌词`);
     if(r.unpaired) bits.push(`${r.unpaired} 个 lrc 未配对`);
     if(r.rejected_lrc) bits.push(`已拒绝 ${r.rejected_lrc} 个歌词文件，请用「导入音乐+LRC」`);
+    if(r.failed_count){
+      const f=(r.failed||[])[0];
+      bits.push(`${r.failed_count} 首歌词导入失败${f ? `：${f.error}` : ''}`);
+    }
     if(r.already) bits.push(`${r.already} 首已在歌单`);
     NH.done(bits.join('，'));
   }catch(err){

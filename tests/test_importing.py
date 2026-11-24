@@ -118,3 +118,36 @@ class TestImportPreferNhlrc(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestImportFailure(unittest.TestCase):
+    def _env(self, root):
+        audio = root / "歌手 - 曲.mp3"
+        lrc = root / "歌手 - 曲.lrc"
+        audio.touch()
+        lrc.write_text("[00:05.00]君\n[00:10.00]花\n[00:15.00]夜\n", encoding="utf-8")
+        return audio, lrc
+
+    def test_lrc_import_failure_keeps_audio_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio, lrc = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF, "import_text",
+                              return_value={"ok": False, "error": "disk full"}):
+                res = importing.import_paths([str(audio), str(lrc)], with_lrc=True)
+            self.assertIn(str(audio), res["added"])
+            self.assertIn(str(audio), res["pending"])
+            self.assertEqual(res["failed_count"], 1)
+            self.assertIn("disk full", res["failed"][0]["error"])
+
+    def test_lrc_import_exception_keeps_audio_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio, lrc = self._env(root)
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF, "import_text", side_effect=OSError("boom")):
+                res = importing.import_paths([str(audio), str(lrc)], with_lrc=True)
+            self.assertIn(str(audio), res["pending"])
+            self.assertEqual(res["failed_count"], 1)
+            self.assertIn("boom", res["failed"][0]["error"])
