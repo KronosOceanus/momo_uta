@@ -60,6 +60,16 @@ class TestLibrary(unittest.TestCase):
         self.assertTrue(target)
         self.assertTrue(target[0]["has_lyric"])
 
+    def test_metadata_only_v2_blocks_cache(self):
+        audio = self.dir / "歌手A - 曲A.mp3"
+        self._write_hit("曲A", "歌手A")
+        res = LRF.save_rows(audio, [{"kind": "metadata", "text": "[ar:X]"}])
+        self.assertTrue(res.get("ok"))
+        self.assertFalse(LRF.store_index({LIB.FP.fingerprint(audio)}).get(LIB.FP.fingerprint(audio), True))
+        rows = [r for r in LIB.scan_library(self.dir) if r["stem"].endswith("曲A")]
+        self.assertTrue(rows)
+        self.assertFalse(rows[0]["has_lyric"])
+
     def test_empty_nhlrc_is_not_lyric(self):
         audio = self.dir / "歌手A - 曲A.mp3"
         with patch.object(LRF, "LYRICS", self.dir / "lyrics"):

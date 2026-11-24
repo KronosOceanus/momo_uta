@@ -155,6 +155,18 @@ def exists(audio: str | Path, uid: str | None = None) -> bool:
     return store_path(audio, uid or uid_of(audio)).is_file()
 
 
+def _has_lyric_text(full: str, body: str, tail: dict | None) -> bool:
+    """V2 只数 lyric 行；plain/legacy 用旧正文扫描。"""
+    if tail and tail.get("v") == 2:
+        try:
+            return any(row.get("kind") == "lyric"
+                       and (row.get("text") or "").strip()
+                       for row in parse_v2_rows(full))
+        except Exception:
+            return False
+    return any((r.get("text") or "").strip() for r in _parse_rows(body)[0])
+
+
 def store_index(uids=None) -> dict[str, bool]:
     """nhlrc 是否有非空正文；只查给定 uid 时按 uid glob。"""
     out: dict[str, bool] = {}
@@ -165,11 +177,15 @@ def store_index(uids=None) -> dict[str, bool]:
                 try:
                     full = p.read_text(encoding="utf-8", errors="ignore")
                     body, tail = _split_nhlrc(full)
+                    has_text = _has_lyric_text(full, body, tail)
                     if tail and tail.get("disabled"):
                         out[u] = False
-                    elif any((r.get("text") or "").strip() for r in parse(body)):
+                    elif tail is not None:
+                        # 有 NHLRC 结构但没歌词行：这是权威的空文档，不读缓存。
+                        out[u] = out.get(u, False) or has_text
+                    elif has_text:
                         out[u] = True
-                    # 空/无正文 nhlrc 不写 false，让缓存继续可用。
+                    # 纯空文件（没有 NHLRC 结构）不写 key，让缓存继续可用。
                 except Exception:
                     out[u] = False
                 if out.get(u):
@@ -180,11 +196,15 @@ def store_index(uids=None) -> dict[str, bool]:
         try:
             full = p.read_text(encoding="utf-8", errors="ignore")
             body, tail = _split_nhlrc(full)
+            has_text = _has_lyric_text(full, body, tail)
             if tail and tail.get("disabled"):
                 out[u] = False
-            elif any((r.get("text") or "").strip() for r in parse(body)):
+            elif tail is not None:
+                # 有 NHLRC 结构但没歌词行：这是权威的空文档，不读缓存。
+                out[u] = out.get(u, False) or has_text
+            elif has_text:
                 out[u] = True
-            # 空/无正文 nhlrc 不写 false，让缓存继续可用。
+            # 纯空文件（没有 NHLRC 结构）不写 key，让缓存继续可用。
         except Exception:
             out.setdefault(u, False)
     return out
