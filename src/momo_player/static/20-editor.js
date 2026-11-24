@@ -8,7 +8,7 @@ NH.VIEW_MODE = 'normal';
 // ── LRC 编辑表格 ────────────────────────────────
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
 NH.TEXT_EDIT_ROW = null;
-NH.TRANS_EDIT = false;
+NH.TRANS_EDIT = true;
 NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false; NH.LRC_FLUSHING = false; NH.LRC_CONFLICT = false; NH.ROWS_MODE = false;
 
 function setLrcLocked(locked){
@@ -395,7 +395,7 @@ async function openLrcEditor(entering=false, opts={}){
       return row;
     });
   }
-  NH.TRANS_EDIT=false; syncTransBtn();
+  NH.TRANS_EDIT=true; syncTransBtn();
   if(!NH.EROWS.length) NH.EROWS=[{id:newRowId(),kind:'blank',t:null,text:'',trans:''}];
   const targetLine = entering && NH.CUR >= 0 ? NH.LINES[NH.CUR] : null;
   NH.ESEL=entering ? editorRowIndex(targetLine, NH.EROWS) : 0;
@@ -437,6 +437,7 @@ function updateTransRow(el){
   const i=+el.dataset.i;
   const row=NH.EROWS[i];
   if(!row) return;
+  beginTextEdit(i);          // 翻译修改也要进入撤销栈
   row.trans=el.value;
   markDirty();
 }
@@ -565,6 +566,7 @@ function renderLrcTable(){
     el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
     el.onblur=()=>{
       if(el._composing){ el._composing=false; if(!NH.LRC_LOCKED) updateTransRow(el); }
+      NH.TEXT_EDIT_ROW=null;
     };
     el.oncompositionstart=()=>{ if(!NH.LRC_LOCKED) el._composing=true; };
     el.oncompositionend=()=>{
@@ -992,5 +994,6 @@ function paint2(n){
 }
 
 Object.assign(NH, {editorRowIndex, timeFitsRow, timeFitsInsert, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+syncTransBtn();
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

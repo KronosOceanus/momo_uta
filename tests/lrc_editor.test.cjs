@@ -766,3 +766,13 @@ test('redo clears the text edit cursor', () => {
     TEXT_EDIT_ROW=0; redo();`);
   assert.equal(p.run('TEXT_EDIT_ROW'), null);
 });
+
+test('translation edits are undoable and default column is on', () => {
+  const p = player();
+  assert.equal(p.run('TRANS_EDIT'), true);
+  p.run(`EROWS=[{t:1,text:'君',trans:'old'}]; UNDO=[]; REDO=[]; TEXT_EDIT_ROW=null;
+    updateTransRow({dataset:{i:0}, value:'new'});
+    updateTransRow({dataset:{i:0}, value:'newer'});`);
+  assert.equal(p.run('EROWS[0].trans'), 'newer');
+  assert.equal(p.run('UNDO.length'), 1);
+});
