@@ -62,6 +62,7 @@ def read_local_config(path: str | Path | None = None, *, strict: bool = False) -
         data = json.loads(raw)
         if not isinstance(data, dict):
             raise ValueError("顶层必须是对象")
+        _validate_local(data)
     except Exception as e:
         bad = _backup_bad(p)
         if bad:
@@ -80,6 +81,51 @@ def _load(path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def _validate_value(path: str, value, default) -> None:
+    """只校验已知键的结构；未知键保留，避免把用户扩展当成损坏。"""
+    if path in ("lyrics.delta_tiers",) and (
+            not isinstance(value, list) or len(value) != 3):
+        raise ValueError(f"{path} 必须是 3 个元素的数组")
+    if path == "app.window_min" and (
+            not isinstance(value, list) or len(value) != 2):
+        raise ValueError(f"{path} 必须是 2 个元素的数组")
+    if isinstance(default, dict):
+        if not isinstance(value, dict):
+            raise ValueError(f"{path} 必须是对象")
+        for k, dv in default.items():
+            if k in value:
+                _validate_value(f"{path}.{k}", value[k], dv)
+        return
+    if isinstance(default, list):
+        if not isinstance(value, list):
+            raise ValueError(f"{path} 必须是数组")
+        if default:
+            for item in value:
+                _validate_value(f"{path}[]", item, default[0])
+        return
+    if isinstance(default, bool):
+        if not isinstance(value, bool):
+            raise ValueError(f"{path} 必须是布尔值")
+        return
+    if isinstance(default, int):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{path} 必须是整数")
+        return
+    if isinstance(default, float):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{path} 必须是数字")
+        return
+    if isinstance(default, str):
+        if not isinstance(value, str):
+            raise ValueError(f"{path} 必须是字符串")
+
+
+def _validate_local(data: dict) -> None:
+    for key, dv in _load(DEFAULTS).items():
+        if key in data:
+            _validate_value(key, data[key], dv)
 
 
 def _merge(base: dict, over: dict) -> dict:

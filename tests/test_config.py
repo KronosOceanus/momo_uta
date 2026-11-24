@@ -64,6 +64,28 @@ class TestConfig(unittest.TestCase):
         self.assertNotIn("busy_retry_ms", CFG["player"]["ui"])
         self.assertNotIn("toggle_debounce_ms", CFG["player"]["ui"])
 
+    def test_invalid_nested_config_is_treated_as_corrupt(self):
+        cases = [
+            {"player": "oops"},
+            {"player": {"ui": []}},
+            {"lyrics": []},
+            {"library": {"extensions": "mp3"}},
+            {"lyrics": {"delta_tiers": "3,10,30"}},
+            {"lyrics": {"delta_tiers": [1, 2]}},
+            {"app": {"window_min": [1]}},
+        ]
+        old = YC.LOCAL_CONFIG_WARNING
+        try:
+            for data in cases:
+                with self.subTest(data=data), tempfile.TemporaryDirectory() as tmp:
+                    p = Path(tmp) / "config.json"
+                    p.write_text(__import__("json").dumps(data), encoding="utf-8")
+                    self.assertEqual(YC.read_local_config(p), {})
+                    self.assertFalse(p.exists())
+                    self.assertEqual(len(list(Path(tmp).glob("config.json.bad-*"))), 1)
+        finally:
+            YC.LOCAL_CONFIG_WARNING = old
+
 
 if __name__ == "__main__":
     unittest.main()
