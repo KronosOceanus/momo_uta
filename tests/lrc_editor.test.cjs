@@ -736,3 +736,24 @@ test('merging into an empty row falls back to the right row time', () => {
   })()`);
   assert.equal(JSON.stringify(r), JSON.stringify([2, 1, null, 0]));
 });
+
+test('time order guards reject out-of-order values', () => {
+  const p = player();
+  const r = p.run(`(() => {
+    EROWS=[{t:1,text:'a'},{t:5,text:'b'},{t:10,text:'c'}];
+    return {
+      ok: timeFitsRow(1,3),
+      low: timeFitsRow(1,0),
+      high: timeFitsRow(1,11),
+      insertOk: timeFitsInsert(1,[{t:2},{t:4}]),
+      insertBad: timeFitsInsert(1,[{t:6}]),
+      tailBad: timeFitsInsert(3,[{t:9}]),
+    };
+  })()`);
+  assert.equal(r.ok, true);
+  assert.equal(r.low, false);
+  assert.equal(r.high, false);
+  assert.equal(r.insertOk, true);
+  assert.equal(r.insertBad, false);
+  assert.equal(r.tailBad, false);
+});

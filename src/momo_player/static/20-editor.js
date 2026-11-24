@@ -105,6 +105,39 @@ function sliceTokens(row, start, end, shift=0){
   return (row.tokens||[]).filter(t=>t.start>=start && t.end<=end)
     .map(t=>({...t, start:t.start+shift, end:t.end+shift}));
 }
+function timeFitsRow(i, t){
+  if(t===null || t===undefined) return true;
+  let prev=null, next=null;
+  for(let k=i-1;k>=0;k--){
+    if(NH.EROWS[k] && NH.EROWS[k].t!==null && NH.EROWS[k].t!==undefined){ prev=NH.EROWS[k].t; break; }
+  }
+  for(let k=i+1;k<NH.EROWS.length;k++){
+    if(NH.EROWS[k] && NH.EROWS[k].t!==null && NH.EROWS[k].t!==undefined){ next=NH.EROWS[k].t; break; }
+  }
+  return (prev===null || prev <= t) && (next===null || t <= next);
+}
+
+function timeFitsInsert(at, rows){
+  let prev=null, next=null;
+  for(let k=at-1;k>=0;k--){
+    if(NH.EROWS[k] && NH.EROWS[k].t!==null && NH.EROWS[k].t!==undefined){ prev=NH.EROWS[k].t; break; }
+  }
+  for(let k=at;k<NH.EROWS.length;k++){
+    if(NH.EROWS[k] && NH.EROWS[k].t!==null && NH.EROWS[k].t!==undefined){ next=NH.EROWS[k].t; break; }
+  }
+  let last=prev;
+  for(const row of (rows||[])){
+    if(!row || row.t===null || row.t===undefined) continue;
+    if(last!==null && row.t < last) return false;
+    last=row.t;
+  }
+  return next===null || last===null || last <= next;
+}
+
+function timeRejected(){
+  NH.done('时间顺序不正确，请先调整前后行的时间');
+}
+
 function splitRow(row, pos){
   const text=row.text||'';
   const left=text.slice(0,pos), right=text.slice(pos);
@@ -442,6 +475,7 @@ function renderLrcTable(){
       if(!v){ snapshot(); NH.EROWS[i].t=null; renderLrcTable(); return; }
       const t=lrcParse(v);
       if(t===null){ NH.done('时间戳格式应为 mm:ss.xx'); el.value=lrcFmt(NH.EROWS[i].t); return; }
+      if(!timeFitsRow(i,t)){ timeRejected(); el.value=lrcFmt(NH.EROWS[i].t); return; }
       snapshot(); NH.EROWS[i].t=t; renderLrcTable();
     };
     el.onkeydown=ev=>{ if(ev.isComposing||ev.keyCode===229) return;
@@ -510,7 +544,6 @@ function renderLrcTable(){
       ev.preventDefault();
       const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
       if(!lines.length) return;
-      snapshot();
       const at=Math.max(0,+el.dataset.i+1);
       const fresh=lines.map(x=>{
         const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
@@ -518,6 +551,8 @@ function renderLrcTable(){
                     text:m[3], trans:'', lid:newLid()}
                  : {id:newRowId(), kind:rowKind(x), t:null, text:x, trans:'', lid:newLid()};
       });
+      if(!timeFitsInsert(at,fresh)){ timeRejected(); return; }
+      snapshot();
       NH.EROWS.splice(at,0,...fresh);
       NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
       NH.done(`粘贴了 ${fresh.length} 行`);
@@ -602,7 +637,6 @@ function insertPos(){
 function insertLines(text){
   const lines=(text||'').split(/\r?\n/).map(x=>x.trim()).filter(x=>x!=='');
   if(!lines.length) return 0;
-  snapshot();
   const at=insertPos();
   const fresh=lines.map(x=>{
     const m=/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(x);
@@ -610,6 +644,8 @@ function insertLines(text){
                 text:m[3], trans:'', lid:newLid()}
              : {id:newRowId(), kind:rowKind(x), t:null, text:x, trans:'', lid:newLid()};
   });
+  if(!timeFitsInsert(at,fresh)){ timeRejected(); return 0; }
+  snapshot();
   NH.EROWS.splice(at,0,...fresh);
   NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
   document.querySelector(`.lerow[data-i="${NH.ESEL}"]`)?.scrollIntoView({block:'center'});
@@ -636,6 +672,7 @@ function selectAll(){
 }
 function bindMark(i){
   if(NH.MARK===null){ NH.done('先在波形上点一个位置'); return; }
+  if(!timeFitsRow(i,NH.MARK)){ timeRejected(); return; }
   snapshot(); NH.EROWS[i].t=NH.MARK;
   NH.ESEL=Math.min(NH.EROWS.length-1, i+1); NH.SEL.clear();
   renderLrcTable();
@@ -952,6 +989,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {editorRowIndex, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+Object.assign(NH, {editorRowIndex, timeFitsRow, timeFitsInsert, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();
