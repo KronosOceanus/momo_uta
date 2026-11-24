@@ -155,15 +155,32 @@
     .filter(el => el.querySelector('ruby.ra'));
   const bEditable = () => [...document.querySelectorAll('.ln .bc, .ln .ew')]
     .filter(el => el.querySelector('ruby.rb'));
-  const wrong = cur => cur === 'ぴ' ? 'ぷ' : 'ぴ';
+  const wrong = cur => cur === 'ぴよ' ? 'ぬこ' : 'ぴよ';
+
+  async function typeInto(inp, text) {
+    inp.focus();
+    inp.select();
+    for (const ch of [...text]) {
+      if (typeof inp.setRangeText === 'function') {
+        inp.setRangeText(ch, inp.selectionStart ?? inp.value.length,
+                        inp.selectionEnd ?? inp.value.length, 'end');
+      } else {
+        inp.value = ch;
+      }
+      inp.dispatchEvent(new InputEvent('input', {
+        bubbles: true, inputType: 'insertText', data: ch,
+      }));
+      await sleep(160);
+    }
+  }
 
   async function editWithInput(el, value) {
     await click(el);
     await wait(() => menuEl() && menuEl().querySelector('.kin'));
     const inp = menuEl()?.querySelector('.kin');
     if (!inp) throw new Error('demo2: 读音输入框没有打开');
-    inp.value = value;
-    inp.dispatchEvent(new Event('input', {bubbles:true}));
+    await typeInto(inp, value);
+    await sleep(180);
     inp.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
     await sleep(850);
   }
