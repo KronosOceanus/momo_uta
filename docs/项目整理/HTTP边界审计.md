@@ -257,3 +257,90 @@ Bytes=0-1
 46 前端
 UI 冒烟通过
 ```
+
+## 13. HTTP 再复核
+
+P0/P1/P2 已修完，主链路通过。剩几个低优先级一致性边界。
+
+### P3：/audio 返回没有走安全响应头
+
+`_get_audio` 手动 `send_response`，只设置：
+
+```text
+Content-Type
+Accept-Ranges
+Content-Length
+Content-Range
+```
+
+没有：
+
+```text
+X-Content-Type-Options
+Referrer-Policy
+X-Frame-Options
+Cross-Origin-Resource-Policy
+Cache-Control
+```
+
+不影响播放，但和其他响应不一致。
+
+建议抽一个公共响应头方法，音频手动响应也复用。
+
+### P3：jobs 上限没有把 canceling 计入
+
+`JOBS.start` 上限只统计：
+
+```text
+queued
+running
+```
+
+正在取消的任务：
+
+```text
+canceling
+```
+
+仍可能占用实际 worker。取消中的任务也算活动时，避免短时间超出上限。
+
+### P3：token 仍允许 query 兜底
+
+`_token_ok` 支持：
+
+```text
+X-Momo-Token
+?token=...
+```
+
+当前前端全部用 header，query 只是兜底。
+
+query token 可能进入：
+
+```text
+浏览器历史
+Referer
+日志
+```
+
+可以移除 query 兜底，统一 header；音频也已经用 header。
+
+### P3：请求读取没有超时
+
+本地服务没有 socket 超时。恶意/异常客户端可慢慢发送 body：
+
+```text
+Content-Length 合法
+只发一点
+连接长期占用
+```
+
+本地影响有限，但可以加 socket 超时或 `rfile` 读取上限。
+
+### 当前测试
+
+```text
+360 Python
+46 前端
+UI 冒烟通过
+```
