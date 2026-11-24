@@ -179,7 +179,9 @@
     if (panelEl) panelEl.style.display = 'none';
 
     try {
-      const song = NH.LIB.find(x => [x.title, x.stem, x.file].some(s => (s || '').includes('たぶん')));
+      const norm = s => String(s || '').normalize('NFC');
+      const song = NH.LIB.find(x => [x.title, x.orig, x.stem, x.file]
+        .some(s => norm(s).includes('たぶん')));
       if (!song) throw new Error('演示 2 需要曲库里有「たぶん」');
       await NH.load(song.uid, false);
       await wait(() => NH.S && String(NH.S.uid) === String(song.uid) && !NH.viewMatching());

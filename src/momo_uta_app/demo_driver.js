@@ -158,7 +158,9 @@
     document.body.classList.add('demo-running');
     if (panelEl) panelEl.style.display = 'none';
     try {
-      const song = NH.LIB.find(x => (x.title || '').includes('たぶん')) || NH.LIB[0];
+      const norm = s => String(s || '').normalize('NFC');
+      const song = NH.LIB.find(x => [x.title, x.orig, x.stem, x.file]
+        .some(s => norm(s).includes('たぶん'))) || NH.LIB[0];
       await NH.load(song.uid, false);
       await wait(() => NH.S && String(NH.S.uid) === String(song.uid) && !NH.viewMatching());
       NH.au.currentTime = 0;
