@@ -567,3 +567,31 @@ test('shuffle plays every song once before reshuffling', () => {
   const next = p.run(`takeShuffleUid(${JSON.stringify(list)}, '${cur}')`);
   assert.notEqual(next, cur);
 });
+
+test('next/prev line clamps at first and last', () => {
+  const p = player();
+  p.run(`LINES=[{t:1,text:'一'},{t:2,text:'二'},{t:3,text:'三'}]; VIEW_MODE='normal'; window.NH.au._dur=10;`);
+  const at = t => p.run(`window.NH.au.currentTime=${t}; nextIdx(1)`);
+  assert.equal(at(0), 0);      // before first -> first
+  assert.equal(p.run('window.NH.au.currentTime=0; nextIdx(-1)'), 0);
+  assert.equal(at(1), 1);
+  assert.equal(p.run('window.NH.au.currentTime=1; nextIdx(-1)'), 0);
+  assert.equal(at(3.5), 2);    // after/at last -> last
+  assert.equal(p.run('window.NH.au.currentTime=3.5; nextIdx(-1)'), 1);
+});
+
+test('second-row target changes audio without changing viewed song', () => {
+  const p = player();
+  p.run(`window.NH.PLS=[{id:'x',items:[
+    {uid:'a',title:'A song',artist:'A artist'},
+    {uid:'b',title:'B song',artist:'B artist'}]}];
+    SEL_LIST='x';
+    S={idx:'1',uid:'b',title:'B song',artist:'B artist',lines:[]};
+    PLAYING_UID='b';`);
+  p.run("playTarget('a')");
+  assert.equal(p.run('S.uid'), 'b');
+  assert.equal(p.run('PLAYING_UID'), 'a');
+  assert.equal(p.run('PLAY_ITEM.uid'), 'a');
+  assert.match(p.document.getElementById('ttl').textContent, /A song/);
+  assert.equal(p.document.getElementById('backplaying').hidden, false);
+});

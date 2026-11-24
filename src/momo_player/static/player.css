@@ -54,6 +54,7 @@ main{flex:1;display:flex;flex-direction:column;min-width:0}
 .bar2{padding:8px 16px;border-top:1px solid var(--line);display:grid;
   grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr);
   grid-template-rows:auto auto;align-items:center;column-gap:8px;row-gap:6px}
+.bar2 .backplaying{grid-column:1;grid-row:1;justify-self:start;font-size:12px;padding:4px 9px}
 .bar2 h1{font-size:14px;margin:0;font-weight:600;justify-self:start;max-width:100%;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;grid-column:1;grid-row:2;min-width:0}
 .bar2 button.on{background:var(--active);border-color:var(--a);color:var(--a)}

@@ -376,6 +376,7 @@ async function load(ref, autoplay, nextMode){
     }
     NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CUR=-1; NH.NAV=[];
+    NH.syncBackPlaying?.();
     NH.paintTicks?.();
     NH.syncModes?.();   // 已有查看歌曲：开始可用，匹配中其他入口仍禁用
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
@@ -422,6 +423,7 @@ async function load(ref, autoplay, nextMode){
     NH.viewDispatch({type:'LOAD_READY', idx:d.uid, request});
     NH.NO_MATCH.delete(String(d.uid));
     NH.S=d; NH.LINES=d.lines; NH.CUR=-1;
+    NH.syncBackPlaying?.();
     NH.paintTicks?.();
     if(String(NH.PLAYING_UID) !== String(d.uid)){
       document.querySelectorAll('.ln.on,.ln2.on').forEach(el=>el.classList.remove('on'));
@@ -693,6 +695,11 @@ if(dataBtn) dataBtn.onclick=async()=>{
     if(r && r.ok===false){ done(r.error||'打开数据目录失败'); return; }
     toast('已打开数据目录');
   }catch(e){ done('打开数据目录失败：'+e.message); }
+};
+const backPlayingBtn=document.getElementById('backplaying');
+if(backPlayingBtn) backPlayingBtn.onclick=()=>{
+  if(NH.PLAYING_UID!==null && NH.PLAYING_UID!==undefined)
+    load(NH.PLAYING_UID,false);
 };
 const themeBtn=document.getElementById('theme');
 if(themeBtn) themeBtn.onclick=()=>{

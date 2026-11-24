@@ -29,17 +29,55 @@ function closeLineLoop(){
 NH.closeLineLoop = closeLineLoop;
 NH.syncPlayControls = syncPlayControls;
 
-function commitAudio(){
-  if(!NH.S) return;
+function findSongItem(uid){
+  const u=String(uid);
+  for(const g of (NH.PLS||[])){
+    for(const it of (g.items||[])){
+      if(String(it.uid)===u) return it;
+    }
+  }
+  for(const it of (NH.LIB||[])){
+    if(String(it.uid)===u) return it;
+  }
+  return null;
+}
+
+function commitAudio(song){
+  song = song || NH.S;
+  if(!song) return;
   const prev=NH.PLAYING_UID;
-  if(prev!==null && prev!==undefined && String(prev)!==String(NH.S.uid)) closeLineLoop();
-  NH.PLAYING_UID = NH.S.uid; markPlaying();
-  NH.au.src = NH.S.audio || ('/audio/'+encodeURIComponent(NH.S.uid));
+  if(prev!==null && prev!==undefined && String(prev)!==String(song.uid)) closeLineLoop();
+  NH.track('seek'); NH.track('lineplay');
+  NH.SEEK_ACTIVE = false; NH.SEEK_WAS_PLAYING = false;
+  NH.PLAYING_UID = song.uid;
+  NH.PLAY_ITEM = song;
+  markPlaying();
+  NH.au.src = song.audio || ('/audio/'+encodeURIComponent(song.uid));
   NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
   NH.paintTicks?.();                      // src 切换后旧时长/旧歌词不能留着
-  document.getElementById('ttl').textContent = '▶ ' + NH.S.title + (NH.S.artist?' · '+NH.S.artist:'');
+  document.getElementById('ttl').textContent = '▶ ' + song.title + (song.artist?' · '+song.artist:'');
   syncPlayBtn(); syncPlayControls();
+  syncBackPlaying();
 }
+
+function playTarget(uid){
+  const item = findSongItem(uid);
+  if(!item) return false;
+  commitAudio(item);
+  playFromStart(item);
+  return true;
+}
+
+function syncBackPlaying(){
+  const b=document.getElementById('backplaying');
+  if(!b) return;
+  const diff = NH.PLAYING_UID !== null && NH.PLAYING_UID !== undefined
+    && NH.PLAY_ITEM && NH.S
+    && String(NH.PLAYING_UID) !== String(NH.S.uid);
+  b.hidden = !diff;
+}
+
+// ── 统一播放层
 // ── 统一播放层：普通视图与编辑表格共用同一套时间语义 ──
 const META_RE=/^(作词|作曲|编曲|制作|演唱|歌\s*[:：]|Lyrics|Composer|Arranger|Producer)/;
 function viewLines(){ return NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES; }
@@ -72,25 +110,38 @@ function audioReady(){
 }
 NH.SEEK_ACTIVE = false; NH.SEEK_WAS_PLAYING = false;
 async function seekPrecise(t){
+  const song = NH.S;
+  if(!song) return false;
+  const uid = String(song.uid);
   t=Math.max(0, t);
-  if(!NH.SEEK_ACTIVE){ NH.SEEK_WAS_PLAYING=!NH.au.paused; NH.SEEK_ACTIVE=true; }   // 连点时以第一次的状态为准
+  if(!NH.SEEK_ACTIVE){ NH.SEEK_WAS_PLAYING=!NH.au.paused; NH.SEEK_ACTIVE=true; }
   const seq=NH.track('seek');
-  if(NH.SEEK_WAS_PLAYING) NH.au.pause();         // 画面与旧声音都在此停下
-  await audioReady();
-  if(!NH.isCurrent('seek',seq)) return;
-  const seeked=onceEvent('seeked', UI.canplay_wait_ms||900);
-  NH.au.currentTime=t;
-  paintTransport();
-  await seeked;
-  if(!NH.isCurrent('seek',seq)) return;
-  if(NH.au.readyState<3) await onceEvent('canplay', UI.canplay_wait_ms||900);
-  if(!NH.isCurrent('seek',seq)) return;
-  if(NH.SEEK_WAS_PLAYING) await NH.au.play().catch(()=>{});
-  paintTransport();
-  NH.SEEK_ACTIVE=false;                       // 这一轮结束，下一次重新取播放状态
+  const current = () => NH.isCurrent('seek', seq)
+    && NH.S && String(NH.S.uid) === uid
+    && String(NH.PLAYING_UID) === uid;
+  try {
+    if(NH.SEEK_WAS_PLAYING) NH.au.pause();         // 画面与旧声音都在此停下
+    await audioReady();
+    if(!current()) return false;
+    const seeked=onceEvent('seeked', UI.canplay_wait_ms||900);
+    NH.au.currentTime=t;
+    paintTransport();
+    await seeked;
+    if(!current()) return false;
+    if(NH.au.readyState<3) await onceEvent('canplay', UI.canplay_wait_ms||900);
+    if(!current()) return false;
+    if(NH.SEEK_WAS_PLAYING) await NH.au.play().catch(()=>{});
+    paintTransport();
+    return true;
+  } finally {
+    if(NH.isCurrent('seek', seq)){
+      NH.SEEK_ACTIVE=false;
+      NH.SEEK_WAS_PLAYING=false;
+    }
+  }
 }
 
-function seekIdx(i, keepPlaying){
+function seekIdx(i){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
   if(NH.PLAYING_UID!==NH.S.uid) commitAudio();
@@ -104,7 +155,7 @@ function selectLine(i){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
   if(NH.S && String(NH.PLAYING_UID) === String(NH.S.uid)){
-    seekIdx(i, true);                   // 正在播这首：跳转，保持播放/暂停状态
+    seekIdx(i);                         // 正在播这首：跳转，保持播放/暂停状态
   }else{
     NH.WMARK[NH.S.uid]=lineT(l);        // 查看另一首：只移动波形头
     highlight(i);                       // 只高亮，不碰音频
@@ -115,25 +166,24 @@ async function playLine(i){
   if(!NH.S) return;
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
-  NH.WMARK[NH.S.uid]=lineT(l);
-  if(NH.PLAYING_UID!==NH.S.uid) NH.commitAudio();
-  await seekPrecise(Math.max(0, lineT(l)));
+  const song = NH.S;
+  NH.WMARK[song.uid]=lineT(l);
+  if(String(NH.PLAYING_UID)!==String(song.uid)) NH.commitAudio();
+  const seq=NH.track('lineplay');
+  const ok=await seekPrecise(Math.max(0, lineT(l)));
+  if(!ok || !NH.isCurrent('lineplay', seq) || NH.S !== song) return;
   await NH.au.play().catch(()=>{});
+  if(!NH.isCurrent('lineplay', seq) || NH.S !== song) return;
   highlight(i);
 }
 
 function nextIdx(dir){
   const items=navItems(); if(!items.length) return null;
   const i=idxAt(NH.au.currentTime);
-  let at=items.findIndex(x=>x.i===i);
-  if(at<0){                       // 不在任何行上：按时间找最近位置
-    const t=NH.au.currentTime;
-    at = dir>0 ? items.findIndex(x=>x.t> t) : items.length-1;
-    if(at<0) at = dir>0 ? items.length-1 : 0;
-  }
-  const to = at + (dir>0?1:-1);
-  if(to<0 || to>=items.length) return items[dir>0?at:0].i;
-  return items[to].i;
+  const at=items.findIndex(x=>x.i===i);
+  if(at<0) return items[0].i;              // 开头之前：上一句/下一句都停在第一句
+  if(dir>0) return items[Math.min(at+1, items.length-1)].i;
+  return items[Math.max(at-1, 0)].i;
 }
 function highlight(i){
   const ls=viewLines(); const l=ls[i];
@@ -157,8 +207,9 @@ function highlight(i){
     NH.paint2(i);          // 右侧只跟随"当前行"；meta 区间两边都不亮
   }
 }
-function seek(n){ seekIdx(n, true); }
+function seek(n){ seekIdx(n); }
 NH.au.onloadedmetadata=()=>{
+  if(!NH.S || String(NH.PLAYING_UID)!==String(NH.S.uid)) return;
   if(!NH.LINES.length) return;
   const last=NH.LINES[NH.LINES.length-1].t;
   if(NH.au.duration && last>0 && last/NH.au.duration<0.7){
@@ -267,12 +318,13 @@ function togglePlayPause(){
   else NH.au.pause();
 }
 function syncPlayBtn(){ const ico=document.getElementById('play2ico'); if(ico) ico.textContent = NH.au.paused ? '▶' : '⏸'; }
-function playFromStart(){
-  const song = NH.S;
+function playFromStart(song){
+  song = song || NH.S;
   if(!song) return;
   const uid = song.uid;
   NH.au.preload().then(() => {
-    if(!NH.S || String(NH.S.uid)!==String(uid)) return;
+    if(!NH.PLAY_ITEM || String(NH.PLAY_ITEM.uid)!==String(uid)
+       || String(NH.PLAYING_UID)!==String(uid)) return;
     NH.au.currentTime = 0;
     NH.au.play().catch(()=>{});
   }).catch(()=>{});
@@ -295,7 +347,7 @@ async function stepPlaying(dir){
     const ok=await NH.load(NH.PLAYING_UID, false);   // 页面跳到 A，不打断 A
     if(!ok) return;
   }
-  const n=nextIdx(dir); if(n!==null) seekIdx(n,true);
+  const n=nextIdx(dir); if(n!==null) seekIdx(n);
 }
 document.getElementById('prev').onclick=()=>stepPlaying(-1);
 document.getElementById('next').onclick=()=>stepPlaying(1);
@@ -310,12 +362,12 @@ function songOrderUids(){
   const items=g ? (g.items||[]) : (NH.LIB||[]);
   return [...new Set(items.map(x=>String(x.uid)).filter(Boolean))];
 }
-async function stepSong(dir){
+function stepSong(dir){
   const uids=songOrderUids();
   if(!uids.length) return;
   if(NH.playMode === 'shuffle'){
     const target = takeShuffleUid(uids, currentPlayUid());
-    if(target) await NH.load(target,true);
+    if(target) playTarget(target);
     return;
   }
   const cur=NH.PLAYING_UID!==null && NH.PLAYING_UID!==undefined
@@ -323,7 +375,7 @@ async function stepSong(dir){
   let at=uids.indexOf(cur);
   if(at<0) at=dir>0?-1:0;
   const target=uids[(at+dir+uids.length)%uids.length];
-  if(target) await NH.load(target,true);
+  if(target) playTarget(target);
 }
 document.getElementById('prevSong').onclick=()=>stepSong(-1);
 document.getElementById('nextSong').onclick=()=>stepSong(1);
@@ -406,6 +458,7 @@ const PLAY_MODE_ORDER = ['list', 'one', 'shuffle'];
 const PLAY_MODE_LABEL = {list: '列表循环', one: '单曲循环', shuffle: '随机播放'};
 const initialPlayMode = (CFG.player && CFG.player.ui && CFG.player.ui.play_mode);
 NH.playMode = PLAY_MODE_ORDER.includes(initialPlayMode) ? initialPlayMode : 'list';
+NH.PLAY_ITEM = null;
 NH.shufflePool = [];
 NH.shuffleListKey = '';
 const songLoopBtn = document.getElementById('songloop');
@@ -488,5 +541,5 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
+Object.assign(NH, {markPlaying, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
 })();
