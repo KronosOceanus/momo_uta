@@ -23,7 +23,7 @@ function player() {
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, {
         addEventListener() {}, getContext() {}, querySelectorAll: () => [],
-        classList: classes, textContent: ''
+        classList: classes, textContent: '', style: {}
       });
       return elements.get(id);
     },
@@ -613,4 +613,14 @@ test('second-row follows view only when viewing the playing song', () => {
   p.run(`S={idx:'0',uid:'a',title:'A',artist:'x',lines:[]}; PLAYING_UID='a';
          window.NH._loaded=false; stepSong(1);`);
   assert.equal(p.run('window.NH._loaded'), true);
+});
+
+test('transport seek works while viewing another song', async () => {
+  const p = player();
+  p.run(`S={idx:'1',uid:'b',title:'B',artist:'x',lines:[]};
+         PLAYING_UID='a'; window.NH.au._dur=10; window.NH.au._ready=4;
+         window.NH.au._offset=0;`);
+  await p.run('seekPlayback(5)');
+  assert.equal(p.run('window.NH.au.currentTime'), 5);
+  assert.equal(p.run('S.uid'), 'b');
 });

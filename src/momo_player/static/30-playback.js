@@ -141,6 +141,36 @@ async function seekPrecise(t){
   }
 }
 
+async function seekPlayback(t){
+  const uid = NH.PLAYING_UID;
+  if(uid === null || uid === undefined) return false;
+  t=Math.max(0, t);
+  if(!NH.SEEK_ACTIVE){ NH.SEEK_WAS_PLAYING=!NH.au.paused; NH.SEEK_ACTIVE=true; }
+  const seq=NH.track('seek');
+  const current=()=>NH.isCurrent('seek', seq)
+    && String(NH.PLAYING_UID) === String(uid);
+  try {
+    if(NH.SEEK_WAS_PLAYING) NH.au.pause();
+    await audioReady();
+    if(!current()) return false;
+    const seeked=onceEvent('seeked', UI.canplay_wait_ms||900);
+    NH.au.currentTime=t;
+    paintTransport();
+    await seeked;
+    if(!current()) return false;
+    if(NH.au.readyState<3) await onceEvent('canplay', UI.canplay_wait_ms||900);
+    if(!current()) return false;
+    if(NH.SEEK_WAS_PLAYING) await NH.au.play().catch(()=>{});
+    paintTransport();
+    return true;
+  } finally {
+    if(NH.isCurrent('seek', seq)){
+      NH.SEEK_ACTIVE=false;
+      NH.SEEK_WAS_PLAYING=false;
+    }
+  }
+}
+
 function seekIdx(i){
   const ls=viewLines(); const l=ls[i];
   if(!l || isMetaLine(l) || lineT(l)===null) return;
@@ -291,8 +321,8 @@ function seekToClientX(x){
   document.addEventListener('mousemove', e=>{ if(dragging) seekToClientX(e.clientX); });
   document.addEventListener('mouseup', ()=>{ dragging=false; });
   document.getElementById('play2').onclick=togglePlayPause;
-  document.getElementById('back10').onclick=()=>{ if(NH.PLAYING_UID===null) return; seekPrecise(Math.max(0, NH.au.currentTime-10)); };
-  document.getElementById('fwd10').onclick=()=>{ if(NH.PLAYING_UID===null) return; seekPrecise(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
+  document.getElementById('back10').onclick=()=>{ if(NH.PLAYING_UID===null) return; seekPlayback(Math.max(0, NH.au.currentTime-10)); };
+  document.getElementById('fwd10').onclick=()=>{ if(NH.PLAYING_UID===null) return; seekPlayback(Math.min(NH.au.duration||0, NH.au.currentTime+10)); };
   document.getElementById('volume').oninput=e=>{ NH.au.volume=+e.target.value; NH.au.muted=NH.au.volume===0; paintTransport(); };
   document.getElementById('mute').onclick=()=>{ NH.au.muted=!NH.au.muted; paintTransport(); };
   ['timeupdate','loadedmetadata','durationchange','play','pause','volumechange'].forEach(ev=>
@@ -547,5 +577,5 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
+Object.assign(NH, {markPlaying, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekPlayback, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
 })();
