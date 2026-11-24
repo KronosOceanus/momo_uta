@@ -757,3 +757,12 @@ test('time order guards reject out-of-order values', () => {
   assert.equal(r.insertBad, false);
   assert.equal(r.tailBad, false);
 });
+
+test('redo clears the text edit cursor', () => {
+  const p = player();
+  p.run(`EROWS=[{t:1,text:'old'}];
+    UNDO=[JSON.stringify([{t:2,text:'undo'}])];
+    REDO=[JSON.stringify([{t:3,text:'redo'}])];
+    TEXT_EDIT_ROW=0; redo();`);
+  assert.equal(p.run('TEXT_EDIT_ROW'), null);
+});
