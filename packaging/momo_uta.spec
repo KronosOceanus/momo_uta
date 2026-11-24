@@ -1,18 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 """Build one of three macOS apps:
 
-  MOMO_VARIANT=base  no vocals dependencies
   MOMO_VARIANT=thin  no bundled demucs, external demucs/ffmpeg
   MOMO_VARIANT=full  bundles demucs + torch + ffmpeg
 """
 import os
+import shutil
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ROOT = Path(SPECPATH).resolve().parent
-VARIANT = os.environ.get("MOMO_VARIANT", "base")
-assert VARIANT in ("base", "thin", "full"), VARIANT
+VARIANT = os.environ.get("MOMO_VARIANT", "thin")
+assert VARIANT in ("thin", "full"), VARIANT
 NAME = f"momo-uta-{VARIANT}"
 
 datas = [
@@ -28,7 +28,7 @@ datas += collect_data_files("sudachidict_core")
 datas += collect_data_files("sudachipy")
 
 excludes = ["tkinter", "pytest", "IPython"]
-if VARIANT != "full":
+if VARIANT == "thin":
     excludes += ["demucs", "torch", "torchaudio", "torchvision", "torchgen",
                  "functorch", "triton"]
 
@@ -44,14 +44,36 @@ hiddenimports = [
     "momo_player.core.vocals",
 ]
 
+def _find_ffmpeg() -> Path | None:
+    candidates = []
+    env = os.environ.get("MOMO_FFMPEG")
+    if env:
+        candidates.append(Path(env))
+    found = shutil.which("ffmpeg")
+    if found:
+        candidates.append(Path(found))
+    candidates += [Path("/opt/homebrew/bin/ffmpeg"),
+                   Path("/usr/local/bin/ffmpeg")]
+    for path in candidates:
+        try:
+            if path.is_file() and os.access(path, os.X_OK):
+                return path
+        except OSError:
+            pass
+    return None
+
+
 binaries = []
 if VARIANT == "full":
     datas += collect_data_files("demucs")
     hiddenimports += collect_submodules("demucs")
     hiddenimports += ["torch"]
-    ffmpeg = Path("/opt/homebrew/bin/ffmpeg")
-    if ffmpeg.is_file():
-        binaries.append((str(ffmpeg), "bin"))
+    ffmpeg = _find_ffmpeg()
+    if ffmpeg is None:
+        raise SystemExit(
+            "full 构建需要 ffmpeg；请安装后确保在 PATH，"
+            "或设置 MOMO_FFMPEG=/path/to/ffmpeg")
+    binaries.append((str(ffmpeg), "bin"))
 
 a = Analysis(
     [str(ROOT / "src" / "momo_uta_app" / "__main__.py")],

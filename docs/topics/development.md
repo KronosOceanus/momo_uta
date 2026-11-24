@@ -10,7 +10,7 @@ make test-python   # Python 架构 + unittest
 make arch          # 当前实现包含 check_arch + check_js
 make app           # 启动桌面应用
 make api           # 命令行验证引擎
-./packaging/build.sh base|thin|full  # 构建三种 .app
+./packaging/build.sh thin|full  # 构建 .app
 ```
 
 ```bash
@@ -176,7 +176,6 @@ app 使用随机端口，不占固定端口。
 ## 8. 打包
 
 ```bash
-./packaging/build.sh base
 ./packaging/build.sh thin
 ./packaging/build.sh full
 ```

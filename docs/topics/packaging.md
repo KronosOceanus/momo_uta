@@ -1,6 +1,6 @@
 # 打包
 
-> 已配置 PyInstaller onedir，能构建 base / thin / full 三种 `.app`。
+> 已配置 PyInstaller onedir，构建 thin / full 两种 `.app`。
 
 ## 0. 当前状态
 
@@ -11,28 +11,29 @@
 ```
 
 ```text
-当前源码已切到 V2 歌词模型。
-2026-11-23 已重建：
-  base / thin / full 三种 .app
-  base / thin / full 三种 zip
+2026-11-24 已重建：
+  thin / full 两种 .app
+  thin / full 两种 zip
+  VERSIONS.txt（commit + sha256）
 ```
 
 ```text
-已配置 PyInstaller onedir，三种 .app 都能构建：
-  base  基础版
-  thin  薄壳版
-  full  完整版
+已配置 PyInstaller onedir，两种 .app 都能构建：
+  thin  薄壳版（外部 demucs / ffmpeg）
+  full  完整版（内置 demucs + torch + ffmpeg）
 ```
 
 ```bash
-./packaging/build.sh base|thin|full
+./packaging/build.sh thin|full
 ```
 
 ```text
 产物：
-  dist/base/momo-uta-base.app   ~230 MB
-  dist/thin/momo-uta-thin.app   ~230 MB
-  dist/full/momo-uta-full.app   ~859 MB
+  dist/thin/momo-uta-thin.app   ~461 MB
+  dist/full/momo-uta-full.app   ~1.7 GB
+  dist/momo-uta-thin.zip        ~88 MB
+  dist/momo-uta-full.zip        ~284 MB
+  dist/VERSIONS.txt
 ```
 
 ```text
@@ -45,16 +46,15 @@
 pyproject 不注册 console script，避免安装出一个不可用的 momo-uta 命令。
 ```
 
-### 三个版本
+### 两个版本
 
 | 版本 | 文件 | 内容 | 体积 |
 |---|---|---|---|
-| base | `momo-uta-base.app` | 播放器 + 歌词 + LRC + 翻译，不含人声依赖 | ~230 MB |
-| thin | `momo-uta-thin.app` | 同 base，但检测外部 demucs / ffmpeg | ~230 MB |
-| full | `momo-uta-full.app` | base + demucs + torch + ffmpeg | ~859 MB |
+| thin | `momo-uta-thin.app` | 播放器 + 歌词 + LRC + 翻译，检测外部 demucs / ffmpeg | ~461 MB |
+| full | `momo-uta-full.app` | thin + demucs + torch + ffmpeg | ~1.7 GB |
 
 ```text
-三者共享同一份用户数据：
+两者共享同一份用户数据：
   ~/Library/Application Support/momo uta/data
 ```
 
@@ -114,7 +114,7 @@ data/config.json   本机配置
 data/cache/        可重建缓存
 data/vocals/       人声缓存
 data/sources/      原始素材
-data/corpus/       语料统计
+data/corpus/       语料统计（仅 ndl_reading_stats.json 随包）
 eval/              评测资产
 ```
 
@@ -132,7 +132,8 @@ ffmpeg
 
 ```text
 demucs / torch 是包体大头。
-ffmpeg 是外部二进制，需要单独处理。
+full 会在构建时查找 ffmpeg：MOMO_FFMPEG、PATH、/opt/homebrew/bin、/usr/local/bin。
+缺失时构建直接失败，不会生成缺 ffmpeg 的 full 包。
 ```
 
 ## 5. 体积
@@ -140,13 +141,11 @@ ffmpeg 是外部二进制，需要单独处理。
 当前实际产物：
 
 ```text
-base.app    ~230 MB
-thin.app    ~230 MB
-full.app    ~859 MB
+thin.app    ~461 MB
+full.app    ~1.7 GB
 ```
 
 ```text
-base.zip    ~88 MB
 thin.zip    ~88 MB
 full.zip    ~284 MB
 ```
@@ -156,12 +155,10 @@ zip 是 .app 的 --keepParent 压缩；
 体积受文件系统块大小影响，du 会显示略大。
 ```
 
-本次 V2 构建 sha256：
+当前构建 sha256 见：
 
 ```text
-base  d166d7ce806231c9172222b076428cf5acd494029f26498853ddd41dc1614a33
-thin  df64d91f59716ca7bcf2e4c91b51c1c88cccc84ee5dfa216a436b54e90d2b230
-full  7fb9631a0839340028f0693e50f2f255e627023fa35c7544f33c663b50aa1512
+dist/VERSIONS.txt
 ```
 
 主要占用：
@@ -305,8 +302,8 @@ Dock 重新显示
 1. 没有签名 / 公证
 2. 没有 .dmg 构建脚本
 3. 没有自动更新
-4. thin 的外部 demucs 需要用户自己安装
-5. 三个版本共享同一份 Application Support 数据
+4. thin 的外部 demucs / ffmpeg 需要用户自己安装
+5. thin / full 共享同一份 Application Support 数据
 6. 尚未做 Intel / universal2
 7. 尚未做正式首启迁移
 ```

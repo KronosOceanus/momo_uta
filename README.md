@@ -106,18 +106,17 @@ lyric / blank / metadata 统一为 rows
 快捷键帮助
 ```
 
-## 三种版本
+## 两个版本
 
 | 版本 | 人声分离 | 体积 | 适合 |
 |---|---|---|---|
-| **base** 基础版 | 不含 | ~230 MB | 只播放、编辑歌词 |
-| **thin** 薄壳版 | 使用外部 demucs | ~230 MB | 自己装过 demucs |
-| **full** 完整版 | 内置 demucs + torch + ffmpeg | ~859 MB | 开箱即用，推荐 |
+| **thin** 薄壳版 | 使用外部 demucs / ffmpeg | ~461 MB | 自己装过 demucs |
+| **full** 完整版 | 内置 demucs + torch + ffmpeg | ~1.7 GB | 开箱即用，推荐 |
 
-三个版本**共享同一份用户数据**，切换版本不会复制歌单和歌词。
+两个版本**共享同一份用户数据**，切换版本不会复制歌单和歌词。
 
 ```text
-base / thin / full 同时只建议运行一个。
+thin / full 同时只建议运行一个。
 ```
 
 ## 安装
@@ -127,7 +126,6 @@ base / thin / full 同时只建议运行一个。
 本地构建后：
 
 ```text
-dist/base/momo-uta-base.app
 dist/thin/momo-uta-thin.app
 dist/full/momo-uta-full.app
 ```
@@ -219,14 +217,13 @@ make app
 .venv/bin/pip install -e '.[vocals]'
 ```
 
-还需要系统里有 `ffmpeg`。
+thin 需要系统安装 `demucs` 和 `ffmpeg`；full 已内置。
 
 ## 构建
 
 ```bash
 .venv/bin/pip install pyinstaller
 
-./packaging/build.sh base
 ./packaging/build.sh thin
 ./packaging/build.sh full
 ```
@@ -235,6 +232,8 @@ make app
 
 ```text
 dist/<variant>/momo-uta-<variant>.app
+dist/momo-uta-<variant>.zip
+dist/VERSIONS.txt
 ```
 
 ## 测试
@@ -267,7 +266,7 @@ make test-python
 歌词来源目前只有网易云
 full 首次人声分离需要下载模型
 thin 需要外部安装 demucs / ffmpeg
-三个版本共享用户数据
+thin / full 共享用户数据
 ```
 
 ## 网络
