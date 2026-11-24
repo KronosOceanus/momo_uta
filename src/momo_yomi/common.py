@@ -10,13 +10,19 @@ import sys
 import unicodedata
 from pathlib import Path
 
-from .paths import (CACHE, CORPUS, CURATED, DATA, EVAL,
-                    GOLD, REPORTS, ROOT, SOURCES, TABLES, TOOLS)
+from .paths import CACHE, CORPUS, CURATED, ROOT, TABLES
 
 # 评测
 EVAL = ROOT / "eval"
 GOLD = EVAL / "gold"            # 标准答案（资产）
 REPORTS = EVAL / "reports"      # 自动生成（可重建）
+
+__all__ = [
+    "CACHE", "CORPUS", "CURATED", "ROOT", "TABLES",
+    "EVAL", "GOLD", "REPORTS",
+    "DEFAULT_CMD", "Annotator",
+    "segments_of", "run_all", "load_gold", "normalize",
+]
 
 DEFAULT_CMD = [sys.executable, "-m", "momo_yomi.annotate", "--stdio"]
 
