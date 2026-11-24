@@ -64,7 +64,7 @@ data/cache/lyrics/<md5(title|artist)>.json
 它是抓取结果，不是权威歌词。
 有 .nhlrc 时，歌词缓存不参与歌词读取。
 没有 .nhlrc 时，lrc 用于显示，tlyric 可配对翻译。
-歌词缓存只作为普通 LRC 显示来源；nhlrc 只接受 v2。
+歌词缓存只作为普通 LRC 显示来源；读取歌词时只接受 nhlrc 文档。
 ```
 
 ```text
@@ -85,7 +85,7 @@ data/cache/annotations/<sha1(version|text|stored)>.json
 
 ```text
 只缓存显示字段，不碰 nhlrc。
-V2 的 token/lid/trans 不来自这里。
+nhlrc 的 token/lid/trans 不来自这里。
 文本或 stored 改变 → 新键。
 VERSION 改变 → 全部失效。
 ```

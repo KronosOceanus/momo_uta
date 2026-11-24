@@ -78,7 +78,7 @@ HTTP 层由 http/routes.py 分发；
 ```text
 有歌词：
   {uid, idx, key, title, artist, lines, trans, version, ...}
-  v2 文档的 lines 从 rows 派生，按时间排序
+  nhlrc 文档的 lines 从 rows 派生，按时间排序
 
 pending：
   {..., pending:true, lines:[]}
@@ -206,8 +206,8 @@ uid / id
 ### 2.5 `/api/song`
 
 ```text
-v2 文档：返回 rows 派生的播放行（按时间排序）
-无 v2 尾部：走旧文档
+nhlrc 文档：返回 rows 派生的播放行（按时间排序）
+无 nhlrc 尾部：走旧文档
 ```
 
 ### 2.6 `/api/import/one`
@@ -222,7 +222,7 @@ paths
 音频 + 同名 .lrc/.nhlrc 的目录导入
 import 可带 with_lrc；缺省只收音频
 显式歌词在只导入音乐时拒绝并返回 rejected_lrc
-显式歌词在 +LRC 时写 v2
+显式歌词在 +LRC 时写 nhlrc
 返回 import_paths 结果 + lists
 ```
 
@@ -247,24 +247,24 @@ save 带 version；冲突 → 409 {ok:false, conflict:true}
 
 ```text
 load:
-  有 v2 文档：model:2 + rows
+  有 nhlrc 文档：model:2 + rows
   有 V1 文档：不支持的 nhlrc 版本
   没有 nhlrc：缓存/旧路径返回 lines
-  v2 文档的 rows 与 version 来自同一次读取
+  nhlrc 文档的 rows 与 version 来自同一次读取
   每行：id/kind/text/t/lid/tokens/trans
 
 save:
-  旧 lines 入口仍接受，内部转 v2
-  v2 编辑器使用 save_rows
+  旧 lines 入口仍接受，内部转 nhlrc
+  nhlrc 编辑器使用 save_rows
   translations 是 body-keyed 快照；{} 表示清空全部
   trans_lang 缺省时沿用旧文档
 ```
 
 ```text
-load_rows / save_rows 是 v2 单一行文档入口
+load_rows / save_rows 是 nhlrc 单一行文档入口
 edit_reading 使用 lid + tid + version，不使用 line/start
-playback 返回 v2 playable lines + body_index
-export 直接序列化 rows，返回 v2 nhlrc + 纯 lrc
+playback 返回 nhlrc playable lines + body_index
+export 直接序列化 rows，返回 nhlrc + 纯 lrc
 导出时空行、metadata 位置、译文、lid/tid 都保留
 trans_lang 原样带出
 ```

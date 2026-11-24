@@ -8,8 +8,8 @@
 
 ```text
 .nhlrc = 权威歌词正文
-        + 可选 v2 读音尾部
-        + 可选 v2 翻译尾部
+        + 可选读音尾部
+        + 可选翻译尾部
         + 可选 disabled 状态
 ```
 
@@ -64,7 +64,7 @@ uid = 音频指纹，是歌曲身份
 
 ```text
 没有 #NHLRC 标记
-  → 当成纯 LRC 正文，读取时在内存转成 v2 rows
+  → 当成纯 LRC 正文，读取时在内存转成 nhlrc rows
 
 有标记但版本不是 2
   → 拒绝（不读取 V1）
@@ -333,11 +333,11 @@ h 是变更检测，不是安全校验。
 ## 9. 读取规则
 
 ```text
-有 v2 .nhlrc
+有 .nhlrc
   → 只读 .nhlrc
   → rows
 
-有 V1 .nhlrc
+有旧版 .nhlrc
   → 不支持的 nhlrc 版本
   → 不读取
 
@@ -352,7 +352,7 @@ h 是变更检测，不是安全校验。
 ```
 
 ```text
-disabled v2 文档
+disabled nhlrc
   → 直接短路成 disabled
   → 不解析正文
 ```
@@ -365,19 +365,19 @@ disabled v2 文档
   → 首次覆盖前备份
   → 锁内读改写
   → 原子替换
-  → 写 v2
+  → 写 nhlrc
 
 删除
-  → 写 v2 disabled
+  → 写 nhlrc disabled
   → 保留旧备份
 
 恢复
-  → 只恢复 v2 备份
+  → 只恢复 nhlrc 备份
 
 导入
   → 统一校验
-  → 普通 LRC 转 v2
-  → V1 nhlrc 拒绝
+  → 普通 LRC 转 nhlrc
+  → 旧版 nhlrc 拒绝
 ```
 
 ```text
@@ -536,9 +536,9 @@ disabled .nhlrc
 
 ```text
 写入固定 v = 2
-V1 不再支持
-读取、导入、恢复都拒绝 V1
-普通 LRC 仍可导入并转成 v2
+旧版不再支持
+读取、导入、恢复都拒绝旧版
+普通 LRC 仍可导入并转成 nhlrc
 ```
 
 ```text
