@@ -529,7 +529,8 @@ async function api(path, body){
 
 function openDialog(opts){
   return new Promise(resolve => {
-    const {id, title, body, input, okText='确定', cancelText='取消', danger=false} = opts;
+    const {id, title, body, input, okText='确定', cancelText='取消', danger=false,
+           extraText='', extraValue=null} = opts;
     const back = document.createElement('div');
     back.className = 'dialog-backdrop';
     const box = document.createElement('div');
@@ -567,6 +568,12 @@ function openDialog(opts){
     ok.type = 'button'; ok.textContent = okText;
     ok.className = 'primary' + (danger ? ' danger' : '');
     row.appendChild(cancel); row.appendChild(ok);
+    let extra = null;
+    if(extraText){
+      extra = document.createElement('button');
+      extra.type = 'button'; extra.textContent = extraText;
+      row.insertBefore(extra, cancel);
+    }
     box.appendChild(row);
 
     back.appendChild(box);
@@ -599,6 +606,7 @@ function openDialog(opts){
     const dismiss = () => finish(input ? null : false);
     ok.onclick = submit;
     cancel.onclick = dismiss;
+    if(extra) extra.onclick = () => finish(extraValue);
 
     if(inp){
       const sync = () => { ok.disabled = !inp.value.trim(); };
@@ -620,6 +628,21 @@ function uiConfirm(title, body, danger){
   return openDialog({id:'uiconfirm', title, body, danger, input:false});
 }
 NH.uiConfirm = uiConfirm;
+
+function uiLrcConflict(){
+  return openDialog({
+    id:'lrcconflict',
+    title:'服务端歌词已更新',
+    body:'重新加载会放弃本地草稿；用本地覆盖会覆盖服务端最新修改。',
+    okText:'用本地覆盖',
+    cancelText:'取消',
+    extraText:'重新加载服务端',
+    extraValue:'reload',
+    danger:true,
+    input:false
+  });
+}
+NH.uiLrcConflict = uiLrcConflict;
 
 function reportClientError(kind, message, stack, extra){
   try{

@@ -675,3 +675,38 @@ test('openLrcEditor keeps draft when pre-open save fails', async () => {
   assert.equal(p.run('EROWS[0].text'), 'draft');
   assert.equal(p.run('EDIRTY'), true);
 });
+
+test('conflict keeps draft dirty and pauses automatic retry', async () => {
+  const p = player();
+  p.run("LRC_VERSION='v1'");
+  p.edit('draft');
+  const saving = p.run('saveLrc(true)');
+  p.requests[0].resolve({ok:false, conflict:true, error:'歌词已更新'});
+  assert.equal(await saving, false);
+  assert.equal(p.run('EDIRTY'), true);
+  assert.equal(p.run('LRC_CONFLICT'), true);
+});
+
+test('conflict reload discards local draft after confirmation', async () => {
+  const p = player();
+  p.run("VIEW_MODE='lrc'; EDIRTY=true; LRC_CONFLICT=true; window.NH.uiLrcConflict=async()=>'reload';");
+  assert.equal(await p.run('resolveLrcConflict(false)'), true);
+  assert.equal(p.run('EDIRTY'), false);
+  assert.equal(p.run('LRC_CONFLICT'), false);
+});
+
+test('conflict overwrite loads new version then saves local rows', async () => {
+  const p = player();
+  p.run(`VIEW_MODE='lrc'; S={idx:'0',uid:'u1',title:'X',version:'v1',lines:[]};
+         EROWS=[{t:1,text:'local',trans:''}]; EDIRTY=true; LRC_VERSION='v1';
+         LRC_CONFLICT=true; window.NH.uiLrcConflict=async()=>true;`);
+  const resolving = p.run('resolveLrcConflict(false)');
+  await nextTurn();
+  p.requests[0].resolve({ok:true, version:'v2'});
+  await nextTurn();
+  p.requests[1].resolve({ok:true, version:'v3'});
+  assert.equal(await resolving, true);
+  assert.equal(p.run('LRC_VERSION'), 'v3');
+  assert.equal(p.run('EDIRTY'), false);
+  assert.equal(p.run('EROWS[0].text'), 'local');
+});

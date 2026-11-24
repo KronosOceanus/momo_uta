@@ -9,7 +9,7 @@ NH.VIEW_MODE = 'normal';
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
 NH.TEXT_EDIT_ROW = null;
 NH.TRANS_EDIT = false;
-NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false; NH.LRC_FLUSHING = false; NH.ROWS_MODE = false;
+NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false; NH.LRC_FLUSHING = false; NH.LRC_CONFLICT = false; NH.ROWS_MODE = false;
 
 function setLrcLocked(locked){
   if(locked===NH.LRC_LOCKED) return;
@@ -36,7 +36,8 @@ function markDirty(){
   const h=document.getElementById('savehint');
   if(h){ h.textContent='未保存…'; h.className='savehint dirty'; }
   clearTimeout(NH.SAVE_T);
-  NH.SAVE_T=setTimeout(()=>saveLrc(true), NH.UI.autosave_ms||1500);   // 停止编辑后自动保存
+  if(!NH.LRC_CONFLICT)
+    NH.SAVE_T=setTimeout(()=>saveLrc(true), NH.UI.autosave_ms||1500); // 冲突时暂停自动保存
   NH.paintTicks?.();
 }
 function newLid(){
@@ -175,6 +176,7 @@ async function saveLrc(silent, force){
     await NH.SAVE_PENDING;
     if(NH.S!==song || NH.VIEW_MODE!=='lrc' || NH.LRC_REPLACING) return false;
   }
+  if(NH.LRC_CONFLICT && !force) return false;
   if(!NH.EDIRTY && !force) return true;
   clearTimeout(NH.SAVE_T);
   const revision=NH.EDIT_REVISION;
@@ -184,7 +186,13 @@ async function saveLrc(silent, force){
       const body={action:NH.ROWS_MODE?'save_rows':'save', uid:song.uid, version:NH.LRC_VERSION};
       if(NH.ROWS_MODE) body.rows=lrcPayload(); else body.lines=lrcPayload();
       const r=await NH.api('/api/lrc',body);
+      if(r && r.conflict){
+        NH.LRC_CONFLICT=true;
+        if(h){ h.textContent='服务端歌词已更新'; h.className='savehint dirty'; }
+        return false;
+      }
       if(!r.ok) throw new Error(r.error||'保存失败');
+      NH.LRC_CONFLICT=false;
       if(r.version) NH.LRC_VERSION=r.version;
       if(NH.EDIT_REVISION===revision){
         mergeSavedIds(r.ids);
@@ -205,9 +213,49 @@ async function saveLrc(silent, force){
   finally{ NH.SAVE_PENDING=null; }
 }
 
+async function reloadLrcFromServer(refresh){
+  clearTimeout(NH.SAVE_T);
+  NH.EDIRTY=false;
+  NH.LRC_CONFLICT=false;
+  if(refresh && NH.VIEW_MODE==='lrc'){
+    await openLrcEditor(true,{discardDraft:true});
+  }
+  return true;
+}
+
+async function overwriteLrc(){
+  const song=NH.S;
+  if(!song) return false;
+  const d=await NH.api('/api/lrc',{action:'load', uid:song.uid});
+  if(!d.ok){ NH.done('读取最新歌词失败：'+(d.error||'未知错误')); return false; }
+  if(NH.S!==song) return false;
+  NH.LRC_VERSION=d.version||null;
+  NH.LRC_CONFLICT=false;
+  NH.EDIRTY=true;
+  const ok=await saveLrc(true,true);
+  if(ok && !NH.EDIRTY) return true;
+  NH.done('用本地覆盖失败，草稿仍保留');
+  return false;
+}
+
+let CONFLICT_DIALOG=null;
+async function resolveLrcConflict(refresh=true){
+  if(CONFLICT_DIALOG) return await CONFLICT_DIALOG;
+  CONFLICT_DIALOG=(async()=>{
+    const action=await NH.uiLrcConflict();
+    if(action==='reload') return await reloadLrcFromServer(refresh);
+    if(action===true) return await overwriteLrc();
+    return false;
+  })();
+  try{ return await CONFLICT_DIALOG; }
+  finally{ CONFLICT_DIALOG=null; }
+}
+
 async function flushLrc(){
+  if(NH.LRC_CONFLICT) return await resolveLrcConflict(false);
   if(!NH.EDIRTY && !NH.SAVE_PENDING) return true;
   if(await saveLrc(true) && !NH.EDIRTY) return true;
+  if(NH.LRC_CONFLICT) return await resolveLrcConflict(false);
   NH.done('歌词保存失败，当前编辑已保留，请重试');
   return false;
 }
@@ -267,10 +315,10 @@ function editorRowIndex(line, rows){
   return 0;
 }
 
-async function openLrcEditor(entering=false){
+async function openLrcEditor(entering=false, opts={}){
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
   // 重新读取服务端文档前，先把当前草稿保存；失败则不能清掉 dirty。
-  if(NH.EDIRTY || NH.SAVE_PENDING){
+  if(!opts.discardDraft && (NH.EDIRTY || NH.SAVE_PENDING)){
     if(!await flushLrc()) return;
   }
   const song=NH.S, request=NH.currentToken('load'), opening=NH.track('lrcOpen');
@@ -310,7 +358,7 @@ async function openLrcEditor(entering=false){
   if(!NH.EROWS.length) NH.EROWS=[{id:newRowId(),kind:'blank',t:null,text:'',trans:''}];
   const targetLine = entering && NH.CUR >= 0 ? NH.LINES[NH.CUR] : null;
   NH.ESEL=entering ? editorRowIndex(targetLine, NH.EROWS) : 0;
-  NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
+  NH.SEL.clear(); NH.EDIRTY=false; NH.LRC_CONFLICT=false; NH.MARK=null;
   NH.TEXT_EDIT_ROW=null;
   NH.UNDO=[]; NH.REDO=[];
   document.getElementById('savehint').textContent='';
@@ -670,10 +718,11 @@ document.getElementById('lrcreset').onclick=async()=>{
       res=>`已恢复最初版本（${res.lines} 行）`);
   }catch(err){ NH.done('恢复失败：'+err.message); }
 };
-document.getElementById('lrcsave').onclick=()=>{
+document.getElementById('lrcsave').onclick=async()=>{
   if(NH.VIEW_MODE!=='lrc' || NH.LRC_LOCKED) return;
   if(!NH.EROWS.length){ NH.done('没有歌词行'); return; }
-  saveLrc(false, true);          // 主动保存：总是写一次
+  const ok=await saveLrc(false, true);   // 主动保存：总是写一次
+  if(!ok && NH.LRC_CONFLICT) await resolveLrcConflict(true);
 };
 
 function syncModes(){
@@ -862,6 +911,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {editorRowIndex, saveBeforeReplace, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+Object.assign(NH, {editorRowIndex, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();
