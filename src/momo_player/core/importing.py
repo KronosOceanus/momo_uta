@@ -71,18 +71,6 @@ def _choose(cands: list[Path]) -> tuple[Path | None, list[Path]]:
     return None, cands
 
 
-def _match_audio(audio: Path, lrcs: list[Path], used: set[Path]) -> tuple[Path | None, list[Path]]:
-    # 同目录优先，再全局；精确 stem 优先，再归一化 stem。
-    for same_dir in (True, False):
-        for keyfn in (_exact_key, _stem_key):
-            cand = [p for p in lrcs if p not in used
-                    and (not same_dir or p.parent == audio.parent)
-                    and keyfn(_lyric_base(p)) == keyfn(audio.stem)]
-            if cand:
-                return _choose(cand)
-    return None, []
-
-
 def _match_lrc(lrc: Path, audios: list[Path], used: set[Path]) -> tuple[Path | None, list[Path]]:
     for same_dir in (True, False):
         for keyfn in (_exact_key, _stem_key):
