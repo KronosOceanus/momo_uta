@@ -61,6 +61,7 @@ class TestPlaylistsApi(unittest.TestCase):
     def test_create_and_add(self):
         self.post({"action": "list_create", "name": "新歌单"})
         lid = [g for g in self.get() if g["name"] == "新歌单"][0]["id"]
+        PL.add("default", ["u0"])
         self.post({"action": "entry_move", "from": "default", "to": lid, "uid": "u0"})
         g = [x for x in self.get() if x["id"] == lid][0]
         self.assertEqual([i["uid"] for i in g["items"]], ["u0"])
@@ -295,5 +296,21 @@ class TestImportPlaylistWriteFailure(unittest.TestCase):
                     r = SVC.import_to_list({"list": "default", "paths": ["/tmp/x.mp3"]})
                 self.assertFalse(r["ok"])
                 self.assertIn("加入歌单失败", r["error"])
+            finally:
+                PL.set_file(old)
+
+
+class TestMoveSource(unittest.TestCase):
+    def test_move_missing_source_member_is_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            PL.set_file(Path(tmp) / "playlists.json")
+            try:
+                lid = PL.create("目标")
+                PL.add("default", ["u1"])
+                PL.move("default", lid, "u2")
+                d = PL.load()
+                self.assertEqual(d["members"]["default"], ["u1"])
+                self.assertEqual(d["members"][lid], [])
             finally:
                 PL.set_file(old)

@@ -251,7 +251,10 @@ def move(lid_from: str, lid_to: str, uid: str) -> None:
         d = load()
         if not any(x.get("id") == lid_to for x in d.get("lists", [])):
             return
-        d["members"][lid_from] = [u for u in d["members"].get(lid_from, []) if u != uid]
+        src = d["members"].get(lid_from, [])
+        if uid not in src:
+            return
+        d["members"][lid_from] = [u for u in src if u != uid]
         seq = d["members"].setdefault(lid_to, [])
         if uid not in seq:
             seq.append(uid)

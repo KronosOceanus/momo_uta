@@ -106,3 +106,41 @@ class TestLibrary(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestImportsData(unittest.TestCase):
+    def test_malformed_imports_are_discarded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "imports.json"
+            old = LIB.IMPORTS
+            LIB.IMPORTS = path
+            try:
+                path.write_text('{"audio": "x"}', encoding="utf-8")
+                self.assertEqual(LIB.load_imports(), [])
+                path.write_text(json.dumps([
+                    None, "x", 3,
+                    {"audio": 1}, {"audio": ""},
+                    {"audio": "/a.mp3", "title": 1, "artist": None},
+                    {"audio": "/a.mp3"},
+                    {"audio": "/b.mp3", "title": "B", "artist": "X"},
+                ]), encoding="utf-8")
+                rows = LIB.load_imports()
+                self.assertEqual(rows, [
+                    {"audio": "/a.mp3", "title": "", "artist": ""},
+                    {"audio": "/b.mp3", "title": "B", "artist": "X"},
+                ])
+            finally:
+                LIB.IMPORTS = old
+
+    def test_save_import_recovers_from_malformed_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "imports.json"
+            old = LIB.IMPORTS
+            LIB.IMPORTS = path
+            try:
+                path.write_text('{"broken": true}', encoding="utf-8")
+                LIB.save_import("/a.mp3", "A", "X")
+                self.assertEqual(LIB.load_imports(),
+                                 [{"audio": "/a.mp3", "title": "A", "artist": "X"}])
+            finally:
+                LIB.IMPORTS = old

@@ -32,10 +32,30 @@ def music_dirs() -> list[Path]:
 
 
 def load_imports() -> list[dict]:
+    """读导入历史；坏行丢弃，不因为一行坏数据丢掉全部。"""
     try:
-        return json.loads(IMPORTS.read_text(encoding="utf-8"))
+        raw = json.loads(IMPORTS.read_text(encoding="utf-8"))
     except Exception:
         return []
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    seen: set[str] = set()
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        audio = row.get("audio")
+        if not isinstance(audio, str) or not audio:
+            continue
+        if audio in seen:
+            continue
+        seen.add(audio)
+        out.append({
+            "audio": audio,
+            "title": row.get("title") if isinstance(row.get("title"), str) else "",
+            "artist": row.get("artist") if isinstance(row.get("artist"), str) else "",
+        })
+    return out
 
 
 def save_import(audio: str, title: str, artist: str) -> None:
@@ -393,8 +413,8 @@ def scan_library(folder: Path | None = None) -> list[dict]:
             add(p, root.name)
 
     for row in load_imports():                 # 导入过、但不在 music_dirs 里的歌
-        p = Path(row["audio"]).expanduser()
-        if p.exists():
+        p = Path(str(row.get("audio") or "")).expanduser()
+        if p.is_file():
             add(p, "导入")
 
     if folder is None:                         # 显式扫临时目录不裁剪全局索引
