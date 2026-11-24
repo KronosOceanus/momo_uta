@@ -130,6 +130,7 @@ function mergeRows(prev, cur){
   const offset=prevText.length;
   prev.text=prevText+curText;
   prev.kind=rowKind(prev.text);
+  if(prev.t==null && cur.t!=null) prev.t=cur.t;
   prev.lid=lid;
   prev.tokens=[...(prev.tokens||[]), ...(cur.tokens||[]).map(t=>({
     ...t, start:t.start+offset, end:t.end+offset

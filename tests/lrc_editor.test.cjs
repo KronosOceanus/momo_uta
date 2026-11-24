@@ -722,3 +722,17 @@ test('openLrcEditor keeps edits made while its request is in flight', async () =
   assert.equal(p.run('EROWS[0].text'), 'during');
   assert.equal(p.run('EDIRTY'), true);
 });
+
+test('merging into an empty row falls back to the right row time', () => {
+  const p = player();
+  const r = p.run(`(() => {
+    const cases = [
+      [{t:null,text:''},{t:2,text:'君'}],
+      [{t:1,text:'前'},{t:2,text:'君'}],
+      [{t:null,text:'前'},{t:null,text:'君'}],
+      [{t:0,text:'前'},{t:2,text:'君'}],
+    ];
+    return cases.map(([a,b])=>{ mergeRows(a,b); return a.t; });
+  })()`);
+  assert.equal(JSON.stringify(r), JSON.stringify([2, 1, null, 0]));
+});
