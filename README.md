@@ -11,7 +11,9 @@
 </p>
 
 <p align="center">
-  <img src="assets/momo-uta-screenshot.png" alt="momo uta 界面">
+  <img src="assets/momo-uta-screenshot.png" alt="momo uta 歌词与播放界面">
+  <br><br>
+  <img src="assets/momo-uta-screenshot-editor.png" alt="momo uta LRC 编辑界面">
 </p>
 
 ## 它是什么
