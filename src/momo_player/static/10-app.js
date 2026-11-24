@@ -737,6 +737,20 @@ if(themeBtn) themeBtn.onclick=()=>{
   applyTheme(cur==='light'?'dark':'light',true);
 };
 
+async function prepareShutdown(){
+  let ok=true;
+  try{
+    if(NH.VIEW_MODE==='lrc' && NH.flushLrc) ok=await NH.flushLrc();
+    if(ok && NH.EDIRTY) ok=false;
+    if(ok && NH.saveOpen) await NH.saveOpen();
+  }catch(e){ ok=false; }
+  try{
+    if(window.pywebview && window.pywebview.api && window.pywebview.api.shutdown_ready)
+      await window.pywebview.api.shutdown_ready(ok);
+  }catch(e){}
+  return ok;
+}
+NH.prepareShutdown=prepareShutdown;
 if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
 Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme});
 })();

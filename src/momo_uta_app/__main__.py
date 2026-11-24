@@ -19,6 +19,7 @@ from momo_yomi.paths import BUNDLE, bootstrap
 from momo_player.core import library as LIB
 from momo_player.core import vocals as VOC
 from momo_player.http.server import make_server
+from momo_player.core import jobs as JOBS
 
 from momo_uta_app import logsetup
 
@@ -54,8 +55,17 @@ def main(demo: bool = False, demo_auto: bool = False) -> None:
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
 
+    shutdown_done = threading.Event()
+    shutdown_ok = {"value": False}
+
     class Api:
         """前端只调 pick_any()：一个对话框里文件、文件夹都能选，程序自己判断。"""
+
+        def shutdown_ready(self, ok=True):
+            shutdown_ok["value"] = bool(ok)
+            shutdown_done.set()
+            return {"ok": True}
+
 
         def open_data_dir(self):
             """用 Finder 打开当前用户数据目录；路径由后端决定，前端不硬编码。"""
@@ -194,7 +204,66 @@ def main(demo: bool = False, demo_auto: bool = False) -> None:
     except Exception:
         pass
 
-    webview.start(menu=[Menu("窗口", [MenuAction("显示窗口", show_window)])])
+    allow_quit = {"value": False}
+    quitting = {"value": False}
+
+    def on_closing():
+        """Cmd+Q 时先让前端保存；窗口关闭按钮已经在 Cocoa 层改为隐藏。"""
+        if allow_quit["value"]:
+            return True
+        if quitting["value"]:
+            return False
+        quitting["value"] = True
+        shutdown_done.clear()
+        shutdown_ok["value"] = False
+
+        def run():
+            try:
+                window.evaluate_js("NH.prepareShutdown && NH.prepareShutdown()")
+            except Exception:
+                pass
+            if not shutdown_done.wait(5):
+                quitting["value"] = False
+                try:
+                    window.evaluate_js("NH.done && NH.done('保存超时，已取消退出')")
+                except Exception:
+                    pass
+                return
+            if not shutdown_ok["value"]:
+                quitting["value"] = False
+                return
+            allow_quit["value"] = True
+            try:
+                from AppKit import NSApplication
+                from PyObjCTools import AppHelper
+                AppHelper.callAfter(lambda: NSApplication.sharedApplication().terminate_(None))
+            except Exception:
+                try:
+                    window.destroy()
+                except Exception:
+                    pass
+
+        threading.Thread(target=run, daemon=True, name="quit-save").start()
+        return False
+
+    window.events.closing += on_closing
+
+    try:
+        webview.start(menu=[Menu("窗口", [MenuAction("显示窗口", show_window)])])
+    finally:
+        try:
+            JOBS.cancel_all()
+        except Exception:
+            pass
+        try:
+            VOC.cancel_all()
+        except Exception:
+            pass
+        try:
+            srv.shutdown()
+            srv.server_close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
