@@ -595,3 +595,22 @@ test('second-row target changes audio without changing viewed song', () => {
   assert.match(p.document.getElementById('ttl').textContent, /A song/);
   assert.equal(p.document.getElementById('backplaying').hidden, false);
 });
+
+test('second-row follows view only when viewing the playing song', () => {
+  const p = player();
+  p.run(`window.NH.PLS=[{id:'x',items:[
+    {uid:'a',title:'A',artist:'x'},
+    {uid:'b',title:'B',artist:'x'},
+    {uid:'c',title:'C',artist:'x'}]}]; SEL_LIST='x';`);
+  // 查看 B，播放 A：只切音频，不改查看
+  p.run(`S={idx:'1',uid:'b',title:'B',artist:'x',lines:[]}; PLAYING_UID='a';
+         window.NH.load=()=>{ window.NH._loaded=true; return Promise.resolve(true); };
+         window.NH._loaded=false; stepSong(1);`);
+  assert.equal(p.run('S.uid'), 'b');
+  assert.equal(p.run('PLAYING_UID'), 'b');
+  assert.equal(p.run('window.NH._loaded'), false);
+  // 查看 A，播放 A：跟随切歌
+  p.run(`S={idx:'0',uid:'a',title:'A',artist:'x',lines:[]}; PLAYING_UID='a';
+         window.NH._loaded=false; stepSong(1);`);
+  assert.equal(p.run('window.NH._loaded'), true);
+});

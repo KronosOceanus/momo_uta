@@ -367,7 +367,10 @@ function stepSong(dir){
   if(!uids.length) return;
   if(NH.playMode === 'shuffle'){
     const target = takeShuffleUid(uids, currentPlayUid());
-    if(target) playTarget(target);
+    if(!target) return;
+    const follow = NH.S && String(NH.S.uid) === String(NH.PLAYING_UID);
+    if(follow) NH.load(target, true);
+    else playTarget(target);
     return;
   }
   const cur=NH.PLAYING_UID!==null && NH.PLAYING_UID!==undefined
@@ -375,7 +378,10 @@ function stepSong(dir){
   let at=uids.indexOf(cur);
   if(at<0) at=dir>0?-1:0;
   const target=uids[(at+dir+uids.length)%uids.length];
-  if(target) playTarget(target);
+  if(!target) return;
+  const follow = NH.S && String(NH.S.uid) === String(NH.PLAYING_UID);
+  if(follow) NH.load(target, true);
+  else playTarget(target);
 }
 document.getElementById('prevSong').onclick=()=>stepSong(-1);
 document.getElementById('nextSong').onclick=()=>stepSong(1);
