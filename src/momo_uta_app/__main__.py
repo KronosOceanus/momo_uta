@@ -58,6 +58,37 @@ def _show_startup_error(exc: Exception) -> None:
         pass
 
 
+def _acquire_instance_lock(path: str | Path | None = None):
+    """拿 data/app.lock 的非阻塞排他锁；失败说明已有实例。"""
+    try:
+        import fcntl
+    except ImportError:                       # pragma: no cover - macOS target
+        return None
+    from momo_yomi.paths import ROOT
+    p = Path(path) if path is not None else ROOT / "data" / "app.lock"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    fh = open(p, "a+", encoding="utf-8")
+    try:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        fh.close()
+        return None
+    return fh
+
+
+def _already_running() -> None:
+    try:
+        from AppKit import NSAlert, NSApplication
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_("桃歌已经在运行")
+        alert.setInformativeText_("请切换到已打开的窗口。")
+        alert.addButtonWithTitle_("好")
+        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        alert.runModal()
+    except Exception:
+        print("桃歌已经在运行", file=sys.stderr)
+
+
 def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     from momo_player.core import diag
     try:
@@ -69,6 +100,10 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     if log_path:
         print(f"日志：{log_path}")
     diag.log("app", f"frozen={getattr(sys, 'frozen', False)} exe={sys.executable} bundle={BUNDLE}")
+    instance_lock = _acquire_instance_lock()
+    if instance_lock is None:
+        _already_running()
+        return
     _bundle_path()
     bootstrap()
     LIB.load_cache_for_playlists()
@@ -285,6 +320,10 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
         try:
             srv.shutdown()
             srv.server_close()
+        except Exception:
+            pass
+        try:
+            instance_lock.close()
         except Exception:
             pass
 
