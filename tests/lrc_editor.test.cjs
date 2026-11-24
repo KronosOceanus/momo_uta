@@ -794,3 +794,16 @@ test('rendering the table clears the text edit cursor', () => {
 test('wave draw throttle constant is defined', () => {
   assert.match(scripts[2], /const WAVE_DRAW_MS\s*=\s*32\b/);
 });
+
+test('B returns to the playing song only when the back button is visible', () => {
+  const p = player();
+  const back = p.document.getElementById('backplaying');
+  let clicked = 0;
+  back.click = () => { clicked++; };
+  back.hidden = false;
+  p.dispatch('keydown', {target: {tagName: 'BODY'}, key: 'b', preventDefault() {}});
+  assert.equal(clicked, 1);
+  back.hidden = true;
+  p.dispatch('keydown', {target: {tagName: 'BODY'}, key: 'B', preventDefault() {}});
+  assert.equal(clicked, 1);
+});

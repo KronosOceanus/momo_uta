@@ -5,7 +5,7 @@
 <h1 align="center">桃歌 · momo uta</h1>
 
 <p align="center">
-  <strong>v1.0.0</strong>
+  <strong>v1.0.1</strong>
   <br>
 
   本地日语歌曲播放器
@@ -207,6 +207,7 @@ config.json 本机配置
 |---|---|
 | `Space` | 播放 / 暂停 |
 | `←` / `→` | 上一句 / 下一句 |
+| `B` | 回到正在播放歌曲 |
 | `⌃⌥←` / `⌃⌥→` | 上一首 / 下一首（全局） |
 | `⌃⌥P` | 播放 / 暂停（全局） |
 | `L` | LRC 编辑模式 |

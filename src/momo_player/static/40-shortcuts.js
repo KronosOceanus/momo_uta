@@ -17,6 +17,7 @@ function helpEl(){
       [combo('←') + sep + combo('→'), '上一句 / 下一句'],
       [combo('Alt','←') + sep + combo('Alt','→'), '上一首 / 下一首'],
       [combo('Shift','←') + sep + combo('Shift','→'), '后退 / 前进 10 秒'],
+      [k('B'), '回到正在播放歌曲'],
       [k('M'), '静音'],
       [combo('[') + sep + combo(']'), '速度 − / +'],
       [k('L'), '单句循环'],
@@ -88,6 +89,11 @@ document.addEventListener('keydown', e=>{
     e.preventDefault(); toggleHelp(); return;
   }
   if(isButton(t)) return;
+  if(e.key==='b' || e.key==='B'){
+    const back=document.getElementById('backplaying');
+    if(back && !back.hidden){ e.preventDefault(); back.click(); }
+    return;
+  }
   if(e.metaKey || e.ctrlKey){
     const k=(e.key||'').toLowerCase();
     if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED){
