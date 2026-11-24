@@ -685,6 +685,7 @@ window.addEventListener('unhandledrejection', e=>{
 
 document.getElementById('resetall').onclick=async()=>{
   if(!NH.S) return;
+  if(!await NH.uiConfirm('恢复默认标注？', '当前读音和标注会丢失，且无法撤销。', true)) return;
   const song=NH.S, version=NH.LRC_VERSION, request=NH.currentToken('load');
   const r=await api('/api/pl',{action:'edit_clear', uid:song.uid, version});
   // 响应回来前已经发起了别的 load（即使还没完成）→ 让那次切歌继续。

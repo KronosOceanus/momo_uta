@@ -163,8 +163,10 @@ function openSongMenu(x, y, lid, uids){
   b.style.color='var(--danger)';
   b.onclick=async ev=>{
     ev.stopPropagation(); closeCtx();
-    const ok=await NH.uiConfirm(n===1?'从歌单移除？':`移除选中的 ${n} 首？`, '歌本身不会丢', true);
-    if(!ok) return;
+    if(n>1){
+      const ok=await NH.uiConfirm(`移除选中的 ${n} 首？`, '歌本身不会丢', true);
+      if(!ok) return;
+    }
     const r=await NH.api('/api/pl',{action:'entries_remove',list:lid,uids});
     NH.SELU.clear(); NH.SEL_LIST=null; NH.SEL_ANCHOR=null;
     NH.applyLists(r);

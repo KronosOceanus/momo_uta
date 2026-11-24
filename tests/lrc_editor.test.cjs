@@ -317,7 +317,7 @@ test('delete locks song switching until the response', async () => {
 
 test('reset response does not cancel a switch already in flight', async () => {
   const p = player();
-  p.run("LRC_VERSION='v0'");
+  p.run("LRC_VERSION='v0'; window.NH.uiConfirm=async()=>true;");
   const resetting = p.run("document.getElementById('resetall').onclick()");
   await nextTurn();
   const loading = p.run("load('u1')");
