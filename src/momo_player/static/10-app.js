@@ -400,7 +400,7 @@ async function load(ref, autoplay, nextMode){
       if(st.state==='failed') throw new Error(st.error || '匹配失败');
       d2=await api('/api/song/'+encodeURIComponent(d.uid));
       if(!NH.isCurrent('load',request)) return false;
-      if(!d2.pending) return load(d.uid, autoplay, nextMode);
+      if(!d2.pending) return load(d.uid, false, nextMode);   // 只刷新歌词，不重绑/重置音频
     }catch(e){
       if(!NH.isCurrent('load',request)) return false;
     }
