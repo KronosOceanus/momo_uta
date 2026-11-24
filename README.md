@@ -247,6 +247,13 @@ data/corpus/ndl_reading_stats.json
 
 thin 需要系统安装 `demucs` 和 `ffmpeg`；full 已内置。
 
+演示：
+
+```bash
+.venv/bin/python -m momo_uta_app --demo
+.venv/bin/python -m momo_uta_app --demo2
+```
+
 ## 构建
 
 ```bash

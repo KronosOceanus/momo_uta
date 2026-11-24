@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "src" / "momo_player" / "static"
+DEMO = ROOT / "src" / "momo_uta_app"
 ORDER = ["05-audio.js", "06-state.js", "10-app.js", "11-vocals.js", "12-library.js", "20-editor.js", "30-playback.js", "40-shortcuts.js"]
 
 
@@ -55,6 +56,13 @@ def main() -> int:
     joined = "\n".join((STATIC / n).read_text(encoding="utf-8") for n in ORDER
                        if (STATIC / n).is_file())
     ok &= node_check(joined, "三个文件合并后（检查跨文件重复定义）")
+    for name in ("demo_driver.js", "demo2_driver.js"):
+        p = DEMO / name
+        if not p.is_file():
+            print(f"✗ 缺少 {name}")
+            ok = False
+        else:
+            ok &= node_check(p.read_text(encoding="utf-8"), name)
     if ok:
         print("前端检查通过")
     return 0 if ok else 1
