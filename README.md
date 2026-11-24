@@ -271,6 +271,18 @@ make arch
 make test-python
 ```
 
+已在干净下载目录验证：
+
+```text
+pip install -e .
+make test
+  → 384 Python（UI smoke 1 skipped）
+  → 68 前端
+
+./packaging/build.sh thin
+  → dist/thin/momo-uta-thin.app
+```
+
 ## 已知限制
 
 ```text
