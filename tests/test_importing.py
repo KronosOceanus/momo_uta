@@ -307,3 +307,15 @@ class TestScanCap(unittest.TestCase):
                 res = importing.import_paths([str(root)])
             self.assertFalse(res.get("ok", True))
             self.assertIn("扫描文件超过", res["error"])
+
+class TestSiblingScanCap(unittest.TestCase):
+    def test_sibling_scan_counts_non_lyrics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "a.mp3"; audio.write_bytes(b"audio")
+            (root / "x.txt").write_text("x", encoding="utf-8")
+            (root / "y.txt").write_text("y", encoding="utf-8")
+            with patch.object(importing, "MAX_SCAN_FILES", 1):
+                res = importing.import_paths([str(audio)], with_lrc=True)
+            self.assertFalse(res.get("ok", True))
+            self.assertIn("扫描文件超过", res["error"])

@@ -87,3 +87,23 @@ class TestVocalsBusy(unittest.TestCase):
         finally:
             J._jobs.clear(); J._jobs.update(old)
             CACHE.clear(); CACHE.update(old_cache)
+
+class TestMatchBusy(unittest.TestCase):
+    def test_match_over_limit_is_busy(self):
+        from momo_player.core import jobs as J
+        old = J._jobs.copy()
+        old_cache = dict(CACHE)
+        try:
+            CACHE.clear()
+            CACHE["0"] = {"uid": "u-test", "file": "/tmp/x.mp3", "title": "x",
+                          "artist": "a", "key": "k", "has_lyric": False}
+            LIB.BY_UID["u-test"] = CACHE["0"]
+            for i in range(4):
+                J._jobs[f"m{i}"] = {"id": f"m{i}", "kind": "match",
+                                    "key": f"k{i}", "state": "running"}
+            with patch.object(SJ, "MAX_ACTIVE_MATCH", 4):
+                with self.assertRaises(SJ.JobBusy):
+                    SJ.start("match", "u-test")
+        finally:
+            J._jobs.clear(); J._jobs.update(old)
+            CACHE.clear(); CACHE.update(old_cache)

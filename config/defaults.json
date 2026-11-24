@@ -53,7 +53,8 @@
     "_note": "波形峰值生成。rate/step 会进入缓存键，改了旧缓存自动失效重建。",
     "rate": 8000,
     "step": 0.02,
-    "timeout_s": 60
+    "timeout_s": 60,
+    "concurrent": 2
   },
   "vocals": {
     "_note": "人声分离（demucs）。auto_start=点歌就分离；ratio_min 等是判定有没有人声的阈值。",
@@ -85,6 +86,7 @@
     "poll_ms": 1000,
     "vocals_poll_ms": 1500,
     "keep_done": 200,
-    "max_active": 2
+    "max_active": 2,
+    "max_active_match": 4
   }
 }

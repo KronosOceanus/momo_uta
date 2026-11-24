@@ -338,7 +338,53 @@ Content-Length 合法
 ### 当前测试
 
 ```text
-362 Python
+369 Python
+46 前端
+UI 冒烟通过
+```
+
+## 14. 高成本复核
+
+### P2：wave 跨 key 并发无上限 — 已修复
+
+single-flight 只解决同一 cache key 重复。
+
+现在增加全局波形信号量：
+
+```json
+"waveform": {
+  "concurrent": 2
+}
+```
+
+最多 2 个 ffmpeg 同时运行。
+
+### P3：同目录 LRC 扫描未计入总上限 — 已修复
+
+同目录扫描现在：
+
+```text
+按目录去重
+每个条目计入 scanned
+超过 MAX_SCAN_FILES 停止
+```
+
+### P3：match jobs 没有并发上限 — 已修复
+
+新增：
+
+```json
+"jobs": {
+  "max_active_match": 4
+}
+```
+
+match 任务最多 4 个活动任务。
+
+### 当前测试
+
+```text
+369 Python
 46 前端
 UI 冒烟通过
 ```

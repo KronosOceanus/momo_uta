@@ -104,3 +104,42 @@ class TestWaveformTimeout(unittest.TestCase):
                 out = waveform.peaks(str(audio), "mix")
             self.assertEqual(out["error"], "波形生成超时")
             self.assertTrue(state["kill"])
+
+
+class TestWaveformGlobalLimit(unittest.TestCase):
+    def test_different_keys_share_global_limit(self):
+        import io
+        import threading
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            a = root / "a.wav"; a.write_bytes(b"a")
+            b = root / "b.wav"; b.write_bytes(b"b")
+            wave_dir = root / "wave"; wave_dir.mkdir()
+            active = 0
+            peak = 0
+            guard = threading.Lock()
+
+            class Proc:
+                stdout = io.BytesIO(b"")
+                def wait(self, timeout=None):
+                    return 0
+
+            def popen(*args, **kwargs):
+                nonlocal active, peak
+                with guard:
+                    active += 1
+                    peak = max(peak, active)
+                time.sleep(0.05)
+                with guard:
+                    active -= 1
+                return Proc()
+
+            with patch.object(waveform, "WAVE_DIR", wave_dir), \
+                 patch.object(waveform, "_SEM", threading.BoundedSemaphore(1)), \
+                 patch.object(waveform.subprocess, "Popen", side_effect=popen):
+                with ThreadPoolExecutor(max_workers=2) as ex:
+                    list(ex.map(lambda p: waveform.peaks(str(p), "mix"), (a, b)))
+            self.assertEqual(peak, 1)

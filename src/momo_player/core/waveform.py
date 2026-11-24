@@ -22,6 +22,7 @@ WAVE_DIR = CACHE / "wave"
 STEP = WV["step"]    # 峰值步长（秒）
 RATE = WV["rate"]    # 解码采样率
 TIMEOUT = float(WV.get("timeout_s", 60) or 60)
+_SEM = threading.BoundedSemaphore(max(1, int(WV.get("concurrent", 2) or 2)))
 _locks: dict[str, threading.Lock] = {}
 _locks_guard = threading.Lock()
 
@@ -113,4 +114,5 @@ def peaks(audio: str, source: str = "mix", force: bool = False) -> dict:
                     return cached
             except Exception:
                 pass
-        return _build(wav, st, p, source)
+        with _SEM:
+            return _build(wav, st, p, source)

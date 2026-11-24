@@ -12,6 +12,7 @@ from . import song as SONGS
 
 KINDS = {"vocals", "match", "rebuild"}
 MAX_ACTIVE_VOCALS = int(JOB.get("max_active", 2))
+MAX_ACTIVE_MATCH = int(JOB.get("max_active_match", 4))
 
 
 JobBusy = JOBS.Busy
@@ -64,7 +65,7 @@ def start(kind: str, uid=None) -> dict:
         SONGS.lazy_match(item)
         return {"uid": str(uid)}
 
-    return JOBS.start(kind, str(uid), run_match)
+    return JOBS.start(kind, str(uid), run_match, max_active=MAX_ACTIVE_MATCH)
 
 
 def active_vocals() -> list[dict]:

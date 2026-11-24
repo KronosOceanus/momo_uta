@@ -155,8 +155,21 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
 
     audios = _unique_paths(audios)
     if with_lrc:
+        seen_dirs = set()
         for a in audios:                         # 只选音频时也找同目录歌词
-            for p in a.parent.glob("*"):
+            d = a.parent
+            try:
+                dkey = str(d.resolve())
+            except OSError:
+                dkey = str(d)
+            if dkey in seen_dirs:
+                continue
+            seen_dirs.add(dkey)
+            for p in d.glob("*"):
+                scanned += 1
+                if scanned > MAX_SCAN_FILES:
+                    return _too_many(audios, lrcs,
+                                     f"扫描文件超过 {MAX_SCAN_FILES} 个")
                 if p.suffix.lower() in LYRIC_EXT:
                     lrcs.append(p)
     lrcs = _unique_paths(lrcs)
