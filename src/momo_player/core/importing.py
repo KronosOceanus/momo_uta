@@ -19,12 +19,29 @@ AUDIO_EXT = set(LB["extensions"])
 LYRIC_EXT = {".lrc", ".nhlrc"}
 
 
-def _pick(cands: list[Path]) -> Path | None:
-    """同一首歌有多个歌词文件时：nhlrc 优先，其次较新的。"""
+def _pick(cands: list[Path], rank=None) -> Path | None:
+    """按来源层级、nhlrc、mtime 排序；跳过自动发现里的空/坏歌词。"""
     if not cands:
         return None
-    return sorted(cands, key=lambda p: (p.suffix.lower() == ".nhlrc",
-                                        p.stat().st_mtime))[-1]
+    if rank is not None:
+        ordered = sorted(cands, key=lambda p: (rank(p),
+                                               p.suffix.lower() != ".nhlrc",
+                                               -p.stat().st_mtime), reverse=False)
+        top_rank = rank(ordered[0])
+    else:
+        ordered = sorted(cands, key=lambda p: (p.suffix.lower() == ".nhlrc",
+                                               p.stat().st_mtime), reverse=True)
+        top_rank = 0
+    for p in ordered:
+        if rank is not None and top_rank <= 1 and rank(p) > top_rank:
+            break                          # 显式候选无效时不回退自动候选
+        try:
+            ok, _ = LRC.valid_import(p.read_text(encoding="utf-8", errors="ignore"))
+        except Exception:
+            ok = False
+        if ok:
+            return p
+    return ordered[0]
 
 
 JUNK = re.compile(r"[\s._\-]*[\(（\[【]\s*(?:\d+|mqms\d*|tv\s*size|short\s*ver\.?|"
@@ -61,14 +78,18 @@ def _exact_key(s: str) -> str:
     return unicodedata.normalize("NFKC", str(s)).strip().casefold()
 
 
-def _choose(cands: list[Path]) -> tuple[Path | None, list[Path]]:
+def _choose(cands: list[Path], rank=None) -> tuple[Path | None, list[Path]]:
     """同一 base 的 .lrc/.nhlrc 可以共存；不同 base 才是歧义。"""
     if not cands:
         return None, []
-    bases = {_exact_key(_lyric_base(p)) for p in cands}
+    top = cands
+    if rank is not None:
+        best = min(rank(p) for p in cands)
+        top = [p for p in cands if rank(p) == best]
+    bases = {_exact_key(_lyric_base(p)) for p in top}
     if len(bases) == 1:
-        return _pick(cands), []
-    return None, cands
+        return _pick(cands, rank), []
+    return None, top
 
 
 def _match_lrc(lrc: Path, audios: list[Path], used: set[Path]) -> tuple[Path | None, list[Path]]:
@@ -120,6 +141,15 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                     lrcs.append(p)
     lrcs = _unique_paths(lrcs)
     rejected = _unique_paths(rejected)
+    explicit_nhlrc = {p for p in files if p.suffix.lower() == ".nhlrc"}
+    explicit_lrc = {p for p in files if p.suffix.lower() == ".lrc"}
+
+    def rank(p: Path) -> int:
+        if p in explicit_nhlrc:
+            return 0
+        if p in explicit_lrc:
+            return 1
+        return 2 if p.suffix.lower() == ".nhlrc" else 3
 
     added, pending, overwritten, unpaired = [], [], 0, 0
     ambiguous = 0
@@ -137,7 +167,7 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                 cand = [p for p in lrcs if p not in used_lrc
                         and (not same_dir or p.parent == a.parent)
                         and keyfn(_lyric_base(p)) == keyfn(a.stem)]
-                lrc, bad = _choose(cand)
+                lrc, bad = _choose(cand, rank)
                 if lrc:
                     used_lrc.add(lrc)
                     assigned[a] = lrc
@@ -166,6 +196,9 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
         if not ok:
             pending.append(str(a))
             added.append(str(a))
+            if lrc in explicit_lrc or lrc in explicit_nhlrc:
+                failed.append({"audio": str(a), "lrc": str(lrc),
+                               "error": "显式选择的歌词无效"})
             continue
         had = LRC.exists(str(a))
         try:

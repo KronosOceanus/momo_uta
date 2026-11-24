@@ -163,8 +163,13 @@ def store_index(uids=None) -> dict[str, bool]:
         for u in wanted:
             for p in LYRICS.glob(f"*.{u}.nhlrc"):
                 try:
-                    body, _ = _split_nhlrc(p.read_text(encoding="utf-8", errors="ignore"))
-                    out[u] = any((r.get("text") or "").strip() for r in parse(body))
+                    full = p.read_text(encoding="utf-8", errors="ignore")
+                    body, tail = _split_nhlrc(full)
+                    if tail and tail.get("disabled"):
+                        out[u] = False
+                    elif any((r.get("text") or "").strip() for r in parse(body)):
+                        out[u] = True
+                    # 空/无正文 nhlrc 不写 false，让缓存继续可用。
                 except Exception:
                     out[u] = False
                 if out.get(u):
@@ -173,9 +178,13 @@ def store_index(uids=None) -> dict[str, bool]:
     for p in LYRICS.glob("*.nhlrc"):
         u = p.name.rsplit(".", 2)[-2]
         try:
-            body, _ = _split_nhlrc(p.read_text(encoding="utf-8", errors="ignore"))
-            out[u] = out.get(u, False) or any(
-                (r.get("text") or "").strip() for r in parse(body))
+            full = p.read_text(encoding="utf-8", errors="ignore")
+            body, tail = _split_nhlrc(full)
+            if tail and tail.get("disabled"):
+                out[u] = False
+            elif any((r.get("text") or "").strip() for r in parse(body)):
+                out[u] = True
+            # 空/无正文 nhlrc 不写 false，让缓存继续可用。
         except Exception:
             out.setdefault(u, False)
     return out
@@ -245,17 +254,22 @@ def load(audio: str | Path, uid: str | None = None,
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     from_cache = False
+    full = ""
     tail = None
     disabled = False
     version = VERSION_NONE
 
     if sp.is_file():
         full = sp.read_text(encoding="utf-8", errors="ignore")
-        body, tail = _split_nhlrc(full)
-        disabled = bool(tail and tail.get("disabled"))
-        version = _version(full)
-        path, kind, source = sp, "nhlrc", "nhlrc"
-    else:
+        if full.strip():
+            body, tail = _split_nhlrc(full)
+            disabled = bool(tail and tail.get("disabled"))
+            version = _version(full)
+            path, kind, source = sp, "nhlrc", "nhlrc"
+        else:
+            # 空 nhlrc 不是权威歌词，回退到缓存。
+            full = ""
+    if not full.strip():
         artist, title = LY.split_name(audio.stem)
         hit = LY.get_lrc(title, artist, network=network) or {}
         full = hit.get("lrc") or ""
@@ -380,6 +394,8 @@ def load_rows(audio: str | Path, uid: str | None = None,
     if not sp.is_file():
         return {"ok": True, "rows": [], "version": VERSION_NONE, "exists": False}
     full = sp.read_text(encoding="utf-8", errors="ignore")
+    if not full.strip():
+        return {"ok": True, "rows": [], "version": VERSION_NONE, "exists": False}
     _body, tail = _split_v2_tail(full)
     if tail and tail.get("disabled"):
         return {"ok": True, "rows": [], "version": _version(full),

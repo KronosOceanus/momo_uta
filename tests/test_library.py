@@ -144,3 +144,28 @@ class TestImportsData(unittest.TestCase):
                                  [{"audio": "/a.mp3", "title": "A", "artist": "X"}])
             finally:
                 LIB.IMPORTS = old
+
+
+class TestEmptyNhlrcFallback(unittest.TestCase):
+    def test_empty_nhlrc_does_not_block_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"; audio.write_bytes(b"audio")
+            cache = root / "cache"; cache.mkdir(); LIB.LY.set_cache_dir(cache)
+            old_lyrics = LRF.LYRICS
+            LRF.LYRICS = root / "lyrics"
+            try:
+                title, artist = "曲", "歌手"
+                p = LIB.LY.cache_path(title, artist)
+                p.write_text(json.dumps({"lrc": "[00:01.00]缓存歌词\n[00:02.00]第二句\n[00:03.00]第三句",
+                                         "name": title, "artist": artist}), encoding="utf-8")
+                uid = LIB.FP.fingerprint(audio)
+                sp = LRF.store_path(audio, uid, title, artist)
+                sp.parent.mkdir(parents=True, exist_ok=True)
+                sp.write_text("", encoding="utf-8")
+                doc = LRF.load(audio, uid, title, artist)
+                self.assertEqual(doc["kind"], "cache")
+                self.assertTrue(doc["lines"])
+            finally:
+                LRF.LYRICS = old_lyrics
+                LIB.LY.set_cache_dir(Path.home() / "Documents" / "momo_uta" / "data" / "cache" / "lyrics")

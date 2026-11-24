@@ -211,3 +211,54 @@ class TestReversePairingAmbiguity(unittest.TestCase):
             self.assertEqual(res["unpaired"], 1)
             self.assertFalse(LRF.store_path(a).is_file())
             self.assertFalse(LRF.store_path(b).is_file())
+
+
+class TestExplicitPriority(unittest.TestCase):
+    def test_explicit_lrc_beats_auto_nhlrc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"; audio.write_bytes(b"audio")
+            lrc = root / "歌手 - 曲.lrc"; lrc.write_text(
+                "[00:05.00]显式LRC\n[00:10.00]第二句\n[00:15.00]第三句\n",
+                encoding="utf-8")
+            rows = [{"kind": "lyric", "text": "自动NHLRC", "t": 5.0,
+                     "lid": "l_a", "tokens": []},
+                    {"kind": "lyric", "text": "第二句", "t": 10.0,
+                     "lid": "l_b", "tokens": []},
+                    {"kind": "lyric", "text": "第三句", "t": 15.0,
+                     "lid": "l_c", "tokens": []}]
+            (root / "歌手 - 曲.nhlrc").write_text(R.render_rows(rows), encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(audio), str(lrc)], with_lrc=True)
+                doc = LRF.load(audio)
+            self.assertTrue(res["added"])
+            self.assertEqual(doc["lines"][0]["text"], "显式LRC")
+
+    def test_auto_empty_nhlrc_falls_back_to_lrc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"; audio.write_bytes(b"audio")
+            (root / "歌手 - 曲.lrc").write_text(
+                "[00:05.00]自动LRC\n[00:10.00]第二句\n[00:15.00]第三句\n",
+                encoding="utf-8")
+            (root / "歌手 - 曲.nhlrc").write_text("", encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(audio)], with_lrc=True)
+                doc = LRF.load(audio)
+            self.assertTrue(res["added"])
+            self.assertEqual(doc["lines"][0]["text"], "自动LRC")
+
+    def test_explicit_invalid_lrc_does_not_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"; audio.write_bytes(b"audio")
+            lrc = root / "歌手 - 曲.lrc"; lrc.write_text("", encoding="utf-8")
+            rows = [{"kind": "lyric", "text": "自动NHLRC", "t": 5.0,
+                     "lid": "l_a", "tokens": []}]
+            (root / "歌手 - 曲.nhlrc").write_text(R.render_rows(rows), encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(audio), str(lrc)], with_lrc=True)
+                exists = LRF.store_path(audio).exists()
+            self.assertIn(str(audio), res["pending"])
+            self.assertEqual(res["failed_count"], 1)
+            self.assertFalse(exists)
