@@ -470,6 +470,7 @@ function renderLrcTable(){
   });
   box.querySelectorAll('input.ts').forEach(el=>{
     el.onclick=e=>e.stopPropagation();
+    el.onfocus=()=>{ NH.ESEL=+el.dataset.i; paintSelection(); };
     el.onchange=()=>{
       if(NH.LRC_LOCKED) return;
       const i=+el.dataset.i, v=el.value.trim();
