@@ -19,3 +19,19 @@ def set_theme(theme: str) -> str:
         ui["theme"] = theme
         FS.atomic_write_json(FILE, d, indent=1)
     return theme
+
+
+PLAY_MODES = ("list", "one", "shuffle")
+
+
+def set_play_mode(mode: str) -> str:
+    mode = str(mode)
+    if mode not in PLAY_MODES:
+        raise ValueError("未知播放模式")
+    with FS.locked(LOCK):
+        d = FS.read_json(FILE, {}) or {}
+        player = d.setdefault("player", {})
+        ui = player.setdefault("ui", {})
+        ui["play_mode"] = mode
+        FS.atomic_write_json(FILE, d, indent=1)
+    return mode

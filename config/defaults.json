@@ -45,7 +45,8 @@
       "toggle_debounce_ms": 320,
       "canplay_wait_ms": 900,
       "timeupdate_ms": 50,
-      "theme": "light"
+      "theme": "light",
+      "play_mode": "list"
     },
     "speed_step": 0.05
   },

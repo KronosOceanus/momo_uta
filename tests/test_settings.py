@@ -29,3 +29,21 @@ class TestThemeSetting(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPlayModeSetting(unittest.TestCase):
+    def test_set_play_mode_persists_and_updates_memory(self):
+        old_file, old_lock, old_mode = UC.FILE, UC.LOCK, PUI.get("play_mode")
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            UC.FILE, UC.LOCK = p, p.with_suffix(".lock")
+            try:
+                r = settings.set_play_mode({"mode": "shuffle"})
+                self.assertTrue(r["ok"])
+                self.assertEqual(PUI["play_mode"], "shuffle")
+                self.assertEqual(json.loads(p.read_text(encoding="utf-8")),
+                                 {"player": {"ui": {"play_mode": "shuffle"}}})
+                self.assertFalse(settings.set_play_mode({"mode": "nope"})["ok"])
+            finally:
+                UC.FILE, UC.LOCK = old_file, old_lock
+                PUI["play_mode"] = old_mode

@@ -20,7 +20,7 @@ function helpEl(){
       [k('M'), '静音'],
       [combo('[') + sep + combo(']'), '速度 − / +'],
       [k('L'), '单句循环'],
-      [combo('Shift','L'), '单曲循环'],
+      [combo('Shift','L'), '播放模式'],
     ]],
     ['LRC 编辑', [
       [combo('Cmd','S'), '保存'],

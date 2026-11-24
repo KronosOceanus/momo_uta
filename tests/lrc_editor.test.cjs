@@ -537,3 +537,14 @@ test('applyEdit updates the version used by the next line edit', () => {
   p.run(`applyEdit({line:0,lid:'l_a',version:'v2',ruby:'<span></span>',rm:'',ky:''})`);
   assert.equal(p.run('S.version'), 'v2');
 });
+
+test('play mode cycles list -> one -> shuffle -> list', () => {
+  const p = player();
+  assert.equal(p.run('playMode'), 'list');
+  p.run('cyclePlayMode()');
+  assert.equal(p.run('playMode'), 'one');
+  p.run('cyclePlayMode()');
+  assert.equal(p.run('playMode'), 'shuffle');
+  p.run('cyclePlayMode()');
+  assert.equal(p.run('playMode'), 'list');
+});

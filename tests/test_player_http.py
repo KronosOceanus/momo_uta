@@ -290,6 +290,21 @@ class TestPlayerHttp(unittest.TestCase):
                 UC.FILE, UC.LOCK = old[0], old[1]
                 PUI["theme"] = old[2]
 
+    def test_play_mode_endpoint_persists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            old = (UC.FILE, UC.LOCK, PUI.get("play_mode"))
+            UC.FILE, UC.LOCK = p, p.with_suffix(".lock")
+            try:
+                d = json.loads(self.post("/api/play_mode", {"mode": "shuffle"}).read())
+                self.assertTrue(d["ok"])
+                self.assertEqual(d["mode"], "shuffle")
+                self.assertEqual(json.loads(p.read_text(encoding="utf-8")),
+                                 {"player": {"ui": {"play_mode": "shuffle"}}})
+            finally:
+                UC.FILE, UC.LOCK = old[0], old[1]
+                PUI["play_mode"] = old[2]
+
     def test_client_log_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
             log = Path(tmp) / "app.log"

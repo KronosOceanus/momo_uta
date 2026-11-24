@@ -36,7 +36,7 @@
 | `NH.LRC_REPLACING` | 导入/恢复/删除期间 |
 | `NH.LRC_LOCKED` | 编辑/flush 锁 |
 | `NH.loop` / `NH.LOOP_ROW` | 单句循环 |
-| `NH.loopSong` | 单曲循环 |
+| `NH.playMode` | 播放模式：`list` / `one` / `shuffle` |
 | `NH.TRANS_EDIT` | 翻译列开关，只影响显示 |
 
 ## 2. 查看状态机
@@ -225,24 +225,41 @@ NH.LOOP_ROW   锚定行
 换歌 / 换播放源 → closeLineLoop()
 ```
 
-## 6. 单曲循环
+## 6. 播放模式
 
 ```text
-NH.loopSong = true
+NH.playMode = 'list' | 'one' | 'shuffle'
 ```
 
-```text
-只影响 ended。
-不跳页。
-没有播放歌曲也可以先设定。
-```
+默认：
 
 ```text
-A 播放结束：
-  如果 loopSong 开，且页面仍对应 A
-  → currentTime = 0
-  → 重新 play
+list
 ```
+
+按钮顺序：
+
+```text
+列表循环 → 单曲循环 → 随机播放 → 列表循环
+```
+
+行为：
+
+```text
+list     ended → 下一首，末尾回第一首
+one      ended → 当前歌从头播放
+shuffle  ended / 上一首 / 下一首 → 从当前列表随机，排除当前歌
+```
+
+播放模式写入本机配置：
+
+```text
+data/config.json
+player.ui.play_mode
+```
+
+按钮当前只切换模式，不跳页。
+
 
 ## 7. LRC 草稿与保存
 

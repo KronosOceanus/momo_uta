@@ -17,3 +17,15 @@ def set_theme(req: dict) -> dict:
     except Exception as e:
         return {"ok": False, "error": "保存主题失败：" + str(e)}
     return {"ok": True, "theme": theme}
+
+
+def set_play_mode(req: dict) -> dict:
+    mode = str(req.get("mode") or "")
+    if mode not in UC.PLAY_MODES:
+        return {"ok": False, "error": "未知播放模式"}
+    try:
+        mode = UC.set_play_mode(mode)
+        PUI["play_mode"] = mode
+    except Exception as e:
+        return {"ok": False, "error": "保存播放模式失败：" + str(e)}
+    return {"ok": True, "mode": mode}

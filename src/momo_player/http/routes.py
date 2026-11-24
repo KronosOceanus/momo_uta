@@ -42,6 +42,7 @@ class H(BaseHTTPRequestHandler):
         "/api/jobs/cancel_all": "_post_cancel_all_jobs",
         "/api/log": "_post_log",
         "/api/theme": "_post_theme",
+        "/api/play_mode": "_post_play_mode",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -168,6 +169,7 @@ class H(BaseHTTPRequestHandler):
         "/api/import/one": ("paths",),
         "/api/lrc": ("uid",),
         "/api/theme": ("theme",),
+        "/api/play_mode": ("mode",),
     }
 
     def _is_int(self, v):
@@ -236,6 +238,7 @@ class H(BaseHTTPRequestHandler):
             "/api/jobs": {"kind": str, "uid": (str, type(None))},
             "/api/jobs/cancel_all": {"kind": str},
             "/api/theme": {"theme": str},
+            "/api/play_mode": {"mode": str},
             "/api/log": {"kind": (str, type(None)), "message": (str, type(None)),
                          "stack": (str, type(None)), "context": dict},
         }.get(p, {})
@@ -450,4 +453,7 @@ class H(BaseHTTPRequestHandler):
 
     def _post_theme(self, req):
         return self._json(SVC_SETTINGS.set_theme(req))
+
+    def _post_play_mode(self, req):
+        return self._json(SVC_SETTINGS.set_play_mode(req))
 

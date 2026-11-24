@@ -313,6 +313,11 @@ function songOrderUids(){
 async function stepSong(dir){
   const uids=songOrderUids();
   if(!uids.length) return;
+  if(NH.playMode === 'shuffle'){
+    const target = randomTargetUid(dir);
+    if(target) await NH.load(target,true);
+    return;
+  }
   const cur=NH.PLAYING_UID!==null && NH.PLAYING_UID!==undefined
     ? String(NH.PLAYING_UID) : (NH.S ? String(NH.S.uid) : '');
   let at=uids.indexOf(cur);
@@ -396,27 +401,56 @@ document.getElementById('loop').onclick=async()=>{
   syncLoopBtn();
 };
 
-// ── 单曲循环：播完自动从头再播 ──────────────────
-NH.loopSong = true;
+// ── 播放模式：列表循环 / 单曲循环 / 随机播放 ──────────
+const PLAY_MODE_ORDER = ['list', 'one', 'shuffle'];
+const PLAY_MODE_LABEL = {list: '列表循环', one: '单曲循环', shuffle: '随机播放'};
+const initialPlayMode = (CFG.player && CFG.player.ui && CFG.player.ui.play_mode);
+NH.playMode = PLAY_MODE_ORDER.includes(initialPlayMode) ? initialPlayMode : 'list';
 const songLoopBtn = document.getElementById('songloop');
-function syncSongLoop(){
+function syncPlayMode(){
   if(!songLoopBtn) return;
-  songLoopBtn.textContent = '单曲循环：' + (NH.loopSong ? '开' : '关');
-  songLoopBtn.classList.toggle('on', NH.loopSong);
+  songLoopBtn.textContent = PLAY_MODE_LABEL[NH.playMode] || PLAY_MODE_LABEL.list;
+  songLoopBtn.classList.add('on');
 }
-if(songLoopBtn) songLoopBtn.onclick = () => {
-  // 没有播放歌曲也可以先设定，之后播放时生效。
-  NH.loopSong = !NH.loopSong; syncSongLoop();
-};
-syncSongLoop(); syncLoopBtn(); syncPlayControls();
+function setPlayMode(mode, persist){
+  if(!PLAY_MODE_ORDER.includes(mode)) mode = 'list';
+  NH.playMode = mode;
+  syncPlayMode();
+  if(persist && NH.api){
+    NH.api('/api/play_mode', {mode}).then(r=>{
+      if(r && r.ok === false) NH.done(r.error || '播放模式保存失败');
+    }).catch(e=>NH.done('播放模式保存失败：' + e.message));
+  }
+}
+function cyclePlayMode(){
+  const at = PLAY_MODE_ORDER.indexOf(NH.playMode);
+  setPlayMode(PLAY_MODE_ORDER[(at + 1) % PLAY_MODE_ORDER.length], true);
+}
+if(songLoopBtn) songLoopBtn.onclick = cyclePlayMode;
+syncPlayMode();
+
+function randomTargetUid(dir){
+  const uids = songOrderUids();
+  if(!uids.length) return null;
+  const cur = NH.PLAYING_UID !== null && NH.PLAYING_UID !== undefined
+    ? String(NH.PLAYING_UID) : '';
+  const pool = uids.filter(u => u !== cur);
+  const list = pool.length ? pool : uids;
+  return list[Math.floor(Math.random() * list.length)] || null;
+}
+
 NH.au.addEventListener('ended', () => {
-  if(!NH.loopSong) return;
-  const song = NH.S;
-  // 等引擎的 ended/pause 流程走完再起新 source，避免把 watch 循环覆盖
-  setTimeout(() => {
-    if(!song || NH.S !== song || !NH.loopSong) return;
-    NH.au.currentTime = 0;
-    NH.au.play().catch(()=>{});
+  const endedUid = NH.PLAYING_UID;
+  if(endedUid === null || endedUid === undefined) return;
+  // 等引擎的 ended/pause 流程走完再起新 source，避免把 watch 循环覆盖。
+  setTimeout(async () => {
+    if(String(NH.PLAYING_UID) !== String(endedUid)) return;
+    if(NH.playMode === 'one'){
+      NH.au.currentTime = 0;
+      NH.au.play().catch(()=>{});
+      return;
+    }
+    await stepSong(1);
   }, 0);
 });
 
@@ -424,5 +458,5 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying});
+Object.assign(NH, {markPlaying, commitAudio, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode});
 })();
