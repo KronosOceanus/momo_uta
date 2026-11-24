@@ -214,3 +214,91 @@ P2  ✅ 安全响应头 + CSP nonce（保留 unsafe-eval 供 pywebview）
 46 前端
 UI 冒烟通过
 ```
+
+## 12. P2 复核
+
+P2 已实现后，再扫一遍，剩几个边界。
+
+### P2：jobs 并发上限检查不是原子的
+
+`service/jobs.start`：
+
+```python
+active = JOBS.active("vocals")
+if len(active) >= MAX_ACTIVE_VOCALS:
+    raise JobBusy(...)
+```
+
+两个请求同时检查时，都可能看到未满，然后都进入 `JOBS.start`。
+
+建议把“检查 + 占位”放进 `JOBS.start` 的锁内，或在 job 表里预占一个 running 槽。
+
+### P2：LRC 嵌套字段类型还未校验
+
+`/api/lrc` 只校验：
+
+```text
+lines 是 list
+rows 是 list
+```
+
+没有校验元素：
+
+```json
+{"lines": ["x"]}
+```
+
+service 里会 `ln.get(...)`，最终变成 500。
+
+同样适用于：
+
+```text
+lines[i].text
+rows[i].kind
+translations 的值
+```
+
+### P2：wave 没有 ffmpeg 超时
+
+失败/卡住的 ffmpeg 会持有 single-flight 锁，后续同一首请求全部等待。
+
+建议：
+
+```text
+Popen 后设置超时
+超时 kill
+释放锁
+返回 error
+```
+
+### P3：目录扫描上限只统计音频/歌词
+
+`MAX_SCAN_FILES` 只统计：
+
+```text
+audio + lrc
+```
+
+如果一个目录有大量无关文件，仍会遍历。
+
+建议统计总扫描条目，或在对每个文件判断前先累计。
+
+### P3：Range 单位大小写
+
+`bytes=` 现在区分大小写。
+
+HTTP Range 单位应大小写不敏感：
+
+```text
+Bytes=0-1
+```
+
+目前会落成 416。正常浏览器都发小写，影响很小。
+
+### 已通过
+
+```text
+356 Python
+46 前端
+UI 冒烟通过
+```
