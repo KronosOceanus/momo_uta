@@ -131,7 +131,7 @@ annotate / romaji / render / kana / counters / invariants / thresholds
 | `data/curated/playlists.json` | list id | `playlists` | 默认歌单仍存在 |
 | `data/curated/song_meta.json` | uid | `song_meta` | offset 回到 0 |
 | `data/curated/imports.json` | 音频路径 | `library` | 导入历史丢失 |
-| `data/config.json` | 配置路径 | `user_config` | 回到 `config/defaults.json` |
+| `data/config.json` | 配置路径 | `user_config` | 回到 `config/defaults.json`；损坏时先备份 `config.json.bad-*` |
 
 ### 2.3 可重建缓存
 
@@ -216,7 +216,7 @@ service.lyric_document
 
 service.song.save_lyrics()
   → 旧兼容入口：body 入参 → rows
-  → LRC.save() 写 v2
+  → LRC.save() 写 nhlrc
 ```
 
 ```text
@@ -246,7 +246,7 @@ llm            可选 LLM 消歧
 ```text
 曲库     library / library_index / fingerprint
 歌词     lyrics / lyrics_fetch / lyrics_text / lyrics_cache
-格式     lyric_rows（v2 rows）/ lrc_doc（旧解析）/ lrc_files（权威写入）
+格式     lyric_rows（nhlrc rows）/ lrc_doc（旧解析）/ lrc_files（权威写入）
 注音     annotation / annotation_cache
 歌单     playlists
 属性     song_meta
@@ -259,11 +259,11 @@ llm            可选 LLM 消歧
 
 ```text
 song       载荷、旧保存兼容、改读音、匹配、pick
-lyric_document  v2 rows 读写、播放派生、按 lid 改读音
-lrc        编辑、导入导出、备份、v2/旧 API
+lyric_document  nhlrc rows 读写、播放派生、按 lid 改读音
+lrc        编辑、导入导出、备份、nhlrc/旧 API
 playlist   歌单动作、导入、ui_offset
 jobs       任务编排
-settings   主题校验与持久化编排
+settings   主题 / 播放模式校验与持久化编排
 ```
 
 ### http
@@ -272,15 +272,38 @@ settings   主题校验与持久化编排
 routes     路由、参数校验、JSON 结果
 server     ThreadingHTTPServer
 static     静态文件与 Range
-web        页面装配 + __CFG + data-theme
+web        页面装配 + __CFG + __MOMO_TOKEN + 配置警告 + data-theme
 ```
 
 ### app
 
 ```text
-__main__   起服务、开窗口、文件对话框、关闭隐藏
-logsetup   日志与异常钩子
+__main__   起服务、单实例锁、开窗口、文件对话框、退出前 flush
+logsetup   日志轮转与异常钩子
 hotkeys    macOS 全局快捷键
+```
+
+### 应用生命周期
+
+```text
+启动：
+  抢 data/app.lock（单实例）
+  → 日志初始化
+  → bootstrap
+  → 曲库 / vocals 清理
+  → HTTP server
+  → webview
+
+退出：
+  Cmd+Q
+  → 前端 prepareShutdown()
+  → LRC flush
+  → 成功后退出
+  → 取消 jobs / vocals
+  → shutdown server
+
+窗口关闭按钮：
+  隐藏窗口，继续播放
 ```
 
 ### static
@@ -291,8 +314,8 @@ hotkeys    macOS 全局快捷键
 10-app         状态、加载、波形、toast、主题
 11-vocals      人声任务
 12-library     歌单、多选、拖拽、导入
-20-editor      LRC 编辑 + picker
-30-playback    时间语义、播放条、高亮、循环
+20-editor      LRC 编辑 + picker + 行/时间/IME
+30-playback    时间语义、播放条、高亮、循环、播放模式
 40-shortcuts   应用内快捷键分发
 ```
 
@@ -305,7 +328,7 @@ NH.load
   → GET /api/song/<uid>
   → service.song.song_payload
   → service.lyric_document.load_rows
-      v2：rows
+      nhlrc：rows
       V1：不再读取
       无 nhlrc：歌词缓存/旧路径
   → core.lyric_rows.playable
@@ -344,7 +367,7 @@ pick
   → 一次显式返回 {lrc, tlyric}
   → tlyric 按时间/行序配对原文
   → save_lyrics(mode="replace")
-  → 重写 v2 nhlrc
+  → 重写 nhlrc
 ```
 
 ```text
@@ -363,7 +386,7 @@ POST /api/lrc {action:save_rows, rows, version}
 旧 lines 入口：
   → service.song.save_lyrics
   → 内部转 rows
-  → lrc_files.save 写 v2
+  → lrc_files.save 写 nhlrc
 ```
 
 ```text
@@ -385,6 +408,11 @@ POST /api/theme
   → service.settings
   → core.user_config
   → data/config.json
+
+POST /api/play_mode
+  → service.settings
+  → core.user_config
+  → data/config.json 的 player.ui.play_mode
 ```
 
 ### 4.6 人声任务
@@ -411,7 +439,10 @@ job 已经 running，VOC 仍可能是 queued。
 | `expected_version` | 拒绝过期草稿 |
 | `SAVE_PENDING` | 当前会话的保存串行 |
 | `LRC_REPLACING` | 替换/删除期间禁止切歌 |
+| `LRC_FLUSHING` | 允许覆盖前保存，同时保持排他锁 |
+| `LRC_CONFLICT` | 版本冲突后暂停 autosave，等待用户选择 |
 | `NH.track(domain)` | 旧异步响应不能改当前状态 |
+| 单实例锁 | 第二个 app 不写日志、不清 vocals |
 | `AudioEngine._loadSeq` | 旧 fetch/decode 不能写当前 buffer |
 
 必须区分：
@@ -437,7 +468,9 @@ NH.PLAYING_UID = A 当前播放
 
 ```text
 切换播放源不等于切换查看页面。
-句级操作可能把页面带回 A。
+A = B：上一首/下一首跟随新 A。
+A ≠ B：只切音频，页面保持 B。
+句级操作会先回到 A。
 ```
 
 ### 6.2 例子：关闭翻译列后保存
@@ -461,10 +494,15 @@ lrcPayload() 仍然携带 trans
 | `NH.LRC_VERSION` | 文档版本 |
 | `NH.SELU` | 歌单多选 |
 | `NH.loop` / `NH.LOOP_ROW` | 单句循环 |
-| `NH.TRANS_EDIT` | 翻译列开关，不是数据 |
+| `NH.playMode` | `list` / `one` / `shuffle` |
+| `NH.PLAY_ITEM` | 当前播放 A 的元数据 |
+| `NH.shufflePool` | 随机播放本轮未播放 uid |
+| `NH.TRANS_EDIT` | 翻译列开关，默认开，不是数据 |
 | `NH.REQ` | 请求 domain 序号 |
 | `NH.SAVE_PENDING` | 保存队列 |
-| `NH.LRC_REPLACING` | 替换排他锁 |
+| `NH.LRC_REPLACING` / `NH.LRC_FLUSHING` | 替换排他锁 / 覆盖前保存许可 |
+| `NH.LRC_CONFLICT` | 版本冲突等待选择 |
+| `NH.TEXT_EDIT_ROW` | 连续文本编辑的撤销批次 |
 
 ### 6.4 快捷键
 
@@ -528,4 +566,4 @@ topics/development.md      开发/测试/检查器
 topics/packaging.md        打包
 ```
 
-> 旧架构文档已移到 `docs/history2/`，不作为当前基线。
+> 旧架构文档在 `docs/history/`，不作为当前基线。
