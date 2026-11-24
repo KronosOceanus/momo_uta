@@ -11,6 +11,7 @@ import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
+from momo_yomi.config import CFG
 from ..core import diag
 from ..core import library as LIB
 from ..web import page
@@ -22,11 +23,12 @@ from ..service import song as SVC_SONG
 from . import static as STATIC
 
 TOKEN = secrets.token_urlsafe(32)
-MAX_BODY = 2 * 1024 * 1024
+HTTP = CFG.get("http") or {}
+MAX_BODY = int(HTTP.get("max_body_bytes", 2 * 1024 * 1024) or 2 * 1024 * 1024)
 
 
 class H(BaseHTTPRequestHandler):
-    timeout = 15
+    timeout = int(HTTP.get("timeout_s", 15) or 15)
     GET = {
         "/api/pl": "_get_playlists",
         "/api/library": "_get_library",

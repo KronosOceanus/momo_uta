@@ -19,13 +19,11 @@
     "auto_try": 10,
     "manual_limit": 10,
     "http_timeout_s": 10,
-    "scan_sleep": 0.2,
-    "negative_ttl_days": 7
+    "negative_ttl_days": 7,
+    "max_name_bytes": 120
   },
   "player": {
     "_note": "播放器通用参数。",
-    "coverage_warn": 0.7,
-    "merge_same_ts": 0.05,
     "speed_min": 0.5,
     "speed_max": 1.25,
     "music_dirs": ["~/Music/网易云音乐"],
@@ -38,13 +36,7 @@
       "autosave_ms": 1500,
       "undo_steps": 50,
       "toast_ms": 4200,
-      "follow_default": true,
-      "wave_draw_ms": 32,
-      "auto_rebuild_ms": 8000,
-      "busy_retry_ms": 5000,
-      "toggle_debounce_ms": 320,
       "canplay_wait_ms": 900,
-      "timeupdate_ms": 50,
       "theme": "light",
       "play_mode": "list"
     },
@@ -73,7 +65,14 @@
   },
   "library": {
     "_note": "曲库扫描与导入。",
-    "extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"]
+    "extensions": [".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"],
+    "max_import_paths": 200,
+    "max_scan_files": 5000
+  },
+  "http": {
+    "_note": "本机 HTTP 服务的资源限制。",
+    "max_body_bytes": 2097152,
+    "timeout_s": 15
   },
   "app": {
     "_note": "桌面壳与日志。",

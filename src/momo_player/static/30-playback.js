@@ -5,6 +5,7 @@ const NH = window.NH || (window.NH = {});
 const CFG=(window.__CFG)||{};
 const UI=(CFG.player&&CFG.player.ui)||{};
 const PL=CFG.player||{};
+const TOGGLE_DEBOUNCE_MS = 320;
 // 播放器 · 统一播放层与播放条
 function markPlaying(){
   document.querySelectorAll('.it').forEach(x=>{
@@ -344,7 +345,7 @@ function seekToClientX(x){
 let TOGGLE_AT=0;
 function togglePlayPause(){
   const now=performance.now();
-  if(now-TOGGLE_AT<(UI.toggle_debounce_ms||320)) return;              // 防止 pointerdown + click 连发
+  if(now-TOGGLE_AT<TOGGLE_DEBOUNCE_MS) return;              // 防止 pointerdown + click 连发
   TOGGLE_AT=now;
   if(NH.PLAYING_UID===null || NH.PLAYING_UID===undefined) return;
   if(NH.au.paused) NH.au.play().catch(()=>{});

@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const NH = window.NH || (window.NH = {});
-const PUI=((window.__CFG&&window.__CFG.player&&window.__CFG.player.ui)||{});
+const TIMEUPDATE_MS = 50;
 // WebAudio 播放引擎：整首解码进内存，seek = 换一个 AudioBufferSourceNode
 // 目的：跳转采样级精确、无解码器 flush（<audio> 做不到）
 class AudioEngine {
@@ -140,7 +140,7 @@ class AudioEngine {
         this._offset=this._dur; this._stop(); this._ended=true;
         this._emit('timeupdate'); this._emit('ended'); this._emit('pause'); this._watch=0; return;
       }
-      if(!lastEmit || ts-lastEmit>=(PUI.timeupdate_ms||50)){ this._emit('timeupdate'); lastEmit=ts; }  // ~20Hz 足够
+      if(!lastEmit || ts-lastEmit>=TIMEUPDATE_MS){ this._emit('timeupdate'); lastEmit=ts; }  // ~20Hz 足够
       this._watch=requestAnimationFrame(tick);
     };
     this._watch=requestAnimationFrame(tick);

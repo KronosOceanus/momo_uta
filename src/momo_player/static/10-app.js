@@ -233,7 +233,7 @@ async function loadWave(force){
 (function waveLoop(){
   let last=0;
   function tick(ts){
-    if(NH.WAVE && NH.VIEW_MODE==='lrc' && NH.isSelfPlaying() && !NH.au.paused && ts-last>=(UI.wave_draw_ms||32)){ drawWave(); last=ts; }
+    if(NH.WAVE && NH.VIEW_MODE==='lrc' && NH.isSelfPlaying() && !NH.au.paused && ts-last>=WAVE_DRAW_MS){ drawWave(); last=ts; }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);

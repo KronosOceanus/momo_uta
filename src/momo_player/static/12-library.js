@@ -2,6 +2,8 @@
 (function(){
 'use strict';
 const NH = window.NH || (window.NH = {});
+const BUSY_RETRY_MS = 5000;
+const AUTO_REBUILD_MS = 8000;
 async function loadLib(){
   const d = await NH.api('/api/pl');
   NH.PLS = d.lists || d;
@@ -15,8 +17,8 @@ function scheduleAutoRebuild(){
   if(NH.AUTO_REBUILD) return;
   NH.AUTO_REBUILD=true;
   const run=async()=>{
-    if(NH.VIEW_MODE==='lrc' || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, NH.UI.busy_retry_ms||5000); return; }
-    if(NH.PLAYING_UID!==null && NH.au && !NH.au.paused){ setTimeout(run, NH.UI.busy_retry_ms||5000); return; }
+    if(NH.VIEW_MODE==='lrc' || NH.BUSY || NH.TOAST_BUSY){ setTimeout(run, BUSY_RETRY_MS); return; }
+    if(NH.PLAYING_UID!==null && NH.au && !NH.au.paused){ setTimeout(run, BUSY_RETRY_MS); return; }
     NH.busy('发现缺失歌曲，正在重建索引…');
     try{
       const job=await NH.api('/api/jobs',{kind:'rebuild'});
@@ -29,7 +31,7 @@ function scheduleAutoRebuild(){
       NH.done('重建索引失败：'+err.message);
     }
   };
-  setTimeout(run, NH.UI.auto_rebuild_ms||8000);
+  setTimeout(run, AUTO_REBUILD_MS);
 }
 
 function applyLists(r){

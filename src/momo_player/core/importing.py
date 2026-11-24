@@ -17,8 +17,8 @@ from . import lyrics as LY
 
 AUDIO_EXT = set(LB["extensions"])
 LYRIC_EXT = {".lrc", ".nhlrc"}
-MAX_IMPORT_PATHS = 200
-MAX_SCAN_FILES = 5000
+MAX_IMPORT_PATHS = int(LB.get("max_import_paths", 200) or 200)
+MAX_SCAN_FILES = int(LB.get("max_scan_files", 5000) or 5000)
 
 
 def _pick(cands: list[Path], rank=None) -> Path | None:

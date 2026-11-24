@@ -35,7 +35,7 @@ def uid_of(audio: str | Path) -> str:
 
 
 BAD_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
-MAX_NAME_BYTES = 120
+MAX_NAME_BYTES = int(LY.CFG.get("max_name_bytes", 120) or 120)
 
 
 def _version(text: str) -> str:
