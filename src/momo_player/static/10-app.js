@@ -345,7 +345,7 @@ async function load(ref, autoplay, nextMode){
     d=await api('/api/song/'+encodeURIComponent(ref));
     if(!NH.isCurrent('load',request)) return false;
     NH.LRC_VERSION = d.version || 'none';
-    NH.syncLyricMark(d.uid, !d.pending && !d.disabled);
+    NH.syncLyricMark(d.uid, !!(d.lines && d.lines.length) && !d.disabled);
   }catch(e){
     if(NH.isCurrent('load',request)){
       NH.viewDispatch({type:'LOAD_FAILED', idx:ref, request, error:e.message});
