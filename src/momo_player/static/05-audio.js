@@ -69,7 +69,10 @@ class AudioEngine {
     const ctl=(typeof AbortController!=='undefined') ? new AbortController() : null;
     this._abort=ctl;
     this._load=(async()=>{
-      const res=await fetch(url, ctl?{signal:ctl.signal}:undefined);
+      const token = window.__MOMO_TOKEN || '';
+      const opts = {headers: token ? {'X-Momo-Token': token} : {}};
+      if(ctl) opts.signal = ctl.signal;
+      const res=await fetch(url, opts);
       if(!res.ok) throw new Error('音频读取失败 '+res.status);
       const ab=await res.arrayBuffer();
       // 下载完已切歌：不要进入 decode

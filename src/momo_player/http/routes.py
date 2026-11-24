@@ -2,7 +2,9 @@
 """HTTP 层：只做解析与转发，业务全在 service/。"""
 from __future__ import annotations
 
+import hmac
 import json
+import secrets
 import threading
 import time
 import urllib.parse
@@ -17,6 +19,9 @@ from ..service import playlist as SVC_PL
 from ..service import settings as SVC_SETTINGS
 from ..service import song as SVC_SONG
 from . import static as STATIC
+
+TOKEN = secrets.token_urlsafe(32)
+MAX_BODY = 2 * 1024 * 1024
 
 
 class H(BaseHTTPRequestHandler):
@@ -47,7 +52,6 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(b)
 
@@ -60,6 +64,39 @@ class H(BaseHTTPRequestHandler):
             if code == 200 and obj.get("ok") is False and obj.get("conflict"):
                 code = 409
         return self._send(code, json.dumps(obj, ensure_ascii=False))
+
+    def _origin_host_ok(self) -> bool:
+        port = self.server.server_address[1]
+        host = self.headers.get("Host", "")
+        if host not in (f"127.0.0.1:{port}", f"localhost:{port}"):
+            return False
+        origin = self.headers.get("Origin")
+        if origin and origin not in (f"http://127.0.0.1:{port}",
+                                      f"http://localhost:{port}"):
+            return False
+        return True
+
+    def _token_ok(self) -> bool:
+        token = self.headers.get("X-Momo-Token") or ""
+        if not token:
+            q = urllib.parse.urlparse(self.path).query
+            token = (urllib.parse.parse_qs(q).get("token") or [""])[0]
+        return bool(token) and hmac.compare_digest(token, TOKEN)
+
+    def _guard(self, protected: bool) -> bool:
+        if not self._origin_host_ok():
+            self._send(403, "forbidden")
+            return False
+        if protected and not self._token_ok():
+            self._send(403, "forbidden")
+            return False
+        return True
+
+    def do_OPTIONS(self):
+        # 不提供 CORS；明确拒绝跨域预检。
+        if not self._origin_host_ok():
+            return self._send(403, "forbidden")
+        return self._send(403, "forbidden")
 
     # ── 分发 ─────────────────────────────────────────
     def do_GET(self):
@@ -74,8 +111,11 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         p = urllib.parse.urlparse(self.path).path
+        protected = p.startswith("/api/") or p.startswith("/audio/")
+        if not self._guard(protected):
+            return
         if p == "/":
-            return self._send(200, page(), "text/html; charset=utf-8")
+            return self._send(200, page(TOKEN), "text/html; charset=utf-8")
         if p.startswith("/static/"):
             it = STATIC.static_file(p)
             return self._send(200, it[0], it[1]) if it else self._send(404, "not found")
@@ -105,7 +145,17 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         p = urllib.parse.urlparse(self.path).path
-        length = int(self.headers.get("Content-Length") or 0)
+        if not self._guard(True):
+            return
+        ctype = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if ctype != "application/json":
+            return self._json({"ok": False, "error": "Content-Type 必须是 application/json"}, 415)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._json({"ok": False, "error": "Content-Length 无效"}, 400)
+        if length < 0 or length > MAX_BODY:
+            return self._json({"ok": False, "error": "请求体过大"}, 413)
         try:
             req = json.loads(self.rfile.read(length) or b"{}")
         except Exception:

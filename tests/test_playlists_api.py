@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from momo_player.core import playlists as PL   # noqa: E402
 from momo_player.core import library as LIB       # noqa: E402
 from momo_player.core.library import CACHE        # noqa: E402
+from momo_player.http import routes as ROUTES      # noqa: E402
 from momo_player.http.server import make_server   # noqa: E402
 
 FAKE = {"key": "k1", "uid": "u1", "file": "/tmp/a.mp3", "stem": "X - A", "orig": "A",
@@ -43,14 +44,20 @@ class TestPlaylistsApi(unittest.TestCase):
         LIB.scan_library = cls._orig_scan
         cls.tmp.cleanup()
 
+    def _headers(self):
+        return {"X-Momo-Token": ROUTES.TOKEN}
+
     def post(self, body):
         req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/pl",
                                      data=json.dumps(body).encode(),
-                                     headers={"Content-Type": "application/json"})
+                                     headers={**self._headers(),
+                                              "Content-Type": "application/json"})
         return json.loads(urllib.request.urlopen(req).read())
 
     def get(self):
-        d = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{self.port}/api/pl").read())
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/pl",
+                                     headers=self._headers())
+        d = json.loads(urllib.request.urlopen(req).read())
         return d["lists"] if isinstance(d, dict) else d
 
     def test_default_exists_and_locked(self):

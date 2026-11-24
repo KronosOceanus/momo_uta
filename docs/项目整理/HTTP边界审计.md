@@ -1,7 +1,7 @@
 # HTTP 本地服务边界审计
 
 > 范围：本地 HTTP 服务、CORS、认证、静态文件、音频 Range、POST 边界。
-> 只审计，不修改。
+> P0 已实现：关闭 CORS、启动 token、Origin/Host 校验、POST 类型/大小限制。
 
 ## 0. 结论
 
@@ -182,9 +182,8 @@ resolve 后确认仍在 STATIC 目录下
 ## 10. 建议优先级
 
 ```text
-P0  CORS 收紧或移除
-P0  启动随机 token + Origin/Host 校验
-P1  POST Content-Type / body 大小 / 字段边界
+P0  ✅ CORS 已移除；已加入启动随机 token + Origin/Host 校验
+P1  ✅ POST Content-Type / body 大小已校验；字段白名单留待下一轮
 P1  保护 /audio、/api/wave、/api/jobs、/api/import/one
 P2  Range 语义修正
 P3  静态文件 resolve 校验
@@ -206,7 +205,7 @@ P3  静态文件 resolve 校验
 测试基线：
 
 ```text
-338 Python
+343 Python
 46 前端
 1 项环境跳过
 ```

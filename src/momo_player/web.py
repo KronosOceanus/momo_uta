@@ -11,11 +11,13 @@ from momo_yomi.config import CFG, PUI
 STATIC = Path(__file__).parent / "static"
 
 
-def page() -> str:
+def page(token: str = "") -> str:
     html = (STATIC / "player.html").read_text(encoding="utf-8")
     cfg = json.dumps(CFG, ensure_ascii=False).replace("</", "<\\/")
     theme = "light" if PUI.get("theme") == "light" else "dark"
     html = html.replace('<html lang="ja" data-theme="dark">',
                         f'<html lang="ja" data-theme="{theme}">', 1)
-    inject = f'<script>window.__CFG = {cfg};</script>\n'
+    tok = json.dumps(token).replace("</", "<\\/")
+    inject = (f'<script>window.__CFG = {cfg};'
+              f'window.__MOMO_TOKEN = {tok};</script>\n')
     return html.replace("<head>", "<head>\n" + inject, 1)

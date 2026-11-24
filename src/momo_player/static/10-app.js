@@ -2,6 +2,7 @@
 (function(){
 'use strict';
 const NH = window.NH || (window.NH = {});
+NH.TOKEN = window.__MOMO_TOKEN || '';
 // 播放器 · 界面与逻辑总入口（按加载顺序共享全局作用域）
 // 文件划分（player.html 里按顺序加载）：
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
@@ -499,9 +500,16 @@ function busy(msg){ toast(msg, 0); }
 // 一次性结果：几秒后自动消失
 function done(msg){ toast(msg, UI.toast_ms||4200); }
 
+function authHeaders(extra){
+  const h = Object.assign({}, extra || {});
+  if(NH.TOKEN) h['X-Momo-Token'] = NH.TOKEN;
+  return h;
+}
 async function api(path, body){
-  const r=await fetch(path, body?{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)}:undefined);
+  const headers = authHeaders(body ? {'Content-Type':'application/json'} : {});
+  const opts = body ? {method:'POST',headers,body:JSON.stringify(body)}
+                    : (Object.keys(headers).length ? {headers} : undefined);
+  const r=await fetch(path, opts);
   if(!r.ok){
     let msg='HTTP '+r.status;
     try{
@@ -626,7 +634,7 @@ function reportClientError(kind, message, stack, extra){
       idx: NH.S && NH.S.idx,
       page: (typeof location!=='undefined' ? location.pathname : '')
     }, extra||{});
-    fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},
+    fetch('/api/log',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({kind, message:msg, stack:String(stack||'').slice(0,4000), context:ctx})
     }).catch(()=>{});
   }catch(e){}

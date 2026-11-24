@@ -18,6 +18,7 @@ from momo_player.core import user_config as UC    # noqa: E402
 from momo_yomi.config import PUI                  # noqa: E402
 from momo_player.core.library import CACHE        # noqa: E402
 from momo_player.http import routes as ROUTES      # noqa: E402
+from momo_player.http import routes as ROUTES      # noqa: E402
 from momo_player.http.server import make_server   # noqa: E402
 
 FAKE_LRC = "\n".join([
@@ -68,14 +69,24 @@ class TestPlayerHttp(unittest.TestCase):
     def url(self, path):
         return f"http://127.0.0.1:{self.port}{path}"
 
+    def auth_headers(self, extra=None):
+        h = dict(extra or {})
+        h["X-Momo-Token"] = ROUTES.TOKEN
+        return h
+
+    def get(self, path):
+        return urllib.request.urlopen(urllib.request.Request(
+            self.url(path), headers=self.auth_headers()))
+
     def post(self, path, body):
         req = urllib.request.Request(self.url(path), data=json.dumps(body).encode(),
-                                     headers={"Content-Type": "application/json"})
+                                     headers=self.auth_headers(
+                                         {"Content-Type": "application/json"}))
         return urllib.request.urlopen(req)
 
     def test_missing_params_returns_400(self):
         req = urllib.request.Request(self.url("/api/line"), data=b"{}",
-                                     headers={"Content-Type": "application/json"})
+                                     headers=self.auth_headers({"Content-Type": "application/json"}))
         with self.assertRaises(urllib.error.HTTPError) as cm:
             urllib.request.urlopen(req)
         self.assertEqual(cm.exception.code, 400)
@@ -83,17 +94,51 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertIn("缺少参数", body["error"])
 
     def test_page(self):
-        html = urllib.request.urlopen(self.url("/")).read().decode()
+        html = self.get("/").read().decode()
         self.assertIn("momo uta", html)
         self.assertIn("resetall", html)
 
+    def test_page_injects_token_and_has_no_cors(self):
+        r = self.get("/")
+        html = r.read().decode()
+        self.assertIn(ROUTES.TOKEN, html)
+        self.assertIsNone(r.headers.get("Access-Control-Allow-Origin"))
+
+    def test_api_requires_token(self):
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(self.url("/api/library"))
+        self.assertEqual(cm.exception.code, 403)
+
+    def test_wrong_origin_rejected(self):
+        req = urllib.request.Request(
+            self.url("/api/library"),
+            headers={**self.auth_headers(), "Origin": "https://evil.example"})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 403)
+
+    def test_post_requires_json_content_type(self):
+        req = urllib.request.Request(
+            self.url("/api/line"), data=b"{}",
+            headers={**self.auth_headers(), "Content-Type": "text/plain"})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 415)
+
+    def test_options_has_no_cors(self):
+        req = urllib.request.Request(self.url("/api/library"), method="OPTIONS")
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 403)
+        self.assertIsNone(cm.exception.headers.get("Access-Control-Allow-Origin"))
+
     def test_library(self):
-        rows = json.loads(urllib.request.urlopen(self.url("/api/library")).read())
+        rows = json.loads(self.get("/api/library").read())
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["orig"], "テスト曲")
 
     def test_song_payload(self):
-        d = json.loads(urllib.request.urlopen(self.url("/api/song/" + CACHE_ITEM["uid"])).read())
+        d = json.loads(self.get("/api/song/" + CACHE_ITEM["uid"]).read())
         self.assertGreaterEqual(len(d["lines"]), 3)
         self.assertIs(d.get("ok"), True)
         self.assertTrue(any(l["ruby"] for l in d["lines"]))
@@ -104,12 +149,11 @@ class TestPlayerHttp(unittest.TestCase):
 
     def test_song_idx_is_not_accepted(self):
         with self.assertRaises(urllib.error.HTTPError) as cm:
-            urllib.request.urlopen(self.url("/api/song/0"))
+            self.get("/api/song/0")
         self.assertEqual(cm.exception.code, 404)
 
     def test_song_payload_by_uid(self):
-        d = json.loads(urllib.request.urlopen(
-            self.url("/api/song/" + CACHE_ITEM["uid"])).read())
+        d = json.loads(self.get("/api/song/" + CACHE_ITEM["uid"]).read())
         self.assertEqual(d["uid"], CACHE_ITEM["uid"])
         self.assertEqual(d["audio"], "/audio/" + CACHE_ITEM["uid"])
         self.assertEqual(d["idx"], "0")
@@ -153,7 +197,7 @@ class TestPlayerHttp(unittest.TestCase):
                 self.assertEqual(d["theme"], "light")
                 self.assertEqual(json.loads(p.read_text(encoding="utf-8")),
                                  {"player": {"ui": {"theme": "light"}}})
-                page = urllib.request.urlopen(self.url("/")).read().decode()
+                page = self.get("/").read().decode()
                 self.assertIn('data-theme="light"', page)
             finally:
                 UC.FILE, UC.LOCK = old[0], old[1]
@@ -183,7 +227,7 @@ class TestPlayerHttp(unittest.TestCase):
                 log = Path(tmp) / "app.log"
                 with patch.object(diag, "LOG", log):
                     req = urllib.request.Request(self.url("/api/__test_boom"), data=b"{}",
-                                                 headers={"Content-Type": "application/json"})
+                                                 headers=self.auth_headers({"Content-Type": "application/json"}))
                     with self.assertRaises(urllib.error.HTTPError) as cm:
                         urllib.request.urlopen(req)
                 self.assertEqual(cm.exception.code, 500)
@@ -213,7 +257,7 @@ class TestPlayerHttp(unittest.TestCase):
                 log = Path(tmp) / "app.log"
                 with patch.object(diag, "LOG", log):
                     with self.assertRaises(urllib.error.HTTPError) as cm:
-                        urllib.request.urlopen(self.url("/api/__test_boom_get"))
+                        self.get("/api/__test_boom_get")
                 self.assertEqual(cm.exception.code, 500)
                 self.assertIn("内部错误", json.loads(cm.exception.read())["error"])
                 self.assertIn("get boom", log.read_text(encoding="utf-8"))
@@ -229,14 +273,14 @@ class TestPlayerHttp(unittest.TestCase):
     def test_idx_write_rejected(self):
         body = {"idx": "0", "line": 1, "start": 2, "reading": "か"}
         req = urllib.request.Request(self.url("/api/line"), data=json.dumps(body).encode(),
-                                     headers={"Content-Type": "application/json"})
+                                     headers=self.auth_headers({"Content-Type": "application/json"}))
         with self.assertRaises(urllib.error.HTTPError) as cm:
             urllib.request.urlopen(req)
         self.assertEqual(cm.exception.code, 400)
 
     def test_bad_json(self):
         req = urllib.request.Request(self.url("/api/line"), data=b"{oops",
-                                     headers={"Content-Type": "application/json"})
+                                     headers=self.auth_headers({"Content-Type": "application/json"}))
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 400)
