@@ -78,7 +78,7 @@
     moveTo(r.left + r.width/2, r.top + r.height/2);
   };
 
-  const STEPS = ['打开歌曲','改两个 B','打开振假名编辑','改两个 A','改两个 B','全部重置','回看六处'];
+  const STEPS = ['改两个 B','打开振假名编辑','改两个 A','改两个 B','全部重置','回看六处'];
   let cap = null, capTrack = null, capRows = [];
   const caption = (text, step) => {
     if (!cap) {
@@ -89,7 +89,7 @@
       STEPS.forEach((t, i) => {
         const row = document.createElement('div');
         row.className = 'capstep';
-        row.innerHTML = `<span class="n">${String(i + 1).padStart(2,'0')} / 07</span><span class="t">${t}</span>`;
+        row.innerHTML = `<span class="n">${String(i + 1).padStart(2,'0')} / ${String(STEPS.length).padStart(2,'0')}</span><span class="t">${t}</span>`;
         capTrack.appendChild(row);
         capRows.push(row);
       });
@@ -203,7 +203,6 @@
       await NH.load(song.uid, false);
       await wait(() => NH.S && String(NH.S.uid) === String(song.uid) && !NH.viewMatching());
       try { NH.au.pause(); } catch (e) {}
-      caption('打开歌曲：たぶん（不播放）', 1);
       await sleep(900);
 
       // 1) 正常模式下改两个 B：从候选里选一个不同读音。
@@ -223,13 +222,13 @@
         await click(btn);
         await sleep(850);
         touched.push({li, start, kind:'B'});
-        caption(`改 B 档位 ${i + 1}：${cur} → ${alt}`, 2);
+        caption(`改 B 档位 ${i + 1}：${cur} → ${alt}`, 1);
       }
 
       // 2) 打开右上角振假名编辑模式。
       await click(document.getElementById('edit'));
       await wait(() => NH.VIEW_MODE === 'kana');
-      caption('打开振假名编辑模式', 3);
+      caption('打开振假名编辑模式', 2);
       await sleep(700);
 
       // 3) 编辑模式下手动改两个 A。
@@ -242,7 +241,7 @@
         const value = wrong(cur);
         await editWithInput(el, value);
         touched.push({li, start, kind:'A'});
-        caption(`改 A 档位 ${i + 1}：${cur} → ${value}`, 4);
+        caption(`改 A 档位 ${i + 1}：${cur} → ${value}`, 3);
       }
 
       // 4) 编辑模式下再改两个 B（避开刚改过的两个）。
@@ -255,7 +254,7 @@
         const value = wrong(cur);
         await editWithInput(el, value);
         touched.push({li, start, kind:'B'});
-        caption(`改 B 档位 ${i + 3}：${cur} → ${value}`, 5);
+        caption(`改 B 档位 ${i + 3}：${cur} → ${value}`, 4);
       }
 
       // 5) 全部重置并确认。
@@ -266,13 +265,13 @@
       const ok = document.querySelector('.dialog .primary.danger, .dialog .primary');
       if (!ok) throw new Error('演示 2: 重置确认框没有出现');
       await click(ok);
-      caption('全部重置：确认', 6);
+      caption('全部重置：确认', 5);
       await sleep(1000);
       await wait(() => NH.S && !NH.viewMatching());
       await sleep(700);
 
       // 6) 重置后逐个悬停刚才改过的六处注音。
-      caption('回看六处注音', 7);
+      caption('回看六处注音', 6);
       for (const t of touched) {
         const line = lineEl(t.li);
         let el = null;
