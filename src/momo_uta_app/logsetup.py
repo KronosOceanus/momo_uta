@@ -17,6 +17,7 @@ from momo_yomi.paths import CACHE
 
 MAX_BYTES = int(APP["log_max_bytes"])
 KEEP_FILES = int(APP.get("log_keep_files", 3) or 3)
+WARN_COOLDOWN = 60.0
 
 
 def _rotate_files(log: Path, keep: int = KEEP_FILES) -> None:
@@ -57,16 +58,23 @@ class _LogSink:
         self.keep = max(1, int(keep))
         self.lock = threading.RLock()
         self._warned = False
+        self._warn_at = 0.0
         self.file = open(self.path, "a", encoding="utf-8", buffering=1)
 
     def _warn(self, message: str) -> None:
-        if self._warned:
+        now = time.monotonic()
+        if self._warned and now - self._warn_at < WARN_COOLDOWN:
             return
         self._warned = True
+        self._warn_at = now
         try:
             print(f"[log] {message}", file=sys.__stderr__)
         except Exception:
             pass
+
+    def _recovered(self) -> None:
+        self._warned = False
+        self._warn_at = 0.0
 
     def write(self, s: str) -> int:
         with self.lock:
@@ -76,6 +84,7 @@ class _LogSink:
                     return len(s)
                 self.file.write(s)
                 self.file.flush()
+                self._recovered()
                 if self.max_bytes and self.file.tell() >= self.max_bytes:
                     self._rotate()
             except Exception as e:
@@ -93,6 +102,7 @@ class _LogSink:
             self._warn(f"日志轮转失败：{e}")
         try:
             self.file = open(self.path, "a", encoding="utf-8", buffering=1)
+            self._recovered()
         except Exception as e:
             self.file = None
             self._warn(f"日志重新打开失败：{e}")

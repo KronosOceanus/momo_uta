@@ -1,7 +1,10 @@
 """日志轮转：多份保留 + 运行中超过上限自动切。"""
+import io
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from momo_uta_app import logsetup
 
@@ -18,6 +21,18 @@ class TestLogRotation(unittest.TestCase):
             self.assertEqual((Path(tmp) / "app.log.1").read_text(), "current")
             self.assertEqual((Path(tmp) / "app.log.2").read_text(), "one")
             self.assertFalse((Path(tmp) / "app.log.4").exists())
+
+    def test_warning_has_cooldown_and_resets_after_recovery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sink = logsetup._LogSink(Path(tmp) / "app.log", max_bytes=100, keep=2)
+            err = io.StringIO()
+            with patch.object(sys, "__stderr__", err):
+                sink._warn("first")
+                sink._warn("second")
+                sink._recovered()
+                sink._warn("third")
+            self.assertEqual(err.getvalue().count("[log]"), 2)
+            sink.close()
 
     def test_sink_rotates_when_size_limit_is_hit(self):
         with tempfile.TemporaryDirectory() as tmp:
