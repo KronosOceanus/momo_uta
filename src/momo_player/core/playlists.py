@@ -200,6 +200,8 @@ def remove_many(lid: str, uids: list[str]) -> None:
         return
     with _locked():
         d = load()
+        if not any(x.get("id") == lid for x in d.get("lists", [])):
+            return
         d["members"][lid] = [u for u in d["members"].get(lid, []) if u not in drop]
         save(d)
 

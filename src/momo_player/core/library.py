@@ -307,6 +307,7 @@ def load_for_playlists() -> list[dict]:
     uids = list(dict.fromkeys(PL.all_uids()))
     wanted = set(uids)
     if not wanted:
+        LAST_MISSING = []
         return []
 
     resolved = FP.paths_for_uids(uids)

@@ -314,3 +314,39 @@ class TestMoveSource(unittest.TestCase):
                 self.assertEqual(d["members"][lid], [])
             finally:
                 PL.set_file(old)
+
+
+class TestRemoveUnknownList(unittest.TestCase):
+    def test_remove_many_unknown_list_does_not_create_member(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            PL.set_file(Path(tmp) / "playlists.json")
+            try:
+                PL.remove_many("missing", ["u1"])
+                self.assertNotIn("missing", PL.load()["members"])
+            finally:
+                PL.set_file(old)
+
+
+class TestImportListDisappears(unittest.TestCase):
+    def test_list_gone_after_add_returns_error(self):
+        from unittest.mock import patch
+        from momo_player.service import playlist as SVC
+        from momo_player.core import importing as IMP
+        with tempfile.TemporaryDirectory() as tmp:
+            old = PL.FILE
+            PL.set_file(Path(tmp) / "playlists.json")
+            try:
+                calls = []
+                def exists(lid):
+                    calls.append(lid)
+                    return len(calls) == 1
+                with patch.object(IMP, "import_paths",
+                                  return_value={"added": [], "pending": [], "failed": []}), \
+                     patch.object(SVC.PL, "exists", side_effect=exists), \
+                     patch.object(SVC.PL, "add", return_value=0):
+                    r = SVC.import_to_list({"list": "default", "paths": ["/tmp/x.mp3"]})
+                self.assertFalse(r["ok"])
+                self.assertIn("歌单已不存在", r["error"])
+            finally:
+                PL.set_file(old)

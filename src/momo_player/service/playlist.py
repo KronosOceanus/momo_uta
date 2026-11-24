@@ -131,6 +131,11 @@ def import_to_list(req) -> dict:
                 "library": len(LIB.snapshot()), "lists": _lists(),
                 "failed": (res.get("failed") or [])[:5],
                 "failed_count": len(res.get("failed") or [])}
+    if not PL.exists(lid):
+        return {"ok": False, "error": "歌单已不存在，未加入",
+                "library": len(LIB.snapshot()), "lists": _lists(),
+                "failed": (res.get("failed") or [])[:5],
+                "failed_count": len(res.get("failed") or [])}
     library_n = len(LIB.snapshot())
 
     # "待匹配" = 真正进了歌单、但当前还没有歌词的那些

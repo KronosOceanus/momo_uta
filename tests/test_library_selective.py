@@ -242,3 +242,18 @@ class TestSecondImportsFill(unittest.TestCase):
         finally:
             CACHE.clear(); CACHE.update(old)
             LIB.LAST_MISSING = old_missing
+
+
+class TestEmptyPlaylistsMissing(unittest.TestCase):
+    def test_empty_playlists_resets_last_missing(self):
+        from unittest.mock import patch
+        from momo_player.core import library as LIB
+        from momo_player.core import playlists as PL
+        old = list(LIB.LAST_MISSING)
+        try:
+            with patch.object(PL, "all_uids", return_value=[]):
+                LIB.LAST_MISSING = ["old"]
+                self.assertEqual(LIB.load_for_playlists(), [])
+                self.assertEqual(LIB.LAST_MISSING, [])
+        finally:
+            LIB.LAST_MISSING = old
