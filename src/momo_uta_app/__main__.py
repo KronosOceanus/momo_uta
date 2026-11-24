@@ -40,14 +40,37 @@ def _run_demucs() -> None:
     demucs_main()
 
 
-def main(demo: bool = False, demo_auto: bool = False) -> None:
+def _show_startup_error(exc: Exception) -> None:
+    """启动失败时给用户一个可见出口；日志仍保留完整 traceback。"""
+    import traceback
+    print(traceback.format_exc(), file=sys.stderr)
+    detail = f"{type(exc).__name__}: {exc}"
+    try:
+        from AppKit import NSAlert, NSApplication
+        from momo_yomi.paths import CACHE
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_("桃歌启动失败")
+        alert.setInformativeText_(detail[:1200] + "\n\n日志：" + str(CACHE / "app.log"))
+        alert.addButtonWithTitle_("退出")
+        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        alert.runModal()
+    except Exception:
+        pass
+
+
+def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     from momo_player.core import diag
+    try:
+        log_path = logsetup.setup()
+    except Exception as e:
+        log_path = None
+        print(f"日志初始化失败：{e}", file=sys.stderr)
+    sys.excepthook = logsetup.log_exception
+    if log_path:
+        print(f"日志：{log_path}")
     diag.log("app", f"frozen={getattr(sys, 'frozen', False)} exe={sys.executable} bundle={BUNDLE}")
     _bundle_path()
     bootstrap()
-    log_path = logsetup.setup()
-    sys.excepthook = logsetup.log_exception
-    print(f"日志：{log_path}")
     LIB.load_cache_for_playlists()
     VOC.cleanup(protected={v.get("uid") for v in LIB.CACHE.values()})
 
@@ -264,6 +287,14 @@ def main(demo: bool = False, demo_auto: bool = False) -> None:
             srv.server_close()
         except Exception:
             pass
+
+
+def main(demo: bool = False, demo_auto: bool = False) -> None:
+    try:
+        _run_app(demo=demo, demo_auto=demo_auto)
+    except Exception as e:
+        _show_startup_error(e)
+        raise
 
 
 if __name__ == "__main__":
