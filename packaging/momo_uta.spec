@@ -124,7 +124,8 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "桃歌",
         "CFBundleDisplayName": "桃歌",
-        "CFBundleShortVersionString": "0.1.0",
+        "CFBundleShortVersionString": "1.0.0",
+        "CFBundleVersion": "1",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "12.0",
     },

@@ -9,6 +9,7 @@ case "$VARIANT" in
 esac
 
 NAME="momo-uta-$VARIANT"
+VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -n 1)
 MOMO_VARIANT="$VARIANT" .venv/bin/pyinstaller --clean --noconfirm \
   --distpath "dist/$VARIANT" --workpath "build/$VARIANT" \
   packaging/momo_uta.spec
@@ -24,6 +25,7 @@ fi
 
 {
   echo "momo uta — 打包版本"
+  echo "version: ${VERSION:-unknown}"
   echo "commit: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
   echo "date: $(date '+%Y-%m-%d %H:%M:%S')"
   echo

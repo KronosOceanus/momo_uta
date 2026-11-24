@@ -5,6 +5,9 @@
 <h1 align="center">桃歌 · momo uta</h1>
 
 <p align="center">
+  <strong>v1.0.0</strong>
+  <br>
+
   日文歌词标注与练习播放器
   <br>
   macOS · 本地运行 · Apple Silicon
@@ -323,6 +326,7 @@ docs/topics/library.md        曲库、歌单、导入
 docs/topics/http-api.md       本机 HTTP API
 docs/topics/development.md    开发与测试
 docs/topics/packaging.md      打包
+CHANGELOG.md                    版本记录
 docs/topics/歌词数据模型.md     单一行模型
 docs/项目整理/代码审查.md        待处理代码问题
 docs/项目整理/优化.md            待评估优化
