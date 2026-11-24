@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 
 from momo_yomi.config import LB
@@ -52,6 +53,47 @@ def _unique_paths(items):
     return out
 
 
+def _lyric_base(p: Path) -> str:
+    return p.name[:-len(p.suffix)]
+
+
+def _exact_key(s: str) -> str:
+    return unicodedata.normalize("NFKC", str(s)).strip().casefold()
+
+
+def _choose(cands: list[Path]) -> tuple[Path | None, list[Path]]:
+    """同一 base 的 .lrc/.nhlrc 可以共存；不同 base 才是歧义。"""
+    if not cands:
+        return None, []
+    bases = {_exact_key(_lyric_base(p)) for p in cands}
+    if len(bases) == 1:
+        return _pick(cands), []
+    return None, cands
+
+
+def _match_audio(audio: Path, lrcs: list[Path], used: set[Path]) -> tuple[Path | None, list[Path]]:
+    # 同目录优先，再全局；精确 stem 优先，再归一化 stem。
+    for same_dir in (True, False):
+        for keyfn in (_exact_key, _stem_key):
+            cand = [p for p in lrcs if p not in used
+                    and (not same_dir or p.parent == audio.parent)
+                    and keyfn(_lyric_base(p)) == keyfn(audio.stem)]
+            if cand:
+                return _choose(cand)
+    return None, []
+
+
+def _match_lrc(lrc: Path, audios: list[Path], used: set[Path]) -> tuple[Path | None, list[Path]]:
+    for same_dir in (True, False):
+        for keyfn in (_exact_key, _stem_key):
+            cand = [a for a in audios if a not in used
+                    and (not same_dir or a.parent == lrc.parent)
+                    and keyfn(a.stem) == keyfn(_lyric_base(lrc))]
+            if cand:
+                return _choose(cand)
+    return None, []
+
+
 def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                  with_lrc: bool = False) -> dict:
     """按用户选中的路径导一批。
@@ -81,33 +123,53 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                 lrcs.append(p)
 
     audios = _unique_paths(audios)
+    if with_lrc:
+        for a in audios:                         # 只选音频时也找同目录歌词
+            for p in a.parent.glob("*"):
+                if p.suffix.lower() in LYRIC_EXT:
+                    lrcs.append(p)
     lrcs = _unique_paths(lrcs)
     rejected = _unique_paths(rejected)
 
-    by_key: dict[str, list[Path]] = {}
-    for p in lrcs:
-        by_key.setdefault(_stem_key(p.stem), []).append(p)
-
     added, pending, overwritten, unpaired = [], [], 0, 0
+    ambiguous = 0
     failed = []
     used_lrc: set[Path] = set()
+    assigned: dict[Path, Path] = {}
+    ambiguous_audio: set[Path] = set()
+    remaining = list(audios)
+
+    # 先同目录精确，再全局精确；然后才归一化匹配。避免 Track 1 抢走 Track 2 的 LRC。
+    for same_dir in (True, False):
+        for keyfn in (_exact_key, _stem_key):
+            still = []
+            for a in remaining:
+                cand = [p for p in lrcs if p not in used_lrc
+                        and (not same_dir or p.parent == a.parent)
+                        and keyfn(_lyric_base(p)) == keyfn(a.stem)]
+                lrc, bad = _choose(cand)
+                if lrc:
+                    used_lrc.add(lrc)
+                    assigned[a] = lrc
+                elif bad:
+                    ambiguous += 1
+                    ambiguous_audio.add(a)
+                    pending.append(str(a))
+                    added.append(str(a))
+                    failed.append({"audio": str(a), "lrc": "",
+                                   "error": "多个歌词候选，未自动配对"})
+                else:
+                    still.append(a)
+            remaining = still
 
     for a in audios:                                # ② 音频 + lrc 配对
-        key = _stem_key(a.stem)
-        cand = [p for p in by_key.get(key, []) if p not in used_lrc] if with_lrc else []
-        if not cand and with_lrc:                    # 音频自己所在目录里找同名歌词
-            cand = [p for p in a.parent.glob("*")
-                    if p.suffix.lower() in LYRIC_EXT and p not in used_lrc
-                    and _stem_key(p.stem) == key]
-        if not cand and with_lrc:                    # 再退：同目录唯一 lrc
-            same = [p for p in lrcs if p.parent == a.parent and p not in used_lrc]
-            cand = same if len(same) == 1 else []
-        if not cand:
+        if a in ambiguous_audio:
+            continue
+        lrc = assigned.get(a)
+        if not lrc:
             pending.append(str(a))                  # ③ 只给音频 → 也进歌单，懒匹配
             added.append(str(a))
             continue
-        lrc = _pick(cand)
-        used_lrc.add(lrc)
         artist, title = LY.split_name(a.stem)
         raw = lrc.read_text(encoding="utf-8", errors="ignore")
         ok, _why = LRC.valid_import(raw)
@@ -136,16 +198,19 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
 
     pool = [Path(x) for x in (pool_audio or [])]
     pool += [a for a in audios if str(a) not in added]
+    used_audio: set[Path] = {Path(x['audio']) for x in failed if x.get('audio')}
     for lrc in lrcs if with_lrc else ():            # ④ 剩余 lrc → 反查音频
         if lrc in used_lrc:
             continue
-        key = _stem_key(lrc.stem)
-        target = next((a for a in pool if _stem_key(a.stem) == key), None) \
-            or next((p for p in lrc.parent.glob("*")
-                     if p.suffix.lower() in AUDIO_EXT and _stem_key(p.stem) == key), None)
+        target, cand = _match_lrc(lrc, pool, used_audio)
         if not target:
+            if cand:
+                ambiguous += 1
+                failed.append({"audio": "", "lrc": str(lrc),
+                               "error": "多个音频候选，未自动配对"})
             unpaired += 1
             continue
+        used_audio.add(target)
         artist, title = LY.split_name(target.stem)
         raw = lrc.read_text(encoding="utf-8", errors="ignore")
         ok, _why = LRC.valid_import(raw)
@@ -173,6 +238,7 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                            "error": imported.get("error") or "歌词导入失败"})
 
     return {"added": added, "pending": pending, "overwritten": overwritten,
-            "unpaired": unpaired, "rejected_lrc": len(rejected),
+            "unpaired": unpaired, "ambiguous": ambiguous,
+            "rejected_lrc": len(rejected),
             "failed": failed, "failed_count": len(failed),
             "audio_found": len(audios), "lrc_found": len(lrcs)}

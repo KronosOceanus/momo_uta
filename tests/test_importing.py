@@ -151,3 +151,46 @@ class TestImportFailure(unittest.TestCase):
             self.assertIn(str(audio), res["pending"])
             self.assertEqual(res["failed_count"], 1)
             self.assertIn("boom", res["failed"][0]["error"])
+
+
+class TestStrictPairing(unittest.TestCase):
+    def test_exact_song_beats_numbered_track(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            song = root / "Song.mp3"; song.write_bytes(b"song-audio")
+            numbered = root / "01 Song.mp3"; numbered.write_bytes(b"numbered-audio")
+            (root / "Song.lrc").write_text(
+                "[00:05.00]君\n[00:10.00]花\n[00:15.00]夜\n", encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(root)], with_lrc=True)
+                self.assertIn(str(song), res["added"])
+                self.assertIn(str(numbered), res["pending"])
+                self.assertTrue(LRF.store_path(song).is_file())
+                self.assertFalse(LRF.store_path(numbered).is_file())
+
+    def test_same_dir_exact_wins_over_other_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            a = root / "A" / "Song.mp3"; b = root / "B" / "Song.mp3"
+            a.parent.mkdir(); b.parent.mkdir(); a.touch(); b.touch()
+            (b.parent / "Song.lrc").write_text(
+                "[00:05.00]君\n[00:10.00]花\n[00:15.00]夜\n", encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(root)], with_lrc=True)
+                self.assertIn(str(b), res["added"])
+                self.assertIn(str(a), res["pending"])
+                self.assertTrue(LRF.store_path(b).is_file())
+
+    def test_multiple_different_lrc_bases_are_not_guessed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "Song.mp3"; audio.touch()
+            (root / "Song (1).lrc").write_text(
+                "[00:05.00]君\n[00:10.00]花\n[00:15.00]夜\n", encoding="utf-8")
+            (root / "Song (2).lrc").write_text(
+                "[00:05.00]別\n[00:10.00]歌\n[00:15.00]詞\n", encoding="utf-8")
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                res = importing.import_paths([str(root)], with_lrc=True)
+            self.assertIn(str(audio), res["pending"])
+            self.assertEqual(res["ambiguous"], 1)
+            self.assertFalse(LRF.store_path(audio).is_file())
