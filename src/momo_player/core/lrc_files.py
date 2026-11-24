@@ -15,6 +15,7 @@ from pathlib import Path
 
 from momo_yomi.paths import LYRICS
 
+from . import diag
 from . import fsio as FS
 from . import fingerprint as FP
 from . import lyrics as LY
@@ -282,15 +283,20 @@ def doc_from_rows(rows: list[dict], version: str = VERSION_NONE,
 def load(audio: str | Path, uid: str | None = None,
          title: str | None = None, artist: str | None = None,
          network: bool = False) -> dict:
-    """有 nhlrc 就只读 nhlrc（含 disabled）；没有才回退网络缓存。"""
+    """读本地 V2 nhlrc；空文件/坏文件回退网络缓存，disabled 直接返回。"""
     audio = Path(audio)
     u = uid or uid_of(audio)
     sp = store_path(audio, u, title, artist)
     from_cache = False
     full = ""
+    body = ""
+    hit = {}
     tail = None
     disabled = False
     version = VERSION_NONE
+    path: Path = sp
+    kind = "cache"
+    source = ""
 
     if sp.is_file():
         full = sp.read_text(encoding="utf-8", errors="ignore")
@@ -300,8 +306,22 @@ def load(audio: str | Path, uid: str | None = None,
             version = _version(full)
             path, kind, source = sp, "nhlrc", "nhlrc"
         else:
-            # 空 nhlrc 不是权威歌词，回退到缓存。
             full = ""
+
+    if tail and tail.get("v") == 2 and not disabled:
+        try:
+            rows = parse_v2_rows(full)
+            return _doc_from_v2_rows(rows, path, version, source,
+                                     (tail.get("trans_lang") or "zh"))
+        except Exception as e:
+            # 坏 V2 不阻塞播放：按没有本地 nhlrc 处理，回退缓存。
+            diag.log("lrc", f"nhlrc 解析失败，回退缓存：{sp}：{e}")
+            full = ""
+            body = ""
+            tail = None
+            version = VERSION_NONE
+            kind, source = "cache", ""
+
     if not full.strip():
         artist, title = LY.split_name(audio.stem)
         hit = LY.get_lrc(title, artist, network=network) or {}
@@ -325,10 +345,6 @@ def load(audio: str | Path, uid: str | None = None,
                 "metadata": [], "annotations": {}, "line_ids": {},
                 "token_ids": {}, "translations": {}, "disabled": False,
                 "version": version}
-    if tail and tail.get("v") == 2:
-        rows = parse_v2_rows(full)
-        return _doc_from_v2_rows(rows, path, version, source,
-                                 (tail.get("trans_lang") or "zh"))
 
     lines, metadata, body_rows = _parse_rows(body)
     translations = (translations_from_lrc((hit or {}).get("tlyric") or "", lines)
