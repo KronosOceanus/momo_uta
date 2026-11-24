@@ -364,6 +364,9 @@ if __name__ == "__main__":
         _run_demucs()
     else:
         demo2 = "--demo2" in sys.argv or "--demo2-auto" in sys.argv
-        main(demo=("--demo" in sys.argv or "--demo-auto" in sys.argv or demo2),
-             demo_auto=("--demo-auto" in sys.argv or "--demo2-auto" in sys.argv),
-             demo_script=("demo2_driver.js" if demo2 else "demo_driver.js"))
+        demo3 = "--demo3" in sys.argv or "--demo3-auto" in sys.argv
+        main(demo=("--demo" in sys.argv or "--demo-auto" in sys.argv or demo2 or demo3),
+             demo_auto=("--demo-auto" in sys.argv or "--demo2-auto" in sys.argv
+                        or "--demo3-auto" in sys.argv),
+             demo_script=("demo3_driver.js" if demo3 else
+                          "demo2_driver.js" if demo2 else "demo_driver.js"))

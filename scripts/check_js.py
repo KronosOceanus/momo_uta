@@ -56,7 +56,7 @@ def main() -> int:
     joined = "\n".join((STATIC / n).read_text(encoding="utf-8") for n in ORDER
                        if (STATIC / n).is_file())
     ok &= node_check(joined, "三个文件合并后（检查跨文件重复定义）")
-    for name in ("demo_driver.js", "demo2_driver.js"):
+    for name in ("demo_driver.js", "demo2_driver.js", "demo3_driver.js"):
         p = DEMO / name
         if not p.is_file():
             print(f"✗ 缺少 {name}")
