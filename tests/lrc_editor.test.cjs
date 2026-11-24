@@ -228,6 +228,7 @@ test('replacing lyrics waits for a sent save and blocks song transitions', async
   assert.equal(p.calls.length, 1);
   p.requests[0].resolve({ok: true});
   await saving;
+  await nextTurn();
   assert.equal(p.calls[1].body.action, 'restore');
   p.requests[1].resolve({ok: true});
   await nextTurn();
@@ -644,4 +645,18 @@ test('editor follows normal-view line by lid or nearest time', () => {
   assert.equal(p.run("editorRowIndex({lid:'l20'},[{lid:'l1'},{lid:'l20'}])"), 1);
   assert.equal(p.run("editorRowIndex({t:9.5},[{t:1},{t:8},{t:10}])"), 2);
   assert.equal(p.run("editorRowIndex({t:100},[{t:1},{t:2}])"), 1);
+});
+
+test('replace does not overwrite when draft save fails', async () => {
+  const p = player();
+  p.run(`VIEW_MODE='lrc'; S={idx:'0',uid:'u1',title:'X',version:'v',lines:[]};
+         EROWS=[{t:1,text:'draft',trans:''}]; EDIRTY=true; LRC_VERSION='v';`);
+  const replacing = p.run(`replaceLrc({action:'import_lrc',uid:'u1',text:'[00:02.00]new'},'导入中…',
+                    ()=>'ok')`);
+  assert.equal(p.calls[0]?.path, '/api/lrc');
+  assert.equal(p.calls[0].body.action, 'save');
+  p.requests[0].resolve({ok:false,error:'disk'});
+  await replacing;
+  assert.equal(p.calls.length, 1);          // 没有发起 import
+  assert.equal(p.run('EDIRTY'), true);
 });

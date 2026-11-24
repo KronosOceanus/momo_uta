@@ -9,7 +9,7 @@ NH.VIEW_MODE = 'normal';
 NH.EROWS = []; NH.ESEL = -1; NH.SEL = new Set(); NH.MARK = null; NH.EDIRTY = false; NH.UNDO = []; NH.REDO = [];
 NH.TEXT_EDIT_ROW = null;
 NH.TRANS_EDIT = false;
-NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false; NH.ROWS_MODE = false;
+NH.LRC_METADATA = []; NH.LRC_LOCKED = false; NH.LRC_REPLACING = false; NH.LRC_FLUSHING = false; NH.ROWS_MODE = false;
 
 function setLrcLocked(locked){
   if(locked===NH.LRC_LOCKED) return;
@@ -168,7 +168,7 @@ function syncTransBtn(){
   b.classList.toggle('on', NH.TRANS_EDIT);
 }
 async function saveLrc(silent, force){
-  if(!NH.S || NH.VIEW_MODE!=='lrc' || NH.LRC_REPLACING) return false;
+  if(!NH.S || NH.VIEW_MODE!=='lrc' || (NH.LRC_REPLACING && !NH.LRC_FLUSHING)) return false;
   const song=NH.S;
   // 等前一次写入结束，再读取当前表格，避免旧内容后写覆盖新内容。
   while(NH.SAVE_PENDING){
@@ -576,20 +576,37 @@ document.getElementById('lrcsaveas').onclick=async()=>{
     NH.done(p ? '已导出 '+p.split('/').pop() : '已取消');
   }else NH.done('当前环境不支持导出');
 };
+async function saveBeforeReplace(){
+  const pending=NH.SAVE_PENDING;
+  if(pending){
+    if(!await pending) return false;
+    if(!NH.EDIRTY) return true;
+  }
+  if(NH.EDIRTY) return await flushLrc();
+  return true;
+}
+
 async function replaceLrc(req, pending, success){
+  const song=NH.S;
+  if(!song) return;
   NH.LRC_REPLACING=true;
+  NH.LRC_FLUSHING=true;          // 允许本次覆盖前的 flush，同时阻止切歌
   setLrcLocked(true);
   NH.busy(pending);
   try{
-    // 覆盖操作须等已发出的自动保存结束，避免旧内容覆盖导入或备份。
-    await NH.SAVE_PENDING;
+    // 覆盖前先把当前草稿落盘；保存失败时不能继续丢弃草稿。
+    if(!await saveBeforeReplace()) return;
+    if(NH.S!==song || NH.VIEW_MODE!=='lrc') return;
     const res=await NH.api('/api/lrc',{...req, version:NH.LRC_VERSION});
     if(!res.ok) throw new Error(res.error||'操作失败');
+    if(NH.S!==song || NH.VIEW_MODE!=='lrc') return;
     await openLrcEditor();
+    if(NH.S!==song) return;
     NH.done(success(res));
   }catch(err){
     NH.done('歌词替换失败：'+err.message);
   }finally{
+    NH.LRC_FLUSHING=false;
     NH.LRC_REPLACING=false;
     setLrcLocked(false);
   }
@@ -613,15 +630,16 @@ document.getElementById('lrcfiledel').onclick=async()=>{
   if(!await NH.uiConfirm('删除这首歌的歌词文件？',
       '歌词将被禁用，备份会保留。\n这首歌仍可播放，但不会自动匹配歌词。\n以后可以通过重新匹配或保存新歌词重新启用。', true)) return;
   NH.LRC_REPLACING=true;
+  NH.LRC_FLUSHING=true;                           // 允许删除前的 flush，同时阻止切歌
   setLrcLocked(true);                             // 和导入/恢复共用切歌锁
   try{
-    if(NH.SAVE_PENDING && !await NH.SAVE_PENDING){
-      NH.done('歌词尚未保存，已取消删除'); return;
-    }
+    if(!await saveBeforeReplace()) return;
+    if(NH.S!==song || NH.VIEW_MODE!=='lrc') return;
     const r=await NH.api('/api/lrc',{action:'delete', uid:song.uid, version:NH.LRC_VERSION});
     if(!r.ok) throw new Error(r.error||'删除失败');
     if(NH.S!==song || NH.VIEW_MODE!=='lrc') return;  // 迟到响应不碰新会话
     NH.EDIRTY=false;
+    NH.LRC_FLUSHING=false;
     NH.LRC_REPLACING=false;
     setLrcLocked(false);
     await NH.load(song.uid,false,'normal');     // 退出 LRC，回到普通页
@@ -630,6 +648,7 @@ document.getElementById('lrcfiledel').onclick=async()=>{
     if(NH.S===song && NH.EDIRTY) markDirty();    // 删除失败：草稿仍算未保存
     NH.done('删除失败：'+err.message);
   }finally{
+    NH.LRC_FLUSHING=false;
     NH.LRC_REPLACING=false;
     setLrcLocked(false);
   }
@@ -839,6 +858,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {editorRowIndex, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+Object.assign(NH, {editorRowIndex, saveBeforeReplace, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();
