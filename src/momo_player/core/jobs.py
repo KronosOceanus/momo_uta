@@ -50,7 +50,7 @@ def start(kind: str, key, runner, cancel=None, max_active=None) -> dict:
         if max_active is not None:
             active = sum(1 for job in _jobs.values()
                          if job["kind"] == kind
-                         and job["state"] in ("queued", "running"))
+                         and job["state"] in ("queued", "running", "canceling"))
             if active >= int(max_active):
                 raise Busy("任务队列已满，请稍后再试")
         job = {"id": job_id, "kind": kind, "key": str(key), "state": "queued",

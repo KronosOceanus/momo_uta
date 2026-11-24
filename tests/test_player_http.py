@@ -168,6 +168,21 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertEqual(cm.exception.code, 403)
         self.assertIsNone(cm.exception.headers.get("Access-Control-Allow-Origin"))
 
+    def test_audio_response_has_security_headers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio = Path(tmp) / "fake.mp3"; audio.write_bytes(b"0123456789")
+            CACHE["0"]["file"] = str(audio)
+            r = self.get("/audio/" + CACHE_ITEM["uid"])
+            self.assertEqual(r.headers.get("X-Frame-Options"), "DENY")
+            self.assertEqual(r.headers.get("X-Content-Type-Options"), "nosniff")
+            self.assertEqual(r.headers.get("Cache-Control"), "no-store")
+            self.assertEqual(r.headers.get("Accept-Ranges"), "bytes")
+
+    def test_query_token_is_not_accepted(self):
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(self.url("/api/library?token=" + ROUTES.TOKEN))
+        self.assertEqual(cm.exception.code, 403)
+
     def test_library(self):
         rows = json.loads(self.get("/api/library").read())
         self.assertEqual(len(rows), 1)

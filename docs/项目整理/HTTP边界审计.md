@@ -210,7 +210,7 @@ P2  ✅ 安全响应头 + CSP nonce（保留 unsafe-eval 供 pywebview）
 测试基线：
 
 ```text
-360 Python
+362 Python
 46 前端
 UI 冒烟通过
 ```
@@ -253,7 +253,7 @@ Bytes=0-1
 ### 已通过
 
 ```text
-360 Python
+362 Python
 46 前端
 UI 冒烟通过
 ```
@@ -262,7 +262,7 @@ UI 冒烟通过
 
 P0/P1/P2 已修完，主链路通过。剩几个低优先级一致性边界。
 
-### P3：/audio 返回没有走安全响应头
+### P3：/audio 返回没有走安全响应头 — 已修复
 
 `_get_audio` 手动 `send_response`，只设置：
 
@@ -283,11 +283,9 @@ Cross-Origin-Resource-Policy
 Cache-Control
 ```
 
-不影响播放，但和其他响应不一致。
+现在音频响应也使用同一组安全响应头。
 
-建议抽一个公共响应头方法，音频手动响应也复用。
-
-### P3：jobs 上限没有把 canceling 计入
+### P3：jobs 上限没有把 canceling 计入 — 已修复
 
 `JOBS.start` 上限只统计：
 
@@ -302,9 +300,9 @@ running
 canceling
 ```
 
-仍可能占用实际 worker。取消中的任务也算活动时，避免短时间超出上限。
+现在 queued/running/canceling 都计入活动任务。
 
-### P3：token 仍允许 query 兜底
+### P3：token 仍允许 query 兜底 — 已修复
 
 `_token_ok` 支持：
 
@@ -323,9 +321,9 @@ Referer
 日志
 ```
 
-可以移除 query 兜底，统一 header；音频也已经用 header。
+现在只接受 X-Momo-Token header，query token 返回 403。
 
-### P3：请求读取没有超时
+### P3：请求读取没有超时 — 已修复
 
 本地服务没有 socket 超时。恶意/异常客户端可慢慢发送 body：
 
@@ -335,12 +333,12 @@ Content-Length 合法
 连接长期占用
 ```
 
-本地影响有限，但可以加 socket 超时或 `rfile` 读取上限。
+现在 handler socket timeout=15 秒，读取超时返回 408。
 
 ### 当前测试
 
 ```text
-360 Python
+362 Python
 46 前端
 UI 冒烟通过
 ```

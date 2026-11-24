@@ -79,7 +79,7 @@ class TestVocalsBusy(unittest.TestCase):
             LIB.BY_UID["u-test"] = CACHE["0"]
             J._jobs.update({
                 "a": {"id": "a", "kind": "vocals", "key": "a", "state": "queued"},
-                "b": {"id": "b", "kind": "vocals", "key": "b", "state": "running"},
+                "b": {"id": "b", "kind": "vocals", "key": "b", "state": "canceling"},
             })
             with patch.object(SJ, "MAX_ACTIVE_VOCALS", 2):
                 with self.assertRaises(SJ.JobBusy):

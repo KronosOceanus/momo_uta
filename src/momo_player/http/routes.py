@@ -26,6 +26,7 @@ MAX_BODY = 2 * 1024 * 1024
 
 
 class H(BaseHTTPRequestHandler):
+    timeout = 15
     GET = {
         "/api/pl": "_get_playlists",
         "/api/library": "_get_library",
@@ -47,11 +48,7 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _send(self, code, body, ctype="application/json; charset=utf-8", headers=None):
-        b = body.encode() if isinstance(body, str) else body
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(b)))
+    def _common_headers(self):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
@@ -59,6 +56,13 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")
         self.send_header("Permissions-Policy",
                          "camera=(), microphone=(), geolocation=()")
+
+    def _send(self, code, body, ctype="application/json; charset=utf-8", headers=None):
+        b = body.encode() if isinstance(body, str) else body
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(b)))
+        self._common_headers()
         for k, v in (headers or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -87,9 +91,6 @@ class H(BaseHTTPRequestHandler):
 
     def _token_ok(self) -> bool:
         token = self.headers.get("X-Momo-Token") or ""
-        if not token:
-            q = urllib.parse.urlparse(self.path).query
-            token = (urllib.parse.parse_qs(q).get("token") or [""])[0]
         return bool(token) and hmac.compare_digest(token, TOKEN)
 
     def _guard(self, protected: bool) -> bool:
@@ -261,7 +262,11 @@ class H(BaseHTTPRequestHandler):
         if length < 0 or length > MAX_BODY:
             return self._json({"ok": False, "error": "请求体过大"}, 413)
         try:
-            req = json.loads(self.rfile.read(length) or b"{}")
+            body = self.rfile.read(length)
+        except (TimeoutError, OSError):
+            return self._json({"ok": False, "error": "读取请求超时"}, 408)
+        try:
+            req = json.loads(body or b"{}")
         except Exception:
             return self._json({"ok": False, "error": "请求不是合法 JSON"}, 400)
         if not isinstance(req, dict):
@@ -391,6 +396,7 @@ class H(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Accept-Ranges", "bytes")
+        self._common_headers()
         self.send_header("Content-Length", str(length))
         if crange:
             self.send_header("Content-Range", crange)
