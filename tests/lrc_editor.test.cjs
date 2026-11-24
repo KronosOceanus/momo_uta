@@ -638,3 +638,10 @@ test('playTarget reports missing target', () => {
   p.run("window.NH.done=(m)=>window.NH._msg=m; playTarget('missing-uid')");
   assert.equal(p.run('window.NH._msg'), '歌曲不可用');
 });
+
+test('editor follows normal-view line by lid or nearest time', () => {
+  const p = player();
+  assert.equal(p.run("editorRowIndex({lid:'l20'},[{lid:'l1'},{lid:'l20'}])"), 1);
+  assert.equal(p.run("editorRowIndex({t:9.5},[{t:1},{t:8},{t:10}])"), 2);
+  assert.equal(p.run("editorRowIndex({t:100},[{t:1},{t:2}])"), 1);
+});

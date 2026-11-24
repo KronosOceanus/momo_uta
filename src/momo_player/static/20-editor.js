@@ -249,6 +249,24 @@ function lrcText(){
   return rows.join('\n')+'\n';
 }
 
+function editorRowIndex(line, rows){
+  if(!line || !Array.isArray(rows) || !rows.length) return 0;
+  if(line.lid){
+    const byLid=rows.findIndex(r=>r && r.lid===line.lid);
+    if(byLid>=0) return byLid;
+  }
+  if(line.t!==null && line.t!==undefined){
+    let best=-1, dist=Infinity;
+    rows.forEach((r,i)=>{
+      if(!r || r.t===null || r.t===undefined) return;
+      const d=Math.abs(+r.t - +line.t);
+      if(d<dist){ dist=d; best=i; }
+    });
+    if(best>=0) return best;
+  }
+  return 0;
+}
+
 async function openLrcEditor(entering=false){
   if(NH.viewMatching()){ NH.done('歌词匹配中，稍后再编辑'); return; }
   const song=NH.S, request=NH.currentToken('load'), opening=NH.track('lrcOpen');
@@ -286,11 +304,17 @@ async function openLrcEditor(entering=false){
   }
   NH.TRANS_EDIT=false; syncTransBtn();
   if(!NH.EROWS.length) NH.EROWS=[{id:newRowId(),kind:'blank',t:null,text:'',trans:''}];
-  NH.ESEL=0; NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
+  const targetLine = entering && NH.CUR >= 0 ? NH.LINES[NH.CUR] : null;
+  NH.ESEL=entering ? editorRowIndex(targetLine, NH.EROWS) : 0;
+  NH.SEL.clear(); NH.EDIRTY=false; NH.MARK=null;
   NH.TEXT_EDIT_ROW=null;
   NH.UNDO=[]; NH.REDO=[];
   document.getElementById('savehint').textContent='';
   renderLrcTable();
+  if(entering){
+    const row=document.querySelector(`.lerow[data-i="${NH.ESEL}"]`);
+    row?.scrollIntoView({block:'center'});
+  }
   NH.paintTicks?.();
   if(entering){ NH.measureCanvas(); NH.syncWaveLabels(); NH.syncFollow(); if(!NH.WAVE) NH.loadWave(); }
 }
@@ -815,6 +839,6 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+Object.assign(NH, {editorRowIndex, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();
