@@ -68,15 +68,17 @@ lyric / blank / metadata 统一为 rows
 ### LRC 编辑
 
 ```text
-时间轴编辑
+时间轴编辑（前后行时间顺序校验）
 拆行 / 合并行
 多选删除
 撤销 / 重做
+翻译列默认开启，修改可撤销
 自动保存
 导入 / 导出
 备份 / 恢复最初
 禁用歌词
-翻译列
+版本冲突选择：重新加载 / 本地覆盖 / 取消
+IME 组合输入结束后再写模型
 ```
 
 ### 曲库
@@ -104,6 +106,9 @@ lyric / blank / metadata 统一为 rows
 日间 / 夜间模式
 数据路径入口
 快捷键帮助
+配置损坏自动备份并提示
+单实例启动
+退出前保存 LRC 草稿
 ```
 
 ## 两个版本
@@ -261,6 +266,7 @@ make test-python
 
 ```text
 只提供 arm64 构建
+暂不支持 Intel / universal2
 未签名 / 未公证
 没有自动更新
 歌词来源目前只有网易云
@@ -296,7 +302,7 @@ docs/topics/library.md        曲库、歌单、导入
 docs/topics/http-api.md       本机 HTTP API
 docs/topics/development.md    开发与测试
 docs/topics/packaging.md      打包
-docs/歌词数据模型.md           单一行模型
-docs/代码审查.md               待处理代码问题
-docs/优化.md                   待评估优化
+docs/topics/歌词数据模型.md     单一行模型
+docs/项目整理/代码审查.md        待处理代码问题
+docs/项目整理/优化.md            待评估优化
 ```
