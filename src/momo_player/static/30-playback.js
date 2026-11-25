@@ -420,6 +420,7 @@ async function applySpeed(speed){
   const rate=document.getElementById('rate');
   stBusy=true;
   if(rate) rate.disabled=true;
+  NH.done(`SoundTouch ${speed.toFixed(2)}× 生成中…`);
   try{
     const r=await NH.api('/api/soundtouch',{uid:NH.S.uid,speed});
     if(r.ok===false) throw new Error(r.error||'生成失败');
