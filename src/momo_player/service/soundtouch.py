@@ -66,7 +66,19 @@ def _stop(p) -> None:
             pass
     try:
         p.wait(timeout=2)
-    except (OSError, subprocess.TimeoutExpired):
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            try:
+                p.kill()
+            except OSError:
+                pass
+        try:
+            p.wait(timeout=1)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    except OSError:
         pass
 
 
