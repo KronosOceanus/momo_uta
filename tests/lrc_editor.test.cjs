@@ -814,3 +814,13 @@ test('SoundTouch source always plays at 1.0 rate', () => {
   p.run("commitAudio({uid:'u0', title:'test'})");
   assert.equal(p.run('au.playbackRate'), 1);
 });
+
+test('SoundTouch mode maps source time to processed audio time', () => {
+  const p = player();
+  p.run("ST_ON=true; ST_SPEED=0.80; LINES=[{t:2,text:'a'},{t:4,text:'b'}]; VIEW_MODE='normal';");
+  assert.equal(p.run('audioTime(2)'), 2.5);
+  assert.equal(p.run('sourceTime(2.5)'), 2);
+  assert.equal(p.run('idxAt(2.4)'), -1);
+  assert.equal(p.run('idxAt(2.6)'), 0);
+  assert.equal(p.run('idxAt(5.1)'), 1);
+});

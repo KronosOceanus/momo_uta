@@ -81,8 +81,8 @@ lyric / blank / metadata 统一为 rows
 限制：
 
 ```text
-只用于试听
-歌词和波形暂时按原时间轴显示，不对轴
+预生成，不是实时 DSP
+歌词和波形按变速后的时间轴映射
 每次速度变化需要重新生成
 需要系统里有 ffmpeg 和 soundstretch
 ```

@@ -9,7 +9,7 @@ NH.TOKEN = window.__MOMO_TOKEN || '';
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
 NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false;
-NH.ST_ON = false; NH.ST_URL = null; NH.ST_UID = null; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
+NH.ST_ON = false; NH.ST_URL = null; NH.ST_UID = null; NH.ST_SPEED = 1; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
@@ -41,8 +41,10 @@ function clampStart(st, span){
 function waveMarker(idx){
   const v=NH.WMARK[idx]; return v==null ? 0 : v;
 }
+function audioTime(t){ return NH.ST_ON ? t / (NH.ST_SPEED || 1) : t; }
+function sourceTime(t){ return NH.ST_ON ? t * (NH.ST_SPEED || 1) : t; }
 function waveTime(){
-  if(NH.isSelfPlaying()) return NH.au.currentTime || 0;
+  if(NH.isSelfPlaying()) return sourceTime(NH.au.currentTime || 0);
   const m=NH.WMARK[NH.S && NH.S.uid];
   if(m!=null) return m;
   if(NH.VIEW_MODE==='lrc' && NH.ESEL >= 0){
@@ -72,11 +74,11 @@ function setWaveMarker(t, select){
 function waveStep(delta){
   if(!NH.S) return;
   const self=NH.isSelfPlaying();
-  const base=self ? (NH.au.currentTime||0) : waveMarker(NH.S.uid);
-  const dur=self ? (NH.au.duration||0) : ((NH.WAVE&&NH.WAVE.duration)||NH.S.duration||0);
+  const base=self ? sourceTime(NH.au.currentTime||0) : waveMarker(NH.S.uid);
+  const dur=self ? sourceTime(NH.au.duration||0) : ((NH.WAVE&&NH.WAVE.duration)||NH.S.duration||0);
   const t=Math.max(0, dur ? Math.min(dur, base+delta) : base+delta);
   NH.WMARK[NH.S.uid]=t; NH.MARK=t;
-  if(self) NH.seekPrecise(t);
+  if(self) NH.seekPrecise(audioTime(t));
   else {
     const i=nearestWaveRow(t);
     if(i>=0){
@@ -273,7 +275,7 @@ cv.addEventListener('click', e=>{
   const v=NH.DRAWN || viewStart();                 // 所见即所得
   const t=Math.round((v.start + ratio*v.span)*100)/100;
   setWaveMarker(t, true);
-  if(NH.isSelfPlaying()) NH.seekPrecise(t);
+  if(NH.isSelfPlaying()) NH.seekPrecise(audioTime(t));
   const el=document.getElementById('mark');
   el.textContent='标记：'+NH.lrcFmt(NH.MARK); el.classList.add('set');
   drawWave();
@@ -764,5 +766,5 @@ async function prepareBackgroundFlush(){
 NH.prepareBackgroundFlush=prepareBackgroundFlush;
 NH.prepareShutdown=prepareShutdown;
 if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
-Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme});
+Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime});
 })();

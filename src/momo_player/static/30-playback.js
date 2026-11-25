@@ -51,7 +51,7 @@ function commitAudio(song){
   NH.track('seek'); NH.track('lineplay');
   NH.SEEK_ACTIVE = false; NH.SEEK_WAS_PLAYING = false;
   if(NH.ST_ON && String(NH.ST_UID)!==String(song.uid)){
-    NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null;
+    NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
     const stb=document.getElementById('st'); if(stb) stb.textContent='原调：关';
     const rate=document.getElementById('rate'); if(rate) rate.disabled=false;
   }
@@ -97,6 +97,7 @@ function viewLines(){ return NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES; }
 function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+NH.OFFSET : null; }
 function isMetaLine(l){ return !l || l.meta || META_RE.test((l.text||'').trim()); }
 function idxAt(t){
+  t = NH.sourceTime(t);
   const ls=viewLines(); let n=-1;
   for(let i=0;i<ls.length;i++){
     const tt=lineT(ls[i]);
@@ -189,7 +190,7 @@ function seekIdx(i){
   if(!l || isMetaLine(l) || lineT(l)===null) return;
   if(NH.PLAYING_UID!==NH.S.uid) commitAudio();
   const t=Math.max(0, lineT(l));
-  seekPrecise(t);                              // 是否续播由 seekPrecise 自己判断
+  seekPrecise(NH.audioTime(t));                              // 是否续播由 seekPrecise 自己判断
   highlight(i);
   if(NH.loop && !isMetaLine(viewLines()[i])) NH.LOOP_ROW=i;
   if(NH.VIEW_MODE==='lrc'){ NH.ESEL=i; NH.SEL.clear(); NH.paintSelection(); }
@@ -213,7 +214,7 @@ async function playLine(i){
   NH.WMARK[song.uid]=lineT(l);
   if(String(NH.PLAYING_UID)!==String(song.uid)) NH.commitAudio();
   const seq=NH.track('lineplay');
-  const ok=await seekPrecise(Math.max(0, lineT(l)));
+  const ok=await seekPrecise(NH.audioTime(Math.max(0, lineT(l))));
   if(!ok || !NH.isCurrent('lineplay', seq) || NH.S !== song) return;
   await NH.au.play().catch(()=>{});
   if(!NH.isCurrent('lineplay', seq) || NH.S !== song) return;
@@ -280,7 +281,7 @@ NH.au.ontimeupdate=()=>{
     if(at>=0){
       const start=items[at].t;
       const end=(at+1<items.length)? items[at+1].t : start+8;
-      if(t>=end){ NH.au.currentTime=start; highlight(NH.LOOP_ROW); }
+      if(t>=NH.audioTime(end)){ NH.au.currentTime=NH.audioTime(start); highlight(NH.LOOP_ROW); }
     }
   }
 };
@@ -392,7 +393,7 @@ document.getElementById('st').onclick=async()=>{
   const btn=document.getElementById('st');
   const rate=document.getElementById('rate');
   if(NH.ST_ON){
-    NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null;
+    NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
     rate.disabled=false; btn.textContent='原调：关';
     const wasPlaying=!NH.au.paused;
     NH.commitAudio();
@@ -409,12 +410,12 @@ document.getElementById('st').onclick=async()=>{
     const wasPlaying=!NH.au.paused;
     const r=await NH.api('/api/soundtouch',{uid:NH.S.uid,speed});
     if(r.ok===false) throw new Error(r.error||'生成失败');
-    NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=NH.S.uid;
+    NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=NH.S.uid; NH.ST_SPEED=speed;
     rate.disabled=true; btn.textContent='原调：开';
     NH.au.playbackRate=1;
     NH.commitAudio();
     if(wasPlaying) NH.playFromStart();
-    NH.done('SoundTouch 试听：歌词/波形暂不对轴');
+    NH.done('SoundTouch 试听：歌词/波形已按变速映射');
   }catch(e){
     NH.done('SoundTouch 试听失败：'+e.message);
   }finally{
