@@ -390,6 +390,25 @@ class TestPlayerHttp(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+    def test_soundtouch_info(self):
+        payload = {"uid": "u", "speed": 0.8, "url": "/audio/u?st=0.80",
+                   "duration": 1.0, "bytes": 2}
+        with patch.object(ROUTES.SVC_ST, "info", return_value=payload) as info:
+            r = self.post("/api/soundtouch", {"uid": "u", "speed": 0.8})
+            d = json.loads(r.read())
+        self.assertTrue(d["ok"])
+        self.assertEqual(d["url"], payload["url"])
+        info.assert_called_once_with("u", 0.8)
+
+    def test_soundtouch_cancel(self):
+        with patch.object(ROUTES.SVC_ST, "cancel") as cancel:
+            r = self.post("/api/soundtouch/cancel", {"uid": "u"})
+            d = json.loads(r.read())
+        self.assertTrue(d["ok"])
+        cancel.assert_called_once_with("u")
+
+
 class TestLrcNestedTypes(unittest.TestCase):
     def test_bad_lrc_lines(self):
         # reuse an isolated server through the existing fixture-style setup

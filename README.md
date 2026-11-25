@@ -68,7 +68,7 @@ lyric / blank / metadata 统一为 rows
 关闭窗口后继续播放
 ```
 
-### SoundTouch 原调（实验）
+### SoundTouch 原调
 
 速度不是 `1.0×` 时自动生效，不需要开关：
 
@@ -88,7 +88,9 @@ lyric / blank / metadata 统一为 rows
 生成失败会回到上一个有效速度
 切歌 / 回 1.0× 会取消后台生成
 真正切到另一首播放时速度回到 1.00×
-需要系统里有 ffmpeg 和 soundstretch
+源码运行需要 ffmpeg 和 soundstretch
+thin 版内置 soundstretch，但仍需外部 ffmpeg
+full 版全部内置
 缓存上限 2GB，按最近使用自动清理
 ```
 
