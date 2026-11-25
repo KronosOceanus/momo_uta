@@ -85,6 +85,7 @@ lyric / blank / metadata 统一为 rows
 预生成，不是实时 DSP
 歌词和波形按变速后的时间轴映射
 速度变化会重新生成，并从当前位置继续
+真正切到另一首播放时速度回到 1.00×
 需要系统里有 ffmpeg 和 soundstretch
 ```
 

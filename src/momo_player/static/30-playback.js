@@ -54,6 +54,9 @@ function commitAudio(song){
   if(prev!==null && prev!==undefined && String(prev)!==String(song.uid)) closeLineLoop();
   NH.track('seek'); NH.track('lineplay');
   NH.SEEK_ACTIVE = false; NH.SEEK_WAS_PLAYING = false;
+  const switched = prev !== null && prev !== undefined
+    && String(prev) !== String(song.uid);
+  if(switched) resetSpeedTo1();
   if(NH.ST_ON && String(NH.ST_UID)!==String(song.uid)) cancelSoundTouch();
   NH.PLAYING_UID = song.uid;
   NH.PLAY_ITEM = song;
@@ -405,6 +408,14 @@ function cancelSoundTouch(){
   const rate=document.getElementById('rate'); if(rate) rate.disabled=false;
 }
 NH.cancelSoundTouch = cancelSoundTouch;
+function resetSpeedTo1(){
+  cancelSoundTouch();
+  const rate=document.getElementById('rate');
+  if(rate) rate.value='1';
+  const rv=document.getElementById('rv');
+  if(rv) rv.textContent='1.00×';
+  NH.au.playbackRate=1;
+}
 async function switchStAt(sourcePos, wasPlaying, token, uid){
   if(token!==stToken || !NH.S || String(NH.S.uid)!==String(uid)) return false;
   NH.commitAudio();

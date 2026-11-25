@@ -846,3 +846,13 @@ test('stale SoundTouch generation cannot change the next song', async () => {
   assert.equal(p.run('ST_URL'), null);
   assert.equal(p.run('S.uid'), 'u1');
 });
+
+test('switching the playback song resets SoundTouch speed to 1x', () => {
+  const p = player();
+  p.run("S={uid:'u0'}; PLAYING_UID='u0'; ST_ON=true; ST_SPEED=0.50; ST_URL='/audio/u0?st=0.50'; ST_UID='u0'; document.getElementById('rate').value='0.50'; document.getElementById('rate').disabled=true;");
+  p.run("commitAudio({uid:'u1', title:'B'})");
+  assert.equal(p.run('ST_ON'), false);
+  assert.equal(p.run('ST_SPEED'), 1);
+  assert.equal(p.run("document.getElementById('rate').value"), '1');
+  assert.equal(p.run("document.getElementById('rate').disabled"), false);
+});
