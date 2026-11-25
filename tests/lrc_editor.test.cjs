@@ -824,3 +824,12 @@ test('SoundTouch mode maps source time to processed audio time', () => {
   assert.equal(p.run('idxAt(2.6)'), 0);
   assert.equal(p.run('idxAt(5.1)'), 1);
 });
+
+test('busy progress is replaced by a flash result without queueing', () => {
+  const p = player();
+  p.run("busy('生成中…')");
+  assert.equal(p.run('TOAST_BUSY'), true);
+  p.run("flash('已切换')");
+  assert.equal(p.run('TOAST_BUSY'), false);
+  assert.equal(p.document.getElementById('toast').textContent, '已切换');
+});

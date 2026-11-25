@@ -410,7 +410,7 @@ async function applySpeed(speed){
     stBusy=true;
     try{ await switchStAt(pos, wasPlaying); }
     finally{ stBusy=false; }
-    NH.done('已回到原速原调');
+    NH.flash('已回到原速原调');
     return;
   }
   if(!NH.S) return;
@@ -420,13 +420,13 @@ async function applySpeed(speed){
   const rate=document.getElementById('rate');
   stBusy=true;
   if(rate) rate.disabled=true;
-  NH.done(`SoundTouch ${speed.toFixed(2)}× 生成中…`);
+  NH.busy(`SoundTouch ${speed.toFixed(2)}× 生成中…`);
   try{
     const r=await NH.api('/api/soundtouch',{uid:NH.S.uid,speed});
     if(r.ok===false) throw new Error(r.error||'生成失败');
     NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=NH.S.uid; NH.ST_SPEED=speed;
     await switchStAt(pos, wasPlaying);
-    NH.done(`SoundTouch ${speed.toFixed(2)}×：歌词/波形已映射`);
+    NH.flash(`SoundTouch ${speed.toFixed(2)}×：已切换`);
   }catch(e){
     NH.done('SoundTouch 生成失败：'+e.message);
   }finally{
@@ -507,7 +507,7 @@ document.getElementById('rem').onclick=async()=>{
       : '没找到候选，可以试试手动导入 lrc';
     NH.done(msg); NH.lock(null,false); return;
   }
-  NH.done(`找到 ${d.candidates.length} 个候选`); NH.lock(null,false);
+  NH.flash(`找到 ${d.candidates.length} 个候选`); NH.lock(null,false);
   const box=document.createElement('div'); box.className='menu'; box.style.maxWidth='520px';
   box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:4px 8px">选一个（分数越高越可能是同一版）· 候选来自网络，不读本地缓存</div>';
   d.candidates.forEach(c=>{
@@ -516,7 +516,7 @@ document.getElementById('rem').onclick=async()=>{
     const delta=(c.delta===null||c.delta===undefined)?'' : (c.delta>=0?'+':'')+c.delta+'s';
     b.innerHTML=`${c.name} · ${c.artist} · ${mm}:${ss} ${delta} · ${c.score}`;
     if(!c.id){                       // 没有 id 的条目不可切换
-      b.onclick=ev=>{ev.stopPropagation(); NH.done('当前用的就是这条');};
+      b.onclick=ev=>{ev.stopPropagation(); NH.flash('当前用的就是这条');};
       b.style.opacity='.6';
     }else b.onclick=async ev=>{ev.stopPropagation();
       if(NH.S!==song || NH.VIEW_MODE==='lrc'){ box.remove(); return; }
@@ -529,7 +529,7 @@ document.getElementById('rem').onclick=async()=>{
         NH.NO_MATCH.delete(String(d.uid || song.uid));
         await NH.load(d.uid || song.uid);        // 重新拉这一首（已换新歌词）
         NH.loadLib();
-        NH.done(`已换成 ${c.name}（${d.lines} 行歌词）`);
+        NH.flash(`已换成 ${c.name}（${d.lines} 行歌词）`);
       }catch(err){ NH.done('换歌词失败：'+err.message); }
     };
     box.appendChild(b);

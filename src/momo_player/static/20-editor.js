@@ -560,7 +560,7 @@ function renderLrcTable(){
       snapshot();
       NH.EROWS.splice(at,0,...fresh);
       NH.ESEL=at+fresh.length-1; NH.SEL.clear(); renderLrcTable();
-      NH.done(`粘贴了 ${fresh.length} 行`);
+      NH.flash(`粘贴了 ${fresh.length} 行`);
     };
   });
   box.querySelectorAll('input.tx.trans').forEach(el=>{
@@ -693,7 +693,7 @@ document.addEventListener('paste', e=>{
   if(!text) return;
   e.preventDefault();
   const n=insertLines(text);
-  if(n) NH.done(`粘贴了 ${n} 行`);
+  if(n) NH.flash(`粘贴了 ${n} 行`);
 });
 document.getElementById('lrcadd').onclick=()=>{ if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED) addRow(); };
 document.getElementById('lrcdel').onclick=()=>{ if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED) delRows(); };
@@ -709,7 +709,7 @@ document.getElementById('lrcsaveas').onclick=async()=>{
     try{ ex=await NH.api('/api/lrc',body); }catch(e){}
     if(!ex.ok){ NH.done('导出失败：'+(ex.error||'未知错误')); return; }
     const p=await window.pywebview.api.save_text(name, ex.nhlrc, ex.lrc);
-    NH.done(p ? '已导出 '+p.split('/').pop() : '已取消');
+    NH.flash(p ? '已导出 '+p.split('/').pop() : '已取消');
   }else NH.done('当前环境不支持导出');
 };
 async function saveBeforeReplace(){
@@ -738,7 +738,7 @@ async function replaceLrc(req, pending, success){
     if(NH.S!==song || NH.VIEW_MODE!=='lrc') return;
     await openLrcEditor();
     if(NH.S!==song) return;
-    NH.done(success(res));
+    NH.flash(success(res));
   }catch(err){
     NH.done('歌词替换失败：'+err.message);
   }finally{
@@ -779,7 +779,7 @@ document.getElementById('lrcfiledel').onclick=async()=>{
     NH.LRC_REPLACING=false;
     setLrcLocked(false);
     await NH.load(song.uid,false,'normal');     // 退出 LRC，回到普通页
-    NH.done('已禁用这首歌的歌词');
+    NH.flash('已禁用这首歌的歌词');
   }catch(err){
     if(NH.S===song && NH.EDIRTY) markDirty();    // 删除失败：草稿仍算未保存
     NH.done('删除失败：'+err.message);

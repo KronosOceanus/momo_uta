@@ -26,7 +26,7 @@ function scheduleAutoRebuild(){
       if(st.state==='failed') throw new Error(st.error || '重建失败');
       await NH.loadLib();
       const r=st.result || {};
-      NH.done(r.recovered>0 ? `索引已重建，找回 ${r.recovered} 首` : '索引已重建，仍有缺失歌曲');
+      NH.flash(r.recovered>0 ? `索引已重建，找回 ${r.recovered} 首` : '索引已重建，仍有缺失歌曲');
     }catch(err){
       NH.done('重建索引失败：'+err.message);
     }
@@ -317,7 +317,7 @@ async function doImport(listId, withLrc){
       bits.push(`${r.failed_count} 首歌词导入失败${f ? `：${f.error}` : ''}`);
     }
     if(r.already) bits.push(`${r.already} 首已在歌单`);
-    NH.done(bits.join('，'));
+    NH.flash(bits.join('，'));
   }catch(err){
     NH.done('导入失败：'+err.message);
   }

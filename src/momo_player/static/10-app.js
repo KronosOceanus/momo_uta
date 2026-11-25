@@ -505,6 +505,8 @@ function lock(btn, on){
 function busy(msg){ toast(msg, 0); }
 // 一次性结果：几秒后自动消失
 function done(msg){ toast(msg, UI.toast_ms||4200); }
+// 瞬时确认：只停留约 2 秒
+function flash(msg){ toast(msg, 2000); }
 
 function authHeaders(extra){
   const h = Object.assign({}, extra || {});
@@ -695,7 +697,7 @@ document.getElementById('resetall').onclick=async()=>{
   if(!NH.isCurrent('load',request) || NH.S!==song) return;
   if(r && r.ok===false){ done(r.error||'歌曲已不可用'); await NH.loadLib(); return; }
   if(r && r.version) NH.LRC_VERSION=r.version;
-  toast('已恢复默认标注');
+  flash('已恢复默认标注');
   const wasLrc=NH.VIEW_MODE==='lrc';
   if(!await load(NH.S.uid)) return;
   if(wasLrc && NH.VIEW_MODE==='lrc') await NH.openLrcEditor();
@@ -726,7 +728,7 @@ if(dataBtn) dataBtn.onclick=async()=>{
   try{
     const r=await a.open_data_dir();
     if(r && r.ok===false){ done(r.error||'打开数据目录失败'); return; }
-    toast('已打开数据目录');
+    flash('已打开数据目录');
   }catch(e){ done('打开数据目录失败：'+e.message); }
 };
 const backPlayingBtn=document.getElementById('backplaying');
@@ -764,5 +766,5 @@ async function prepareBackgroundFlush(){
 NH.prepareBackgroundFlush=prepareBackgroundFlush;
 NH.prepareShutdown=prepareShutdown;
 if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
-Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime});
+Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime, flash});
 })();
