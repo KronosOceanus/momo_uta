@@ -142,6 +142,7 @@ annotate / romaji / render / kana / counters / invariants / thresholds
 | `data/cache/wave/*.json` | 音频 + source + 参数 | `waveform` | 重新算峰值 |
 | `data/cache/library_index.json` | 文件路径 | `library_index` | 重新扫库 |
 | `data/cache/fingerprints.json` | 文件路径 | `fingerprint` | 重新算指纹 |
+| `data/cache/soundtouch/<uid>-<speed>.wav` | uid + speed | `service.soundtouch` | 重新生成；2GB LRU |
 | `data/vocals/<uid>/` | uid | `vocals` | 重新分离（很贵） |
 
 ```text
@@ -263,6 +264,7 @@ lyric_document  nhlrc rows 读写、播放派生、按 lid 改读音
 lrc        编辑、导入导出、备份、nhlrc/旧 API
 playlist   歌单动作、导入、ui_offset
 jobs       任务编排
+soundtouch 预生成变速 WAV、缓存、取消
 settings   主题 / 播放模式校验与持久化编排
 ```
 
@@ -315,7 +317,7 @@ hotkeys    macOS 全局快捷键
 11-vocals      人声任务
 12-library     歌单、多选、拖拽、导入
 20-editor      LRC 编辑 + picker + 行/时间/IME
-30-playback    时间语义、播放条、高亮、循环、播放模式
+30-playback    时间语义、SoundTouch 切换、播放条、高亮、循环、播放模式
 40-shortcuts   应用内快捷键分发
 ```
 
@@ -430,6 +432,63 @@ job.stage 是人声执行阶段。
 job 已经 running，VOC 仍可能是 queued。
 ```
 
+### 4.7 SoundTouch 变速
+
+```text
+POST /api/soundtouch {uid, speed}
+  → routes._post_soundtouch
+  → service.soundtouch.info
+  → process:
+      ffmpeg 解码整首为 44.1kHz/stereo/PCM16
+      soundstretch -tempo=(speed-1)*100
+      原子写入 data/cache/soundtouch/<uid>-<speed>.wav
+  → 返回 {url, duration, bytes}
+
+POST /api/soundtouch/cancel {uid}
+  → service.soundtouch.cancel
+  → 标记该 uid 的取消代次
+  → 终止正在运行的 ffmpeg/soundstretch 进程组
+```
+
+前端：
+
+```text
+速度 ≠ 1.0
+  → applySpeed()
+  → 记录源时间
+  → 生成/命中缓存
+  → commitAudio()
+  → seek 到处理后的时间
+
+速度 = 1.0
+  → 关闭 SoundTouch，播放原始音频
+  → 保持源时间
+
+真正切到另一首播放
+  → 速度回到 1.00×
+```
+
+时间语义：
+
+```text
+source time  原始音频 / LRC / 波形 / 编辑器使用
+audio time   处理后音频 / AudioEngine.currentTime 使用
+
+audioTime  = sourceTime / speed
+sourceTime = audioTime * speed
+```
+
+约束：
+
+```text
+预生成，不是实时 DSP
+生成请求带客户端 token，旧响应不能改当前歌曲
+后端按 uid 取消，不误杀新歌
+缓存按 mtime 做 2GB LRU
+thin 包内置 soundstretch，ffmpeg 需外部提供
+full 包内置 soundstretch + ffmpeg
+```
+
 ## 5. 写入、并发与版本
 
 | 保护 | 解决的问题 |
@@ -444,6 +503,8 @@ job 已经 running，VOC 仍可能是 queued。
 | `NH.track(domain)` | 旧异步响应不能改当前状态 |
 | 单实例锁 | 第二个 app 不写日志、不清 vocals |
 | `AudioEngine._loadSeq` | 旧 fetch/decode 不能写当前 buffer |
+| `stToken` | 旧 SoundTouch 生成不能写当前音频 |
+| `/api/soundtouch/cancel` | 终止旧生成进程，避免排队占用 |
 
 必须区分：
 
@@ -497,6 +558,8 @@ lrcPayload() 仍然携带 trans
 | `NH.playMode` | `list` / `one` / `shuffle` |
 | `NH.PLAY_ITEM` | 当前播放 A 的元数据 |
 | `NH.shufflePool` | 随机播放本轮未播放 uid |
+| `NH.ST_ON` / `NH.ST_URL` | SoundTouch 是否启用 / 处理后音频 URL |
+| `NH.ST_UID` / `NH.ST_SPEED` | 处理后音频对应 uid / 速度 |
 | `NH.TRANS_EDIT` | 翻译列开关，默认开，不是数据 |
 | `NH.REQ` | 请求 domain 序号 |
 | `NH.SAVE_PENDING` | 保存队列 |
@@ -524,8 +587,8 @@ lrcPayload() 仍然携带 trans
 改 nhlrc / 翻译 / offset / 数据归属
   → Python 领域测试
 
-改切歌 / 保存 / 音频时序
-  → 前端 VM 测试
+改切歌 / 保存 / 音频时序 / SoundTouch 映射
+  → 前端 VM 测试 + SoundTouch 服务测试
 
 跨层交付
   → make test
@@ -564,6 +627,7 @@ topics/library.md          曲库/歌单/导入
 topics/http-api.md         本机 HTTP API
 topics/development.md      开发/测试/检查器
 topics/packaging.md        打包
+变速维持原调功能/SoundTouch原调闭环.md  SoundTouch 流程 / 缺口 / 验收
 ```
 
 > 旧架构文档在 `docs/history/`，不作为当前基线。
