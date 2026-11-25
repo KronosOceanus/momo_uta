@@ -5,6 +5,7 @@ from __future__ import annotations
 import hmac
 import json
 import numbers
+import subprocess
 import secrets
 import threading
 import time
@@ -20,6 +21,7 @@ from ..service import lrc as SVC_LRC
 from ..service import playlist as SVC_PL
 from ..service import settings as SVC_SETTINGS
 from ..service import song as SVC_SONG
+from ..service import soundtouch as SVC_ST
 from . import static as STATIC
 
 TOKEN = secrets.token_urlsafe(32)
@@ -45,6 +47,7 @@ class H(BaseHTTPRequestHandler):
         "/api/log": "_post_log",
         "/api/theme": "_post_theme",
         "/api/play_mode": "_post_play_mode",
+        "/api/soundtouch": "_post_soundtouch",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -172,6 +175,7 @@ class H(BaseHTTPRequestHandler):
         "/api/lrc": ("uid",),
         "/api/theme": ("theme",),
         "/api/play_mode": ("mode",),
+        "/api/soundtouch": ("uid", "speed"),
     }
 
     def _is_int(self, v):
@@ -241,6 +245,7 @@ class H(BaseHTTPRequestHandler):
             "/api/jobs/cancel_all": {"kind": str},
             "/api/theme": {"theme": str},
             "/api/play_mode": {"mode": str},
+            "/api/soundtouch": {"uid": str, "speed": self._is_num},
             "/api/log": {"kind": (str, type(None)), "message": (str, type(None)),
                          "stack": (str, type(None)), "context": dict},
         }.get(p, {})
@@ -402,10 +407,19 @@ class H(BaseHTTPRequestHandler):
         return self._json({"ok": True})
 
     def _get_audio(self, ref):
+        parsed = urllib.parse.urlsplit(self.path)
+        ref = urllib.parse.unquote(parsed.path[len("/audio/"):])
         item = LIB.resolve(ref)
         if not item:
             return self._send(404, "no such song")
-        info = STATIC.audio_info(item["file"], self.headers.get("Range"))
+        file = item["file"]
+        st = (urllib.parse.parse_qs(parsed.query).get("st") or [None])[0]
+        if st is not None:
+            try:
+                file = str(SVC_ST.process(ref, float(st)))
+            except (KeyError, ValueError, OSError, RuntimeError, subprocess.SubprocessError) as e:
+                return self._send(500, str(e))
+        info = STATIC.audio_info(file, self.headers.get("Range"))
         if not info:
             return self._send(404, "file missing")
         code, start, end, size, ctype, crange = info
@@ -421,7 +435,7 @@ class H(BaseHTTPRequestHandler):
         if getattr(self, "_head", False):
             return
         try:
-            with open(item["file"], "rb") as fh:
+            with open(file, "rb") as fh:
                 fh.seek(start)
                 left = length
                 while left > 0:
@@ -458,4 +472,13 @@ class H(BaseHTTPRequestHandler):
 
     def _post_play_mode(self, req):
         return self._json(SVC_SETTINGS.set_play_mode(req))
+
+    def _post_soundtouch(self, req):
+        try:
+            uid = str(req.get("uid") or "")
+            speed = float(req.get("speed"))
+            return self._json({"ok": True, **SVC_ST.info(uid, speed)})
+        except (KeyError, TypeError, ValueError, OSError, RuntimeError,
+                subprocess.SubprocessError) as e:
+            return self._json({"ok": False, "error": str(e)}, 400)
 

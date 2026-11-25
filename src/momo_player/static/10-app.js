@@ -8,7 +8,8 @@ NH.TOKEN = window.__MOMO_TOKEN || '';
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
+NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false;
+NH.ST_ON = false; NH.ST_URL = null; NH.ST_UID = null; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
