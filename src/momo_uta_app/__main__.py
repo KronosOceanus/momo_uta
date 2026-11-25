@@ -20,6 +20,7 @@ from momo_player.core import library as LIB
 from momo_player.core import vocals as VOC
 from momo_player.http.server import make_server
 from momo_player.core import jobs as JOBS
+from momo_player.service import soundtouch as SVC_ST
 
 from momo_uta_app import logsetup
 
@@ -332,6 +333,10 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
             pass
         try:
             VOC.cancel_all()
+        except Exception:
+            pass
+        try:
+            SVC_ST.cancel()
         except Exception:
             pass
         try:

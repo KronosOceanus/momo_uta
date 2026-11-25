@@ -301,7 +301,7 @@ hotkeys    macOS 全局快捷键
   → 前端 prepareShutdown()
   → LRC flush
   → 成功后退出
-  → 取消 jobs / vocals
+  → 取消 jobs / vocals / soundtouch
   → shutdown server
 
 窗口关闭按钮：

@@ -60,6 +60,28 @@ class TestSoundTouchCache(unittest.TestCase):
         self.assertFalse(t.is_alive())
         self.assertEqual(err, ["cancelled"])
 
+    def test_cancel_without_uid_stops_current_process(self):
+        uid = "shutdown-test"
+        gen = ST._cancel_gen(uid)
+        result = []
+
+        def work():
+            try:
+                ST._run(["sleep", "10"], uid, gen)
+            except Exception as e:
+                result.append(type(e).__name__)
+
+        t = threading.Thread(target=work)
+        t.start()
+        deadline = time.time() + 2
+        while ST._CURRENT is None and time.time() < deadline:
+            time.sleep(0.01)
+        ST.cancel()
+        t.join(3)
+        self.assertFalse(t.is_alive())
+        self.assertIsNone(ST._CURRENT)
+        self.assertTrue(result)
+
     def test_touch_updates_mtime(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "a.wav"
