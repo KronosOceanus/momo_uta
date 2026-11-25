@@ -23,11 +23,13 @@ function player() {
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, {
         addEventListener() {}, getContext() {}, querySelectorAll: () => [],
-        classList: classes, textContent: '', style: {}
+        appendChild() {}, classList: classes, textContent: '', style: {}
       });
       return elements.get(id);
     },
     body: {classList: classes},
+    createDocumentFragment: () => ({appendChild() {}}),
+    createElement: () => ({style: {}, appendChild() {}}),
     querySelector: () => null,
     querySelectorAll: () => [],
     addEventListener(event, handler) {
@@ -963,4 +965,17 @@ test('speed change without playback only updates the slider', async () => {
   assert.equal(p.calls.length, 0);
   assert.equal(p.run('ST_ON'), false);
   assert.equal(p.run("document.getElementById('rate').value"), '0.80');
+});
+
+test('failed processed audio preload returns to the original source', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=true; ST_SPEED=0.80; ST_URL='/audio/u0?st=0.80'; ST_UID='u0'; document.getElementById('rate').value='0.80';");
+  p.run("au={paused:true,readyState:4,duration:100,currentTime:0,src:'',addEventListener(){},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return Promise.reject(new Error('bad wav'));}}");
+  p.run("commitAudio({uid:'u0',title:'A'})");
+  await nextTurn();
+  assert.equal(p.run('ST_ON'), false);
+  assert.equal(p.run('ST_SPEED'), 1);
+  assert.equal(p.run('au.src'), '/audio/u0');
+  assert.equal(p.run("document.getElementById('rate').value"), '1.00');
+  assert.match(p.run('messages.at(-1)'), /回到原曲/);
 });

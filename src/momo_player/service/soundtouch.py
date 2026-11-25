@@ -203,6 +203,21 @@ def _duration(path: Path) -> float:
         return 0.0
 
 
+def _valid_wav(path: Path) -> bool:
+    """轻量校验缓存头；不完整/被截断的 WAV 不能复用。"""
+    try:
+        with wave.open(str(path), "rb") as w:
+            if w.getnchannels() != 2 or w.getframerate() != 44100 or w.getsampwidth() != 2:
+                return False
+            frames = w.getnframes()
+            if frames <= 0:
+                return False
+            need = frames * w.getnchannels() * w.getsampwidth()
+            return path.stat().st_size >= need
+    except (OSError, wave.Error):
+        return False
+
+
 def process(uid: str, speed: float) -> Path:
     """生成并缓存变速 WAV；重复请求直接复用。"""
     if not 0.5 <= speed <= 1.25:
@@ -220,9 +235,14 @@ def process(uid: str, speed: float) -> Path:
             if gen != _cancel_gen(uid):
                 raise Cancelled("SoundTouch 生成已取消")
             if out.is_file() and out.stat().st_size > 44:
-                _touch(out)
-                _cleanup(keep=out)
-                return out
+                if _valid_wav(out):
+                    _touch(out)
+                    _cleanup(keep=out)
+                    return out
+                try:
+                    out.unlink()
+                except OSError:
+                    pass
             ffmpeg = _tool("ffmpeg", "MOMO_FFMPEG")
             soundstretch = _tool("soundstretch", "MOMO_SOUNDSTRETCH")
             if not ffmpeg or not soundstretch:
@@ -238,6 +258,8 @@ def process(uid: str, speed: float) -> Path:
                       f"-tempo={round((speed - 1) * 100, 4)}"], uid, gen)
                 if gen != _cancel_gen(uid):
                     raise Cancelled("SoundTouch 生成已取消")
+                if not _valid_wav(tmp):
+                    raise RuntimeError("SoundTouch 输出不是有效 WAV")
                 # 先完成到临时目录，再原子搬进缓存。
                 os.replace(tmp, out)
                 _touch(out)

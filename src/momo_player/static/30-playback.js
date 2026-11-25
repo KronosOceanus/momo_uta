@@ -47,6 +47,21 @@ function findSongItem(uid){
   return null;
 }
 
+function fallbackToOriginal(song, stSrc){
+  if(!stSrc || !NH.ST_ON) return;
+  if(String(NH.PLAYING_UID)!==String(song.uid)) return;
+  if(String(NH.ST_UID)!==String(song.uid)) return;
+  cancelSoundTouch(song.uid);
+  const rate=document.getElementById('rate');
+  if(rate) rate.value='1.00';
+  const rv=document.getElementById('rv');
+  if(rv) rv.textContent='1.00×';
+  NH.au.src=song.audio || ('/audio/'+encodeURIComponent(song.uid));
+  NH.au.playbackRate=1;
+  NH.au.preload().catch(()=>{});
+  NH.done('变速文件不可用，已回到原曲');
+}
+
 function commitAudio(song){
   song = song || NH.S;
   if(!song) return;
@@ -75,7 +90,7 @@ function commitAudio(song){
       applySpeed(now);
     },0);
   }
-  NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
+  NH.au.preload().catch(()=>fallbackToOriginal(song, stSrc));  // 整首解码进内存：之后跳转没有解码器 flush
   NH.paintTicks?.();                      // src 切换后旧时长/旧歌词不能留着
   document.getElementById('ttl').textContent = '▶ ' + song.title + (song.artist?' · '+song.artist:'');
   syncPlayBtn(); syncPlayControls();

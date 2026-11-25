@@ -3,6 +3,7 @@ import tempfile
 import threading
 import time
 import unittest
+import wave
 from pathlib import Path
 from unittest.mock import patch
 
@@ -59,6 +60,33 @@ class TestSoundTouchCache(unittest.TestCase):
         t.join(3)
         self.assertFalse(t.is_alive())
         self.assertEqual(err, ["cancelled"])
+
+    def test_valid_wav_checks_format_and_truncation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "ok.wav"
+            with wave.open(str(p), "wb") as w:
+                w.setnchannels(2)
+                w.setsampwidth(2)
+                w.setframerate(44100)
+                w.writeframes(b"\x00" * 4)
+            self.assertTrue(ST._valid_wav(p))
+            p.write_bytes(b"RIFF" + b"\x00" * 100)
+            self.assertFalse(ST._valid_wav(p))
+
+    def test_corrupt_cache_is_removed_before_regeneration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bad = root / "u-0.80.wav"
+            bad.write_bytes(b"RIFF" + b"\x00" * 100)
+            item = {"uid": "u", "file": str(root / "source.mp3")}
+            Path(item["file"]).write_bytes(b"x")
+            with patch.object(ST, "CACHE_DIR", root), \
+                 patch.object(ST.LIB, "resolve", return_value=item), \
+                 patch.object(ST, "_tool", return_value="/bin/true"), \
+                 patch.object(ST, "_run", side_effect=RuntimeError("stop")):
+                with self.assertRaises(RuntimeError):
+                    ST.process("u", 0.80)
+            self.assertFalse(bad.exists())
 
     def test_cancel_without_uid_stops_current_process(self):
         uid = "shutdown-test"
