@@ -268,8 +268,9 @@ NH.au.onloadedmetadata=()=>{
   if(!NH.S || String(NH.PLAYING_UID)!==String(NH.S.uid)) return;
   if(!NH.LINES.length) return;
   const last=NH.LINES[NH.LINES.length-1].t;
-  if(NH.au.duration && last>0 && last/NH.au.duration<0.7){
-    document.getElementById('ttl').textContent += `　⚠ 歌词只覆盖到 ${Math.round(last/NH.au.duration*100)}%`;
+  const sourceDur=NH.au.duration ? (NH.ST_ON ? NH.au.duration * NH.ST_SPEED : NH.au.duration) : 0;
+  if(sourceDur && last>0 && last/sourceDur<0.7){
+    document.getElementById('ttl').textContent += `　⚠ 歌词只覆盖到 ${Math.round(last/sourceDur*100)}%`;
   }
 };
 NH.LRC_CUR = -1;

@@ -879,3 +879,34 @@ test('failed speed change keeps the previous active SoundTouch speed', async () 
   assert.equal(p.run('ST_SPEED'), 0.80);
   assert.equal(p.run("document.getElementById('rate').value"), '0.80');
 });
+
+test('SoundTouch time mapping handles 1.25x and offset', () => {
+  const p = player();
+  p.run("ST_ON=true; ST_SPEED=1.25; OFFSET=1; LINES=[{t:2,text:'a'},{t:4,text:'b'}]; VIEW_MODE='normal';");
+  assert.equal(p.run('sourceTime(2)'), 2.5);
+  assert.equal(p.run('audioTime(3)'), 2.4);
+  assert.equal(p.run('idxAt(2.4)'), 0);
+  assert.equal(p.run('idxAt(4.1)'), 1);
+});
+
+test('SoundTouch wave playhead follows processed audio time', () => {
+  const p = player();
+  p.run("ST_ON=true; ST_SPEED=0.80; S={uid:'u0'}; PLAYING_UID='u0'; au={currentTime:4};");
+  assert.equal(p.run('waveTime()'), 3.2);
+});
+
+test('seekIdx translates source lyric time into processed audio time', async () => {
+  const p = player();
+  p.run("ST_ON=true; ST_SPEED=0.80; OFFSET=0; VIEW_MODE='normal'; S={uid:'u0',title:'x'}; PLAYING_UID='u0'; LINES=[{t:2,text:'a'}];");
+  p.run("au={paused:true,readyState:4,duration:100,currentTime:0,addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();}}");
+  p.run('seekIdx(0)');
+  await nextTurn();
+  assert.equal(p.run('au.currentTime'), 2.5);
+});
+
+test('SoundTouch time mapping also works in LRC editor mode', () => {
+  const p = player();
+  p.run("ST_ON=true; ST_SPEED=0.80; OFFSET=0; VIEW_MODE='lrc'; EROWS=[{t:2,text:'a'},{t:4,text:'b'}];");
+  assert.equal(p.run('idxAt(2.5)'), 0);
+  assert.equal(p.run('idxAt(5.1)'), 1);
+});
