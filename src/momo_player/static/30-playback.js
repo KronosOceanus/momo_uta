@@ -400,11 +400,14 @@ NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syn
 function stSourcePos(){
   return NH.sourceTime(NH.au.currentTime || 0);
 }
-function cancelSoundTouch(){
+function cancelSoundTouch(uid){
+  const hadWork=NH.ST_ON || stBusy || !!NH.ST_URL || !!NH.ST_UID || stWantSpeed!==null;
   stToken++;
   stWantSpeed=null;
   stQueued=false;
   stBusy=false;
+  const cancelUid=uid || NH.ST_UID || (NH.S && NH.S.uid) || '';
+  if(hadWork && cancelUid) NH.api('/api/soundtouch/cancel',{uid:String(cancelUid)}).catch(()=>{});
   NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
   const rate=document.getElementById('rate'); if(rate) rate.disabled=false;
 }

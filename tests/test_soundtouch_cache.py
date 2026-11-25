@@ -1,5 +1,7 @@
 import os
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -36,6 +38,27 @@ class TestSoundTouchCache(unittest.TestCase):
                  patch.object(ST, "TMP_MAX_AGE", 10):
                 ST._cleanup()
             self.assertFalse(old.exists())
+
+    def test_cancel_stops_active_generation(self):
+        uid = "cancel-test"
+        gen = ST._cancel_gen(uid)
+        err = []
+
+        def work():
+            try:
+                ST._run(["sleep", "10"], uid, gen)
+            except ST.Cancelled:
+                err.append("cancelled")
+
+        t = threading.Thread(target=work)
+        t.start()
+        deadline = time.time() + 2
+        while ST._CURRENT is None and time.time() < deadline:
+            time.sleep(0.01)
+        ST.cancel(uid)
+        t.join(3)
+        self.assertFalse(t.is_alive())
+        self.assertEqual(err, ["cancelled"])
 
     def test_touch_updates_mtime(self):
         with tempfile.TemporaryDirectory() as tmp:

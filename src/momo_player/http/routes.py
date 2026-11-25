@@ -48,6 +48,7 @@ class H(BaseHTTPRequestHandler):
         "/api/theme": "_post_theme",
         "/api/play_mode": "_post_play_mode",
         "/api/soundtouch": "_post_soundtouch",
+        "/api/soundtouch/cancel": "_post_soundtouch_cancel",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -472,6 +473,13 @@ class H(BaseHTTPRequestHandler):
 
     def _post_play_mode(self, req):
         return self._json(SVC_SETTINGS.set_play_mode(req))
+
+    def _post_soundtouch_cancel(self, req):
+        try:
+            SVC_ST.cancel(str(req.get("uid") or ""))
+            return self._json({"ok": True})
+        except (OSError, RuntimeError) as e:
+            return self._json({"ok": False, "error": str(e)}, 400)
 
     def _post_soundtouch(self, req):
         try:

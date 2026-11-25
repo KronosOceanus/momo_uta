@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,10 @@ from momo_yomi.paths import BUNDLE, CACHE
 from ..core import library as LIB
 
 LOCK = threading.Lock()
+_STATE_LOCK = threading.Lock()
+_CANCEL_GEN: dict[str, int] = {}
+_CURRENT = None
+_CURRENT_UID = None
 CACHE_DIR = CACHE / "soundtouch"
 MAX_CACHE_BYTES = 2 * 1024 ** 3
 TMP_MAX_AGE = 24 * 3600
@@ -34,6 +39,65 @@ def _tool(name: str, env: str | None = None) -> str | None:
         if p.is_file():
             return str(p)
     return shutil.which(name)
+
+
+class Cancelled(RuntimeError):
+    pass
+
+
+def _stop(p) -> None:
+    if p is None:
+        return
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    except (OSError, ProcessLookupError):
+        try:
+            p.terminate()
+        except OSError:
+            pass
+
+
+def _cancel_gen(uid: str) -> int:
+    with _STATE_LOCK:
+        return _CANCEL_GEN.get(uid, 0)
+
+
+def cancel(uid: str | None = None) -> None:
+    """取消指定歌曲当前/排队中的生成；不传 uid 时取消当前进程。"""
+    global _CURRENT
+    uid = str(uid or "")
+    with _STATE_LOCK:
+        if uid:
+            _CANCEL_GEN[uid] = _CANCEL_GEN.get(uid, 0) + 1
+        p = _CURRENT if (not uid or _CURRENT_UID == uid) else None
+    _stop(p)
+
+
+def _run(cmd: list[str], uid: str, gen: int) -> None:
+    global _CURRENT, _CURRENT_UID
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         text=True, start_new_session=True)
+    with _STATE_LOCK:
+        _CURRENT = p
+        _CURRENT_UID = uid
+    try:
+        while p.poll() is None:
+            with _STATE_LOCK:
+                canceled = gen != _CANCEL_GEN.get(uid, 0)
+            if canceled:
+                _stop(p)
+                raise Cancelled("SoundTouch 生成已取消")
+            time.sleep(0.05)
+        out, err = p.communicate()
+        if gen != _cancel_gen(uid):
+            raise Cancelled("SoundTouch 生成已取消")
+        if p.returncode != 0:
+            raise RuntimeError((err or out or "SoundTouch 生成失败")[-500:])
+    finally:
+        with _STATE_LOCK:
+            if _CURRENT is p:
+                _CURRENT = None
+                _CURRENT_UID = None
 
 
 def _cache_path(uid: str, speed: float) -> Path:
@@ -104,7 +168,11 @@ def process(uid: str, speed: float) -> Path:
     if not item or not Path(item["file"]).is_file():
         raise KeyError("歌曲已不可用")
     out = _cache_path(str(uid), speed)
+    uid = str(uid)
+    gen = _cancel_gen(uid)
     with LOCK:
+        if gen != _cancel_gen(uid):
+            raise Cancelled("SoundTouch 生成已取消")
         if out.is_file() and out.stat().st_size > 44:
             _touch(out)
             _cleanup(keep=out)
@@ -117,12 +185,13 @@ def process(uid: str, speed: float) -> Path:
         with tempfile.TemporaryDirectory(prefix="momo-st-", dir=str(CACHE)) as td:
             src = Path(td) / "src.wav"
             tmp = Path(td) / "out.wav"
-            subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-                            "-i", str(item["file"]), "-ac", "2", "-ar", "44100",
-                            "-c:a", "pcm_s16le", str(src)], check=True, timeout=120)
-            subprocess.run([soundstretch, str(src), str(tmp),
-                            f"-tempo={round((speed - 1) * 100, 4)}"],
-                           check=True, timeout=120)
+            _run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+                  "-i", str(item["file"]), "-ac", "2", "-ar", "44100",
+                  "-c:a", "pcm_s16le", str(src)], uid, gen)
+            _run([soundstretch, str(src), str(tmp),
+                  f"-tempo={round((speed - 1) * 100, 4)}"], uid, gen)
+            if gen != _cancel_gen(uid):
+                raise Cancelled("SoundTouch 生成已取消")
             # 先完成到临时目录，再原子搬进缓存。
             os.replace(tmp, out)
             _touch(out)
