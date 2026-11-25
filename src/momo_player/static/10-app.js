@@ -365,7 +365,6 @@ async function load(ref, autoplay, nextMode){
   }
   if(NH.loop && (NH.PLAYING_UID===null || String(NH.PLAYING_UID)!==String(d.uid))) NH.closeLineLoop?.();
   const changedSong=!NH.S || String(NH.S.uid)!==String(d.uid);
-  if(changedSong) NH.cancelSoundTouch?.();
   if(changedSong) NH.track('wave');   // 旧波形请求作废
   if(changedSong){ NH.VSTAT=null; NH.VSTAT_IDX=null; NH.paintVStatus?.(); }
   if(changedSong || nextMode!==undefined){

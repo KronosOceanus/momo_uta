@@ -926,3 +926,17 @@ test('speed change follows the playing song, not the viewed song', async () => {
   assert.equal(p.run('S.uid'), 'u-view');
   assert.equal(p.run('au.currentTime'), 2.5);
 });
+
+test('viewing another song preserves the playing song SoundTouch state', async () => {
+  const p = player();
+  p.run("VIEW_MODE='normal'; S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'}; ST_ON=true; ST_SPEED=0.80; ST_URL='/audio/u0?st=0.80'; ST_UID='u0';");
+  const loading = p.run("load('u1', false)");
+  assert.equal(p.calls[0].path, '/api/song/u1');
+  p.requests[0].resolve(song('1'));
+  await loading;
+  assert.equal(p.run('S.uid'), 'u1');
+  assert.equal(p.run('PLAYING_UID'), 'u0');
+  assert.equal(p.run('ST_ON'), true);
+  assert.equal(p.run('ST_SPEED'), 0.80);
+  assert.equal(p.run('ST_UID'), 'u0');
+});

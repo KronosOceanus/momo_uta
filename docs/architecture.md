@@ -466,7 +466,11 @@ POST /api/soundtouch/cancel {uid}
   → 保持源时间
 
 真正切到另一首播放
+  → 取消旧 SoundTouch
   → 速度回到 1.00×
+
+只切换查看歌曲
+  → 不取消、不重置当前播放的 SoundTouch
 ```
 
 时间语义：
