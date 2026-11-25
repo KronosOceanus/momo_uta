@@ -195,6 +195,12 @@ def _cleanup(keep: Path | None = None) -> None:
         pass
 
 
+def cleanup_startup() -> None:
+    """启动时清理旧临时目录，并按上限修剪缓存。"""
+    with LOCK:
+        _cleanup()
+
+
 def _duration(path: Path) -> float:
     try:
         with wave.open(str(path), "rb") as w:

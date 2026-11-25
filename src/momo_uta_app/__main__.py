@@ -116,6 +116,10 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     bootstrap()
     LIB.load_cache_for_playlists()
     VOC.cleanup(protected={v.get("uid") for v in LIB.CACHE.values()})
+    try:
+        SVC_ST.cleanup_startup()
+    except Exception as e:
+        diag.log("soundtouch", f"startup cleanup failed: {e}")
 
     srv = make_server(0)                     # 随机端口，不占 8766
     port = srv.server_address[1]

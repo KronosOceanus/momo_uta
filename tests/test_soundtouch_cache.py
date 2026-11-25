@@ -88,6 +88,20 @@ class TestSoundTouchCache(unittest.TestCase):
                     ST.process("u", 0.80)
             self.assertFalse(bad.exists())
 
+    def test_startup_cleanup_removes_old_temp_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old = root / "momo-st-old"
+            new = root / "momo-st-new"
+            old.mkdir(); new.mkdir()
+            os.utime(old, (1, 1))
+            with patch.object(ST, "CACHE", root), \
+                 patch.object(ST, "CACHE_DIR", root / "soundtouch"), \
+                 patch.object(ST, "TMP_MAX_AGE", 10):
+                ST.cleanup_startup()
+            self.assertFalse(old.exists())
+            self.assertTrue(new.exists())
+
     def test_cached_path_only_returns_valid_cache(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
