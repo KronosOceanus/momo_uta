@@ -83,7 +83,7 @@ lyric / blank / metadata 统一为 rows
 ```text
 预生成，不是实时 DSP
 歌词和波形按变速后的时间轴映射
-每次速度变化需要重新生成
+速度变化会重新生成，并从当前位置继续
 需要系统里有 ffmpeg 和 soundstretch
 ```
 

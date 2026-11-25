@@ -384,42 +384,89 @@ document.getElementById('play2').addEventListener('pointerdown', e=>{
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>NH.au.addEventListener(ev, syncPlayBtn));
 ['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.VIEW_MODE==='lrc') NH.drawWave(); }));
 NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
+let stBusy = false;
+function stSourcePos(){
+  return NH.sourceTime(NH.au.currentTime || 0);
+}
+async function switchStAt(sourcePos, wasPlaying){
+  NH.commitAudio();
+  const t = Math.max(0, NH.audioTime(sourcePos));
+  await NH.seekPrecise(t);
+  if(wasPlaying) await NH.au.play().catch(()=>{});
+}
+function setStButton(text, disabled){
+  const b=document.getElementById('st');
+  if(!b) return;
+  b.textContent=text;
+  b.disabled=!!disabled;
+}
+
 document.getElementById('rate').oninput=e=>{
   const v=+e.target.value;
   document.getElementById('rv').textContent=v.toFixed(2)+'×';
   if(!NH.ST_ON) NH.au.playbackRate=v;
 };
+
+document.getElementById('rate').onchange=async e=>{
+  if(!NH.ST_ON || stBusy) return;
+  const speed=+e.target.value;
+  if(Math.abs(speed-NH.ST_SPEED)<0.001) return;
+  if(Math.abs(speed-1)<0.001){
+    e.target.value=NH.ST_SPEED;
+    document.getElementById('rv').textContent=NH.ST_SPEED.toFixed(2)+'×';
+    NH.done('1.0× 请关闭 SoundTouch 试听');
+    return;
+  }
+  const old=NH.ST_SPEED;
+  const pos=stSourcePos();
+  const wasPlaying=!NH.au.paused;
+  stBusy=true; setStButton('切换中…', true);
+  try{
+    const r=await NH.api('/api/soundtouch',{uid:NH.S.uid,speed});
+    if(r.ok===false) throw new Error(r.error||'生成失败');
+    NH.ST_URL=r.url; NH.ST_UID=NH.S.uid; NH.ST_SPEED=speed;
+    await switchStAt(pos, wasPlaying);
+    NH.done(`已切换到 ${speed.toFixed(2)}×`);
+  }catch(err){
+    e.target.value=old;
+    document.getElementById('rv').textContent=old.toFixed(2)+'×';
+    NH.done('切换失败：'+err.message);
+  }finally{
+    stBusy=false;
+    setStButton('原调：开', false);
+  }
+};
+
 document.getElementById('st').onclick=async()=>{
-  const btn=document.getElementById('st');
+  if(stBusy) return;
   const rate=document.getElementById('rate');
   if(NH.ST_ON){
-    NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
-    rate.disabled=false; btn.textContent='原调：关';
+    const pos=stSourcePos();
     const wasPlaying=!NH.au.paused;
-    NH.commitAudio();
-    NH.au.playbackRate=+rate.value;
-    if(wasPlaying) NH.playFromStart();
+    NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
+    await switchStAt(pos, wasPlaying);
+    setStButton('原调：关', false);
     NH.done('已关闭 SoundTouch 试听');
     return;
   }
   if(!NH.S) return;
   const speed=+rate.value;
   if(Math.abs(speed-1)<0.001){ NH.done('1.0× 不需要 SoundTouch'); return; }
-  btn.disabled=true; btn.textContent='生成中…';
+  const pos=stSourcePos();
+  const wasPlaying=!NH.au.paused;
+  stBusy=true; setStButton('生成中…', true);
   try{
-    const wasPlaying=!NH.au.paused;
     const r=await NH.api('/api/soundtouch',{uid:NH.S.uid,speed});
     if(r.ok===false) throw new Error(r.error||'生成失败');
     NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=NH.S.uid; NH.ST_SPEED=speed;
-    rate.disabled=true; btn.textContent='原调：开';
-    NH.au.playbackRate=1;
-    NH.commitAudio();
-    if(wasPlaying) NH.playFromStart();
+    await switchStAt(pos, wasPlaying);
+    setStButton('原调：开', false);
     NH.done('SoundTouch 试听：歌词/波形已按变速映射');
   }catch(e){
     NH.done('SoundTouch 试听失败：'+e.message);
+    setStButton('原调：关', false);
   }finally{
-    btn.disabled=false;
+    stBusy=false;
   }
 };
 async function stepPlaying(dir){
