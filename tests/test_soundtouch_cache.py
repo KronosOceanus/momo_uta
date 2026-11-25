@@ -88,6 +88,16 @@ class TestSoundTouchCache(unittest.TestCase):
                     ST.process("u", 0.80)
             self.assertFalse(bad.exists())
 
+    def test_cached_path_only_returns_valid_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch.object(ST, "CACHE_DIR", root):
+                self.assertIsNone(ST.cached_path("u", 0.80))
+                p = root / "u-0.80.wav"
+                p.write_bytes(b"RIFF" + b"\x00" * 100)
+                self.assertIsNone(ST.cached_path("u", 0.80))
+                self.assertFalse(p.exists())
+
     def test_cancel_without_uid_stops_current_process(self):
         uid = "shutdown-test"
         gen = ST._cancel_gen(uid)

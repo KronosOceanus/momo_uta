@@ -418,6 +418,16 @@ if __name__ == "__main__":
         self.assertEqual(cm.exception.code, 400)
 
 
+
+    def test_soundtouch_audio_does_not_generate_on_get(self):
+        with patch.object(ROUTES.SVC_ST, "process") as process, \
+             patch.object(ROUTES.SVC_ST, "cached_path", return_value=None):
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                self.get(f"/audio/{CACHE_ITEM['uid']}?st=0.80")
+        self.assertEqual(cm.exception.code, 404)
+        process.assert_not_called()
+
+
 class TestLrcNestedTypes(unittest.TestCase):
     def test_bad_lrc_lines(self):
         # reuse an isolated server through the existing fixture-style setup

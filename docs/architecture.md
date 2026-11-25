@@ -448,6 +448,10 @@ POST /api/soundtouch/cancel {uid}
   → service.soundtouch.cancel
   → 标记该 uid 的取消代次
   → 终止正在运行的 ffmpeg/soundstretch 进程组
+
+GET /audio/<uid>?st=<speed>
+  → 只读 soundtouch 缓存
+  → 未命中 404，不在 GET 中生成
 ```
 
 前端：

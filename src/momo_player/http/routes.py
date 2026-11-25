@@ -416,10 +416,14 @@ class H(BaseHTTPRequestHandler):
         file = item["file"]
         st = (urllib.parse.parse_qs(parsed.query).get("st") or [None])[0]
         if st is not None:
+            # 生成只走 POST /api/soundtouch；音频 URL 只读缓存。
             try:
-                file = str(SVC_ST.process(ref, float(st)))
-            except (KeyError, ValueError, OSError, RuntimeError, subprocess.SubprocessError) as e:
-                return self._send(500, str(e))
+                cached = SVC_ST.cached_path(ref, float(st))
+            except (ValueError, OSError):
+                cached = None
+            if cached is None:
+                return self._send(404, "SoundTouch cache not found")
+            file = str(cached)
         info = STATIC.audio_info(file, self.headers.get("Range"))
         if not info:
             return self._send(404, "file missing")

@@ -218,6 +218,25 @@ def _valid_wav(path: Path) -> bool:
         return False
 
 
+def cached_path(uid: str, speed: float) -> Path | None:
+    """只返回已生成且有效的缓存，不生成。"""
+    if not 0.5 <= speed <= 1.25:
+        raise ValueError("speed 必须在 0.5–1.25 之间")
+    out = _cache_path(str(uid), speed)
+    with LOCK:
+        if not out.is_file():
+            return None
+        if not _valid_wav(out):
+            try:
+                out.unlink()
+            except OSError:
+                pass
+            return None
+        _touch(out)
+        _cleanup(keep=out)
+        return out
+
+
 def process(uid: str, speed: float) -> Path:
     """生成并缓存变速 WAV；重复请求直接复用。"""
     if not 0.5 <= speed <= 1.25:
