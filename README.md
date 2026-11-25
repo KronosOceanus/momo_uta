@@ -88,6 +88,7 @@ lyric / blank / metadata 统一为 rows
 生成失败会回到上一个有效速度
 真正切到另一首播放时速度回到 1.00×
 需要系统里有 ffmpeg 和 soundstretch
+缓存上限 2GB，按最近使用自动清理
 ```
 
 ### 歌词

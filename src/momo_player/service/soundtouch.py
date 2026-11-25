@@ -4,10 +4,12 @@
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
 import threading
+import time
 import wave
 from pathlib import Path
 
@@ -16,10 +18,61 @@ from momo_yomi.paths import CACHE
 from ..core import library as LIB
 
 LOCK = threading.Lock()
+CACHE_DIR = CACHE / "soundtouch"
+MAX_CACHE_BYTES = 2 * 1024 ** 3
+TMP_MAX_AGE = 24 * 3600
 
 
 def _cache_path(uid: str, speed: float) -> Path:
-    return CACHE / "soundtouch" / f"{uid}-{speed:.2f}.wav"
+    return CACHE_DIR / f"{uid}-{speed:.2f}.wav"
+
+
+def _touch(path: Path) -> None:
+    try:
+        os.utime(path, None)
+    except OSError:
+        pass
+
+
+def _cleanup(keep: Path | None = None) -> None:
+    """按 mtime 做 LRU；同时清掉崩溃遗留的生成临时目录。"""
+    files = []
+    try:
+        files = [p for p in CACHE_DIR.glob("*.wav") if p.is_file()]
+    except OSError:
+        pass
+    total = 0
+    entries = []
+    for p in files:
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        total += st.st_size
+        entries.append((st.st_mtime, st.st_size, p))
+    entries.sort()
+    for _mtime, size, p in entries:
+        if total <= MAX_CACHE_BYTES:
+            break
+        if keep is not None and p == keep:
+            continue
+        try:
+            p.unlink()
+            total -= size
+        except OSError:
+            pass
+    # TemporaryDirectory 正常会自删；这里只处理异常退出留下的旧目录。
+    try:
+        cutoff = time.time() - TMP_MAX_AGE
+        for d in CACHE.glob("momo-st-*"):
+            if d.is_dir():
+                try:
+                    if d.stat().st_mtime < cutoff:
+                        shutil.rmtree(d, ignore_errors=True)
+                except OSError:
+                    pass
+    except OSError:
+        pass
 
 
 def _duration(path: Path) -> float:
@@ -40,6 +93,8 @@ def process(uid: str, speed: float) -> Path:
     out = _cache_path(str(uid), speed)
     with LOCK:
         if out.is_file() and out.stat().st_size > 44:
+            _touch(out)
+            _cleanup(keep=out)
             return out
         ffmpeg = shutil.which("ffmpeg")
         soundstretch = shutil.which("soundstretch")
@@ -56,8 +111,9 @@ def process(uid: str, speed: float) -> Path:
                             f"-tempo={round((speed - 1) * 100, 4)}"],
                            check=True, timeout=120)
             # 先完成到临时目录，再原子搬进缓存。
-            import os
             os.replace(tmp, out)
+            _touch(out)
+            _cleanup(keep=out)
         return out
 
 

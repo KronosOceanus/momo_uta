@@ -11,7 +11,7 @@ help:
 	@echo "make test            # 完整检查（需要支持 node --test 的 Node.js）"
 	@echo "make test-python     # Python 架构检查与测试"
 	@echo "make app             # 桌面应用（唯一入口）"
-	@echo "make clean-cache      # 清歌词缓存 / 波形 / 注音"
+	@echo "make clean-cache      # 清歌词缓存 / 波形 / 注音 / SoundTouch"
 	@echo "make clean-index      # 清曲库索引 / 指纹索引"
 	@echo "make api             # 命令行跑一次接口，验证可用"
 	@echo ""
@@ -117,8 +117,8 @@ audit-patches:
 
 
 clean-cache:
-	rm -rf data/cache/lyrics data/cache/wave data/cache/annotations
-	@echo "已清理：歌词缓存 / 波形 / 注音（索引/指纹用 make clean-index；app.log 保留）"
+	rm -rf data/cache/lyrics data/cache/wave data/cache/annotations data/cache/soundtouch data/cache/momo-st-*
+	@echo "已清理：歌词缓存 / 波形 / 注音 / SoundTouch（索引/指纹用 make clean-index；app.log 保留）"
 
 clean-index:
 	rm -f data/cache/library_index.json data/cache/fingerprints.json
