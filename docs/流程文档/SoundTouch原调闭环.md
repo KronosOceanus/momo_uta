@@ -126,7 +126,7 @@ make clean-cache 清理 soundtouch
 data/cache/soundtouch/<uid>-<speed>.wav
 ```
 
-### 3.4 依赖与发布
+### 3.4 依赖与发布（已实现 A）
 
 当前依赖：
 
@@ -143,23 +143,21 @@ thin / full 包里没有 soundstretch
 外部开发者需要 brew install
 ```
 
-三种方案：
+已按 A 实现：
 
 ```text
-A. 打包 soundstretch + ffmpeg
-B. 链接 libSoundTouch 的原生 helper
-C. 只支持源码运行，发布版不提供
+thin / full 都随包 soundstretch + libSoundTouch
+full 随包 ffmpeg
+thin 仍使用外部 ffmpeg
+许可证文件随包
+THIRD_PARTY_NOTICES.md 说明来源和再分发条件
 ```
 
-许可证：
+待完成：
 
 ```text
-SoundTouch   LGPL
-ffmpeg       LGPL/GPL，取决于构建配置
-momo uta     MIT
+签名 / 公证
 ```
-
-如果分发二进制，需要保留许可证、版权和可替换/重链接条件。
 
 ### 3.5 时间映射回归
 
@@ -266,7 +264,7 @@ LRC/波形映射规则
 | 1 | 生成请求 token | 已完成 | |
 | 2 | 失败回滚 | 已完成 | A |
 | 3 | 缓存上限 | 已完成 | 2GB LRU |
-| 4 | 打包方案 | 未定 | A/B/C |
+| 4 | 打包方案 | 已完成 A | thin 外部 ffmpeg |
 | 5 | 时间映射回归 | 未完整 | 先测 |
 | 6 | 取消生成 | 未做 | 是否要 |
 | 7 | 缓存格式 | WAV | 是否改 |

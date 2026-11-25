@@ -6,6 +6,7 @@
 """
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -23,6 +24,7 @@ datas = [
     (str(ROOT / "data" / "curated" / "counters.json"), "data/curated"),
     (str(ROOT / "data" / "corpus" / "ndl_reading_stats.json"), "data/corpus"),
     (str(ROOT / "src" / "momo_player" / "static"), "momo_player/static"),
+    (str(ROOT / "packaging" / "licenses"), "licenses"),
 ]
 datas += collect_data_files("sudachidict_core")
 datas += collect_data_files("sudachipy")
@@ -44,16 +46,15 @@ hiddenimports = [
     "momo_player.core.vocals",
 ]
 
-def _find_ffmpeg() -> Path | None:
+def _find_tool(name: str, env: str, extra: list[str]) -> Path | None:
     candidates = []
-    env = os.environ.get("MOMO_FFMPEG")
-    if env:
-        candidates.append(Path(env))
-    found = shutil.which("ffmpeg")
+    value = os.environ.get(env)
+    if value:
+        candidates.append(Path(value))
+    found = shutil.which(name)
     if found:
         candidates.append(Path(found))
-    candidates += [Path("/opt/homebrew/bin/ffmpeg"),
-                   Path("/usr/local/bin/ffmpeg")]
+    candidates += [Path(x) for x in extra]
     for path in candidates:
         try:
             if path.is_file() and os.access(path, os.X_OK):
@@ -63,7 +64,56 @@ def _find_ffmpeg() -> Path | None:
     return None
 
 
-binaries = []
+def _find_ffmpeg() -> Path | None:
+    return _find_tool("ffmpeg", "MOMO_FFMPEG",
+                      ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"])
+
+
+def _soundtouch_lib(stretch: Path) -> Path | None:
+    value = os.environ.get("MOMO_SOUNDTOUCH_LIB")
+    if value:
+        p = Path(value)
+        if p.is_file():
+            return p
+    try:
+        out = subprocess.check_output(["otool", "-L", str(stretch)], text=True)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    for line in out.splitlines()[1:]:
+        part = line.strip().split(" ", 1)[0]
+        if "libSoundTouch" in part:
+            p = Path(part)
+            if p.is_file():
+                return p
+    return None
+
+
+# soundstretch + libSoundTouch 在 thin / full 都随包。
+soundstretch = _find_tool("soundstretch", "MOMO_SOUNDSTRETCH",
+                          ["/opt/homebrew/bin/soundstretch",
+                           "/usr/local/bin/soundstretch"])
+if soundstretch is None:
+    raise SystemExit("构建需要 soundstretch（brew install sound-touch）")
+touch_lib = _soundtouch_lib(soundstretch)
+if touch_lib is None:
+    raise SystemExit("找不到 libSoundTouch.1.dylib，可设置 MOMO_SOUNDTOUCH_LIB")
+tools_dir = ROOT / "build" / "bundle-tools"
+tools_dir.mkdir(parents=True, exist_ok=True)
+st_copy = tools_dir / "soundstretch"
+lib_copy = tools_dir / touch_lib.name
+for dest in (st_copy, lib_copy):
+    try:
+        dest.chmod(0o644)
+    except OSError:
+        pass
+shutil.copy2(soundstretch, st_copy)
+shutil.copy2(touch_lib, lib_copy)
+st_copy.chmod(0o755)
+subprocess.run(["install_name_tool", "-change", str(touch_lib),
+                "@executable_path/" + touch_lib.name, str(st_copy)], check=True)
+binaries = [(str(st_copy), "bin"), (str(lib_copy), "bin")]
+
+
 if VARIANT == "full":
     datas += collect_data_files("demucs")
     hiddenimports += collect_submodules("demucs")

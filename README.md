@@ -152,8 +152,8 @@ IME 组合输入结束后再写模型
 
 | 版本 | 人声分离 | 体积 | 适合 |
 |---|---|---|---|
-| **thin** 薄壳版 | 使用外部 demucs / ffmpeg | ~461 MB | 自己装过 demucs |
-| **full** 完整版 | 内置 demucs + torch + ffmpeg | ~1.7 GB | 开箱即用，推荐 |
+| **thin** 薄壳版 | 内置 SoundTouch；外部 demucs / ffmpeg | ~461 MB | 自己装过 demucs |
+| **full** 完整版 | 内置 SoundTouch + demucs + torch + ffmpeg | ~1.7 GB | 开箱即用，推荐 |
 
 两个版本**共享同一份用户数据**，切换版本不会复制歌单和歌词。
 
@@ -372,6 +372,7 @@ docs/topics/http-api.md       本机 HTTP API
 docs/topics/development.md    开发与测试
 docs/topics/packaging.md      打包
 CHANGELOG.md                    版本记录
+THIRD_PARTY_NOTICES.md          第三方许可证
 docs/topics/歌词数据模型.md     单一行模型
 docs/项目整理/代码审查.md        待处理代码问题
 docs/项目整理/优化.md            待评估优化

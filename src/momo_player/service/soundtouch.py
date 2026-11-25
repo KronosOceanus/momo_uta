@@ -7,13 +7,14 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import wave
 from pathlib import Path
 
-from momo_yomi.paths import CACHE
+from momo_yomi.paths import BUNDLE, CACHE
 
 from ..core import library as LIB
 
@@ -21,6 +22,18 @@ LOCK = threading.Lock()
 CACHE_DIR = CACHE / "soundtouch"
 MAX_CACHE_BYTES = 2 * 1024 ** 3
 TMP_MAX_AGE = 24 * 3600
+
+
+def _tool(name: str, env: str | None = None) -> str | None:
+    if env:
+        value = os.environ.get(env)
+        if value and Path(value).is_file():
+            return value
+    if getattr(sys, "frozen", False):
+        p = BUNDLE / "bin" / name
+        if p.is_file():
+            return str(p)
+    return shutil.which(name)
 
 
 def _cache_path(uid: str, speed: float) -> Path:
@@ -96,8 +109,8 @@ def process(uid: str, speed: float) -> Path:
             _touch(out)
             _cleanup(keep=out)
             return out
-        ffmpeg = shutil.which("ffmpeg")
-        soundstretch = shutil.which("soundstretch")
+        ffmpeg = _tool("ffmpeg", "MOMO_FFMPEG")
+        soundstretch = _tool("soundstretch", "MOMO_SOUNDSTRETCH")
         if not ffmpeg or not soundstretch:
             raise RuntimeError("试听需要 ffmpeg 和 soundstretch（brew install ffmpeg sound-touch）")
         out.parent.mkdir(parents=True, exist_ok=True)

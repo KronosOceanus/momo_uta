@@ -37,6 +37,17 @@
 ```
 
 ```text
+thin / full 都随包：
+
+```text
+Frameworks/bin/soundstretch
+Frameworks/bin/libSoundTouch.1.dylib
+Resources/licenses/SoundTouch-LGPL-2.1.txt
+```
+
+full 另外随包 ffmpeg 和 `ffmpeg-GPLv3.txt`。  
+第三方说明见 `THIRD_PARTY_NOTICES.md`。
+
 尚未签名 / 公证。
 ```
 
@@ -50,7 +61,7 @@ pyproject 不注册 console script，避免安装出一个不可用的 momo-uta 
 
 | 版本 | 文件 | 内容 | 体积 |
 |---|---|---|---|
-| thin | `momo-uta-thin.app` | 播放器 + 歌词 + LRC + 翻译，检测外部 demucs / ffmpeg | ~461 MB |
+| thin | `momo-uta-thin.app` | 播放器 + 歌词 + LRC + 翻译 + 内置 SoundTouch；外部 demucs / ffmpeg | ~461 MB |
 | full | `momo-uta-full.app` | thin + demucs + torch + ffmpeg | ~1.7 GB |
 
 ```text
