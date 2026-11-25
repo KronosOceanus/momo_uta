@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>seek precision bench</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:980px;margin:40px auto;padding:0 24px;color:#222;line-height:1.5}
+h1{margin-bottom:4px}.muted{color:#777}
+button{font:inherit;padding:8px 14px;border:1px solid #bbb;border-radius:7px;background:#fff;cursor:pointer}
+button.primary{background:#111;color:#fff;border-color:#111}
+button:disabled{opacity:.45;cursor:default}
+table{border-collapse:collapse;width:100%;margin:18px 0}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:right}
+th:first-child,td:first-child{text-align:left}th{background:#f5f5f5}
+pre{background:#f5f5f5;padding:12px;border-radius:8px;overflow:auto}
+</style>
+<h1>seek precision bench</h1>
+<p class="muted">当前基线：AudioBufferSourceNode + playbackRate。<br>
+测试信号：每 0.5s 一个 2ms click。点击 target 后从目标位置开始播放，捕捉输出中的第一个 click。</p>
+<p><button id="run" class="primary">开始测试</button> <span id="status" class="muted"></span></p>
+<table><thead><tr><th>速度</th><th>目标</th><th>期望 click</th><th>实测 source</th><th>误差</th><th>首次出声</th></tr></thead><tbody id="rows"></tbody></table>
+<pre id="summary"></pre>
+<script src="bench.js"></script>
