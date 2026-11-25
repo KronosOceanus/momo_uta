@@ -259,8 +259,8 @@ service 单元测试          已有
 自动化基线：
 
 ```text
-396 Python
-85 前端
+401 Python
+87 前端
 ```
 
 剩余：
@@ -511,7 +511,7 @@ docs/项目整理/打包与首次运行审计.md
 | 5 | 项目整理文档和 CHANGELOG 过期 | P2 | 待处理 |
 | 6 | 启动时没有清理旧 SoundTouch 临时目录 | P3 | 已完成 |
 | 7 | SoundTouch 失败没有诊断日志 | P3 | 已完成 |
-| 8 | 缺少退出取消/损坏缓存/循环/结尾 seek 测试 | P3 | 待处理 |
+| 8 | 缺少退出取消/损坏缓存/循环/结尾 seek 测试 | P3 | 已完成 |
 
 ### 12.1 P1 退出取消
 
@@ -622,10 +622,21 @@ soundtouch.cleanup_startup()
 
 ### 12.8 P3 测试缺口
 
+状态：已补。
+
 ```text
-退出取消
+退出取消 / 无 uid 取消
 损坏缓存恢复
-/audio?st
+/audio?st 缓存命中 + Range
+/audio?st 未命中不触发生成
 非 1.0× 单句循环
-连续 seek 到结尾
+连续 seekPlayback
+2GB 上限用小的 MAX_CACHE_BYTES 模拟
+```
+
+未做：
+
+```text
+应用级退出集成测试
+真实打包版冒烟
 ```

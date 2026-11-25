@@ -6,6 +6,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+import wave
 from pathlib import Path
 from unittest.mock import patch
 
@@ -386,11 +387,6 @@ class TestPlayerHttp(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 400)
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_soundtouch_info(self):
         payload = {"uid": "u", "speed": 0.8, "url": "/audio/u?st=0.80",
                    "duration": 1.0, "bytes": 2}
@@ -428,6 +424,28 @@ if __name__ == "__main__":
         process.assert_not_called()
 
 
+
+    def test_soundtouch_audio_cache_hit_range(self):
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as fh:
+            path = Path(fh.name)
+            with wave.open(str(path), "wb") as w:
+                w.setnchannels(2)
+                w.setsampwidth(2)
+                w.setframerate(44100)
+                w.writeframes(b"\x00" * 200)
+        try:
+            with patch.object(ROUTES.SVC_ST, "cached_path", return_value=path):
+                req = urllib.request.Request(
+                    self.url(f"/audio/{CACHE_ITEM['uid']}?st=0.80"),
+                    headers={**self.auth_headers(), "Range": "bytes=0-9"})
+                r = urllib.request.urlopen(req)
+                self.assertEqual(r.status, 206)
+                self.assertEqual(len(r.read()), 10)
+                self.assertIn("bytes 0-9/", r.headers.get("Content-Range", ""))
+        finally:
+            path.unlink(missing_ok=True)
+
+
 class TestLrcNestedTypes(unittest.TestCase):
     def test_bad_lrc_lines(self):
         # reuse an isolated server through the existing fixture-style setup
@@ -445,3 +463,7 @@ class TestLrcNestedTypes(unittest.TestCase):
             self.assertEqual(cm.exception.code, 400)
         finally:
             case.tearDownClass()
+
+
+if __name__ == "__main__":
+    unittest.main()

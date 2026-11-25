@@ -979,3 +979,20 @@ test('failed processed audio preload returns to the original source', async () =
   assert.equal(p.run("document.getElementById('rate').value"), '1.00');
   assert.match(p.run('messages.at(-1)'), /回到原曲/);
 });
+
+test('single-line loop rewinds processed time at non-1x speed', () => {
+  const p = player();
+  p.run("VIEW_MODE='normal'; ST_ON=true; ST_SPEED=0.80; S={uid:'u0'}; PLAYING_UID='u0'; LINES=[{t:2,text:'a'},{t:4,text:'b'}]; LOOP_ROW=0; loop=true;");
+  p.run("const handler=window.NH.au.ontimeupdate; au={currentTime:5,paused:false,duration:100,addEventListener(){},removeEventListener(){},pause(){},play(){return Promise.resolve();},ontimeupdate:handler};");
+  p.run('au.ontimeupdate()');
+  assert.equal(p.run('au.currentTime'), 2.5);
+});
+
+test('continuous seekPlayback stays on the latest target at non-1x speed', async () => {
+  const p = player();
+  p.run("ST_ON=true; ST_SPEED=0.80; PLAYING_UID='u0';");
+  p.run("au={currentTime:0,paused:false,readyState:4,duration:100,addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();}}");
+  await p.run('seekPlayback(5)');
+  await p.run('seekPlayback(10)');
+  assert.equal(p.run('au.currentTime'), 10);
+});
