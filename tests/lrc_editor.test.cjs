@@ -833,3 +833,16 @@ test('busy progress is replaced by a flash result without queueing', () => {
   assert.equal(p.run('TOAST_BUSY'), false);
   assert.equal(p.document.getElementById('toast').textContent, '已切换');
 });
+
+test('stale SoundTouch generation cannot change the next song', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID=null; ST_ON=false; ST_URL=null; ST_UID=null; ST_SPEED=1; document.getElementById('rate').value='0.80';");
+  const pending = p.document.getElementById('rate').onchange({target:{value:'0.80'}});
+  assert.equal(p.calls[0].path, '/api/soundtouch');
+  p.run("S={uid:'u1',title:'B'}; cancelSoundTouch();");
+  p.requests[0].resolve({ok:true, url:'/audio/u0?st=0.80'});
+  await pending;
+  assert.equal(p.run('ST_ON'), false);
+  assert.equal(p.run('ST_URL'), null);
+  assert.equal(p.run('S.uid'), 'u1');
+});
