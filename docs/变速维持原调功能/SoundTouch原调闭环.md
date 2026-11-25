@@ -260,7 +260,7 @@ service 单元测试          已有
 
 ```text
 388 Python
-80 前端
+81 前端
 ```
 
 剩余：
@@ -303,6 +303,7 @@ LRC/波形映射规则        本文
 | 6 | 取消生成 | 后端取消已做 | 无进度条 |
 | 7 | 缓存格式 | 保持 WAV | 已定 |
 | 8 | 文档 | 已完成 | 手工验收待做 |
+| 9 | 代码审计 | P0-1 已修复 | P0-2 待修 |
 
 ## 8. 当前测试基线
 
@@ -343,4 +344,81 @@ README.md
 [ ] 切到另一首播放时速度回到 1.00×
 [ ] thin 版检测外部 ffmpeg
 [ ] full 版无需外部 ffmpeg
+```
+
+## 11. 代码审计
+
+### P0-1 变速作用在查看歌曲，不是播放歌曲
+
+状态：已修复。
+
+```text
+A 正在播放
+单击 B 查看，A 继续播放
+拖动速度
+→ applySpeed 使用 NH.S = B
+→ 生成 B
+→ switchStAt 默认 commit B
+→ 播放被切到 B
+```
+
+违反：
+
+```text
+NH.S = 查看歌曲
+NH.PLAYING_UID = 播放歌曲
+```
+
+已修复：
+
+```text
+speedTarget() 优先取 PLAY_ITEM / PLAYING_UID
+没有播放目标时才回退到 NH.S
+switchStAt 接收目标歌曲，不默认 commit NH.S
+切换后使用 seekPlayback()，按 PLAYING_UID 定位
+```
+
+### P0-2 只查看 B 会清掉 A 的 SoundTouch 状态
+
+状态：待修。
+
+`load()` 只要 `changedSong` 就调用 `cancelSoundTouch()`。  
+A 仍在播放处理后的 0.8× 音频时，只查看 B 会得到：
+
+```text
+声音：0.8×
+ST_ON：false
+ST_SPEED：1
+```
+
+导致波形、seek、歌词映射错误。
+
+修复方向：
+
+```text
+查看歌曲变化不取消播放中的 SoundTouch
+只在实际播放歌曲变化时取消/重置
+```
+
+### P1 `_run` 丢失超时
+
+状态：待修。
+
+`Popen` 替代 `subprocess.run` 后没有补回 120 秒超时。  
+卡住时会一直占用全局 LOCK。
+
+### P2 `switchStAt` 失败只回滚滑块
+
+状态：待修。
+
+API 成功后先写入新的 ST 状态，再 seek。  
+如果 seek/play 失败，滑块回滚但 ST_ON/ST_URL/ST_SPEED 可能仍是新值。
+
+### P3 工具权限 / cancel uid
+
+状态：待修。
+
+```text
+_tool 只检查文件存在，不检查可执行权限
+/api/soundtouch/cancel 允许空 uid
 ```

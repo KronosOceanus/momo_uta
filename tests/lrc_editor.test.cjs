@@ -910,3 +910,19 @@ test('SoundTouch time mapping also works in LRC editor mode', () => {
   assert.equal(p.run('idxAt(2.5)'), 0);
   assert.equal(p.run('idxAt(5.1)'), 1);
 });
+
+test('speed change follows the playing song, not the viewed song', async () => {
+  const p = player();
+  p.run("S={uid:'u-view',title:'viewed'}; PLAYING_UID='u-play'; PLAY_ITEM={uid:'u-play',title:'playing'}; ST_ON=false; ST_SPEED=1; document.getElementById('rate').value='0.80';");
+  p.run("au={paused:false,readyState:4,duration:100,currentTime:2,src:'',addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return Promise.resolve();}}");
+  const pending = p.document.getElementById('rate').onchange({target:{value:'0.80'}});
+  assert.equal(p.calls[0].path, '/api/soundtouch');
+  assert.equal(p.calls[0].body.uid, 'u-play');
+  p.requests[0].resolve({ok:true, url:'/audio/u-play?st=0.80'});
+  await pending;
+  await nextTurn();
+  assert.equal(p.run('PLAYING_UID'), 'u-play');
+  assert.equal(p.run('ST_UID'), 'u-play');
+  assert.equal(p.run('S.uid'), 'u-view');
+  assert.equal(p.run('au.currentTime'), 2.5);
+});

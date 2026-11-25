@@ -400,13 +400,22 @@ NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syn
 function stSourcePos(){
   return NH.sourceTime(NH.au.currentTime || 0);
 }
+function playingSong(){
+  if(NH.PLAYING_UID===null || NH.PLAYING_UID===undefined) return null;
+  if(NH.PLAY_ITEM && String(NH.PLAY_ITEM.uid)===String(NH.PLAYING_UID)) return NH.PLAY_ITEM;
+  return findSongItem(NH.PLAYING_UID);
+}
+function speedTarget(){
+  return playingSong() || NH.S || null;
+}
 function cancelSoundTouch(uid){
   const hadWork=NH.ST_ON || stBusy || !!NH.ST_URL || !!NH.ST_UID || stWantSpeed!==null;
   stToken++;
   stWantSpeed=null;
   stQueued=false;
   stBusy=false;
-  const cancelUid=uid || NH.ST_UID || (NH.S && NH.S.uid) || '';
+  const target=speedTarget();
+  const cancelUid=uid || NH.ST_UID || (target && target.uid) || '';
   if(hadWork && cancelUid) NH.api('/api/soundtouch/cancel',{uid:String(cancelUid)}).catch(()=>{});
   NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
   const rate=document.getElementById('rate'); if(rate) rate.disabled=false;
@@ -420,12 +429,12 @@ function resetSpeedTo1(){
   if(rv) rv.textContent='1.00×';
   NH.au.playbackRate=1;
 }
-async function switchStAt(sourcePos, wasPlaying, token, uid){
-  if(token!==stToken || !NH.S || String(NH.S.uid)!==String(uid)) return false;
-  NH.commitAudio();
+async function switchStAt(sourcePos, wasPlaying, token, uid, target){
+  if(token!==stToken || !target || String(target.uid)!==String(uid)) return false;
+  NH.commitAudio(target);
   const t = Math.max(0, NH.audioTime(sourcePos));
-  await NH.seekPrecise(t);
-  if(token!==stToken || !NH.S || String(NH.S.uid)!==String(uid)) return false;
+  await NH.seekPlayback(t);
+  if(token!==stToken || String(NH.PLAYING_UID)!==String(uid)) return false;
   if(wasPlaying) await NH.au.play().catch(()=>{});
   return true;
 }
@@ -435,16 +444,17 @@ async function applySpeed(speed){
   if(stBusy){ stWantSpeed=speed; return; }
   if(Math.abs(speed - 1) < 0.001){
     if(!NH.ST_ON){ NH.au.playbackRate = 1; return; }
-    if(!NH.S) return;
+    const target=speedTarget();
+    if(!target) return;
     const token=++stToken;
-    const uid=NH.S.uid;
+    const uid=target.uid;
     const pos=stSourcePos();
     const wasPlaying=!NH.au.paused;
     NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
     stBusy=true;
     const rate=document.getElementById('rate'); if(rate) rate.disabled=true;
     try{
-      if(await switchStAt(pos, wasPlaying, token, uid) && token===stToken)
+      if(await switchStAt(pos, wasPlaying, token, uid, target) && token===stToken)
         NH.flash('已回到原速原调');
     }finally{
       if(token===stToken){
@@ -455,11 +465,12 @@ async function applySpeed(speed){
     }
     return;
   }
-  if(!NH.S) return;
+  const target=speedTarget();
+  if(!target) return;
   if(NH.ST_ON && Math.abs(speed - NH.ST_SPEED) < 0.001) return;
   const fallback = NH.ST_ON ? NH.ST_SPEED : 1;
   const token=++stToken;
-  const uid=NH.S.uid;
+  const uid=target.uid;
   const pos=stSourcePos();
   const wasPlaying=!NH.au.paused;
   const rate=document.getElementById('rate');
@@ -468,10 +479,12 @@ async function applySpeed(speed){
   NH.busy(`SoundTouch ${speed.toFixed(2)}× 生成中…`);
   try{
     const r=await NH.api('/api/soundtouch',{uid, speed});
-    if(token!==stToken || !NH.S || String(NH.S.uid)!==String(uid)) return;
+    if(token!==stToken || !target) return;
+    if(NH.PLAYING_UID!==null && NH.PLAYING_UID!==undefined
+       && String(NH.PLAYING_UID)!==String(uid)) return;
     if(r.ok===false) throw new Error(r.error||'生成失败');
     NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=uid; NH.ST_SPEED=speed;
-    if(await switchStAt(pos, wasPlaying, token, uid) && token===stToken)
+    if(await switchStAt(pos, wasPlaying, token, uid, target) && token===stToken)
       NH.flash(`SoundTouch ${speed.toFixed(2)}×：已切换`);
   }catch(e){
     if(token===stToken){

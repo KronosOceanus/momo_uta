@@ -455,6 +455,7 @@ POST /api/soundtouch/cancel {uid}
 ```text
 速度 ≠ 1.0
   → applySpeed()
+  → 目标优先当前播放歌曲，没有播放时才回退查看歌曲
   → 记录源时间
   → 生成/命中缓存
   → commitAudio()
