@@ -65,7 +65,6 @@ def main() -> None:
         for label, seconds in (("4min", 258), ("8min", 480), ("10min", 600)):
             src = td / f"{label}.mp3"
             make_source(src, seconds)
-            print("SOURCE", label, src.exists(), src.stat().st_size if src.exists() else 0, flush=True)
             cases.append((label, seconds, src))
         for label, seconds, src in cases:
             for speed in (0.65, 1.25):
