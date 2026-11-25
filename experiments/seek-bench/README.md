@@ -100,6 +100,72 @@ seek 内容偏移 ≈ 0
 观测到的约 12ms 是 WebKit 输出延迟，不是 seek 误差。
 ```
 
+## DSP reset 实验
+
+这一节才测 SoundTouch / Rubber Band 本身。
+
+`seek_dsp.cpp` 模拟一次实时 seek：
+
+```text
+reset 引擎
+→ 从目标源时间开始喂 click track
+→ 收集输出
+→ 找第一个 click
+```
+
+构建：
+
+```bash
+brew install sound-touch rubberband
+cd experiments/seek-bench
+./build_dsp.sh
+./seek_dsp --input click.wav
+```
+
+### 结果
+
+```text
+1.00×
+  SoundTouch      +1.13ms
+  Rubber Band R3  +0.36ms
+
+0.80×
+  SoundTouch      -6.19 … -13.55ms
+  Rubber Band R3  -9.52 … -9.82ms
+
+0.65×
+  SoundTouch      -11.51 … -25.44ms
+  Rubber Band R3  -17.40 … -18.51ms
+```
+
+负数表示：
+
+```text
+检测到的第一个 click 在源时间轴上比预期更早
+```
+
+这不一定是“seek 偏移”，
+也可能是 click 瞬态在时间拉伸里被提前/平滑/重复。
+
+### 处理耗时
+
+同样处理约 3 秒输出：
+
+```text
+SoundTouch      约 4ms
+Rubber Band R3  约 50–66ms
+```
+
+这是离线循环处理耗时，不是实时音频线程的 CPU 峰值。
+
+### 说明
+
+```text
+测试的是 reset + 重新喂入后的算法输出
+没有接 CoreAudio 输出设备
+因此不包括硬件输出延迟
+```
+
 ## 已知边界
 
 ```text
