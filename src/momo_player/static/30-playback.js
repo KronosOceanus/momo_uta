@@ -60,6 +60,9 @@ function commitAudio(song){
   markPlaying();
   const stSrc = NH.ST_ON && NH.ST_URL && String(NH.ST_UID)===String(song.uid);
   NH.au.src = stSrc ? NH.ST_URL : (song.audio || ('/audio/'+encodeURIComponent(song.uid)));
+  // SoundTouch 已经把速度写进文件；这里必须回到 1.0，否则会二次降速变调。
+  const rateEl = document.getElementById('rate');
+  NH.au.playbackRate = stSrc ? 1 : (+(rateEl && rateEl.value) || 1);
   NH.au.preload().catch(()=>{});          // 整首解码进内存：之后跳转没有解码器 flush
   NH.paintTicks?.();                      // src 切换后旧时长/旧歌词不能留着
   document.getElementById('ttl').textContent = '▶ ' + song.title + (song.artist?' · '+song.artist:'');
@@ -393,6 +396,7 @@ document.getElementById('st').onclick=async()=>{
     rate.disabled=false; btn.textContent='原调：关';
     const wasPlaying=!NH.au.paused;
     NH.commitAudio();
+    NH.au.playbackRate=+rate.value;
     if(wasPlaying) NH.playFromStart();
     NH.done('已关闭 SoundTouch 试听');
     return;
@@ -407,6 +411,7 @@ document.getElementById('st').onclick=async()=>{
     if(r.ok===false) throw new Error(r.error||'生成失败');
     NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=NH.S.uid;
     rate.disabled=true; btn.textContent='原调：开';
+    NH.au.playbackRate=1;
     NH.commitAudio();
     if(wasPlaying) NH.playFromStart();
     NH.done('SoundTouch 试听：歌词/波形暂不对轴');

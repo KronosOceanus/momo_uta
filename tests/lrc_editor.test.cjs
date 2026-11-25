@@ -807,3 +807,10 @@ test('B returns to the playing song only when the back button is visible', () =>
   p.dispatch('keydown', {target: {tagName: 'BODY'}, key: 'B', preventDefault() {}});
   assert.equal(clicked, 1);
 });
+
+test('SoundTouch source always plays at 1.0 rate', () => {
+  const p = player();
+  p.run("ST_ON=true; ST_URL='/audio/u0?st=0.80'; ST_UID='u0'; document.getElementById('rate').value='0.80';");
+  p.run("commitAudio({uid:'u0', title:'test'})");
+  assert.equal(p.run('au.playbackRate'), 1);
+});
