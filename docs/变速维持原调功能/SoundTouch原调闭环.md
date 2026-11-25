@@ -510,7 +510,7 @@ docs/项目整理/打包与首次运行审计.md
 | 4 | `/audio?st=` 也能触发高成本生成 | P2 | 已完成 |
 | 5 | 项目整理文档和 CHANGELOG 过期 | P2 | 待处理 |
 | 6 | 启动时没有清理旧 SoundTouch 临时目录 | P3 | 已完成 |
-| 7 | SoundTouch 失败没有诊断日志 | P3 | 待处理 |
+| 7 | SoundTouch 失败没有诊断日志 | P3 | 已完成 |
 | 8 | 缺少退出取消/损坏缓存/循环/结尾 seek 测试 | P3 | 待处理 |
 
 ### 12.1 P1 退出取消
@@ -607,7 +607,18 @@ soundtouch.cleanup_startup()
 
 ### 12.7 P3 诊断日志
 
-失败时只 toast，没有 `diag.log("soundtouch", ...)`。
+状态：已修复。
+
+记录：
+
+```text
+生成失败：uid / speed / error
+取消：uid
+缓存损坏：uid / speed
+生成成功：uid / speed / bytes / elapsed
+前端 preload 失败 / 恢复失败
+```
+
 
 ### 12.8 P3 测试缺口
 

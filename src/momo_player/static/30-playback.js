@@ -51,6 +51,9 @@ function fallbackToOriginal(song, stSrc){
   if(!stSrc || !NH.ST_ON) return;
   if(String(NH.PLAYING_UID)!==String(song.uid)) return;
   if(String(NH.ST_UID)!==String(song.uid)) return;
+  const speed=NH.ST_SPEED;
+  NH.reportClientError?.('soundtouch_preload',
+    `processed audio failed uid=${song.uid} speed=${speed}`, '', {speed});
   cancelSoundTouch(song.uid);
   const rate=document.getElementById('rate');
   if(rate) rate.value='1.00';
@@ -511,6 +514,8 @@ async function applySpeed(speed){
           await restoreST(snap, target, pos, wasPlaying, token);
           restored=true;
         }catch(e2){
+          NH.reportClientError?.('soundtouch_restore', e2.message, '',
+            {uid:target.uid, speed:snap.speed});
           try{ await forceOriginal(target, pos, token); }catch(e3){}
         }
         NH.done(restored ? 'SoundTouch 切换失败：'+e.message
@@ -556,6 +561,8 @@ async function applySpeed(speed){
           await restoreST(snap, target, pos, wasPlaying, token);
           restored=true;
         }catch(e2){
+          NH.reportClientError?.('soundtouch_restore', e2.message, '',
+            {uid:target.uid, speed:snap.speed});
           try{ await forceOriginal(target, pos, token); }catch(e3){} finally{ forced=true; }
         }
       }

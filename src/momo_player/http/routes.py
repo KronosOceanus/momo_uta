@@ -495,5 +495,6 @@ class H(BaseHTTPRequestHandler):
             return self._json({"ok": True, **SVC_ST.info(uid, speed)})
         except (KeyError, TypeError, ValueError, OSError, RuntimeError,
                 subprocess.SubprocessError) as e:
+            diag.log("soundtouch", f"generate failed uid={uid} speed={req.get('speed')}: {e}")
             return self._json({"ok": False, "error": str(e)}, 400)
 

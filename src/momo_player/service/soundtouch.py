@@ -17,6 +17,7 @@ from pathlib import Path
 
 from momo_yomi.paths import BUNDLE, CACHE
 
+from ..core import diag
 from ..core import library as LIB
 
 LOCK = threading.Lock()
@@ -108,6 +109,8 @@ def cancel(uid: str | None = None) -> None:
         if idle and uid:
             _CANCEL_GEN.pop(uid, None)
     _stop(p)
+    if p is not None:
+        diag.log("soundtouch", f"cancel uid={uid or '-'} speed=cancelled")
 
 
 def _run(cmd: list[str], uid: str, gen: int) -> None:
@@ -233,6 +236,7 @@ def cached_path(uid: str, speed: float) -> Path | None:
         if not out.is_file():
             return None
         if not _valid_wav(out):
+            diag.log("soundtouch", f"invalid cache uid={uid} speed={speed:.2f}")
             try:
                 out.unlink()
             except OSError:
@@ -255,6 +259,7 @@ def process(uid: str, speed: float) -> Path:
     with _STATE_LOCK:
         _PENDING[uid] = _PENDING.get(uid, 0) + 1
         gen = _CANCEL_GEN.get(uid, 0)
+    started = time.monotonic()
     try:
         with LOCK:
             if gen != _cancel_gen(uid):
@@ -264,6 +269,7 @@ def process(uid: str, speed: float) -> Path:
                     _touch(out)
                     _cleanup(keep=out)
                     return out
+                diag.log("soundtouch", f"invalid cache uid={uid} speed={speed:.2f}")
                 try:
                     out.unlink()
                 except OSError:
@@ -289,6 +295,9 @@ def process(uid: str, speed: float) -> Path:
                 os.replace(tmp, out)
                 _touch(out)
                 _cleanup(keep=out)
+                diag.log("soundtouch",
+                         f"generated uid={uid} speed={speed:.2f} bytes={out.stat().st_size} "
+                         f"elapsed={time.monotonic()-started:.2f}s")
             return out
     finally:
         with _STATE_LOCK:
