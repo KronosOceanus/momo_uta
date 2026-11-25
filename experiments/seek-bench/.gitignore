@@ -1,2 +1,6 @@
 seek_dsp
 dsp_results.csv
+quality-out/
+quality.json
+throughput-out/
+throughput.json

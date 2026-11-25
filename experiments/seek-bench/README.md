@@ -166,11 +166,70 @@ Rubber Band R3  约 50–66ms
 因此不包括硬件输出延迟
 ```
 
+## 音高 / 谐波测试
+
+纯音测试，目标不是听感，而是确认变速后基频是否保持。
+
+```bash
+cd experiments/seek-bench
+../../.venv/bin/python dsp_quality.py
+```
+
+测试：
+
+```text
+440Hz / 220Hz / 110Hz
+10 秒纯音
+0.80× / 0.65×
+```
+
+结果：
+
+```text
+所有组合的基频偏差都在 ±0.12 cents 以内
+```
+
+例如：
+
+```text
+Rubber Band 440Hz 0.80×  → 440.000Hz  -0.00 cents
+SoundTouch   440Hz 0.65×  → 439.970Hz  -0.12 cents
+```
+
+说明“保持原调”在纯音层面是成立的。
+
+注意：
+
+```text
+THD 显示 0 只说明纯音几乎没有谐波
+不代表真实音乐的人声/鼓点/瞬态质量
+```
+
+## 长片段吞吐测试
+
+```bash
+cd experiments/seek-bench
+../../.venv/bin/python dsp_throughput.py \
+  --input "$HOME/Music/网易云音乐/YOASOBI - たぶん.mp3" \
+  --seconds 60 --speeds 0.8 0.65
+```
+
+60 秒真实歌曲：
+
+| 引擎 | 速度 | 输出 | 处理 | 实时倍率 |
+|---|---:|---:|---:|---:|
+| Rubber Band R3 | 0.80× | 75.00s | 5.668s | 13.2× |
+| SoundTouch | 0.80× | 75.00s | 0.244s | 307.0× |
+| Rubber Band R3 | 0.65× | 92.31s | 10.045s | 9.2× |
+| SoundTouch | 0.65× | 92.31s | 0.277s | 332.8× |
+
+这是离线 CLI 吞吐，不是实时音频线程 CPU 峰值。
+
 ## 已知边界
 
 ```text
-ScriptProcessor 已废弃，但 WebKit 仍可用
-只测内容对齐，不测真实扬声器延迟
-不能直接测 SoundTouch / Rubber Band
-要测它们，需要先接实时 DSP 引擎
+浏览器部分用 ScriptProcessor，已废弃但 WebKit 仍可用
+浏览器部分不测真实扬声器延迟
+DSP 部分是 reset + 重新喂入，不是 CoreAudio 实时输出
+仍未测硬件输出延迟、实时 seek、seek 后爆音
 ```
