@@ -403,7 +403,7 @@ document.getElementById('st').onclick=async()=>{
   }
   if(!NH.S) return;
   const speed=+rate.value;
-  if(speed>=0.999){ NH.done('先把速度调到 0.5–0.95 再试听'); return; }
+  if(Math.abs(speed-1)<0.001){ NH.done('1.0× 不需要 SoundTouch'); return; }
   btn.disabled=true; btn.textContent='生成中…';
   try{
     const wasPlaying=!NH.au.paused;
