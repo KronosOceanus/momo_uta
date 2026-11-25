@@ -248,6 +248,69 @@ cd experiments/seek-bench
 
 这是离线 CLI 吞吐，不是实时音频线程 CPU 峰值。
 
+## 实时输出（BlackHole）
+
+这一节把处理结果送到真实音频设备，再录回来。
+
+```bash
+brew install sound-touch rubberband
+cd experiments/seek-bench
+./build_realtime.sh
+```
+
+播放到 BlackHole：
+
+```bash
+./dsp_play --engine soundtouch --target 1.0 --speed 0.8
+./dsp_play --engine rubberband --target 1.0 --speed 0.8
+```
+
+其中：
+
+```text
+native      直接播放原始 click
+soundtouch  先从 target 处理 2 秒，再播放
+rubberband  先从 target 处理 2 秒，再播放
+```
+
+录制：
+
+```bash
+ffmpeg -f avfoundation -i ':0' -t 4 -ac 2 -ar 44100 /tmp/capture.wav
+```
+
+### 已验证
+
+```text
+BlackHole 能收到声音
+native / SoundTouch / Rubber Band 输出都有 click
+```
+
+`PREP_MS`：
+
+```text
+native       ~0.02ms
+SoundTouch   ~6ms
+Rubber Band  ~58ms
+```
+
+注意：
+
+```text
+dsp_play 是“先处理 2 秒，再开始播放”
+不是回调内实时流式处理
+所以 PREP_MS 会直接进入 seek 到出声的时间
+```
+
+### 未完成
+
+```text
+实时回调内处理
+输出设备绝对延迟
+播放中 seek
+seek 后爆音/重复
+```
+
 ## 已知边界
 
 ```text
