@@ -453,6 +453,7 @@ async function applySpeed(speed){
   }
   if(!NH.S) return;
   if(NH.ST_ON && Math.abs(speed - NH.ST_SPEED) < 0.001) return;
+  const fallback = NH.ST_ON ? NH.ST_SPEED : 1;
   const token=++stToken;
   const uid=NH.S.uid;
   const pos=stSourcePos();
@@ -469,7 +470,12 @@ async function applySpeed(speed){
     if(await switchStAt(pos, wasPlaying, token, uid) && token===stToken)
       NH.flash(`SoundTouch ${speed.toFixed(2)}×：已切换`);
   }catch(e){
-    if(token===stToken) NH.done('SoundTouch 生成失败：'+e.message);
+    if(token===stToken){
+      if(rate) rate.value=fallback.toFixed(2);
+      const rv=document.getElementById('rv');
+      if(rv) rv.textContent=fallback.toFixed(2)+'×';
+      NH.done('SoundTouch 生成失败：'+e.message);
+    }
   }finally{
     if(token===stToken){
       stBusy=false;

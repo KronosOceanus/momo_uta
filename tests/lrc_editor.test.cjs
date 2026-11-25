@@ -856,3 +856,26 @@ test('switching the playback song resets SoundTouch speed to 1x', () => {
   assert.equal(p.run("document.getElementById('rate').value"), '1');
   assert.equal(p.run("document.getElementById('rate').disabled"), false);
 });
+
+test('failed SoundTouch generation rolls the speed slider back', async () => {
+  const p = player();
+  p.run("S={uid:'u0'}; PLAYING_UID='u0'; ST_ON=false; ST_URL=null; ST_UID=null; ST_SPEED=1; document.getElementById('rate').value='0.80';");
+  const pending = p.document.getElementById('rate').onchange({target:{value:'0.80'}});
+  assert.equal(p.calls[0].path, '/api/soundtouch');
+  p.requests[0].resolve({ok:false, error:'no ffmpeg'});
+  await pending;
+  assert.equal(p.run('ST_ON'), false);
+  assert.equal(p.run("document.getElementById('rate').value"), '1.00');
+  assert.match(p.run('messages.at(-1)'), /生成失败/);
+});
+
+test('failed speed change keeps the previous active SoundTouch speed', async () => {
+  const p = player();
+  p.run("S={uid:'u0'}; PLAYING_UID='u0'; ST_ON=true; ST_SPEED=0.80; ST_URL='/audio/u0?st=0.80'; ST_UID='u0'; document.getElementById('rate').value='0.80';");
+  const pending = p.document.getElementById('rate').onchange({target:{value:'1.25'}});
+  p.requests[0].resolve({ok:false, error:'failed'});
+  await pending;
+  assert.equal(p.run('ST_ON'), true);
+  assert.equal(p.run('ST_SPEED'), 0.80);
+  assert.equal(p.run("document.getElementById('rate').value"), '0.80');
+});
