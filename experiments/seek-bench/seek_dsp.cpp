@@ -12,6 +12,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,16 @@ static Wav load_wav(const std::string &path) {
         w.mono[i] = v / w.channels;
     }
     return w;
+}
+
+static std::vector<double> parse_list(const std::string &text) {
+    std::vector<double> out;
+    std::string s = text;
+    for (char &c : s) if (c == ',') c = ' ';
+    std::istringstream in(s);
+    double v;
+    while (in >> v) out.push_back(v);
+    return out;
 }
 
 static size_t first_click(const std::vector<float> &x, float threshold = 0.2f) {
@@ -182,6 +193,8 @@ int main(int argc, char **argv) {
     std::vector<double> targets = {1.03, 4.27, 7.51};
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--input") && i + 1 < argc) input = argv[++i];
+        else if (!strcmp(argv[i], "--speeds") && i + 1 < argc) speeds = parse_list(argv[++i]);
+        else if (!strcmp(argv[i], "--targets") && i + 1 < argc) targets = parse_list(argv[++i]);
     }
     try {
         Wav w = load_wav(input);

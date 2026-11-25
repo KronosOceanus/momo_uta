@@ -4,3 +4,5 @@ quality-out/
 quality.json
 throughput-out/
 throughput.json
+dsp_edge_*.csv
+click48-stereo.wav

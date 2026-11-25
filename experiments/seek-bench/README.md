@@ -147,6 +147,29 @@ cd experiments/seek-bench
 这不一定是“seek 偏移”，
 也可能是 click 瞬态在时间拉伸里被提前/平滑/重复。
 
+### 边界 / 采样率 / 0.5×
+
+44.1kHz mono 和 48kHz stereo 的结果基本一致：
+
+```text
+0.80×  SoundTouch   -6.19 … -11.81ms
+0.80×  Rubber Band  -9.15 … -10.10ms
+
+0.65×  SoundTouch   -11.43 … -18.53ms
+0.65×  Rubber Band  -16.31 … -18.43ms
+```
+
+0.5× 时 click 起音被拉得更明显：
+
+```text
+SoundTouch    -34 … -41ms
+Rubber Band   -26ms
+```
+
+这说明慢速越极端，
+“第一个 click 的位置”越不能直接等同于“seek 目标位置”；
+需要看起音检测和瞬态处理。
+
 ### 处理耗时
 
 同样处理约 3 秒输出：
