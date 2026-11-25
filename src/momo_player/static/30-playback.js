@@ -433,10 +433,29 @@ async function switchStAt(sourcePos, wasPlaying, token, uid, target){
   if(token!==stToken || !target || String(target.uid)!==String(uid)) return false;
   NH.commitAudio(target);
   const t = Math.max(0, NH.audioTime(sourcePos));
-  await NH.seekPlayback(t);
+  if(!await NH.seekPlayback(t)) return false;
   if(token!==stToken || String(NH.PLAYING_UID)!==String(uid)) return false;
   if(wasPlaying) await NH.au.play().catch(()=>{});
   return true;
+}
+
+function snapshotST(){
+  return {on:NH.ST_ON, url:NH.ST_URL, uid:NH.ST_UID, speed:NH.ST_SPEED};
+}
+
+async function restoreST(snap, target, sourcePos, wasPlaying, token){
+  if(token!==stToken) return;
+  NH.ST_ON=snap.on; NH.ST_URL=snap.url; NH.ST_UID=snap.uid; NH.ST_SPEED=snap.speed;
+  const rate=document.getElementById('rate');
+  const shown=snap.on ? (snap.speed||1) : 1;
+  if(rate) rate.value=shown.toFixed(2);
+  const rv=document.getElementById('rv');
+  if(rv) rv.textContent=shown.toFixed(2)+'×';
+  if(!target) return;
+  NH.commitAudio(target);
+  const t=snap.on ? sourcePos/(snap.speed||1) : sourcePos;
+  await NH.seekPlayback(t);
+  if(wasPlaying) await NH.au.play().catch(()=>{});
 }
 
 async function applySpeed(speed){
@@ -450,12 +469,19 @@ async function applySpeed(speed){
     const uid=target.uid;
     const pos=stSourcePos();
     const wasPlaying=!NH.au.paused;
+    const snap=snapshotST();
     NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
     stBusy=true;
     const rate=document.getElementById('rate'); if(rate) rate.disabled=true;
     try{
-      if(await switchStAt(pos, wasPlaying, token, uid, target) && token===stToken)
-        NH.flash('已回到原速原调');
+      if(!await switchStAt(pos, wasPlaying, token, uid, target))
+        throw new Error('切换播放位置失败');
+      if(token===stToken) NH.flash('已回到原速原调');
+    }catch(e){
+      if(token===stToken){
+        try{ await restoreST(snap, target, pos, wasPlaying, token); }catch(e2){}
+        NH.done('SoundTouch 切换失败：'+e.message);
+      }
     }finally{
       if(token===stToken){
         stBusy=false;
@@ -468,7 +494,7 @@ async function applySpeed(speed){
   const target=speedTarget();
   if(!target) return;
   if(NH.ST_ON && Math.abs(speed - NH.ST_SPEED) < 0.001) return;
-  const fallback = NH.ST_ON ? NH.ST_SPEED : 1;
+  const snap=snapshotST();
   const token=++stToken;
   const uid=target.uid;
   const pos=stSourcePos();
@@ -484,13 +510,22 @@ async function applySpeed(speed){
        && String(NH.PLAYING_UID)!==String(uid)) return;
     if(r.ok===false) throw new Error(r.error||'生成失败');
     NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=uid; NH.ST_SPEED=speed;
-    if(await switchStAt(pos, wasPlaying, token, uid, target) && token===stToken)
-      NH.flash(`SoundTouch ${speed.toFixed(2)}×：已切换`);
+    try{
+      if(!await switchStAt(pos, wasPlaying, token, uid, target))
+        throw new Error('切换播放位置失败');
+      if(token===stToken) NH.flash(`SoundTouch ${speed.toFixed(2)}×：已切换`);
+    }catch(err){
+      if(token===stToken){
+        try{ await restoreST(snap, target, pos, wasPlaying, token); }catch(e2){}
+      }
+      throw err;
+    }
   }catch(e){
     if(token===stToken){
-      if(rate) rate.value=fallback.toFixed(2);
+      const shown=snap.on ? (snap.speed||1) : 1;
+      if(rate) rate.value=shown.toFixed(2);
       const rv=document.getElementById('rv');
-      if(rv) rv.textContent=fallback.toFixed(2)+'×';
+      if(rv) rv.textContent=shown.toFixed(2)+'×';
       NH.done('SoundTouch 生成失败：'+e.message);
     }
   }finally{

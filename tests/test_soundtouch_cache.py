@@ -71,3 +71,21 @@ class TestSoundTouchCache(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_run_times_out_and_stops(self):
+        uid = "timeout-test"
+        gen = ST._cancel_gen(uid)
+        with patch.object(ST, "RUN_TIMEOUT", 0.05):
+            with self.assertRaises(TimeoutError):
+                ST._run(["sleep", "10"], uid, gen)
+        self.assertIsNone(ST._CURRENT)
+
+    def test_tool_requires_executable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "soundstretch"
+            p.write_text("#!/bin/sh\n", encoding="utf-8")
+            p.chmod(0o644)
+            with patch.dict(os.environ, {"MOMO_SOUNDSTRETCH": str(p)}, clear=False), \
+                 patch.object(ST.shutil, "which", return_value=None), \
+                 patch.object(ST.sys, "frozen", False, create=True):
+                self.assertIsNone(ST._tool("soundstretch", "MOMO_SOUNDSTRETCH"))

@@ -260,7 +260,7 @@ service 单元测试          已有
 
 ```text
 388 Python
-82 前端
+83 前端
 ```
 
 剩余：
@@ -402,23 +402,50 @@ load() 查看歌曲变化不再调用 cancelSoundTouch()
 
 ### P1 `_run` 丢失超时
 
-状态：待修。
+状态：已修复。
 
-`Popen` 替代 `subprocess.run` 后没有补回 120 秒超时。  
-卡住时会一直占用全局 LOCK。
+`_run` 现在有 120 秒 deadline。超时会：
+
+```text
+kill 进程组
+wait 回收
+抛出 TimeoutError
+```
 
 ### P2 `switchStAt` 失败只回滚滑块
 
-状态：待修。
+状态：已修复。
 
-API 成功后先写入新的 ST 状态，再 seek。  
-如果 seek/play 失败，滑块回滚但 ST_ON/ST_URL/ST_SPEED 可能仍是新值。
+切换前保存：
+
+```text
+ST_ON / ST_URL / ST_UID / ST_SPEED
+源位置 / 播放状态
+```
+
+seek 失败时恢复旧 ST 状态、旧音频源、旧源位置和滑块。
 
 ### P3 工具权限 / cancel uid
 
-状态：待修。
+状态：已修复。
 
 ```text
-_tool 只检查文件存在，不检查可执行权限
-/api/soundtouch/cancel 允许空 uid
+_tool 检查 os.access(X_OK)
+/api/soundtouch/cancel 要求非空 uid
+```
+
+### 第二轮审计
+
+已补：
+
+```text
+_stop 增加 p.wait，避免僵尸子进程
+P1/P2/P3 回归测试
+```
+
+剩余：
+
+```text
+无播放时拖速度仍会 commit 查看歌曲（P3，可接受）
+真实 WebKit 手工验收仍未做
 ```

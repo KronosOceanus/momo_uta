@@ -475,8 +475,11 @@ class H(BaseHTTPRequestHandler):
         return self._json(SVC_SETTINGS.set_play_mode(req))
 
     def _post_soundtouch_cancel(self, req):
+        uid = str(req.get("uid") or "")
+        if not uid:
+            return self._json({"ok": False, "error": "缺少参数：uid"}, 400)
         try:
-            SVC_ST.cancel(str(req.get("uid") or ""))
+            SVC_ST.cancel(uid)
             return self._json({"ok": True})
         except (OSError, RuntimeError) as e:
             return self._json({"ok": False, "error": str(e)}, 400)

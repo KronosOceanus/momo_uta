@@ -409,6 +409,15 @@ if __name__ == "__main__":
         cancel.assert_called_once_with("u")
 
 
+
+    def test_soundtouch_cancel_requires_uid(self):
+        req = urllib.request.Request(self.url("/api/soundtouch/cancel"), data=b"{}",
+                                     headers=self.auth_headers({"Content-Type": "application/json"}))
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 400)
+
+
 class TestLrcNestedTypes(unittest.TestCase):
     def test_bad_lrc_lines(self):
         # reuse an isolated server through the existing fixture-style setup

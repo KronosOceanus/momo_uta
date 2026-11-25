@@ -940,3 +940,18 @@ test('viewing another song preserves the playing song SoundTouch state', async (
   assert.equal(p.run('ST_SPEED'), 0.80);
   assert.equal(p.run('ST_UID'), 'u0');
 });
+
+test('SoundTouch seek failure restores the previous audio state', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'}; ST_ON=false; ST_SPEED=1; document.getElementById('rate').value='0.80';");
+  p.run("au={paused:false,readyState:4,duration:100,currentTime:2,src:'',addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return Promise.resolve();}}");
+  p.run("window.NH.seekPlayback=()=>Promise.resolve(false)");
+  const pending = p.document.getElementById('rate').onchange({target:{value:'0.80'}});
+  p.requests[0].resolve({ok:true, url:'/audio/u0?st=0.80'});
+  await pending;
+  await nextTurn();
+  assert.equal(p.run('ST_ON'), false);
+  assert.equal(p.run('ST_SPEED'), 1);
+  assert.equal(p.run('au.src'), '/audio/u0');
+  assert.equal(p.run("document.getElementById('rate').value"), '1.00');
+});

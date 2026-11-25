@@ -27,16 +27,24 @@ _CURRENT_UID = None
 CACHE_DIR = CACHE / "soundtouch"
 MAX_CACHE_BYTES = 2 * 1024 ** 3
 TMP_MAX_AGE = 24 * 3600
+RUN_TIMEOUT = 120
+
+
+def _executable(path: Path) -> bool:
+    try:
+        return path.is_file() and os.access(path, os.X_OK)
+    except OSError:
+        return False
 
 
 def _tool(name: str, env: str | None = None) -> str | None:
     if env:
         value = os.environ.get(env)
-        if value and Path(value).is_file():
+        if value and _executable(Path(value)):
             return value
     if getattr(sys, "frozen", False):
         p = BUNDLE / "bin" / name
-        if p.is_file():
+        if _executable(p):
             return str(p)
     return shutil.which(name)
 
@@ -55,6 +63,10 @@ def _stop(p) -> None:
             p.terminate()
         except OSError:
             pass
+    try:
+        p.wait(timeout=2)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def _cancel_gen(uid: str) -> int:
@@ -77,6 +89,7 @@ def _run(cmd: list[str], uid: str, gen: int) -> None:
     global _CURRENT, _CURRENT_UID
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          text=True, start_new_session=True)
+    deadline = time.monotonic() + RUN_TIMEOUT
     with _STATE_LOCK:
         _CURRENT = p
         _CURRENT_UID = uid
@@ -87,6 +100,9 @@ def _run(cmd: list[str], uid: str, gen: int) -> None:
             if canceled:
                 _stop(p)
                 raise Cancelled("SoundTouch 生成已取消")
+            if time.monotonic() >= deadline:
+                _stop(p)
+                raise TimeoutError(f"SoundTouch 生成超时（>{RUN_TIMEOUT}s）")
             time.sleep(0.05)
         out, err = p.communicate()
         if gen != _cancel_gen(uid):
