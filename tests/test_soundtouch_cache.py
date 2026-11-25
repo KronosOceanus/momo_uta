@@ -69,9 +69,6 @@ class TestSoundTouchCache(unittest.TestCase):
             self.assertGreater(p.stat().st_mtime, 1000)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_run_times_out_and_stops(self):
         uid = "timeout-test"
         gen = ST._cancel_gen(uid)
@@ -89,3 +86,12 @@ if __name__ == "__main__":
                  patch.object(ST.shutil, "which", return_value=None), \
                  patch.object(ST.sys, "frozen", False, create=True):
                 self.assertIsNone(ST._tool("soundstretch", "MOMO_SOUNDSTRETCH"))
+
+    def test_cancel_idle_uid_does_not_accumulate(self):
+        uid = "idle-cancel-test"
+        ST.cancel(uid)
+        self.assertNotIn(uid, ST._CANCEL_GEN)
+
+
+if __name__ == "__main__":
+    unittest.main()

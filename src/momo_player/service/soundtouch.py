@@ -22,6 +22,7 @@ from ..core import library as LIB
 LOCK = threading.Lock()
 _STATE_LOCK = threading.Lock()
 _CANCEL_GEN: dict[str, int] = {}
+_PENDING: dict[str, int] = {}
 _CURRENT = None
 _CURRENT_UID = None
 CACHE_DIR = CACHE / "soundtouch"
@@ -69,6 +70,15 @@ def _stop(p) -> None:
         pass
 
 
+def _close_pipes(p) -> None:
+    for stream in (p.stdout, p.stderr):
+        if stream is not None:
+            try:
+                stream.close()
+            except OSError:
+                pass
+
+
 def _cancel_gen(uid: str) -> int:
     with _STATE_LOCK:
         return _CANCEL_GEN.get(uid, 0)
@@ -82,6 +92,9 @@ def cancel(uid: str | None = None) -> None:
         if uid:
             _CANCEL_GEN[uid] = _CANCEL_GEN.get(uid, 0) + 1
         p = _CURRENT if (not uid or _CURRENT_UID == uid) else None
+        idle = not uid or (_PENDING.get(uid, 0) == 0 and _CURRENT_UID != uid)
+        if idle and uid:
+            _CANCEL_GEN.pop(uid, None)
     _stop(p)
 
 
@@ -99,9 +112,11 @@ def _run(cmd: list[str], uid: str, gen: int) -> None:
                 canceled = gen != _CANCEL_GEN.get(uid, 0)
             if canceled:
                 _stop(p)
+                _close_pipes(p)
                 raise Cancelled("SoundTouch 生成已取消")
             if time.monotonic() >= deadline:
                 _stop(p)
+                _close_pipes(p)
                 raise TimeoutError(f"SoundTouch 生成超时（>{RUN_TIMEOUT}s）")
             time.sleep(0.05)
         out, err = p.communicate()
@@ -185,34 +200,46 @@ def process(uid: str, speed: float) -> Path:
         raise KeyError("歌曲已不可用")
     out = _cache_path(str(uid), speed)
     uid = str(uid)
-    gen = _cancel_gen(uid)
-    with LOCK:
-        if gen != _cancel_gen(uid):
-            raise Cancelled("SoundTouch 生成已取消")
-        if out.is_file() and out.stat().st_size > 44:
-            _touch(out)
-            _cleanup(keep=out)
-            return out
-        ffmpeg = _tool("ffmpeg", "MOMO_FFMPEG")
-        soundstretch = _tool("soundstretch", "MOMO_SOUNDSTRETCH")
-        if not ffmpeg or not soundstretch:
-            raise RuntimeError("试听需要 ffmpeg 和 soundstretch（brew install ffmpeg sound-touch）")
-        out.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="momo-st-", dir=str(CACHE)) as td:
-            src = Path(td) / "src.wav"
-            tmp = Path(td) / "out.wav"
-            _run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-                  "-i", str(item["file"]), "-ac", "2", "-ar", "44100",
-                  "-c:a", "pcm_s16le", str(src)], uid, gen)
-            _run([soundstretch, str(src), str(tmp),
-                  f"-tempo={round((speed - 1) * 100, 4)}"], uid, gen)
+    with _STATE_LOCK:
+        _PENDING[uid] = _PENDING.get(uid, 0) + 1
+        gen = _CANCEL_GEN.get(uid, 0)
+    try:
+        with LOCK:
             if gen != _cancel_gen(uid):
                 raise Cancelled("SoundTouch 生成已取消")
-            # 先完成到临时目录，再原子搬进缓存。
-            os.replace(tmp, out)
-            _touch(out)
-            _cleanup(keep=out)
-        return out
+            if out.is_file() and out.stat().st_size > 44:
+                _touch(out)
+                _cleanup(keep=out)
+                return out
+            ffmpeg = _tool("ffmpeg", "MOMO_FFMPEG")
+            soundstretch = _tool("soundstretch", "MOMO_SOUNDSTRETCH")
+            if not ffmpeg or not soundstretch:
+                raise RuntimeError("试听需要 ffmpeg 和 soundstretch（brew install ffmpeg sound-touch）")
+            out.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix="momo-st-", dir=str(CACHE)) as td:
+                src = Path(td) / "src.wav"
+                tmp = Path(td) / "out.wav"
+                _run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+                      "-i", str(item["file"]), "-ac", "2", "-ar", "44100",
+                      "-c:a", "pcm_s16le", str(src)], uid, gen)
+                _run([soundstretch, str(src), str(tmp),
+                      f"-tempo={round((speed - 1) * 100, 4)}"], uid, gen)
+                if gen != _cancel_gen(uid):
+                    raise Cancelled("SoundTouch 生成已取消")
+                # 先完成到临时目录，再原子搬进缓存。
+                os.replace(tmp, out)
+                _touch(out)
+                _cleanup(keep=out)
+            return out
+    finally:
+        with _STATE_LOCK:
+            n = _PENDING.get(uid, 0) - 1
+            if n > 0:
+                _PENDING[uid] = n
+            else:
+                _PENDING.pop(uid, None)
+                if _CURRENT_UID != uid:
+                    _CANCEL_GEN.pop(uid, None)
 
 
 def url(uid: str, speed: float) -> str:

@@ -406,7 +406,7 @@ function playingSong(){
   return findSongItem(NH.PLAYING_UID);
 }
 function speedTarget(){
-  return playingSong() || NH.S || null;
+  return playingSong();
 }
 function cancelSoundTouch(uid){
   const hadWork=NH.ST_ON || stBusy || !!NH.ST_URL || !!NH.ST_UID || stWantSpeed!==null;
@@ -454,8 +454,20 @@ async function restoreST(snap, target, sourcePos, wasPlaying, token){
   if(!target) return;
   NH.commitAudio(target);
   const t=snap.on ? sourcePos/(snap.speed||1) : sourcePos;
-  await NH.seekPlayback(t);
+  if(!await NH.seekPlayback(t)) throw new Error('恢复播放位置失败');
   if(wasPlaying) await NH.au.play().catch(()=>{});
+}
+
+async function forceOriginal(target, sourcePos, token){
+  if(token!==stToken) return;
+  NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
+  const rate=document.getElementById('rate');
+  if(rate) rate.value='1.00';
+  const rv=document.getElementById('rv');
+  if(rv) rv.textContent='1.00×';
+  if(!target) return;
+  NH.commitAudio(target);
+  await NH.seekPlayback(Math.max(0, sourcePos));
 }
 
 async function applySpeed(speed){
@@ -479,8 +491,15 @@ async function applySpeed(speed){
       if(token===stToken) NH.flash('已回到原速原调');
     }catch(e){
       if(token===stToken){
-        try{ await restoreST(snap, target, pos, wasPlaying, token); }catch(e2){}
-        NH.done('SoundTouch 切换失败：'+e.message);
+        let restored=false;
+        try{
+          await restoreST(snap, target, pos, wasPlaying, token);
+          restored=true;
+        }catch(e2){
+          try{ await forceOriginal(target, pos, token); }catch(e3){}
+        }
+        NH.done(restored ? 'SoundTouch 切换失败：'+e.message
+                         : 'SoundTouch 恢复失败，已回到 1.00×');
       }
     }finally{
       if(token===stToken){
@@ -515,18 +534,39 @@ async function applySpeed(speed){
         throw new Error('切换播放位置失败');
       if(token===stToken) NH.flash(`SoundTouch ${speed.toFixed(2)}×：已切换`);
     }catch(err){
+      let restored=false;
+      let forced=false;
       if(token===stToken){
-        try{ await restoreST(snap, target, pos, wasPlaying, token); }catch(e2){}
+        try{
+          await restoreST(snap, target, pos, wasPlaying, token);
+          restored=true;
+        }catch(e2){
+          try{ await forceOriginal(target, pos, token); }catch(e3){} finally{ forced=true; }
+        }
       }
-      throw err;
+      throw {error:err, restored, forced};
     }
   }catch(e){
     if(token===stToken){
-      const shown=snap.on ? (snap.speed||1) : 1;
-      if(rate) rate.value=shown.toFixed(2);
-      const rv=document.getElementById('rv');
-      if(rv) rv.textContent=shown.toFixed(2)+'×';
-      NH.done('SoundTouch 生成失败：'+e.message);
+      const switched=e && e.error;
+      const restored=!!(e && e.restored);
+      const forced=!!(e && e.forced);
+      if(!switched){
+        const shown=snap.on ? (snap.speed||1) : 1;
+        if(rate) rate.value=shown.toFixed(2);
+        const rv=document.getElementById('rv');
+        if(rv) rv.textContent=shown.toFixed(2)+'×';
+        NH.done('SoundTouch 生成失败：'+e.message);
+      }else{
+        if(!restored && !forced){
+          const shown=snap.on ? (snap.speed||1) : 1;
+          if(rate) rate.value=shown.toFixed(2);
+          const rv=document.getElementById('rv');
+          if(rv) rv.textContent=shown.toFixed(2)+'×';
+        }
+        NH.done(restored ? 'SoundTouch 生成失败：'+e.error.message
+                         : 'SoundTouch 恢复失败，已回到 1.00×');
+      }
     }
   }finally{
     if(token===stToken){

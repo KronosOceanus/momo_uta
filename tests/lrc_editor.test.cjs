@@ -836,7 +836,7 @@ test('busy progress is replaced by a flash result without queueing', () => {
 
 test('stale SoundTouch generation cannot change the next song', async () => {
   const p = player();
-  p.run("S={uid:'u0',title:'A'}; PLAYING_UID=null; ST_ON=false; ST_URL=null; ST_UID=null; ST_SPEED=1; document.getElementById('rate').value='0.80';");
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'}; ST_ON=false; ST_URL=null; ST_UID=null; ST_SPEED=1; document.getElementById('rate').value='0.80';");
   const pending = p.document.getElementById('rate').onchange({target:{value:'0.80'}});
   assert.equal(p.calls[0].path, '/api/soundtouch');
   p.run("S={uid:'u1',title:'B'}; cancelSoundTouch();");
@@ -859,7 +859,7 @@ test('switching the playback song resets SoundTouch speed to 1x', () => {
 
 test('failed SoundTouch generation rolls the speed slider back', async () => {
   const p = player();
-  p.run("S={uid:'u0'}; PLAYING_UID='u0'; ST_ON=false; ST_URL=null; ST_UID=null; ST_SPEED=1; document.getElementById('rate').value='0.80';");
+  p.run("S={uid:'u0'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=false; ST_URL=null; ST_UID=null; ST_SPEED=1; document.getElementById('rate').value='0.80';");
   const pending = p.document.getElementById('rate').onchange({target:{value:'0.80'}});
   assert.equal(p.calls[0].path, '/api/soundtouch');
   p.requests[0].resolve({ok:false, error:'no ffmpeg'});
@@ -871,7 +871,7 @@ test('failed SoundTouch generation rolls the speed slider back', async () => {
 
 test('failed speed change keeps the previous active SoundTouch speed', async () => {
   const p = player();
-  p.run("S={uid:'u0'}; PLAYING_UID='u0'; ST_ON=true; ST_SPEED=0.80; ST_URL='/audio/u0?st=0.80'; ST_UID='u0'; document.getElementById('rate').value='0.80';");
+  p.run("S={uid:'u0'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=true; ST_SPEED=0.80; ST_URL='/audio/u0?st=0.80'; ST_UID='u0'; document.getElementById('rate').value='0.80';");
   const pending = p.document.getElementById('rate').onchange({target:{value:'1.25'}});
   p.requests[0].resolve({ok:false, error:'failed'});
   await pending;
@@ -954,4 +954,13 @@ test('SoundTouch seek failure restores the previous audio state', async () => {
   assert.equal(p.run('ST_SPEED'), 1);
   assert.equal(p.run('au.src'), '/audio/u0');
   assert.equal(p.run("document.getElementById('rate').value"), '1.00');
+});
+
+test('speed change without playback only updates the slider', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID=null; PLAY_ITEM=null; ST_ON=false; ST_SPEED=1; document.getElementById('rate').value='0.80';");
+  await p.document.getElementById('rate').onchange({target:{value:'0.80'}});
+  assert.equal(p.calls.length, 0);
+  assert.equal(p.run('ST_ON'), false);
+  assert.equal(p.run("document.getElementById('rate').value"), '0.80');
 });
