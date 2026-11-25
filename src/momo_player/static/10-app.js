@@ -388,7 +388,6 @@ async function load(ref, autoplay, nextMode){
     document.getElementById('rmcol').innerHTML='';
     if(autoplay || NH.PLAYING_UID===null){            // 单击只换 UI，不打断旧音频
       NH.commitAudio();
-      NH.au.playbackRate=+document.getElementById('rate').value;
       if(autoplay) NH.playFromStart?.();
     }
     if(knownNoMatch){                             // 已确认没歌词：不再重跑匹配
@@ -453,7 +452,6 @@ async function load(ref, autoplay, nextMode){
     if(NH.PLAYING_UID===null) NH.commitAudio();                 // 第一次载入才绑定音频
 
     if(autoplay){ NH.commitAudio(); NH.playFromStart?.(); }
-    NH.au.playbackRate=+document.getElementById('rate').value;
   }
   NH.VSTAT=null; NH.VSTAT_IDX=null; NH.paintVStatus?.();
   if(NH.VIEW_MODE!=='lrc') NH.WAVE=null;
