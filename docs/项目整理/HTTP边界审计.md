@@ -210,8 +210,8 @@ P2  ✅ 安全响应头 + CSP nonce（保留 unsafe-eval 供 pywebview）
 测试基线：
 
 ```text
-362 Python
-46 前端
+401 Python
+87 前端
 UI 冒烟通过
 ```
 
