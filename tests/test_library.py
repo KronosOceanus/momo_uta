@@ -51,6 +51,28 @@ class TestLibrary(unittest.TestCase):
         self.assertTrue(rows)
         self.assertTrue(rows[0]["has_lyric"])
 
+    def test_nhlrc_scan_never_uses_network(self):
+        audio = self.dir / "歌手A - 曲A.mp3"
+        seen = []
+        orig = LIB.LY.get_lrc
+
+        def fake(title, artist, use_cache=True, duration=0.0, force=False, network=True):
+            seen.append(network)
+            return orig(title, artist, use_cache=use_cache, duration=duration,
+                        force=force, network=False)
+
+        with patch.object(LRF, "LYRICS", self.dir / "lyrics"), \
+             patch.object(LRF.LY, "audio_duration", return_value=60), \
+             patch.object(LIB.LY, "get_lrc", side_effect=fake):
+            LRF.save(audio, [{"t": 1.0, "text": "あの日"},
+                             {"t": 2.0, "text": "今も"},
+                             {"t": 3.0, "text": "空を"}], {})
+            rows = [r for r in LIB.scan_library(self.dir) if r["stem"].endswith("曲A")]
+        self.assertTrue(rows)
+        self.assertTrue(rows[0]["has_lyric"])
+        self.assertTrue(seen)
+        self.assertTrue(all(v is False for v in seen))
+
     def test_cache_only_entry_after_index_has_lyric(self):
         """索引命中 rec 时也必须按 title, artist 查缓存，不能只看 nhlrc。"""
         self._write_hit("曲A", "歌手A")

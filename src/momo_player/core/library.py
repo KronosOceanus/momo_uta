@@ -232,7 +232,7 @@ def _has_lyric(title: str, artist: str, uid=None, stored=None) -> bool:
         return bool(stored[str(uid)])
     if not LY._cached(title, artist):
         return False
-    hit = LY.get_lrc(title, artist, use_cache=True) or {}
+    hit = LY.get_lrc(title, artist, use_cache=True, network=False) or {}
     lrc = hit.get("lrc") or ""
     return (LY.content_lines(lrc) >= int(LY.CFG["min_content_lines"]) and LY.has_timed(lrc))
 
@@ -287,7 +287,7 @@ def _entry(p: Path, group: str, stored=None, force_fp: bool = False) -> dict | N
              "has_lyric": False, "suspect": False}
         LI.put(e)
         return e
-    hit = LY.get_lrc(title, artist, use_cache=True) or {}
+    hit = LY.get_lrc(title, artist, use_cache=True, network=False) or {}
     e = {"key": hashlib.md5(stem.encode()).hexdigest()[:12],
          "uid": uid,
          "has_lyric": True,
