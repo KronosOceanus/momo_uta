@@ -88,6 +88,50 @@ class TestSoundTouchCache(unittest.TestCase):
                     ST.process("u", 0.80)
             self.assertFalse(bad.exists())
 
+    def test_cache_read_is_not_blocked_by_generation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.mp3"
+            source.write_bytes(b"x")
+            item = {"uid": "a", "file": str(source)}
+            cache = root / "soundtouch"
+            cache.mkdir()
+            with wave.open(str(cache / "b-0.80.wav"), "wb") as w:
+                w.setnchannels(2)
+                w.setsampwidth(2)
+                w.setframerate(44100)
+                w.writeframes(b"\x00" * 4)
+            started = threading.Event()
+            release = threading.Event()
+            errors = []
+
+            def fake_run(_cmd, _uid, _gen):
+                started.set()
+                release.wait(2)
+
+            def work():
+                try:
+                    ST.process("a", 0.80)
+                except Exception as e:
+                    errors.append(type(e).__name__)
+
+            with patch.object(ST, "CACHE", root), \
+                 patch.object(ST, "CACHE_DIR", cache), \
+                 patch.object(ST.LIB, "resolve", return_value=item), \
+                 patch.object(ST, "_tool", return_value="/bin/true"), \
+                 patch.object(ST, "_run", side_effect=fake_run):
+                t = threading.Thread(target=work)
+                t.start()
+                self.assertTrue(started.wait(1))
+                t0 = time.monotonic()
+                got = ST.cached_path("b", 0.80)
+                elapsed = time.monotonic() - t0
+                release.set()
+                t.join(3)
+            self.assertIsNotNone(got)
+            self.assertLess(elapsed, 0.5)
+            self.assertFalse(t.is_alive())
+
     def test_startup_cleanup_removes_old_temp_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

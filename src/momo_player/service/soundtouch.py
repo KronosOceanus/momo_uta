@@ -20,8 +20,9 @@ from momo_yomi.paths import BUNDLE, CACHE
 from ..core import diag
 from ..core import library as LIB
 
-LOCK = threading.Lock()
+_CACHE_LOCK = threading.Lock()
 _STATE_LOCK = threading.Lock()
+_KEY_LOCKS: dict[str, tuple[threading.Lock, int]] = {}
 _CANCEL_GEN: dict[str, int] = {}
 _PENDING: dict[str, int] = {}
 _CURRENT = None
@@ -30,6 +31,8 @@ CACHE_DIR = CACHE / "soundtouch"
 MAX_CACHE_BYTES = 2 * 1024 ** 3
 TMP_MAX_AGE = 24 * 3600
 RUN_TIMEOUT = 120
+CLEANUP_INTERVAL = 5
+_LAST_CLEANUP = 0.0
 
 
 def _executable(path: Path) -> bool:
@@ -200,8 +203,10 @@ def _cleanup(keep: Path | None = None) -> None:
 
 def cleanup_startup() -> None:
     """启动时清理旧临时目录，并按上限修剪缓存。"""
-    with LOCK:
+    global _LAST_CLEANUP
+    with _CACHE_LOCK:
         _cleanup()
+        _LAST_CLEANUP = time.monotonic()
 
 
 def _duration(path: Path) -> float:
@@ -227,23 +232,63 @@ def _valid_wav(path: Path) -> bool:
         return False
 
 
+def _cache_hit(out: Path) -> bool:
+    """在 _CACHE_LOCK 内调用；命中时更新 LRU。"""
+    try:
+        if not out.is_file():
+            return False
+        if out.stat().st_size > 44 and _valid_wav(out):
+            _touch(out)
+            _maybe_cleanup(out)
+            return True
+        diag.log("soundtouch", f"invalid cache path={out}")
+        out.unlink()
+    except OSError:
+        pass
+    return False
+
+
+def _maybe_cleanup(keep: Path | None = None) -> None:
+    """缓存读取不必每次扫 2GB 目录；短时间内的重复命中跳过。"""
+    global _LAST_CLEANUP
+    now = time.monotonic()
+    if now - _LAST_CLEANUP < CLEANUP_INTERVAL:
+        return
+    _LAST_CLEANUP = now
+    _cleanup(keep=keep)
+
+
+def _key_lock(uid: str, speed: float):
+    key = f"{uid}-{speed:.2f}"
+    with _STATE_LOCK:
+        lock, count = _KEY_LOCKS.get(key, (None, 0))
+        if lock is None:
+            lock = threading.Lock()
+        _KEY_LOCKS[key] = (lock, count + 1)
+    lock.acquire()
+    return key, lock
+
+
+def _release_key(key: str, lock: threading.Lock) -> None:
+    lock.release()
+    with _STATE_LOCK:
+        cur = _KEY_LOCKS.get(key)
+        if cur and cur[0] is lock:
+            count = cur[1] - 1
+            if count > 0:
+                _KEY_LOCKS[key] = (lock, count)
+            else:
+                _KEY_LOCKS.pop(key, None)
+
+
 def cached_path(uid: str, speed: float) -> Path | None:
     """只返回已生成且有效的缓存，不生成。"""
     if not 0.5 <= speed <= 1.25:
         raise ValueError("speed 必须在 0.5–1.25 之间")
     out = _cache_path(str(uid), speed)
-    with LOCK:
-        if not out.is_file():
+    with _CACHE_LOCK:
+        if not _cache_hit(out):
             return None
-        if not _valid_wav(out):
-            diag.log("soundtouch", f"invalid cache uid={uid} speed={speed:.2f}")
-            try:
-                out.unlink()
-            except OSError:
-                pass
-            return None
-        _touch(out)
-        _cleanup(keep=out)
         return out
 
 
@@ -260,46 +305,50 @@ def process(uid: str, speed: float) -> Path:
         _PENDING[uid] = _PENDING.get(uid, 0) + 1
         gen = _CANCEL_GEN.get(uid, 0)
     started = time.monotonic()
+    key = lock = None
     try:
-        with LOCK:
+        with _CACHE_LOCK:
+            if _cache_hit(out):
+                return out
+        key, lock = _key_lock(uid, speed)
+        with _CACHE_LOCK:
             if gen != _cancel_gen(uid):
                 raise Cancelled("SoundTouch 生成已取消")
-            if out.is_file() and out.stat().st_size > 44:
-                if _valid_wav(out):
-                    _touch(out)
-                    _cleanup(keep=out)
-                    return out
-                diag.log("soundtouch", f"invalid cache uid={uid} speed={speed:.2f}")
-                try:
-                    out.unlink()
-                except OSError:
-                    pass
-            ffmpeg = _tool("ffmpeg", "MOMO_FFMPEG")
-            soundstretch = _tool("soundstretch", "MOMO_SOUNDSTRETCH")
-            if not ffmpeg or not soundstretch:
-                raise RuntimeError("试听需要 ffmpeg 和 soundstretch（brew install ffmpeg sound-touch）")
-            out.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.TemporaryDirectory(prefix="momo-st-", dir=str(CACHE)) as td:
-                src = Path(td) / "src.wav"
-                tmp = Path(td) / "out.wav"
-                _run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-                      "-i", str(item["file"]), "-ac", "2", "-ar", "44100",
-                      "-c:a", "pcm_s16le", str(src)], uid, gen)
-                _run([soundstretch, str(src), str(tmp),
-                      f"-tempo={round((speed - 1) * 100, 4)}"], uid, gen)
+            if _cache_hit(out):
+                return out
+        if gen != _cancel_gen(uid):
+            raise Cancelled("SoundTouch 生成已取消")
+        ffmpeg = _tool("ffmpeg", "MOMO_FFMPEG")
+        soundstretch = _tool("soundstretch", "MOMO_SOUNDSTRETCH")
+        if not ffmpeg or not soundstretch:
+            raise RuntimeError("试听需要 ffmpeg 和 soundstretch（brew install ffmpeg sound-touch）")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="momo-st-", dir=str(CACHE)) as td:
+            src = Path(td) / "src.wav"
+            tmp = Path(td) / "out.wav"
+            _run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+                  "-i", str(item["file"]), "-ac", "2", "-ar", "44100",
+                  "-c:a", "pcm_s16le", str(src)], uid, gen)
+            _run([soundstretch, str(src), str(tmp),
+                  f"-tempo={round((speed - 1) * 100, 4)}"], uid, gen)
+            if gen != _cancel_gen(uid):
+                raise Cancelled("SoundTouch 生成已取消")
+            if not _valid_wav(tmp):
+                raise RuntimeError("SoundTouch 输出不是有效 WAV")
+            # 先完成到临时目录，再短持缓存锁原子搬进缓存。
+            with _CACHE_LOCK:
                 if gen != _cancel_gen(uid):
                     raise Cancelled("SoundTouch 生成已取消")
-                if not _valid_wav(tmp):
-                    raise RuntimeError("SoundTouch 输出不是有效 WAV")
-                # 先完成到临时目录，再原子搬进缓存。
                 os.replace(tmp, out)
                 _touch(out)
                 _cleanup(keep=out)
                 diag.log("soundtouch",
                          f"generated uid={uid} speed={speed:.2f} bytes={out.stat().st_size} "
                          f"elapsed={time.monotonic()-started:.2f}s")
-            return out
+        return out
     finally:
+        if key is not None and lock is not None:
+            _release_key(key, lock)
         with _STATE_LOCK:
             n = _PENDING.get(uid, 0) - 1
             if n > 0:
