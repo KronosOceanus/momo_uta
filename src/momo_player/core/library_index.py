@@ -37,8 +37,15 @@ def _load() -> dict:
     global _data
     if _data is None:
         raw = FS.read_json(INDEX, {}) or {}
-        _data = ({"_meta": raw.get("meta") or {}, **raw.get("records", {})}
-                 if raw.get("_v") == VERSION else {})
+        if not isinstance(raw, dict) or raw.get("_v") != VERSION:
+            _data = {}
+        else:
+            meta = raw.get("meta")
+            records = raw.get("records")
+            meta = meta if isinstance(meta, dict) else {}
+            records = records if isinstance(records, dict) else {}
+            _data = {"_meta": meta,
+                     **{str(k): v for k, v in records.items() if isinstance(v, dict)}}
     return _data
 
 

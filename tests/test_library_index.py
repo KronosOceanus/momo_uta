@@ -68,3 +68,17 @@ class TestTargetedPrune(unittest.TestCase):
                 remaining = {p for paths in LI.paths_by_uid().values() for p in paths}
             self.assertNotIn(str(a), remaining)
             self.assertIn(str(b), remaining)
+
+class TestMalformedIndex(unittest.TestCase):
+    def test_non_object_or_bad_records_are_empty(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "index.json"
+            p.write_text("[]", encoding="utf-8")
+            with patch.object(LI, "INDEX", p), \
+                 patch.object(LI, "_data", None), patch.object(LI, "_dirty", False):
+                self.assertEqual(LI.paths_by_uid(), {})
+            p.write_text(json.dumps({"_v": LI.VERSION, "records": []}), encoding="utf-8")
+            with patch.object(LI, "INDEX", p), \
+                 patch.object(LI, "_data", None), patch.object(LI, "_dirty", False):
+                self.assertEqual(LI.paths_by_uid(), {})

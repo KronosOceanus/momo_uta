@@ -27,7 +27,10 @@ def _locked():
 
 
 def load() -> dict:
-    return FS.read_json(FILE, {})
+    raw = FS.read_json(FILE, {})
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): v for k, v in raw.items() if isinstance(v, dict)}
 
 
 def get(key: str, field: str, default=None):
