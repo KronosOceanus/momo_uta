@@ -526,6 +526,16 @@ def backup_candidates(audio: str | Path, uid: str | None = None,
     return snaps + ([original] if original.is_file() else [])
 
 
+def _backup_lines(text: str) -> int:
+    try:
+        rows = parse_v2_rows(text)
+    except Exception:
+        body, _tail = _split_nhlrc(text)
+        return len(parse(body))
+    return sum(1 for r in rows
+               if r.get("kind") == "lyric" and (r.get("text") or "").strip())
+
+
 def backup_status(audio: str | Path, uid: str | None = None,
                   title: str | None = None, artist: str | None = None) -> dict:
     b = next((x for x in backup_candidates(audio, uid, title, artist) if x.is_file()), None)
@@ -534,7 +544,7 @@ def backup_status(audio: str | Path, uid: str | None = None,
     text = b.read_text(encoding="utf-8", errors="ignore")
     if _is_disabled_text(text):
         return {"exists": False, "disabled": True}
-    return {"exists": True, "path": str(b), "lines": len(parse(text)),
+    return {"exists": True, "path": str(b), "lines": _backup_lines(text),
             "mtime": b.stat().st_mtime, "size": b.stat().st_size}
 
 
@@ -606,7 +616,7 @@ def restore_backup(audio: str | Path, uid: str | None = None,
         except ValueError:
             return {"ok": False, "error": "不支持的 nhlrc 版本"}
         _atomic_write(sp, text)
-        return {"ok": True, "path": str(sp), "lines": len(parse(text)),
+        return {"ok": True, "path": str(sp), "lines": _backup_lines(text),
                 "version": _version(text)}
 
 

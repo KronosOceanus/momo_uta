@@ -697,6 +697,21 @@ class TestSharedLyricsSource(unittest.TestCase):
             self.assertEqual([x["text"] for x in lrc["lines"]],
                              [x["text"] for x in rows()])
 
+class TestBackupLineCount(unittest.TestCase):
+    def test_backup_status_counts_lyric_rows_not_tail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                LRF.save(audio, rows(), {})
+                LRF.save(audio, rows()[:2], {})
+                st = LRF.backup_status(audio)
+            self.assertTrue(st["exists"])
+            self.assertEqual(st["lines"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()
