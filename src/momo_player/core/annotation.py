@@ -12,6 +12,8 @@ import re
 import momo_yomi
 from momo_yomi.render import segments_html, words_html
 
+from .lrc_doc import utf16_to_cp
+
 
 AN = momo_yomi.Annotator()
 
@@ -105,19 +107,21 @@ def annotate_line_with_token_overrides(text: str, tokens: list,
         base = token.get("base")
         if not isinstance(tid, str) or not isinstance(start, int) or not isinstance(end, int):
             continue
-        if start < 0 or end > len(text) or text[start:end] != base:
+        start_cp = utf16_to_cp(text, start)
+        end_cp = utf16_to_cp(text, end)
+        if start_cp < 0 or end_cp > len(text) or text[start_cp:end_cp] != base:
             continue
-        seg = by_start.get(start)
-        if not seg or seg.get("end") != end or seg.get("base") != base:
+        seg = by_start.get(start_cp)
+        if not seg or seg.get("end") != end_cp or seg.get("base") != base:
             continue
         old = old_values.get(tid)
         if not old or len(old) < 2 or not old[1]:
             continue
         if old[0] != base:
             continue
-        extras.append((start, old[1]))
+        extras.append((start_cp, old[1]))
         if len(old) > 2 and old[2]:
-            levels[start] = old[2]
+            levels[start_cp] = old[2]
     if not extras:
         return base_result
     result = annotate_line_with_notes(text, extras=extras)

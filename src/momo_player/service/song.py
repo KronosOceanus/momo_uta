@@ -171,7 +171,12 @@ def _tokens_match_old(line, old_bi, old):
         tok = tokens[i] if i < len(tokens) else None
         if not tok or tok.get("tid") != old_ids[i]:
             return False
-        if tok.get("start") != pos or tok.get("end") != end or tok.get("base") != base:
+        try:
+            tok_start = DOC.utf16_to_cp(text, int(tok.get("start")))
+            tok_end = DOC.utf16_to_cp(text, int(tok.get("end")))
+        except (TypeError, ValueError):
+            return False
+        if tok_start != pos or tok_end != end or tok.get("base") != base:
             return False
         if text[pos:end] != base:
             return False
@@ -265,6 +270,7 @@ def _resolve_save_ids(body_rows, ann, old, old_map, reuse, line_ids, token_ids):
         fresh = new_token_ids(len(seg))
         used = set()
         pos = 0
+        text = ln.get("text") or ""
         for ti, new_seg in enumerate(seg):
             base = new_seg[0] if new_seg else ""
             start, end = pos, pos + len(base)
@@ -273,9 +279,14 @@ def _resolve_save_ids(body_rows, ann, old, old_map, reuse, line_ids, token_ids):
                 tid = tok.get("tid")
                 if not tid or tid in used:
                     continue
+                try:
+                    tok_start = DOC.utf16_to_cp(text, int(tok.get("start")))
+                    tok_end = DOC.utf16_to_cp(text, int(tok.get("end")))
+                except (TypeError, ValueError):
+                    continue
                 old_seg = old["token_values"].get(tid)
-                if tok.get("start") == start and \
-                   tok.get("end") == end and \
+                if tok_start == start and \
+                   tok_end == end and \
                    tok.get("base") == base and \
                    old_seg and old_seg[0] == base:
                     fresh[ti] = tid

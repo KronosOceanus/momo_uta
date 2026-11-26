@@ -54,6 +54,13 @@ class TestAnnotation(unittest.TestCase):
         self.assertIsNone(A._stored_overrides(clean, segs, [["别人", "べつ", "A"]]))
 
 
+    def test_token_after_non_bmp_keeps_override(self):
+        text = "😀君"
+        tokens = [{"tid": "t1", "start": 2, "end": 3, "base": "君"}]
+        r = A.annotate_line_with_token_overrides(
+            text, tokens, {"t1": ["君", "きみ", "A"]})
+        self.assertIn("きみ", A.ruby_html(r))
+
 
 if __name__ == "__main__":
     unittest.main()
