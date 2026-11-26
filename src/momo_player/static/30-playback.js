@@ -6,6 +6,9 @@ let stBusy = false;
 let stQueued = false;
 let stToken = 0;
 let stWantSpeed = null;
+let stWantKey = null;
+NH.ST_KEY = NH.ST_KEY || 0;
+const KEY_MIN = -6, KEY_MAX = 6;
 const CFG=(window.__CFG)||{};
 const UI=(CFG.player&&CFG.player.ui)||{};
 const PL=CFG.player||{};
@@ -59,6 +62,7 @@ function fallbackToOriginal(song, stSrc){
   if(rate) rate.value='1.00';
   const rv=document.getElementById('rv');
   if(rv) rv.textContent='1.00×';
+  setKeyUI(0, false);
   NH.au.src=song.audio || ('/audio/'+encodeURIComponent(song.uid));
   NH.au.playbackRate=1;
   NH.au.preload().catch(()=>{});
@@ -85,12 +89,13 @@ function commitAudio(song){
   const rateEl = document.getElementById('rate');
   const wantSpeed = +(rateEl && rateEl.value) || 1;
   NH.au.playbackRate = 1;
-  if(!stSrc && wantSpeed !== 1 && !stBusy && !stQueued){
+  const wantKey = NH.ST_KEY || 0;
+  if(!stSrc && (wantSpeed !== 1 || wantKey !== 0) && !stBusy && !stQueued){
     stQueued=true;
     setTimeout(()=>{
       stQueued=false;
       const now=+(rateEl && rateEl.value) || 1;
-      applySpeed(now);
+      applyTransform(now, NH.ST_KEY || 0);
     },0);
   }
   NH.au.preload().catch(()=>fallbackToOriginal(song, stSrc));  // 整首解码进内存：之后跳转没有解码器 flush
@@ -452,16 +457,20 @@ function speedTarget(){
   return playingSong();
 }
 function cancelSoundTouch(uid){
-  const hadWork=NH.ST_ON || stBusy || !!NH.ST_URL || !!NH.ST_UID || stWantSpeed!==null;
+  const hadWork=NH.ST_ON || stBusy || !!NH.ST_URL || !!NH.ST_UID
+    || stWantSpeed!==null || stWantKey!==null || !!NH.ST_KEY;
   stToken++;
   stWantSpeed=null;
+  stWantKey=null;
   stQueued=false;
   stBusy=false;
   const target=speedTarget();
   const cancelUid=uid || NH.ST_UID || (target && target.uid) || '';
   if(hadWork && cancelUid) NH.api('/api/soundtouch/cancel',{uid:String(cancelUid)}).catch(()=>{});
   NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
-  const rate=document.getElementById('rate'); if(rate) rate.disabled=false;
+  NH.ST_KEY=0;
+  setTransformBusy(false);
+  setKeyUI(0, false);
 }
 NH.cancelSoundTouch = cancelSoundTouch;
 function resetSpeedTo1(){
@@ -471,6 +480,7 @@ function resetSpeedTo1(){
   const rv=document.getElementById('rv');
   if(rv) rv.textContent='1.00×';
   NH.au.playbackRate=1;
+  setKeyUI(0, false);
 }
 async function switchStAt(sourcePos, wasPlaying, token, uid, target){
   if(token!==stToken || !target || String(target.uid)!==String(uid)) return false;
@@ -483,12 +493,15 @@ async function switchStAt(sourcePos, wasPlaying, token, uid, target){
 }
 
 function snapshotST(){
-  return {on:NH.ST_ON, url:NH.ST_URL, uid:NH.ST_UID, speed:NH.ST_SPEED};
+  return {on:NH.ST_ON, url:NH.ST_URL, uid:NH.ST_UID, speed:NH.ST_SPEED,
+          key:NH.ST_KEY || 0};
 }
 
 async function restoreST(snap, target, sourcePos, wasPlaying, token){
   if(token!==stToken) return;
   NH.ST_ON=snap.on; NH.ST_URL=snap.url; NH.ST_UID=snap.uid; NH.ST_SPEED=snap.speed;
+  NH.ST_KEY=snap.key || 0;
+  setKeyUI(NH.ST_KEY, false);
   const rate=document.getElementById('rate');
   const shown=snap.on ? (snap.speed||1) : 1;
   if(rate) rate.value=shown.toFixed(2);
@@ -504,6 +517,8 @@ async function restoreST(snap, target, sourcePos, wasPlaying, token){
 async function forceOriginal(target, sourcePos, token){
   if(token!==stToken) return;
   NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
+  NH.ST_KEY=0;
+  setKeyUI(0, false);
   const rate=document.getElementById('rate');
   if(rate) rate.value='1.00';
   const rv=document.getElementById('rv');
@@ -513,10 +528,36 @@ async function forceOriginal(target, sourcePos, token){
   await NH.seekPlayback(Math.max(0, sourcePos));
 }
 
-async function applySpeed(speed){
+function currentTransformSpeed(){
+  const el=document.getElementById('rate');
+  return Math.max(0.5, Math.min(1.25, +(el && el.value) || 1));
+}
+function keyLabel(key){
+  return key ? (key > 0 ? '+' + key : String(key)) : '原调';
+}
+function setKeyUI(key, busy){
+  key = Math.max(KEY_MIN, Math.min(KEY_MAX, parseInt(key, 10) || 0));
+  NH.ST_KEY = key;
+  const kv=document.getElementById('kv');
+  if(kv) kv.textContent=keyLabel(key);
+  const dn=document.getElementById('keydown');
+  if(dn) dn.disabled=!!busy || key <= KEY_MIN;
+  const up=document.getElementById('keyup');
+  if(up) up.disabled=!!busy || key >= KEY_MAX;
+}
+function setTransformBusy(busy){
+  const rate=document.getElementById('rate');
+  if(rate) rate.disabled=!!busy;
+  setKeyUI(NH.ST_KEY || 0, !!busy);
+}
+
+async function applyTransform(speed, key){
   speed = Math.max(0.5, Math.min(1.25, +speed || 1));
-  if(stBusy){ stWantSpeed=speed; return; }
-  if(Math.abs(speed - 1) < 0.001){
+  key = Math.max(KEY_MIN, Math.min(KEY_MAX, parseInt(key, 10) || 0));
+  if(stBusy){ stWantSpeed=speed; stWantKey=key; return; }
+  if(Math.abs(speed - 1) < 0.001 && key === 0){
+    NH.ST_KEY=0;
+    setKeyUI(0, false);
     if(!NH.ST_ON){ NH.au.playbackRate = 1; return; }
     const target=speedTarget();
     if(!target) return;
@@ -527,7 +568,7 @@ async function applySpeed(speed){
     const snap=snapshotST();
     NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
     stBusy=true;
-    const rate=document.getElementById('rate'); if(rate) rate.disabled=true;
+    setTransformBusy(true);
     try{
       if(!await switchStAt(pos, wasPlaying, token, uid, target))
         throw new Error('切换播放位置失败');
@@ -540,7 +581,7 @@ async function applySpeed(speed){
           restored=true;
         }catch(e2){
           NH.reportClientError?.('soundtouch_restore', e2.message, '',
-            {uid:target.uid, speed:snap.speed});
+            {uid:target.uid, speed:snap.speed, key:snap.key});
           try{ await forceOriginal(target, pos, token); }catch(e3){}
         }
         NH.done(restored ? 'SoundTouch 切换失败：'+e.message
@@ -549,35 +590,45 @@ async function applySpeed(speed){
     }finally{
       if(token===stToken){
         stBusy=false;
-        if(rate) rate.disabled=false;
-        if(stWantSpeed!==null){ const next=stWantSpeed; stWantSpeed=null; applySpeed(next); }
+        setTransformBusy(false);
+        if(stWantSpeed!==null || stWantKey!==null){
+          const nextS=stWantSpeed == null ? speed : stWantSpeed;
+          const nextK=stWantKey == null ? key : stWantKey;
+          stWantSpeed=stWantKey=null;
+          applyTransform(nextS, nextK);
+        }
       }
     }
     return;
   }
   const target=speedTarget();
-  if(!target) return;
-  if(NH.ST_ON && Math.abs(speed - NH.ST_SPEED) < 0.001) return;
+  if(!target){ setKeyUI(key, false); return; }
+  if(NH.ST_ON && Math.abs(speed - NH.ST_SPEED) < 0.001 && key === (NH.ST_KEY || 0)){
+    setKeyUI(key, false);
+    return;
+  }
   const snap=snapshotST();
   const token=++stToken;
   const uid=target.uid;
   const pos=stSourcePos();
   const wasPlaying=!NH.au.paused;
-  const rate=document.getElementById('rate');
   stBusy=true;
-  if(rate) rate.disabled=true;
-  NH.busy(`SoundTouch ${speed.toFixed(2)}× 生成中…`);
+  setTransformBusy(true);
+  const label=key ? `${speed.toFixed(2)}× ${keyLabel(key)}` : `${speed.toFixed(2)}×`;
+  NH.busy(`SoundTouch ${label} 生成中…`);
   try{
-    const r=await NH.api('/api/soundtouch',{uid, speed});
+    const r=await NH.api('/api/soundtouch',{uid, speed, key});
     if(token!==stToken || !target) return;
     if(NH.PLAYING_UID!==null && NH.PLAYING_UID!==undefined
        && String(NH.PLAYING_UID)!==String(uid)) return;
     if(r.ok===false) throw new Error(r.error||'生成失败');
-    NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=uid; NH.ST_SPEED=speed;
+    NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=uid;
+    NH.ST_SPEED=speed; NH.ST_KEY=key;
+    setKeyUI(key, false);
     try{
       if(!await switchStAt(pos, wasPlaying, token, uid, target))
         throw new Error('切换播放位置失败');
-      if(token===stToken) NH.flash(`SoundTouch ${speed.toFixed(2)}×：已切换`);
+      if(token===stToken) NH.flash(`SoundTouch ${label}：已切换`);
     }catch(err){
       let restored=false;
       let forced=false;
@@ -587,7 +638,7 @@ async function applySpeed(speed){
           restored=true;
         }catch(e2){
           NH.reportClientError?.('soundtouch_restore', e2.message, '',
-            {uid:target.uid, speed:snap.speed});
+            {uid:target.uid, speed:snap.speed, key:snap.key});
           try{ await forceOriginal(target, pos, token); }catch(e3){} finally{ forced=true; }
         }
       }
@@ -598,22 +649,26 @@ async function applySpeed(speed){
       const switched=e && e.error;
       const restored=!!(e && e.restored);
       const forced=!!(e && e.forced);
+      const shown=snap.on ? (snap.speed||1) : 1;
       if(!switched){
-        const shown=snap.on ? (snap.speed||1) : 1;
+        const rate=document.getElementById('rate');
         if(rate) rate.value=shown.toFixed(2);
         const rv=document.getElementById('rv');
         if(rv) rv.textContent=shown.toFixed(2)+'×';
-        const why = e.code==='invalid_speed' ? '速度参数无效'
+        setKeyUI(snap.key || 0, false);
+        const why = e.code==='invalid_key' ? '音程参数无效'
+          : e.code==='invalid_speed' ? '速度参数无效'
           : e.code==='song_missing' ? '歌曲已不可用'
           : e.code==='soundtouch_failed' ? '生成器不可用'
           : (e.message||'未知错误');
         NH.done('SoundTouch 生成失败：'+why);
       }else{
         if(!restored && !forced){
-          const shown=snap.on ? (snap.speed||1) : 1;
+          const rate=document.getElementById('rate');
           if(rate) rate.value=shown.toFixed(2);
           const rv=document.getElementById('rv');
           if(rv) rv.textContent=shown.toFixed(2)+'×';
+          setKeyUI(snap.key || 0, false);
         }
         NH.done(restored ? 'SoundTouch 生成失败：'+e.error.message
                          : 'SoundTouch 恢复失败，已回到 1.00×');
@@ -622,10 +677,22 @@ async function applySpeed(speed){
   }finally{
     if(token===stToken){
       stBusy=false;
-      if(rate) rate.disabled=false;
-      if(stWantSpeed!==null){ const next=stWantSpeed; stWantSpeed=null; applySpeed(next); }
+      setTransformBusy(false);
+      if(stWantSpeed!==null || stWantKey!==null){
+        const nextS=stWantSpeed == null ? speed : stWantSpeed;
+        const nextK=stWantKey == null ? key : stWantKey;
+        stWantSpeed=stWantKey=null;
+        applyTransform(nextS, nextK);
+      }
     }
   }
+}
+
+async function applySpeed(speed){
+  return applyTransform(speed, NH.ST_KEY || 0);
+}
+async function applyKey(key){
+  return applyTransform(currentTransformSpeed(), key);
 }
 
 document.getElementById('rate').oninput=e=>{
@@ -634,6 +701,11 @@ document.getElementById('rate').oninput=e=>{
   if(!NH.ST_ON) NH.au.playbackRate=1;
 };
 document.getElementById('rate').onchange=e=>applySpeed(+e.target.value);
+const keyDown=document.getElementById('keydown');
+if(keyDown) keyDown.onclick=()=>applyKey((NH.ST_KEY || 0) - 1);
+const keyUp=document.getElementById('keyup');
+if(keyUp) keyUp.onclick=()=>applyKey((NH.ST_KEY || 0) + 1);
+setKeyUI(0, false);
 async function stepPlaying(dir){
   if(NH.PLAYING_UID===null) return;
   if(!NH.isSelfPlaying()){
@@ -856,5 +928,5 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekPlayback, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
+Object.assign(NH, {markPlaying, applySpeed, applyKey, setKeyUI, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekPlayback, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
 })();

@@ -256,7 +256,8 @@ class H(BaseHTTPRequestHandler):
             "/api/jobs/cancel_all": {"kind": str},
             "/api/theme": {"theme": str},
             "/api/play_mode": {"mode": str},
-            "/api/soundtouch": {"uid": str, "speed": self._is_num},
+            "/api/soundtouch": {"uid": str, "speed": self._is_num,
+                                 "key": self._is_int},
             "/api/log": {"kind": (str, type(None)), "message": (str, type(None)),
                          "stack": (str, type(None)), "context": dict},
         }.get(p, {})
@@ -445,9 +446,10 @@ class H(BaseHTTPRequestHandler):
         st = (urllib.parse.parse_qs(parsed.query).get("st") or [None])[0]
         if st is not None:
             # 生成只走 POST /api/soundtouch；音频 URL 只读缓存。
+            kval = urllib.parse.parse_qs(parsed.query).get("key", ["0"])[0]
             try:
-                cached = SVC_ST.cached_path(ref, float(st))
-            except (ValueError, OSError):
+                cached = SVC_ST.cached_path(ref, float(st), int(kval))
+            except (ValueError, OSError, TypeError):
                 cached = None
             if cached is None:
                 return self._send(404, "SoundTouch cache not found")
@@ -534,12 +536,17 @@ class H(BaseHTTPRequestHandler):
         try:
             uid = str(req.get("uid") or "")
             speed = float(req.get("speed"))
-            return self._json({"ok": True, **SVC_ST.info(uid, speed)})
+            key = req.get("key", 0)
+            if not self._is_int(key) or not -6 <= key <= 6:
+                return self._json({"ok": False, "error": "音程必须是 -6..+6 的整数",
+                                   "error_code": "invalid_key"}, 400)
+            data = SVC_ST.info(uid, speed, key) if key else SVC_ST.info(uid, speed)
+            return self._json({"ok": True, **data})
         except (KeyError, TypeError, ValueError, OSError, RuntimeError,
                 subprocess.SubprocessError) as e:
             diag.exception("soundtouch", e, uid=uid, speed=req.get("speed"))
             if isinstance(e, (TypeError, ValueError)):
-                code = "invalid_speed"
+                code = "invalid_key" if str(e).startswith("key") else "invalid_speed"
             elif isinstance(e, KeyError):
                 code = "song_missing"
             else:

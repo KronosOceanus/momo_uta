@@ -869,6 +869,29 @@ test('stale SoundTouch generation cannot change the next song', async () => {
   assert.equal(p.run('S.uid'), 'u1');
 });
 
+test('key change sends speed and key together', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'}; ST_ON=false; ST_URL=null; ST_UID=null; ST_SPEED=1; ST_KEY=0; document.getElementById('rate').value='1.00';");
+  p.run("au={paused:false,readyState:4,duration:100,currentTime:2,src:'',addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return Promise.resolve();}}");
+  const pending = p.run('applyKey(2)');
+  assert.equal(p.calls[0].path, '/api/soundtouch');
+  assert.equal(p.calls[0].body.speed, 1);
+  assert.equal(p.calls[0].body.key, 2);
+  p.requests[0].resolve({ok:true, url:'/audio/u0?st=1.00&key=2'});
+  await pending;
+  assert.equal(p.run('ST_ON'), true);
+  assert.equal(p.run('ST_KEY'), 2);
+  assert.equal(p.run("document.getElementById('kv').textContent"), '+2');
+});
+
+test('switching playback song resets key to original', () => {
+  const p = player();
+  p.run("S={uid:'u0'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=true; ST_KEY=2; ST_URL='/audio/u0?st=1.00&key=2'; ST_UID='u0';");
+  p.run("commitAudio({uid:'u1', title:'B'})");
+  assert.equal(p.run('ST_KEY'), 0);
+  assert.equal(p.run("document.getElementById('kv').textContent"), '原调');
+});
+
 test('switching the playback song resets SoundTouch speed to 1x', () => {
   const p = player();
   p.run("S={uid:'u0'}; PLAYING_UID='u0'; ST_ON=true; ST_SPEED=0.50; ST_URL='/audio/u0?st=0.50'; ST_UID='u0'; document.getElementById('rate').value='0.50'; document.getElementById('rate').disabled=true;");

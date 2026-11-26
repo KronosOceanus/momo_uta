@@ -133,8 +133,19 @@ def _run(cmd: list[str], uid: str, gen: int) -> None:
                 _CURRENT_UID = None
 
 
-def _cache_path(uid: str, speed: float) -> Path:
-    return CACHE_DIR / f"{uid}-{speed:.2f}.wav"
+def _cache_path(uid: str, speed: float, key: int = 0) -> Path:
+    suffix = f"{key:+d}" if key else ""
+    return CACHE_DIR / f"{uid}-{speed:.2f}{suffix}.wav"
+
+
+def _validate_key(key: int) -> int:
+    try:
+        key = int(key)
+    except (TypeError, ValueError):
+        raise ValueError("key 必须是 -6..+6 的半音整数")
+    if not -6 <= key <= 6:
+        raise ValueError("key 必须在 -6..+6 之间")
+    return key
 
 
 def _touch(path: Path) -> None:
@@ -242,8 +253,8 @@ def _maybe_cleanup(keep: Path | None = None) -> None:
     _cleanup(keep=keep)
 
 
-def _key_lock(uid: str, speed: float):
-    key = f"{uid}-{speed:.2f}"
+def _key_lock(uid: str, speed: float, key: int = 0):
+    key = f"{uid}-{speed:.2f}-{key:+d}"
     with _STATE_LOCK:
         lock, count = _KEY_LOCKS.get(key, (None, 0))
         if lock is None:
@@ -265,36 +276,38 @@ def _release_key(key: str, lock: threading.Lock) -> None:
                 _KEY_LOCKS.pop(key, None)
 
 
-def cached_path(uid: str, speed: float) -> Path | None:
+def cached_path(uid: str, speed: float, key: int = 0) -> Path | None:
     """只返回已生成且有效的缓存，不生成。"""
     if not 0.5 <= speed <= 1.25:
         raise ValueError("speed 必须在 0.5–1.25 之间")
-    out = _cache_path(str(uid), speed)
+    key = _validate_key(key)
+    out = _cache_path(str(uid), speed, key)
     with _CACHE_LOCK:
         if not _cache_hit(out):
             return None
         return out
 
 
-def process(uid: str, speed: float) -> Path:
-    """生成并缓存变速 WAV；重复请求直接复用。"""
+def process(uid: str, speed: float, key: int = 0) -> Path:
+    """生成并缓存变速/变调 WAV；重复请求直接复用。"""
     if not 0.5 <= speed <= 1.25:
         raise ValueError("speed 必须在 0.5–1.25 之间")
+    key = _validate_key(key)
     item = LIB.resolve(uid)
     if not item or not Path(item["file"]).is_file():
         raise KeyError("歌曲已不可用")
-    out = _cache_path(str(uid), speed)
+    out = _cache_path(str(uid), speed, key)
     uid = str(uid)
     with _STATE_LOCK:
         _PENDING[uid] = _PENDING.get(uid, 0) + 1
         gen = _CANCEL_GEN.get(uid, 0)
     started = time.monotonic()
-    key = lock = None
+    lock_key = lock = None
     try:
         with _CACHE_LOCK:
             if _cache_hit(out):
                 return out
-        key, lock = _key_lock(uid, speed)
+        lock_key, lock = _key_lock(uid, speed, key)
         with _CACHE_LOCK:
             if gen != _cancel_gen(uid):
                 raise Cancelled("SoundTouch 生成已取消")
@@ -313,8 +326,11 @@ def process(uid: str, speed: float) -> Path:
             _run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
                   "-i", str(item["file"]), "-ac", "2", "-ar", "44100",
                   "-c:a", "pcm_s16le", str(src)], uid, gen)
-            _run([soundstretch, str(src), str(tmp),
-                  f"-tempo={round((speed - 1) * 100, 4)}"], uid, gen)
+            cmd = [soundstretch, str(src), str(tmp),
+                   f"-tempo={round((speed - 1) * 100, 4)}"]
+            if key:
+                cmd.append(f"-pitch={key}")
+            _run(cmd, uid, gen)
             if gen != _cancel_gen(uid):
                 raise Cancelled("SoundTouch 生成已取消")
             if not _valid_wav(tmp):
@@ -327,12 +343,13 @@ def process(uid: str, speed: float) -> Path:
                 _touch(out)
                 _cleanup(keep=out)
                 diag.log("soundtouch",
-                         f"generated uid={uid} speed={speed:.2f} bytes={out.stat().st_size} "
+                         f"generated uid={uid} speed={speed:.2f} key={key:+d} "
+                         f"bytes={out.stat().st_size} "
                          f"elapsed={time.monotonic()-started:.2f}s")
         return out
     finally:
-        if key is not None and lock is not None:
-            _release_key(key, lock)
+        if lock_key is not None and lock is not None:
+            _release_key(lock_key, lock)
         with _STATE_LOCK:
             n = _PENDING.get(uid, 0) - 1
             if n > 0:
@@ -343,11 +360,15 @@ def process(uid: str, speed: float) -> Path:
                     _CANCEL_GEN.pop(uid, None)
 
 
-def url(uid: str, speed: float) -> str:
-    return f"/audio/{uid}?st={speed:.2f}"
+def url(uid: str, speed: float, key: int = 0) -> str:
+    q = f"/audio/{uid}?st={speed:.2f}"
+    if key:
+        q += f"&key={key:d}"
+    return q
 
 
-def info(uid: str, speed: float) -> dict:
-    out = process(uid, speed)
-    return {"uid": uid, "speed": speed, "url": url(uid, speed),
+def info(uid: str, speed: float, key: int = 0) -> dict:
+    key = _validate_key(key)
+    out = process(uid, speed, key)
+    return {"uid": uid, "speed": speed, "key": key, "url": url(uid, speed, key),
             "duration": _duration(out), "bytes": out.stat().st_size}

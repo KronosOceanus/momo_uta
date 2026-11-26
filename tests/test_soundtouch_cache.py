@@ -209,6 +209,31 @@ class TestSoundTouchCache(unittest.TestCase):
         ST.cancel(uid)
         self.assertNotIn(uid, ST._CANCEL_GEN)
 
+    def test_key_cache_and_pitch_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.mp3"
+            source.write_bytes(b"x")
+            item = {"uid": "u", "file": str(source)}
+            cache = root / "soundtouch"
+            cache.mkdir()
+            cmds = []
+
+            def fake_run(cmd, _uid, _gen):
+                cmds.append(cmd)
+                Path(cmd[2]).write_bytes(b"x")
+
+            with patch.object(ST, "CACHE", root), \
+                 patch.object(ST, "CACHE_DIR", cache), \
+                 patch.object(ST.LIB, "resolve", return_value=item), \
+                 patch.object(ST, "_tool", return_value="/bin/true"), \
+                 patch.object(ST, "_valid_wav", return_value=True), \
+                 patch.object(ST, "_run", side_effect=fake_run):
+                out = ST.process("u", 0.80, 2)
+            self.assertEqual(out.name, "u-0.80+2.wav")
+            self.assertIn("-tempo=-20.0", cmds[1])
+            self.assertIn("-pitch=2", cmds[1])
+
 
 if __name__ == "__main__":
     unittest.main()
