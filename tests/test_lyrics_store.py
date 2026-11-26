@@ -712,6 +712,26 @@ class TestBackupLineCount(unittest.TestCase):
             self.assertTrue(st["exists"])
             self.assertEqual(st["lines"], 3)
 
+class TestEmptyNhlrc(unittest.TestCase):
+    def test_empty_nhlrc_does_not_block_save(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                sp = LRF.store_path(audio)
+                sp.parent.mkdir(parents=True, exist_ok=True)
+                sp.write_text("", encoding="utf-8")
+                self.assertFalse(LRF.load_rows(audio)["exists"])
+                v2 = [{"kind": "lyric", "text": f"line{i}", "t": t, "lid": f"l_{i}",
+                       "tokens": [], "trans": ""}
+                      for i, t in enumerate((1.0, 2.0, 3.0))]
+                res = LRF.save_rows(audio, v2)
+                saved = sp.read_text(encoding="utf-8")
+            self.assertTrue(res["ok"], res)
+            self.assertTrue(saved.strip())
 
 if __name__ == "__main__":
     unittest.main()

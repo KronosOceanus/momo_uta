@@ -48,8 +48,11 @@ def _atomic_write(path: Path, text: str) -> None:
 
 
 def _read_original(path: Path) -> tuple[str, bool]:
-    exists = path.is_file()
-    return (path.read_text(encoding="utf-8", errors="ignore") if exists else ""), exists
+    if not path.is_file():
+        return "", False
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    # 0 字节/纯空白文件视为不存在，否则版本是 sha1("")，会永久 409。
+    return (text, True) if text.strip() else ("", False)
 
 
 def _version_conflict(original: str, exists: bool,
@@ -118,7 +121,7 @@ def _snapshot(sp: Path) -> Path | None:
 def _backup_once(sp: Path, bak: Path) -> bool:
     if sp.is_file() and not bak.exists():
         text = sp.read_text(encoding="utf-8", errors="ignore")
-        if _is_disabled_text(text):       # disabled 不是可恢复的歌词备份
+        if not text.strip() or _is_disabled_text(text):
             return False
         bak.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(sp, bak)
