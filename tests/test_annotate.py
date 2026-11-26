@@ -138,3 +138,16 @@ class TestTokenizerConcurrency(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestLongKunReadings(unittest.TestCase):
+    def test_long_single_kanji_readings_are_kept(self):
+        for text, ruby in (("志", "こころざし"), ("詔", "みことのり"), ("承る", "うけたまわる")):
+            r = call({"text": text})
+            got = "".join(s.get("ruby") or s.get("base") or ""
+                          for s in r["lines"][0]["segments"])
+            self.assertIn(ruby, got, (text, got))
+
+    def test_noise_long_reading_not_enabled_for_aka(self):
+        r = call({"text": "赤"})
+        got = "".join(s.get("ruby") or "" for s in r["lines"][0]["segments"])
+        self.assertNotEqual(got, "あかんぼう")

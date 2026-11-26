@@ -102,11 +102,13 @@ def load_tables(force: bool = False) -> None:
     if stp.exists():
         TABLES.stats = json.loads(stp.read_text(encoding="utf-8"))
 
+    # 常用读音表也用于长训读的精确匹配；不只 LLM 模式需要。
+    cp = TABLE_DIR / "jmdict_common_readings.json"
+    if cp.exists():
+        TABLES.common = json.loads(cp.read_text(encoding="utf-8"))
+
     if CONFIG.llm:
         TABLES.readings = json.loads((TABLE_DIR / "jmdict_readings.json").read_text(encoding="utf-8"))
-        cp = TABLE_DIR / "jmdict_common_readings.json"
-        if cp.exists():
-            TABLES.common = json.loads(cp.read_text(encoding="utf-8"))
         from llm import load_cache
         CONFIG.llm_choices = load_cache()
     TABLES.loaded = True
@@ -222,7 +224,7 @@ def split_pieces(surface: str, reading_hira: str) -> list[tuple[str, str | None]
             res = reading_hira.startswith(piece, pos) and ok(i + 1, pos + len(piece))
         else:
             klen = sum(len(x) for x in KANJI_RUN.findall(ch)) + sum(1 for c in ch if c.isdigit() or c in "０１２３４５６７８９")
-            for take in range(max(1, klen), 4 * klen + 1):
+            for take in range(max(1, klen), 8 * klen + 1):
                 if pos + take <= m and ok(i + 1, pos + take):
                     res = True
                     break
@@ -241,7 +243,7 @@ def split_pieces(surface: str, reading_hira: str) -> list[tuple[str, str | None]
             pos += len(ch)
         else:
             klen = sum(len(x) for x in KANJI_RUN.findall(ch)) + sum(1 for c in ch if c.isdigit() or c in "０１２３４５６７８９")
-            for take in range(max(1, klen), 4 * klen + 1):
+            for take in range(max(1, klen), 8 * klen + 1):
                 if pos + take <= m and ok(i + 1, pos + take):
                     out.append((ch, reading_hira[pos:pos + take]))
                     pos += take
@@ -264,11 +266,19 @@ def candidates_for(key: str) -> list[str]:
         rs.add(st["top"])
         dist = {r: c for r, c in (st.get("dist") or {}).items()}
     n_kanji = max(1, len(KANJI_RUN.findall(key)))
+    trusted = set(TABLES.common.get(key) or []) | set(TABLES.readings.get(key) or [])
+    trusted |= set(TABLES.heteronym.get(key) or [])
+    has_kana = bool(re.search(r"[ぁ-んァ-ヶー]", key))
     out, seen = [], set()
     for r in rs:
         if not r or not all("ぁ" <= ch <= "ん" or ch == "ー" for ch in r):
             continue
-        if not (1 <= len(r) <= 4 * n_kanji):      # 摩拉数 sanity，挡掉 赤→あかんぼう 这类噪声
+        limit = 4 * n_kanji
+        if has_kana:
+            limit = max(limit, 8)
+        if r in trusted:
+            limit = max(limit, 10)
+        if not (1 <= len(r) <= limit):
             continue
         if r in seen:
             continue
