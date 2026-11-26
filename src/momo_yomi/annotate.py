@@ -109,7 +109,7 @@ def load_tables(force: bool = False) -> None:
 
     if CONFIG.llm:
         TABLES.readings = json.loads((TABLE_DIR / "jmdict_readings.json").read_text(encoding="utf-8"))
-        from llm import load_cache
+        from .llm import load_cache
         CONFIG.llm_choices = load_cache()
     TABLES.loaded = True
 

@@ -354,6 +354,7 @@ MIT License，见 [LICENSE](LICENSE)。
 ```text
 网易云歌词匹配 / 候选
 人声模型下载（full / thin）
+启用 --llm 时，歌词行会发送到 DeepSeek API（默认关闭）
 ```
 
 用户歌词、歌单、offset 不上传。

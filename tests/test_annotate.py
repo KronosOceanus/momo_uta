@@ -102,11 +102,6 @@ class TestGlossary(unittest.TestCase):
         seg = self._first("私の声")
         self.assertEqual(seg["ruby"], "わたし")
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestTokenizerConcurrency(unittest.TestCase):
     def test_parallel_annotations_do_not_share_tokenizer(self):
         """HTTP 是多线程的：Sudachi Tokenizer 不能并发使用。"""
@@ -135,9 +130,21 @@ class TestTokenizerConcurrency(unittest.TestCase):
         self.assertFalse(errs, errs[:3])
         self.assertEqual(len(set(outs)), 1)
 
+class TestLlmEntry(unittest.TestCase):
+    def test_load_tables_with_llm(self):
+        import importlib
+        A = importlib.import_module("momo_yomi.annotate")
+        old_llm = A.CONFIG.llm
+        old_loaded = A.TABLES.loaded
+        try:
+            A.CONFIG.llm = True
+            A.load_tables(force=True)
+            self.assertTrue(A.TABLES.readings)
+            self.assertIsInstance(A.CONFIG.llm_choices, dict)
+        finally:
+            A.CONFIG.llm = old_llm
+            A.TABLES.loaded = old_loaded
 
-if __name__ == "__main__":
-    unittest.main()
 
 class TestLongKunReadings(unittest.TestCase):
     def test_long_single_kanji_readings_are_kept(self):
@@ -151,3 +158,6 @@ class TestLongKunReadings(unittest.TestCase):
         r = call({"text": "赤"})
         got = "".join(s.get("ruby") or "" for s in r["lines"][0]["segments"])
         self.assertNotEqual(got, "あかんぼう")
+
+if __name__ == "__main__":
+    unittest.main()
