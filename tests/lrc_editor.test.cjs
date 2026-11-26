@@ -1075,6 +1075,14 @@ test('seekPlayback waits for audio preload before setting time', async () => {
   assert.equal(p.run('au.currentTime'), 5);
 });
 
+test('1.25 is not clamped by the hidden range step', () => {
+  const p = player();
+  p.run("setSpeedUI(1.25, false)");
+  assert.equal(p.run("document.getElementById('rate').step"), 'any');
+  assert.equal(p.run("document.getElementById('rate').value"), '1.25');
+  assert.equal(p.run("document.getElementById('speedpick').textContent"), '1.25×');
+});
+
 test('speed choices use one canonical 10 percent list', () => {
   const p = player();
   assert.equal(p.run('JSON.stringify(SPEED_VALUES)'),

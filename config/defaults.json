@@ -40,7 +40,7 @@
       "theme": "light",
       "play_mode": "list"
     },
-    "speed_step": 0.1
+    "speed_step": 0.05
   },
   "waveform": {
     "_note": "波形峰值生成。rate/step 会进入缓存键，改了旧缓存自动失效重建。",

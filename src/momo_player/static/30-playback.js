@@ -399,7 +399,7 @@ function seekToClientX(x){
   if(!el) return;
   el.min=PL.speed_min ?? 0.5;
   el.max=PL.speed_max ?? 1.25;
-  el.step=PL.speed_step ?? 0.05;
+  el.step='any';                 // 1.25 不在 0.1 档上，不能让 range 吸附成 1.2
   const v=Math.min(+el.max, Math.max(+el.min, +el.value||1));
   el.value=v; if(typeof el.dispatchEvent==='function') el.dispatchEvent(new Event('input'));
 })();
