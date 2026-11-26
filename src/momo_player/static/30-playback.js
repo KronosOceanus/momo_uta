@@ -712,7 +712,8 @@ document.getElementById('rem').onclick=async()=>{
       box.remove();
       NH.busy('换歌词中…');
       try{
-        const d=await NH.api('/api/pick',{action:'pick', uid:song.uid, id:c.id});
+        const d=await NH.api('/api/pick',{action:'pick', uid:song.uid, id:c.id,
+          version:NH.LRC_VERSION || (NH.S && NH.S.version)});
         if(!d.ok){ NH.done(d.error||'换歌词失败'); return; }
         if(NH.S!==song || NH.VIEW_MODE==='lrc') return;
         NH.NO_MATCH.delete(String(d.uid || song.uid));

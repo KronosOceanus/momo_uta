@@ -188,3 +188,54 @@ class TestAuthority(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestSnapshotsAndPickVersion(unittest.TestCase):
+    def test_import_keeps_latest_five_snapshots(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import lyrics_cache as LC
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"):
+                for i in range(7):
+                    LRF.import_text(audio, f"[00:01.00]一{i}\n[00:02.00]二{i}\n[00:03.00]三{i}\n")
+                snaps = list((root / "lyrics" / "bak").glob("*.nhlrc.*.bak"))
+            self.assertLessEqual(len(snaps), 5)
+
+    def test_pick_rejects_stale_version(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import lyrics_cache as LC
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import song as SONG
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            uid = LRF.uid_of(audio)
+            item = {"key": "k", "uid": uid, "file": str(audio),
+                    "stem": "曲", "orig": "曲", "title": "曲", "artist": "歌手",
+                    "has_lyric": True, "group": ""}
+            CACHE.clear(); CACHE["0"] = item; LIB.BY_UID[uid] = item
+            text = "[00:01.00]君\n[00:02.00]花\n[00:03.00]空\n"
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LC, "CACHE", root / "cache"):
+                LRF.import_text(audio, text)
+                before = LRF.store_path(audio).read_text(encoding="utf-8")
+                with patch.object(SONG.LY, "fetch_lyrics_by_id",
+                                  return_value={"lrc": "[00:01.00]新\n[00:02.00]歌\n[00:03.00]詞\n",
+                                                "tlyric": ""}):
+                    res = SONG.pick(uid, 123, expected_version="stale")
+                after = LRF.store_path(audio).read_text(encoding="utf-8")
+            self.assertTrue(res.get("conflict"))
+            self.assertEqual(before, after)

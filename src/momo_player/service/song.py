@@ -586,7 +586,7 @@ def rematch(ref, duration):
             "status": status}
 
 
-def pick(uid, song_id) -> dict:
+def pick(uid, song_id, expected_version=None) -> dict:
     """用户选定候选：用网络歌词替换当前歌词（重写 data/lyrics，读音全部重来）。"""
     item = LIB.resolve(uid)
     if not item or not song_id:
@@ -602,10 +602,13 @@ def pick(uid, song_id) -> dict:
     # 重写当前歌曲的 nhlrc 正文（备份旧文件），旧读音不保留
     try:
         res = save_lyrics(item, mode="replace", text=lrc,
-                          compact_translations=trans)
+                          compact_translations=trans,
+                          expected_version=expected_version)
     except Exception as e:
         return {"ok": False, "error": "写歌词失败：" + str(e)}
     if not res.get("ok"):
+        if res.get("conflict"):
+            return res
         return {"ok": False, "error": res.get("error") or "写歌词失败"}
     d = song_payload(None, item)   # 用刚保存的同一份条目回读，不再回查 idx
     return {"ok": True, "uid": item.get("uid"), "idx": d.get("idx"),

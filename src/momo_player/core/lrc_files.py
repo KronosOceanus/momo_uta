@@ -11,6 +11,7 @@ import json
 import re
 import shutil
 import threading
+import time
 from pathlib import Path
 
 from momo_yomi.paths import LYRICS
@@ -87,6 +88,31 @@ def lock_path() -> Path:
 def _is_disabled_text(text: str) -> bool:
     _body, tail = _split_nhlrc(text)
     return bool(tail and tail.get("disabled"))
+
+
+SNAPSHOT_KEEP = 5
+
+
+def _snapshot(sp: Path) -> Path | None:
+    """破坏性覆盖前保存带时间戳的快照；disabled 不是可恢复内容。"""
+    if not sp.is_file():
+        return None
+    text = sp.read_text(encoding="utf-8", errors="ignore")
+    if _is_disabled_text(text):
+        return None
+    bak_dir = sp.parent / "bak"
+    bak_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{int(time.time() * 1000) % 1000:03d}"
+    out = bak_dir / f"{sp.name}.{stamp}.bak"
+    shutil.copy2(sp, out)
+    snapshots = sorted(bak_dir.glob(f"{sp.name}.*.bak"),
+                       key=lambda p: p.stat().st_mtime, reverse=True)
+    for old in snapshots[SNAPSHOT_KEEP:]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    return out
 
 
 def _backup_once(sp: Path, bak: Path) -> bool:
@@ -492,7 +518,12 @@ def save_rows(audio: str | Path, rows: list[dict],
 
 def backup_candidates(audio: str | Path, uid: str | None = None,
                       title: str | None = None, artist: str | None = None) -> list[Path]:
-    return [store_backup(audio, uid or uid_of(audio), title, artist)]
+    u = uid or uid_of(audio)
+    sp = store_path(audio, u, title, artist)
+    snaps = sorted((sp.parent / "bak").glob(f"{sp.name}.*.bak"),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    original = store_backup(audio, u, title, artist)
+    return snaps + ([original] if original.is_file() else [])
 
 
 def backup_status(audio: str | Path, uid: str | None = None,
@@ -566,6 +597,7 @@ def restore_backup(audio: str | Path, uid: str | None = None,
         _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
+        _snapshot(sp)
         text = b.read_text(encoding="utf-8", errors="ignore")
         if _is_disabled_text(text):
             return {"ok": False, "error": "没有可恢复的歌词备份"}
@@ -591,6 +623,7 @@ def delete_store(audio: str | Path, uid: str | None = None,
         _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
+        _snapshot(sp)
         if sp.is_file():
             _backup_once(sp, bak)
         text = _disabled_text()
@@ -640,6 +673,7 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
         _, conflict = _version_conflict(original, exists, expected_version)
         if conflict:
             return conflict
+        _snapshot(sp)
         body, tail = _split_nhlrc(text)
         if tail and tail.get("v") != 2:
             return {"ok": False, "error": "不支持的 nhlrc 版本"}

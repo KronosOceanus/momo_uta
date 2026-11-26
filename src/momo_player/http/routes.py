@@ -466,8 +466,9 @@ class H(BaseHTTPRequestHandler):
         return self._json(SVC_SONG.rematch(req.get("uid"), req.get("duration")))
 
     def _post_pick(self, req):
-        r = SVC_SONG.pick(req.get("uid"), req.get("id"))
-        return self._json(r, 200 if r.get("ok") else 400)
+        r = SVC_SONG.pick(req.get("uid"), req.get("id"), req.get("version"))
+        code = 200 if r.get("ok") else (409 if r.get("conflict") else 400)
+        return self._json(r, code)
 
     def _post_lrc(self, req):
         return self._json(SVC_LRC.lrc_action(req))
