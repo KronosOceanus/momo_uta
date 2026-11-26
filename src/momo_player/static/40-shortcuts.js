@@ -71,6 +71,7 @@ function speed(delta){
   const step=parseFloat(el.step)||0.05;
   el.value=Math.max(min, Math.min(max, (+el.value||1)+delta*step));
   el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
 }
 function seek(delta){
   if(NH.PLAYING_UID===null || NH.PLAYING_UID===undefined) return;

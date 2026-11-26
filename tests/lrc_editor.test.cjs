@@ -23,7 +23,11 @@ function player() {
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, {
         addEventListener() {}, getContext() {}, querySelectorAll: () => [],
-        appendChild() {}, classList: classes, textContent: '', style: {}
+        appendChild() {}, dispatchEvent(ev) {
+          const fn = this['on' + ev.type];
+          if (typeof fn === 'function') fn({target: this, type: ev.type});
+          return true;
+        }, classList: classes, textContent: '', style: {}
       });
       return elements.get(id);
     },
@@ -41,6 +45,7 @@ function player() {
   const requests = [];
   const context = vm.createContext({
     document, window: {addEventListener() {}}, requestAnimationFrame() {},
+    Event: class { constructor(type, opts={}) { this.type=type; Object.assign(this, opts); } },
     setTimeout() {}, clearTimeout() {}, messages: [],
     fetch(path, options) {
       // 播放引擎预载 / 人声状态请求不参与断言（测试环境没有这些后端）
@@ -1030,4 +1035,15 @@ test('seekPlayback waits for audio preload before setting time', async () => {
   const ok = await p.run('seekPlayback(5)');
   assert.equal(ok, true);
   assert.equal(p.run('au.currentTime'), 5);
+});
+
+test('speed shortcut dispatches change and starts SoundTouch', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=false; ST_SPEED=1; document.getElementById('rate').value='1.00';");
+  p.dispatch('keydown', {target: {tagName: 'BODY'}, key: ']', preventDefault() {}});
+  assert.equal(p.run("document.getElementById('rate').value"), 1.05);
+  assert.equal(p.calls[0].path, '/api/soundtouch');
+  assert.equal(p.calls[0].body.speed, 1.05);
+  p.requests[0].resolve({ok:false, error:'stop'});
+  await nextTurn();
 });
