@@ -267,6 +267,16 @@ test('save sends the loaded document version', async () => {
   assert.equal(await saving, true);
   assert.equal(p.run('LRC_VERSION'), 'v2');
 });
+test('skipped empty lyrics save keeps the draft dirty', async () => {
+  const p = player();
+  p.edit('draft');
+  const saving = p.run('saveLrc(true)');
+  p.requests[0].resolve({ok: true, skipped: true});
+  assert.equal(await saving, false);
+  assert.equal(p.run('EDIRTY'), true);
+  assert.match(p.document.getElementById('savehint').textContent, /没有歌词内容/);
+});
+
 
 test('version conflict keeps the draft dirty', async () => {
   const p = player();

@@ -226,6 +226,11 @@ async function saveLrc(silent, force){
         return false;
       }
       if(!r.ok) throw new Error(r.error||'保存失败');
+      if(r.skipped){
+        if(h){ h.textContent='没有歌词内容，未写入'; h.className='savehint dirty'; }
+        if(!silent) NH.done('没有歌词内容，未写入；要禁用请用“删除歌词”');
+        return false;
+      }
       NH.LRC_CONFLICT=false;
       if(r.version) NH.LRC_VERSION=r.version;
       if(NH.EDIT_REVISION===revision){
