@@ -268,6 +268,8 @@ def _live_copy(uid: str, exclude: str | None = None) -> dict | None:
 
 
 def _entry(p: Path, group: str, stored=None, force_fp: bool = False) -> dict | None:
+    if not p.is_file():
+        return None
     stem = p.stem
     # 不再按"像不像日文歌"过滤：进了歌单就应该看得见。
     # 过滤只用于歌词匹配时的判断（is_likely_song 仍被匹配流程使用）。

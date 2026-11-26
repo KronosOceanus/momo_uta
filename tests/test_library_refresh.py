@@ -79,6 +79,26 @@ class TestCacheRefresh(unittest.TestCase):
         self.assertEqual(list(CACHE), ["0"])
         self.assertEqual(CACHE["0"]["title"], "C")
 
+    def test_deleted_file_refresh_removes_ghost(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a = Path(tmp) / "a.mp3"
+            a.touch()
+            old = {"uid": "u1", "title": "A", "file": str(a)}
+            old_cache = dict(CACHE)
+            old_by = dict(LIB.BY_UID)
+            try:
+                CACHE.clear(); CACHE["0"] = old
+                LIB.BY_UID.clear(); LIB.BY_UID["u1"] = old
+                a.unlink()
+                with patch.object(LIB.LI, "flush"), patch.object(LIB.FP, "flush"):
+                    LIB.refresh("u1")
+                self.assertNotIn("0", CACHE)
+                self.assertNotIn("u1", LIB.BY_UID)
+                self.assertEqual(LIB.LAST_MISSING, ["u1"])
+            finally:
+                CACHE.clear(); CACHE.update(old_cache)
+                LIB.BY_UID.clear(); LIB.BY_UID.update(old_by)
+
 
 if __name__ == "__main__":
     unittest.main()
