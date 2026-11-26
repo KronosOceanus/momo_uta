@@ -1098,7 +1098,7 @@ test('speed and key buttons are disabled until a song is playing', () => {
 
 test('speed shortcut follows canonical list endpoints', () => {
   const p = player();
-  p.run("PLAYING_UID=null; PLAY_ITEM=null; document.getElementById('rate').value='1.2';");
+  p.run("PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; document.getElementById('rate').value='1.2';");
   p.dispatch('keydown', {target:{tagName:'BODY'}, key:']', preventDefault(){}});
   assert.equal(Number(p.run("document.getElementById('rate').value")), 1.25);
   p.dispatch('keydown', {target:{tagName:'BODY'}, key:']', preventDefault(){}});

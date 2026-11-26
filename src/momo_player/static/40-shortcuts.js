@@ -66,6 +66,7 @@ function isButton(t){
   return !!t && (t.tagName||'').toUpperCase()==='BUTTON';
 }
 function speed(delta){
+  if(NH.PLAYING_UID===null || NH.PLAYING_UID===undefined) return;
   const el=document.getElementById('rate'); if(!el) return;
   const vals=(NH.SPEED_VALUES || [1.25,1.2,1.1,1.0,0.9,0.8,0.7,0.6,0.5]);
   const cur=+el.value||1;
