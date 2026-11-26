@@ -248,6 +248,11 @@ test('replacing lyrics waits for a sent save and blocks song transitions', async
   assert.equal(p.document.getElementById('lyr').inert, false);
 });
 
+test('waitJob rejects instead of polling forever', async () => {
+  const p = player();
+  await assert.rejects(p.run("waitJob('job', null, {timeoutMs: -1})"), /timeout/);
+});
+
 test('view mode is a single mutually exclusive enum', () => {
   const p = player();
   p.run("VIEW_MODE='normal'");

@@ -214,12 +214,18 @@ function drawWave(){
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
-async function waitJob(id, onState){
+async function waitJob(id, onState, opts = {}){
+  const timeoutMs = opts.timeoutMs == null ? (JOB.match_timeout_ms || 60000) : opts.timeoutMs;
+  const deadline = Date.now() + Math.max(0, timeoutMs);
   for(;;){
+    if(opts.isCurrent && !opts.isCurrent()) throw new Error('aborted');
+    if(Date.now() >= deadline) throw new Error('timeout');
     const st=await api('/api/jobs/'+id);
     if(onState) onState(st);
     if(st.state==='done' || st.state==='failed' || st.state==='canceled') return st;
-    await new Promise(r=>setTimeout(r, JOB.poll_ms||1000));
+    if(Date.now() >= deadline) throw new Error('timeout');
+    await new Promise(r=>setTimeout(r, Math.min(JOB.poll_ms||1000,
+      Math.max(0, deadline-Date.now()))));
   }
 }
 async function loadWave(force){
@@ -282,8 +288,6 @@ cv.addEventListener('click', e=>{
   const t=Math.round((v.start + ratio*v.span)*100)/100;
   setWaveMarker(t, true);
   if(NH.isSelfPlaying()) NH.seekPrecise(audioTime(t));
-  const el=document.getElementById('mark');
-  el.textContent='标记：'+NH.lrcFmt(NH.MARK); el.classList.add('set');
   drawWave();
 });
 window.addEventListener('resize', ()=>{ measureCanvas(); drawWave(); });
@@ -405,19 +409,34 @@ async function load(ref, autoplay, nextMode){
     lyr.innerHTML='';
     NH.startVocals(d.uid);
     busy('匹配歌词中…');
-    let d2=null;
+    let d2=null, jobId=null, matchError=null;
     try{
       const job=await api('/api/jobs',{kind:'match', uid:d.uid});
-      const st=await waitJob(job.id);
+      jobId=job.id;
+      const st=await waitJob(jobId, null, {
+        timeoutMs: JOB.match_timeout_ms || 60000,
+        isCurrent: () => NH.isCurrent('load',request),
+      });
       if(!NH.isCurrent('load',request)) return false;
-      if(st.state==='failed') throw new Error(st.error || '匹配失败');
+      if(st.state==='failed' || st.state==='canceled')
+        throw new Error(st.error || (st.state==='canceled' ? '匹配已取消' : '匹配失败'));
       d2=await api('/api/song/'+encodeURIComponent(d.uid));
       if(!NH.isCurrent('load',request)) return false;
       if(!d2.pending) return load(d.uid, false, nextMode);   // 只刷新歌词，不重绑/重置音频
     }catch(e){
       if(!NH.isCurrent('load',request)) return false;
+      matchError=e;
+      try{ if(jobId) await api('/api/jobs/'+encodeURIComponent(jobId)+'/cancel',{}); }catch(_){}
     }
     if(!NH.isCurrent('load',request)) return false;
+    if(matchError){
+      const matchStatus = matchError.message==='timeout' ? 'timeout' : 'error';
+      NH.viewDispatch({type:'MATCH_FAILED', idx:d.uid, request, error:matchStatus});
+      NH.syncModes?.();
+      lyr.innerHTML='';
+      done(matchStatus==='timeout' ? '匹配超时，请重试' : '匹配失败，请重试');
+      return true;
+    }
     const matchStatus = (d2 && d2.match_status) || d.match_status || 'no_match';
     if(matchStatus !== 'network_error') NH.NO_MATCH.add(String(d.uid));
     NH.viewDispatch({type:'MATCH_FAILED', idx:d.uid, request, error:matchStatus});

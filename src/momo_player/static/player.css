@@ -184,8 +184,9 @@ body.lrcedit .wavewrap{display:block}
 .lrcwrap{display:none;align-items:center;gap:8px}
 body.lrcedit .lrcwrap{display:flex}
 
-#lrcbar .mark{font-size:12px;color:var(--muted);min-width:9em}
-.mark.set{color:var(--accent-soft)}
+.marquee{position:fixed;border:1px solid var(--accent);z-index:9999;
+  background:color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events:none}
 /* LRC 编辑表格 */
 .letable{padding:6px 0}
 .lerow{display:flex;gap:8px;align-items:center;padding:5px 12px 5px 30%;border-bottom:1px solid var(--line-soft);cursor:pointer}
