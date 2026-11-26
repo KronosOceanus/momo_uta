@@ -429,6 +429,15 @@ document.getElementById('play2').addEventListener('pointerdown', e=>{
   }
 });
 ['play','pause','emptied','loadstart','ended','waiting'].forEach(ev=>NH.au.addEventListener(ev, syncPlayBtn));
+NH.au.addEventListener('error', ()=>{
+  const song=NH.PLAY_ITEM;
+  if(!song || NH.PLAYING_UID===null || NH.PLAYING_UID===undefined) return;
+  NH.reportClientError?.('audio_error',
+    `uid=${song.uid} speed=${NH.ST_ON ? NH.ST_SPEED : 1}`, '', {uid:song.uid});
+  NH.done('音频读取失败，请重试');
+  syncPlayBtn();
+  paintTransport();
+});
 ['pause','seeked','loadedmetadata'].forEach(ev=>NH.au.addEventListener(ev, ()=>{ if(typeof NH.WAVE!=='undefined' && NH.WAVE && NH.VIEW_MODE==='lrc') NH.drawWave(); }));
 NH.au.addEventListener('play', syncPlayBtn); NH.au.addEventListener('pause', syncPlayBtn);
 function stSourcePos(){

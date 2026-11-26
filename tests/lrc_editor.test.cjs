@@ -1047,3 +1047,11 @@ test('speed shortcut dispatches change and starts SoundTouch', async () => {
   p.requests[0].resolve({ok:false, error:'stop'});
   await nextTurn();
 });
+
+test('audio engine errors surface a message and a client log', () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'};");
+  p.run("window.NH.au._emit('error')");
+  assert.match(p.run('messages.at(-1)'), /音频读取失败/);
+  assert.equal(p.calls.at(-1).path, '/api/log');
+});
