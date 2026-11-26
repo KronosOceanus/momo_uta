@@ -881,7 +881,7 @@ test('key change sends speed and key together', async () => {
   await pending;
   assert.equal(p.run('ST_ON'), true);
   assert.equal(p.run('ST_KEY'), 2);
-  assert.equal(p.run("document.getElementById('kv').textContent"), '+2');
+  assert.equal(p.run("document.getElementById('keypick').textContent"), '+2');
 });
 
 test('switching playback song resets key to original', () => {
@@ -889,7 +889,7 @@ test('switching playback song resets key to original', () => {
   p.run("S={uid:'u0'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=true; ST_KEY=2; ST_URL='/audio/u0?st=1.00&key=2'; ST_UID='u0';");
   p.run("commitAudio({uid:'u1', title:'B'})");
   assert.equal(p.run('ST_KEY'), 0);
-  assert.equal(p.run("document.getElementById('kv').textContent"), '原调');
+  assert.equal(p.run("document.getElementById('keypick').textContent"), '原调');
 });
 
 test('switching the playback song resets SoundTouch speed to 1x', () => {

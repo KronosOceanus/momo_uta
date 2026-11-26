@@ -58,10 +58,7 @@ function fallbackToOriginal(song, stSrc){
   NH.reportClientError?.('soundtouch_preload',
     `processed audio failed uid=${song.uid} speed=${speed}`, '', {speed});
   cancelSoundTouch(song.uid);
-  const rate=document.getElementById('rate');
-  if(rate) rate.value='1.00';
-  const rv=document.getElementById('rv');
-  if(rv) rv.textContent='1.00×';
+  setSpeedUI(1, false);
   setKeyUI(0, false);
   NH.au.src=song.audio || ('/audio/'+encodeURIComponent(song.uid));
   NH.au.playbackRate=1;
@@ -470,15 +467,15 @@ function cancelSoundTouch(uid){
   NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
   NH.ST_KEY=0;
   setTransformBusy(false);
+  setSpeedUI(1, false);
   setKeyUI(0, false);
 }
 NH.cancelSoundTouch = cancelSoundTouch;
 function resetSpeedTo1(){
   cancelSoundTouch();
-  const rate=document.getElementById('rate');
-  if(rate) rate.value='1';
-  const rv=document.getElementById('rv');
-  if(rv) rv.textContent='1.00×';
+  setSpeedUI(1, false);
+  const resetRate=document.getElementById('rate');
+  if(resetRate) resetRate.value='1';
   NH.au.playbackRate=1;
   setKeyUI(0, false);
 }
@@ -502,11 +499,8 @@ async function restoreST(snap, target, sourcePos, wasPlaying, token){
   NH.ST_ON=snap.on; NH.ST_URL=snap.url; NH.ST_UID=snap.uid; NH.ST_SPEED=snap.speed;
   NH.ST_KEY=snap.key || 0;
   setKeyUI(NH.ST_KEY, false);
-  const rate=document.getElementById('rate');
   const shown=snap.on ? (snap.speed||1) : 1;
-  if(rate) rate.value=shown.toFixed(2);
-  const rv=document.getElementById('rv');
-  if(rv) rv.textContent=shown.toFixed(2)+'×';
+  setSpeedUI(shown, false);
   if(!target) return;
   NH.commitAudio(target);
   const t=snap.on ? sourcePos/(snap.speed||1) : sourcePos;
@@ -519,10 +513,7 @@ async function forceOriginal(target, sourcePos, token){
   NH.ST_ON=false; NH.ST_URL=null; NH.ST_UID=null; NH.ST_SPEED=1;
   NH.ST_KEY=0;
   setKeyUI(0, false);
-  const rate=document.getElementById('rate');
-  if(rate) rate.value='1.00';
-  const rv=document.getElementById('rv');
-  if(rv) rv.textContent='1.00×';
+  setSpeedUI(1, false);
   if(!target) return;
   NH.commitAudio(target);
   await NH.seekPlayback(Math.max(0, sourcePos));
@@ -535,21 +526,89 @@ function currentTransformSpeed(){
 function keyLabel(key){
   return key ? (key > 0 ? '+' + key : String(key)) : '原调';
 }
+function speedLabel(speed){
+  return (+speed || 1).toFixed(2) + '×';
+}
+function setSpeedUI(speed, busy){
+  speed = Math.max(0.5, Math.min(1.25, +speed || 1));
+  const rate=document.getElementById('rate');
+  if(rate) rate.value=speed.toFixed(2);
+  const rv=document.getElementById('rv');
+  if(rv) rv.textContent=speedLabel(speed);
+  const sp=document.getElementById('speedpick');
+  if(sp) sp.textContent=speedLabel(speed);
+  if(sp) sp.disabled=!!busy;
+}
 function setKeyUI(key, busy){
   key = Math.max(KEY_MIN, Math.min(KEY_MAX, parseInt(key, 10) || 0));
   NH.ST_KEY = key;
-  const kv=document.getElementById('kv');
-  if(kv) kv.textContent=keyLabel(key);
-  const dn=document.getElementById('keydown');
-  if(dn) dn.disabled=!!busy || key <= KEY_MIN;
-  const up=document.getElementById('keyup');
-  if(up) up.disabled=!!busy || key >= KEY_MAX;
+  const kp=document.getElementById('keypick');
+  if(kp) kp.textContent=keyLabel(key);
+  if(kp) kp.disabled=!!busy;
 }
 function setTransformBusy(busy){
+  if(busy) closeValueMenu();
   const rate=document.getElementById('rate');
   if(rate) rate.disabled=!!busy;
   setKeyUI(NH.ST_KEY || 0, !!busy);
+  const sp=document.getElementById('speedpick');
+  if(sp){ sp.textContent=speedLabel(currentTransformSpeed()); sp.disabled=!!busy; }
 }
+
+let valueMenu = null;
+function closeValueMenu(){
+  if(valueMenu){ valueMenu.remove(); valueMenu=null; }
+}
+function openValueMenu(anchor, values, current, pick, label){
+  closeValueMenu();
+  if(!anchor || anchor.disabled) return;
+  const menu=document.createElement('div');
+  menu.className='valmenu';
+  values.forEach(v=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.textContent=label(v);
+    if(String(v)===String(current)) b.classList.add('on');
+    b.onclick=ev=>{
+      ev.stopPropagation();
+      closeValueMenu();
+      pick(v);
+    };
+    menu.appendChild(b);
+  });
+  document.body.appendChild(menu);
+  valueMenu=menu;
+  const r=anchor.getBoundingClientRect();
+  const w=menu.offsetWidth || 120;
+  const h=menu.offsetHeight || 220;
+  let top=r.top-h-6;
+  if(top<8) top=Math.min(innerHeight-h-8, r.bottom+6);
+  let left=Math.min(r.left, innerWidth-w-8);
+  left=Math.max(8, left);
+  menu.style.left=left+'px';
+  menu.style.top=Math.max(8, top)+'px';
+}
+function openKeyPicker(){
+  if(stBusy) return;
+  openValueMenu(document.getElementById('keypick'),
+    [6,5,4,3,2,1,0,-1,-2,-3,-4,-5,-6], NH.ST_KEY || 0,
+    v=>applyKey(v), keyLabel);
+}
+function openSpeedPicker(){
+  if(stBusy) return;
+  openValueMenu(document.getElementById('speedpick'),
+    [1.25,1.2,1.1,1.0,0.9,0.8,0.7,0.6,0.5], currentTransformSpeed(),
+    v=>{ setSpeedUI(v, false); applySpeed(v); }, v=>speedLabel(v));
+}
+document.addEventListener('click', ev=>{
+  if(!valueMenu) return;
+  const a=document.getElementById('keypick'), b=document.getElementById('speedpick');
+  if((a && a.contains(ev.target)) || (b && b.contains(ev.target))) return;
+  if(!valueMenu.contains(ev.target)) closeValueMenu();
+});
+document.addEventListener('keydown', ev=>{
+  if(ev.key==='Escape') closeValueMenu();
+});
 
 async function applyTransform(speed, key){
   speed = Math.max(0.5, Math.min(1.25, +speed || 1));
@@ -558,6 +617,7 @@ async function applyTransform(speed, key){
   if(Math.abs(speed - 1) < 0.001 && key === 0){
     NH.ST_KEY=0;
     setKeyUI(0, false);
+    setSpeedUI(1, false);
     if(!NH.ST_ON){ NH.au.playbackRate = 1; return; }
     const target=speedTarget();
     if(!target) return;
@@ -602,7 +662,7 @@ async function applyTransform(speed, key){
     return;
   }
   const target=speedTarget();
-  if(!target){ setKeyUI(key, false); return; }
+  if(!target){ setKeyUI(key, false); setSpeedUI(speed, false); return; }
   if(NH.ST_ON && Math.abs(speed - NH.ST_SPEED) < 0.001 && key === (NH.ST_KEY || 0)){
     setKeyUI(key, false);
     return;
@@ -625,6 +685,7 @@ async function applyTransform(speed, key){
     NH.ST_ON=true; NH.ST_URL=r.url; NH.ST_UID=uid;
     NH.ST_SPEED=speed; NH.ST_KEY=key;
     setKeyUI(key, false);
+    setSpeedUI(speed, false);
     try{
       if(!await switchStAt(pos, wasPlaying, token, uid, target))
         throw new Error('切换播放位置失败');
@@ -651,10 +712,7 @@ async function applyTransform(speed, key){
       const forced=!!(e && e.forced);
       const shown=snap.on ? (snap.speed||1) : 1;
       if(!switched){
-        const rate=document.getElementById('rate');
-        if(rate) rate.value=shown.toFixed(2);
-        const rv=document.getElementById('rv');
-        if(rv) rv.textContent=shown.toFixed(2)+'×';
+        setSpeedUI(shown, false);
         setKeyUI(snap.key || 0, false);
         const why = e.code==='invalid_key' ? '音程参数无效'
           : e.code==='invalid_speed' ? '速度参数无效'
@@ -664,10 +722,7 @@ async function applyTransform(speed, key){
         NH.done('SoundTouch 生成失败：'+why);
       }else{
         if(!restored && !forced){
-          const rate=document.getElementById('rate');
-          if(rate) rate.value=shown.toFixed(2);
-          const rv=document.getElementById('rv');
-          if(rv) rv.textContent=shown.toFixed(2)+'×';
+          setSpeedUI(shown, false);
           setKeyUI(snap.key || 0, false);
         }
         NH.done(restored ? 'SoundTouch 生成失败：'+e.error.message
@@ -697,15 +752,19 @@ async function applyKey(key){
 
 document.getElementById('rate').oninput=e=>{
   const v=+e.target.value;
-  document.getElementById('rv').textContent=v.toFixed(2)+'×';
+  const sp=document.getElementById('speedpick');
+  if(sp) sp.textContent=speedLabel(v);
+  const rv=document.getElementById('rv');
+  if(rv) rv.textContent=speedLabel(v);
   if(!NH.ST_ON) NH.au.playbackRate=1;
 };
 document.getElementById('rate').onchange=e=>applySpeed(+e.target.value);
-const keyDown=document.getElementById('keydown');
-if(keyDown) keyDown.onclick=()=>applyKey((NH.ST_KEY || 0) - 1);
-const keyUp=document.getElementById('keyup');
-if(keyUp) keyUp.onclick=()=>applyKey((NH.ST_KEY || 0) + 1);
+const keyPick=document.getElementById('keypick');
+if(keyPick) keyPick.onclick=openKeyPicker;
+const speedPick=document.getElementById('speedpick');
+if(speedPick) speedPick.onclick=openSpeedPicker;
 setKeyUI(0, false);
+setSpeedUI(1, false);
 async function stepPlaying(dir){
   if(NH.PLAYING_UID===null) return;
   if(!NH.isSelfPlaying()){
@@ -928,5 +987,6 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, applySpeed, applyKey, setKeyUI, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekPlayback, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
+Object.assign(NH, {markPlaying, applySpeed, applyKey, setKeyUI, setSpeedUI,
+  openKeyPicker, openSpeedPicker, closeValueMenu, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekPlayback, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
 })();
