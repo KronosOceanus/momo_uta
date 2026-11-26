@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "momo-uta"
 version = "1.2.0"
-description = "桃歌 momo uta：日语歌词标注与练习工具"
+description = "桃歌 momo uta：日语歌练习神器，本地日语歌曲播放器"
 requires-python = ">=3.11"
 dependencies = [
     "SudachiPy==0.7.0",
