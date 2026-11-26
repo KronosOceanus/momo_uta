@@ -55,6 +55,7 @@ ROMAJI: dict[str, str] = {
     # 小写（单独出现时）
     "ぁ": "a", "ぃ": "i", "ぅ": "u", "ぇ": "e", "ぉ": "o",
     "ゃ": "ya", "ゅ": "yu", "ょ": "yo", "ゎ": "wa",
+    "ゕ": "ka", "ゖ": "ka",
 }
 
 # ── 键位表（假名 → 击键序列，取主流 IME 都接受的写法）────────────
@@ -91,6 +92,7 @@ KEYS: dict[str, str] = {
     # 罕见但表要全：小写单独、旧假名、拗音变体
     "ぁ": "xa", "ぃ": "xi", "ぅ": "xu", "ぇ": "xe", "ぉ": "xo",
     "ゃ": "xya", "ゅ": "xyu", "ょ": "xyo", "ゎ": "xwa",
+    "ゕ": "ka", "ゖ": "ka",
     "ゐ": "wi", "ゑ": "we", "うぉ": "who", "とぅ": "twu", "どぅ": "dwu",
     "つぁ": "tsa", "つぃ": "tsi", "つぇ": "tse", "つぉ": "tso",
     "ぢゃ": "dya", "ぢゅ": "dyu", "ぢょ": "dyo",
@@ -98,7 +100,7 @@ KEYS: dict[str, str] = {
 }
 
 VOWELS = set("aiueo")
-KANA = re.compile(r"[ぁ-んゐゑゔ]")
+KANA = re.compile(r"[ぁ-んゐゑゔゕゖ]")
 SMALL_Y = set("ゃゅょ")
 PARTICLES_WA = {"は": "wa", "へ": "e", "を": "o"}
 TO_SOKUON = {"ch": "t", "ts": "t", "sh": "s", "j": "j"}
@@ -119,7 +121,7 @@ def morae(kana: str) -> list[str]:
             out.append(ch + nxt)
             i += 2
             continue
-        if ch in "ふてでうつ" and nxt in "ぁぃぇぉ":
+        if ch in "ふてでうつゔ" and nxt in "ぁぃぇぉ":
             out.append(ch + nxt)
             i += 2
             continue

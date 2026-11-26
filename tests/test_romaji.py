@@ -42,6 +42,14 @@ class TestRomaji(unittest.TestCase):
         self.assertEqual(romaji_of("ぢめん"), "jimen")
         self.assertEqual(romaji_of("つづく"), "tsuzuku")
 
+    def test_small_ke_and_v_rows(self):
+        self.assertEqual(romaji_of("ゔぁ"), "va")
+        self.assertEqual(keys_of("ゔぁ"), "va")
+        self.assertEqual(romaji_of("ヶ"), "ka")
+        self.assertEqual(romaji_of("ヵ"), "ka")
+        self.assertEqual(keys_of("ヶ"), "ka")
+        self.assertEqual(morae("ゔぁ"), ["ゔぁ"])
+
 
 class TestKeys(unittest.TestCase):
     def test_particles_are_typed_literally(self):
