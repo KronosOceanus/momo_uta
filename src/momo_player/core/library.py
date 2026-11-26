@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import threading
 import json
 import time
@@ -29,6 +30,17 @@ def music_dirs() -> list[Path]:
     from momo_yomi.config import PL
     dirs = PL.get("music_dirs") or [str(MUSIC)]
     return [Path(str(d)).expanduser() for d in dirs]
+
+
+def roots_available() -> bool:
+    """音乐根目录存在且可读时，才允许把缺失路径当成永久删除。"""
+    roots = music_dirs()
+    if not roots:
+        return False
+    try:
+        return all(p.is_dir() and os.access(p, os.R_OK) for p in roots)
+    except OSError:
+        return False
 
 
 def load_imports() -> list[dict]:
@@ -324,9 +336,11 @@ def load_for_playlists() -> list[dict]:
             else:
                 stale_paths.append(str(p))
 
-    if stale_paths:
+    if stale_paths and roots_available():
         LI.prune_paths(stale_paths)
         FP.prune_paths(stale_paths)
+    elif stale_paths:
+        LI.set_meta({**LI.meta(), "last_offline": True})
 
     import_paths = {str(Path(str(r.get("audio") or "")).expanduser())
                     for r in load_imports() if r.get("audio")}
@@ -384,10 +398,14 @@ def load_for_playlists() -> list[dict]:
 
 
 def should_auto_rebuild() -> bool:
-    """有缺失才重建；同一缺失集合且上次没找回，就不再自动重试。"""
+    """有缺失才重建；离线后恢复、或缺失集合变化时重试。"""
+    if not roots_available():
+        return False
     if not LAST_MISSING:
         return False
     m = LI.meta()
+    if m.get("last_offline"):
+        return True
     if m.get("last_missing") == LAST_MISSING:
         return False
     return True
@@ -402,8 +420,15 @@ def rebuild_library() -> dict:
     loaded = {str(v.get("uid")) for v in CACHE.values()}
     LAST_MISSING = sorted(str(u) for u in (set(PL.all_uids()) - loaded))
     recovered = len(old - set(LAST_MISSING))
-    LI.set_meta({"last_missing": LAST_MISSING, "last_rebuild": time.time(),
-                 "last_recovered": recovered})
+    meta = {"last_missing": LAST_MISSING, "last_rebuild": time.time(),
+            "last_recovered": recovered}
+    if not roots_available():
+        meta["last_offline"] = True
+        LI.set_meta(meta)
+        LI.flush()
+        return {"ok": True, "library": len(CACHE), "missing": len(LAST_MISSING),
+                "recovered": recovered, "offline": True}
+    LI.set_meta(meta)
     LI.flush()
     diag.log("library", f"rebuild loaded={len(CACHE)} missing={len(LAST_MISSING)} recovered={recovered}")
     return {"ok": True, "library": len(CACHE), "missing": len(LAST_MISSING),
@@ -438,7 +463,7 @@ def scan_library(folder: Path | None = None) -> list[dict]:
         if p.is_file():
             add(p, "导入")
 
-    if folder is None:                         # 显式扫临时目录不裁剪全局索引
+    if folder is None and roots_available():   # 显式扫临时目录 / 目录离线不裁剪全局索引
         valid = {e["file"] for e in out}
         LI.prune(valid)
         FP.prune(valid)
