@@ -80,6 +80,7 @@ function commitAudio(song){
   if(NH.ST_ON && String(NH.ST_UID)!==String(song.uid)) cancelSoundTouch();
   NH.PLAYING_UID = song.uid;
   NH.PLAY_ITEM = song;
+  setTransformBusy(stBusy);         // 有播放对象后启用 key / speed
   markPlaying();
   const stSrc = NH.ST_ON && NH.ST_URL && String(NH.ST_UID)===String(song.uid);
   NH.au.src = stSrc ? NH.ST_URL : (song.audio || ('/audio/'+encodeURIComponent(song.uid)));
@@ -544,14 +545,14 @@ function setSpeedUI(speed, busy){
   if(rv) rv.textContent=speedLabel(speed);
   const sp=document.getElementById('speedpick');
   if(sp) sp.textContent=speedLabel(speed);
-  if(sp) sp.disabled=!!busy;
+  if(sp) sp.disabled=!!busy || !speedTarget();
 }
 function setKeyUI(key, busy){
   key = Math.max(KEY_MIN, Math.min(KEY_MAX, parseInt(key, 10) || 0));
   NH.ST_KEY = key;
   const kp=document.getElementById('keypick');
   if(kp) kp.textContent=keyLabel(key);
-  if(kp) kp.disabled=!!busy;
+  if(kp) kp.disabled=!!busy || !speedTarget();
 }
 function setTransformBusy(busy){
   if(busy) closeValueMenu();
@@ -559,7 +560,8 @@ function setTransformBusy(busy){
   if(rate) rate.disabled=!!busy;
   setKeyUI(NH.ST_KEY || 0, !!busy);
   const sp=document.getElementById('speedpick');
-  if(sp){ sp.textContent=speedLabel(currentTransformSpeed()); sp.disabled=!!busy; }
+  if(sp){ sp.textContent=speedLabel(currentTransformSpeed());
+    sp.disabled=!!busy || !speedTarget(); }
 }
 
 let valueMenu = null;

@@ -1085,6 +1085,17 @@ test('speed choices use one canonical 10 percent list', () => {
   assert.equal(p.run('speedLabel(0.5)'), '0.5×');
 });
 
+test('speed and key buttons are disabled until a song is playing', () => {
+  const p = player();
+  p.run("PLAYING_UID=null; PLAY_ITEM=null; ST_ON=false; ST_KEY=0;");
+  p.run("setKeyUI(0,false); setSpeedUI(1,false)");
+  assert.equal(p.run("document.getElementById('keypick').disabled"), true);
+  assert.equal(p.run("document.getElementById('speedpick').disabled"), true);
+  p.run("S={uid:'u0',title:'A'}; commitAudio({uid:'u0',title:'A'})");
+  assert.equal(p.run("document.getElementById('keypick').disabled"), false);
+  assert.equal(p.run("document.getElementById('speedpick').disabled"), false);
+});
+
 test('speed shortcut follows canonical list endpoints', () => {
   const p = player();
   p.run("PLAYING_UID=null; PLAY_ITEM=null; document.getElementById('rate').value='1.2';");
