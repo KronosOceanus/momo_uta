@@ -12,6 +12,11 @@ const _ERR_SEEN = new Map();
 NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false;
 NH.ST_ON = false; NH.ST_URL = null; NH.ST_UID = null; NH.ST_SPEED = 1; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
+function esc(v){
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[c]));
+}
 const lyr=document.getElementById('lyr');
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
 NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
@@ -769,5 +774,5 @@ NH.prepareBackgroundFlush=prepareBackgroundFlush;
 NH.prepareShutdown=prepareShutdown;
 if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
 if(window.__MOMO_TOOL_WARNING) setTimeout(()=>toast(window.__MOMO_TOOL_WARNING), 500);
-Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime, flash});
+Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime, flash, esc});
 })();

@@ -50,17 +50,18 @@ function renderList(){
     const its=g.items.filter(hit);
     if(q && !its.length) return;
     const open=q || NH.OPEN.has(g.id);
-    html+=`<div class="pl" data-id="${g.id}">
-      <div class="plh" draggable="true" data-act="toggle" data-id="${g.id}" title="右键：导入 / 重命名 / 清空 / 删除">
-        <span class="car">${open?'▾':'▸'}</span><span class="pln">${g.name}</span>
+    const gid=NH.esc(g.id), gname=NH.esc(g.name);
+    html+=`<div class="pl" data-id="${gid}">
+      <div class="plh" draggable="true" data-act="toggle" data-id="${gid}" title="右键：导入 / 重命名 / 清空 / 删除">
+        <span class="car">${open?'▾':'▸'}</span><span class="pln">${gname}</span>
         <span class="plc">${its.length}</span></div>
       <div class="plb" ${open?'':'hidden'}>`
-      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${x.idx}" data-u="${x.uid}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING_UID)===String(x.uid)?'1':''}" draggable="true">
-          <div class="t1"><span class="orig">${x.orig||x.title}</span>
-            ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${x.title}</span>`}</div>
-          <div class="ar">${x.artist}</div>
+      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${NH.esc(x.idx)}" data-u="${NH.esc(x.uid)}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING_UID)===String(x.uid)?'1':''}" draggable="true">
+          <div class="t1"><span class="orig">${NH.esc(x.orig||x.title)}</span>
+            ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${NH.esc(x.title)}</span>`}</div>
+          <div class="ar">${NH.esc(x.artist)}</div>
           ${x.has_lyric===false?'<span class="noly" title="无歌词">无词</span>':''}
-          <b class="del" data-act="del-entry" data-u="${x.uid}" data-id="${g.id}" title="从歌单移除">✕</b>
+          <b class="del" data-act="del-entry" data-u="${NH.esc(x.uid)}" data-id="${gid}" title="从歌单移除">✕</b>
         </div>`).join('')
       + `</div></div>`;
   });

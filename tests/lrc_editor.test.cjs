@@ -1055,3 +1055,14 @@ test('audio engine errors surface a message and a client log', () => {
   assert.match(p.run('messages.at(-1)'), /音频读取失败/);
   assert.equal(p.calls.at(-1).path, '/api/log');
 });
+
+test('playlist rendering escapes remote and user text', () => {
+  const p = player();
+  p.run("PLS=[{id:'<img>',name:'<b>list</b>',items:[{idx:0,uid:'<u>',orig:'<img src=x>',title:'<b>title</b>',artist:'&',has_lyric:false}]}]; OPEN=new Set(); SELECTED=null; PLAYING_UID=null;");
+  p.run('renderList()');
+  const html = p.document.getElementById('list').innerHTML;
+  assert.equal(html.includes('<img'), false);
+  assert.match(html, /&lt;img/);
+  assert.match(html, /&lt;b&gt;list&lt;\/b&gt;/);
+  assert.match(html, /&amp;/);
+});
