@@ -299,7 +299,10 @@ dist/VERSIONS.txt
 
 ## 测试
 
+测试依赖：
+
 ```bash
+.venv/bin/pip install -e '.[dev]'
 make test
 ```
 
@@ -308,7 +311,8 @@ make test
 ```text
 Python 架构检查
 Python 单元测试
-前端语法 / 状态测试
+Python pyflakes
+前端语法 / 状态检查
 ```
 
 单独运行：
@@ -322,9 +326,10 @@ make test-python
 
 ```text
 pip install -e .
+pip install -e '.[dev]'
 make test
-  → 384 Python（UI smoke 1 skipped）
-  → 68 前端
+  → 440 Python（UI smoke 视桌面环境）
+  → 96 前端
 
 ./packaging/build.sh thin
   → dist/thin/momo-uta-thin.app

@@ -305,7 +305,13 @@ async function doImport(listId, withLrc){
   if(!paths.length) return;
   NH.busy('导入中…');
   try{
-    const r = await NH.api('/api/pl',{action:'import', list:listId, paths, with_lrc:!!withLrc});
+    let versions = {};
+    try{
+      const v = await NH.api('/api/pl',{action:'versions', paths});
+      if(v && v.versions) versions = v.versions;
+    }catch(e){}
+    const r = await NH.api('/api/pl',{action:'import', list:listId, paths,
+                                      with_lrc:!!withLrc, versions});
     if(r.lists) NH.PLS=r.lists; NH.LIB=NH.PLS.flatMap(g=>g.items); NH.renderList();
     if(r.ok===false){ NH.done(r.error||'导入失败'); return; }
     const bits=[`新增 ${r.imported} 首`];

@@ -519,6 +519,14 @@ def save_rows(audio: str | Path, rows: list[dict],
                 "backed_up": backed, "version": _version(text)}
 
 
+def current_version(audio: str | Path, uid: str | None = None,
+                    title: str | None = None, artist: str | None = None) -> str | None:
+    """返回当前 nhlrc 版本；不存在或为空时返回 None。"""
+    sp = store_path(audio, uid, title, artist)
+    text, exists = _read_original(sp)
+    return _version(text) if exists else None
+
+
 def backup_candidates(audio: str | Path, uid: str | None = None,
                       title: str | None = None, artist: str | None = None) -> list[Path]:
     u = uid or uid_of(audio)

@@ -478,6 +478,18 @@ class TestPlayerHttp(unittest.TestCase):
             path.unlink(missing_ok=True)
 
 
+    def test_soundtouch_error_has_code(self):
+        req = urllib.request.Request(
+            self.url("/api/soundtouch"), data=json.dumps({"uid": "uidtest000001",
+                                                          "speed": 99}).encode(),
+            headers=self.auth_headers({"Content-Type": "application/json"}))
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 400)
+        body = json.loads(cm.exception.read())
+        self.assertEqual(body["error_code"], "invalid_speed")
+
+
 class TestLrcNestedTypes(unittest.TestCase):
     def test_bad_lrc_lines(self):
         # reuse an isolated server through the existing fixture-style setup

@@ -268,16 +268,11 @@ def candidates_for(key: str) -> list[str]:
     n_kanji = max(1, len(KANJI_RUN.findall(key)))
     trusted = set(TABLES.common.get(key) or []) | set(TABLES.readings.get(key) or [])
     trusted |= set(TABLES.heteronym.get(key) or [])
-    has_kana = bool(re.search(r"[ぁ-んァ-ヶー]", key))
     out, seen = [], set()
     for r in rs:
         if not r or not all("ぁ" <= ch <= "ん" or ch == "ー" for ch in r):
             continue
-        limit = 4 * n_kanji
-        if has_kana:
-            limit = max(limit, 8)
-        if r in trusted:
-            limit = max(limit, 10)
+        limit = 8 if r in trusted else 4 * n_kanji
         if not (1 <= len(r) <= limit):
             continue
         if r in seen:
@@ -286,6 +281,17 @@ def candidates_for(key: str) -> list[str]:
         out.append(r)
     out.sort(key=lambda r: (-dist.get(r, 0), r))
     return out[:8]
+
+
+def trusted_reading(key: str, reading: str) -> bool:
+    """长读音只允许来自词典/多音字/人工词表，不能是任意候选。"""
+    if not reading:
+        return False
+    if GLOSSARY.get(key) == reading:
+        return True
+    return reading in (set(TABLES.common.get(key) or [])
+                       | set(TABLES.readings.get(key) or [])
+                       | set(TABLES.heteronym.get(key) or []))
 
 
 def cache_key(line: str, start: int, base: str, cands: list[str]) -> str:
@@ -415,6 +421,7 @@ def annotate_token(w, line: str = "", start: int = -1) -> list[dict]:
             pieces = split_pieces(surface, fixed) or [(surface, fixed)]
 
     key = surface
+    allow_long = trusted_reading(key, reading_hira)
     # 数词 + つ（四つ=よっつ、二つ=ふたつ）
     if line and start >= 0 and surface in counters.NUM_TSITSU:
         nxt = line[start + len(surface): start + len(surface) + 1]
@@ -445,6 +452,7 @@ def annotate_token(w, line: str = "", start: int = -1) -> list[dict]:
     forced = GLOSSARY.get(key)
     if forced and surface == key:
         pieces = [(surface, forced)]
+        allow_long = trusted_reading(key, forced)
 
     level, basis = assign_level(source, key, reading_hira)
     out = []
@@ -469,6 +477,8 @@ def annotate_token(w, line: str = "", start: int = -1) -> list[dict]:
         else:
             item = {"text": text, "ruby": ruby, "level": level,
                     "source": source, "basis": basis, "pos": pos}
+            if allow_long:
+                item["allow_long"] = True
             if len(cands) >= 2:
                 item["cands"] = cands              # 悬停展示用
                 item["wordbase"] = surface         # 整词（面板按它聚合）
@@ -501,6 +511,8 @@ def apply_llm(line: str, segs: list[dict]) -> list[dict]:
         chosen = entry.get("r")
         if chosen and chosen in cands:
             seg["ruby"] = chosen
+            if trusted_reading(base, chosen):
+                seg["allow_long"] = True
             seg["source"] = "llm"                 # 档位仍是 B：LLM 在 B 上是 80.7%
             seg["basis"] = f'LLM 选 {chosen}（conf {entry.get("c", 0):.2f}）'
     return segs

@@ -550,7 +550,9 @@ async function api(path, body){
       const d=await r.clone().json();
       if(r.status===409 && d && d.ok===false) return d;   // 版本冲突是业务结果，不是网络失败
       msg=d.error||d.detail||d.message||msg;
+      const err=new Error(msg); err.code=d.error_code; throw err;
     }catch(e){
+      if(e && e.code) throw e;
       try{ const t=await r.text(); if(t) msg=t.length>200?t.slice(0,200):t; }catch(e2){}
     }
     throw new Error(msg);

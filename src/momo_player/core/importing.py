@@ -117,6 +117,27 @@ def _too_many(audios, lrcs, msg: str) -> dict:
             "audio_found": len(audios), "lrc_found": len(lrcs)}
 
 
+def audio_versions(paths: list[str]) -> dict[str, str]:
+    """导入前取当前歌词版本；只处理仍存在的音频，不联网。"""
+    out: dict[str, str] = {}
+    seen = set()
+    for raw in paths:
+        p = Path(str(raw)).expanduser()
+        if p.is_dir():
+            for f in p.rglob("*"):
+                if f.suffix.lower() not in AUDIO_EXT or f in seen:
+                    continue
+                seen.add(f)
+                v = LRC.current_version(str(f))
+                if v:
+                    out[str(f)] = v
+        elif p.is_file() and p.suffix.lower() in AUDIO_EXT:
+            v = LRC.current_version(str(p))
+            if v:
+                out[str(p)] = v
+    return out
+
+
 def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                  with_lrc: bool = False, versions: dict[str, str] | None = None) -> dict:
     """按用户选中的路径导一批。

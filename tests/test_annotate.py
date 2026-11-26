@@ -158,6 +158,14 @@ class TestLongKunReadings(unittest.TestCase):
         r = call({"text": "赤"})
         got = "".join(s.get("ruby") or "" for s in r["lines"][0]["segments"])
         self.assertNotEqual(got, "あかんぼう")
+class TestInvariantAllowLong(unittest.TestCase):
+    def test_long_only_with_explicit_flag(self):
+        from momo_yomi.invariants import check
+        seg = {"base": "赤", "ruby": "あかんぼう", "start": 0, "end": 1}
+        self.assertTrue(any(x["code"] == "I7" for x in check("赤", [seg])))
+        self.assertFalse(any(x["code"] == "I7"
+                             for x in check("赤", [{**seg, "allow_long": True}])))
+
 
 if __name__ == "__main__":
     unittest.main()

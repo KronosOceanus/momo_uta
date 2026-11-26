@@ -24,6 +24,7 @@ def _lists():
 def playlists_action(req) -> dict:
     """歌单动作：建/改名/删/清空/加/移除/导入。"""
     act = req.get("action")
+    paths = [str(x) for x in (req.get("paths") or [])]
     if act in ("ui_offset", "edit_clear", "match") and not req.get("uid"):
         return {"ok": False, "error": "缺少 uid", "lists": _lists()}
     if act == "list_create":
@@ -82,6 +83,9 @@ def playlists_action(req) -> dict:
         if not item:
             return {"ok": False, "error": "歌曲已不可用，请重新加载", "lists": _lists()}
         SONGS.lazy_match(item)
+    elif act == "versions":
+        return {"ok": True, "versions": IMP.audio_versions(paths),
+                "lists": _lists()}
     elif act == "import":
         return import_to_list(req)
     elif act == "library_rebuild":

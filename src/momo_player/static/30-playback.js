@@ -603,7 +603,11 @@ async function applySpeed(speed){
         if(rate) rate.value=shown.toFixed(2);
         const rv=document.getElementById('rv');
         if(rv) rv.textContent=shown.toFixed(2)+'×';
-        NH.done('SoundTouch 生成失败：'+e.message);
+        const why = e.code==='invalid_speed' ? '速度参数无效'
+          : e.code==='song_missing' ? '歌曲已不可用'
+          : e.code==='soundtouch_failed' ? '生成器不可用'
+          : (e.message||'未知错误');
+        NH.done('SoundTouch 生成失败：'+why);
       }else{
         if(!restored && !forced){
           const shown=snap.on ? (snap.speed||1) : 1;

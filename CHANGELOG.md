@@ -13,14 +13,16 @@
 - 页面 token 改 URL fragment 传递，配置只注入白名单；HTTP 并发上限 8。
 - 音频流先 open 再发头；退出保存失败可重试/强制退出。
 - 日志去注入、文件 0600；错误细节只进日志。
-- 批量导入支持可选 versions 校验。
+- 批量导入先读取当前歌词版本并传给导入校验。
+- 长训读只对 trusted 来源显式 allow_long，I7 仍保留 4×。
+- SoundTouch 错误返回 error_code，前端可区分参数/歌曲/生成器问题。
 
 ### 工程
 
 - 全局热键支持部分注册、失败日志、注销和单 worker 回调。
 - 打包版本从 pyproject 注入，加入 LICENSE/THIRD_PARTY_NOTICES，支持
   `MOMO_CODESIGN_IDENTITY` / `MOMO_NOTARY_PROFILE`。
-- JS 检查增加重复导出检查；Python 检查加入 pyflakes。
+- JS 检查增加重复导出检查；Python 检查加入 pyflakes（dev 依赖）。
 
 ## [1.1.0] - 2026-11-25
 

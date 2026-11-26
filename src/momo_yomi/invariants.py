@@ -10,7 +10,8 @@ I4 送り仮名一致 由 split_pieces 的 DP 保证（读音必须被完整消�
    输出层每个片段只有"汉字部分"的读音，看不见整词读音，逐片段检查是空转
 I5 纯假名不得有 ruby
 I6 助詞・助動詞不得被 ruby 覆盖
-I7 摩拉数 sanity  len(reading) ∈ [汉字数, 8×汉字数]
+I7 摩拉数 sanity  len(reading) ∈ [汉字数, 4×汉字数]
+   只有显式 allow_long（词典长训读）才放宽到 8×
 I8 跨词元 span 必须显式声明（word 序号必须一致）
 """
 from __future__ import annotations
@@ -65,7 +66,8 @@ def check(line: str, segs: list[dict]) -> list[dict]:
             bad.append({"seg": seg, "code": "I6", "detail": f"{base} 是助詞"})
         # I7 摩拉数：按"要读出来的字数"算——汉字 + 数字（１１ 算 2 个字）
         n = max(1, len(KANJI.findall(base)) + len(DIGITS.findall(base)))
-        if not (n <= len(ruby) <= 8 * n):
+        limit = 8 * n if seg.get("allow_long") else 4 * n
+        if not (n <= len(ruby) <= limit):
             bad.append({"seg": seg, "code": "I7", "detail": f"{base}({n}字)→{ruby}({len(ruby)}音)"})
     return bad
 

@@ -538,5 +538,12 @@ class H(BaseHTTPRequestHandler):
         except (KeyError, TypeError, ValueError, OSError, RuntimeError,
                 subprocess.SubprocessError) as e:
             diag.exception("soundtouch", e, uid=uid, speed=req.get("speed"))
-            return self._json({"ok": False, "error": "变速生成失败"}, 400)
+            if isinstance(e, (TypeError, ValueError)):
+                code = "invalid_speed"
+            elif isinstance(e, KeyError):
+                code = "song_missing"
+            else:
+                code = "soundtouch_failed"
+            return self._json({"ok": False, "error": "变速生成失败",
+                               "error_code": code}, 400)
 

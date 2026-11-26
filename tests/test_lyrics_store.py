@@ -732,6 +732,19 @@ class TestEmptyNhlrc(unittest.TestCase):
                 saved = sp.read_text(encoding="utf-8")
             self.assertTrue(res["ok"], res)
             self.assertTrue(saved.strip())
+class TestImportVersions(unittest.TestCase):
+    def test_audio_versions_reads_current_nhlrc(self):
+        from momo_player.core import importing as IMP
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            with patch.object(LRF, "LYRICS", root / "lyrics"):
+                LRF.import_text(audio, "[00:01.00]君\n[00:02.00]花\n[00:03.00]空\n")
+                got = IMP.audio_versions([str(audio)])
+                ver = LRF.current_version(audio)
+            self.assertEqual(got, {str(audio): ver})
+
 
 if __name__ == "__main__":
     unittest.main()
