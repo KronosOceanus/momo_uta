@@ -251,8 +251,9 @@ cleanup(protected, max_bytes)
 
 ```text
 启动时清理孤儿 tmp
-非 protected 的 vocals 直接删
-protected 超过 max_bytes 按 last_used 淘汰
+所有有效 vocals 都保留
+超过 max_bytes(默认 2GB) 按 last_used 淘汰
+淘汰时先清未 protected，再清 protected
 queued/running/canceling 跳过
 ```
 

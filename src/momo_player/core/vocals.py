@@ -357,7 +357,7 @@ def _separate(uid: str, audio: str) -> dict:
 def cleanup(protected=None, max_bytes=None) -> dict:
     """清理 vocals：孤儿、旧 tmp、超出容量时按 last_used 淘汰。"""
     protected = {str(x) for x in (protected or [])}
-    max_bytes = int(max_bytes if max_bytes is not None else VC.get("max_bytes", 512 * 1024 * 1024))
+    max_bytes = int(max_bytes if max_bytes is not None else VC.get("max_bytes", 2 * 1024 ** 3))
     removed_uids: list[str] = []
     freed = 0
 
@@ -390,21 +390,16 @@ def cleanup(protected=None, max_bytes=None) -> dict:
                 shutil.rmtree(d, ignore_errors=True)
                 removed_uids.append(d.name)
                 continue
-            if d.name not in protected:
-                size = sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
-                shutil.rmtree(d, ignore_errors=True)
-                removed_uids.append(d.name)
-                freed += size
-                continue
             try:
                 used = int(m.get("last_used") or m.get("created") or 0)
             except Exception:
                 used = 0
             size = sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
-            rows.append((used, size, d.name, d))
+            rows.append((used, size, d.name, d, d.name in protected))
 
     total = sum(x[1] for x in rows)
-    for used, size, uid, d in sorted(rows):
+    # 先淘汰未保护的旧缓存，再淘汰受保护的；总量仍受 max_bytes 约束。
+    for used, size, uid, d, _is_protected in sorted(rows, key=lambda x: (x[4], x[0])):
         if total <= max_bytes:
             break
         shutil.rmtree(d, ignore_errors=True)

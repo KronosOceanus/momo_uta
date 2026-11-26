@@ -120,7 +120,7 @@ class TestVocalTimeout(unittest.TestCase):
 
 
 class TestVocalCleanup(unittest.TestCase):
-    def test_cleanup_removes_orphans_and_tmp_but_keeps_protected(self):
+    def test_cleanup_keeps_valid_unlisted_cache_and_removes_tmp(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             vocals = root / "vocals"
@@ -136,9 +136,9 @@ class TestVocalCleanup(unittest.TestCase):
                  patch.object(vocals_mod, "_states", {}):
                 res = vocals_mod.cleanup(protected={"keep"})
             self.assertTrue((vocals / "keep" / "vocals.wav").is_file())
-            self.assertFalse((vocals / "orphan").exists())
+            self.assertTrue((vocals / "orphan" / "vocals.wav").is_file())
             self.assertFalse(job.exists())
-            self.assertIn("orphan", res["removed"])
+            self.assertNotIn("orphan", res["removed"])
 
     def test_cleanup_keeps_pure_meta_without_wav(self):
         with tempfile.TemporaryDirectory() as tmp:
