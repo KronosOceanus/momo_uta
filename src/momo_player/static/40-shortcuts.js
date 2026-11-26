@@ -67,9 +67,14 @@ function isButton(t){
 }
 function speed(delta){
   const el=document.getElementById('rate'); if(!el) return;
-  const min=parseFloat(el.min)||0.5, max=parseFloat(el.max)||1.25;
-  const step=parseFloat(el.step)||0.05;
-  el.value=Math.max(min, Math.min(max, (+el.value||1)+delta*step));
+  const vals=(NH.SPEED_VALUES || [1.25,1.2,1.1,1.0,0.9,0.8,0.7,0.6,0.5]);
+  const cur=+el.value||1;
+  let at=0;
+  for(let i=1;i<vals.length;i++)
+    if(Math.abs(vals[i]-cur)<Math.abs(vals[at]-cur)) at=i;
+  at += delta < 0 ? 1 : -1;                 // vals 从高到低
+  at=Math.max(0, Math.min(vals.length-1, at));
+  el.value=vals[at];
   el.dispatchEvent(new Event('input',{bubbles:true}));
   el.dispatchEvent(new Event('change',{bubbles:true}));
 }

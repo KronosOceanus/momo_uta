@@ -1075,13 +1075,23 @@ test('seekPlayback waits for audio preload before setting time', async () => {
   assert.equal(p.run('au.currentTime'), 5);
 });
 
+test('speed choices use one canonical 10 percent list', () => {
+  const p = player();
+  assert.equal(p.run('JSON.stringify(SPEED_VALUES)'),
+    JSON.stringify([1.25,1.2,1.1,1.0,0.9,0.8,0.7,0.6,0.5]));
+  assert.equal(p.run('speedLabel(1.25)'), '1.25×');
+  assert.equal(p.run('speedLabel(1.2)'), '1.2×');
+  assert.equal(p.run('speedLabel(1.0)'), '1.0×');
+  assert.equal(p.run('speedLabel(0.5)'), '0.5×');
+});
+
 test('speed shortcut dispatches change and starts SoundTouch', async () => {
   const p = player();
   p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=false; ST_SPEED=1; document.getElementById('rate').value='1.00';");
   p.dispatch('keydown', {target: {tagName: 'BODY'}, key: ']', preventDefault() {}});
-  assert.equal(p.run("document.getElementById('rate').value"), 1.05);
+  assert.equal(p.run("document.getElementById('rate').value"), 1.1);
   assert.equal(p.calls[0].path, '/api/soundtouch');
-  assert.equal(p.calls[0].body.speed, 1.05);
+  assert.equal(p.calls[0].body.speed, 1.1);
   p.requests[0].resolve({ok:false, error:'stop'});
   await nextTurn();
 });

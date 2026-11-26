@@ -9,6 +9,7 @@ let stWantSpeed = null;
 let stWantKey = null;
 NH.ST_KEY = NH.ST_KEY || 0;
 const KEY_MIN = -6, KEY_MAX = 6;
+const SPEED_VALUES = [1.25, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
 const CFG=(window.__CFG)||{};
 const UI=(CFG.player&&CFG.player.ui)||{};
 const PL=CFG.player||{};
@@ -519,18 +520,24 @@ async function forceOriginal(target, sourcePos, token){
   await NH.seekPlayback(Math.max(0, sourcePos));
 }
 
+function normalizeSpeed(speed){
+  speed = Math.max(0.5, Math.min(1.25, +speed || 1));
+  return SPEED_VALUES.reduce((best, v) =>
+    Math.abs(v - speed) < Math.abs(best - speed) ? v : best, SPEED_VALUES[0]);
+}
 function currentTransformSpeed(){
   const el=document.getElementById('rate');
-  return Math.max(0.5, Math.min(1.25, +(el && el.value) || 1));
+  return normalizeSpeed(+(el && el.value) || 1);
 }
 function keyLabel(key){
   return key ? (key > 0 ? '+' + key : String(key)) : '原调';
 }
 function speedLabel(speed){
-  return (+speed || 1).toFixed(2) + '×';
+  const text=(+speed || 1).toFixed(2).replace(/0$/, '');
+  return text + '×';
 }
 function setSpeedUI(speed, busy){
-  speed = Math.max(0.5, Math.min(1.25, +speed || 1));
+  speed = normalizeSpeed(speed);
   const rate=document.getElementById('rate');
   if(rate) rate.value=speed.toFixed(2);
   const rv=document.getElementById('rv');
@@ -564,11 +571,12 @@ function openValueMenu(anchor, values, current, pick, label){
   if(!anchor || anchor.disabled) return;
   const menu=document.createElement('div');
   menu.className='valmenu';
+  let selected=null;
   values.forEach(v=>{
     const b=document.createElement('button');
     b.type='button';
     b.textContent=label(v);
-    if(String(v)===String(current)) b.classList.add('on');
+    if(String(v)===String(current)){ b.classList.add('on'); selected=b; }
     b.onclick=ev=>{
       ev.stopPropagation();
       closeValueMenu();
@@ -579,14 +587,20 @@ function openValueMenu(anchor, values, current, pick, label){
   document.body.appendChild(menu);
   valueMenu=menu;
   const r=anchor.getBoundingClientRect();
-  const w=menu.offsetWidth || 120;
+  const w=r.width;
   const h=menu.offsetHeight || 220;
+  menu.style.width=Math.round(w)+'px';
   let top=r.top-h-6;
   if(top<8) top=Math.min(innerHeight-h-8, r.bottom+6);
   let left=Math.min(r.left, innerWidth-w-8);
   left=Math.max(8, left);
   menu.style.left=left+'px';
   menu.style.top=Math.max(8, top)+'px';
+  // 当前项垂直居中；列表顶部/底部自然贴边。
+  if(selected){
+    const offset=selected.offsetTop - (menu.clientHeight - selected.offsetHeight) / 2;
+    menu.scrollTop=Math.max(0, Math.min(menu.scrollHeight - menu.clientHeight, offset));
+  }
 }
 function openKeyPicker(){
   if(stBusy) return;
@@ -597,7 +611,7 @@ function openKeyPicker(){
 function openSpeedPicker(){
   if(stBusy) return;
   openValueMenu(document.getElementById('speedpick'),
-    [1.25,1.2,1.1,1.0,0.9,0.8,0.7,0.6,0.5], currentTransformSpeed(),
+    SPEED_VALUES, currentTransformSpeed(),
     v=>{ setSpeedUI(v, false); applySpeed(v); }, v=>speedLabel(v));
 }
 document.addEventListener('click', ev=>{
@@ -611,7 +625,7 @@ document.addEventListener('keydown', ev=>{
 });
 
 async function applyTransform(speed, key){
-  speed = Math.max(0.5, Math.min(1.25, +speed || 1));
+  speed = normalizeSpeed(speed);
   key = Math.max(KEY_MIN, Math.min(KEY_MAX, parseInt(key, 10) || 0));
   if(stBusy){ stWantSpeed=speed; stWantKey=key; return; }
   if(Math.abs(speed - 1) < 0.001 && key === 0){
@@ -988,5 +1002,6 @@ NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
 Object.assign(NH, {markPlaying, applySpeed, applyKey, setKeyUI, setSpeedUI,
+  SPEED_VALUES, normalizeSpeed, speedLabel,
   openKeyPicker, openSpeedPicker, closeValueMenu, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekPlayback, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
 })();
