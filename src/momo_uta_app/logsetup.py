@@ -14,6 +14,7 @@ from pathlib import Path
 
 from momo_yomi.config import APP
 from momo_yomi.paths import CACHE
+from momo_player.core import diag
 
 MAX_BYTES = int(APP["log_max_bytes"])
 KEEP_FILES = int(APP.get("log_keep_files", 3) or 3)
@@ -160,6 +161,7 @@ def setup() -> Path:
     if log.exists() and log.stat().st_size > MAX_BYTES:
         _rotate_files(log, KEEP_FILES)
     _SINK = _LogSink(log, MAX_BYTES, KEEP_FILES)
+    diag.set_writer(_SINK.write)
     if not isinstance(sys.stdout, _Tee):
         sys.stdout = _Tee(sys.__stdout__, _SINK)
         sys.stderr = _Tee(sys.__stderr__, _SINK)

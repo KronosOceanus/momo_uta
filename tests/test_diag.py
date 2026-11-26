@@ -21,6 +21,20 @@ class TestDiag(unittest.TestCase):
         with patch.object(diag, "LOG", Path("/dev/null/nope/app.log")):
             diag.log("t", "x")          # 不应抛
 
+    def test_writer_bypasses_direct_file_append(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            seen = []
+            old = diag._WRITER
+            try:
+                diag.set_writer(seen.append)
+                with patch.object(diag, "LOG", Path(tmp) / "app.log"):
+                    diag.log("t", "through sink")
+                self.assertTrue(seen)
+                self.assertIn("through sink", seen[0])
+                self.assertFalse((Path(tmp) / "app.log").exists())
+            finally:
+                diag.set_writer(old)
+
     def test_exception_writes_traceback(self):
         with tempfile.TemporaryDirectory() as tmp:
             log = Path(tmp) / "app.log"
