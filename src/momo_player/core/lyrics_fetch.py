@@ -28,8 +28,8 @@ def _get(url: str, timeout: float | None = None) -> str:
     timeout = float(CFG["http_timeout_s"]) if timeout is None else timeout
     try:
         return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout).read().decode("utf-8", "ignore")
-    except Exception:
-        return ""
+    except Exception as e:
+        raise LyricsNetworkError(str(e)) from e
 
 
 def search_candidates(title: str, artist: str, limit: int | None = None) -> list[dict]:
@@ -42,8 +42,11 @@ def search_candidates(title: str, artist: str, limit: int | None = None) -> list
     found: dict[int, dict] = {}
     got_response = False
     for q in (f"{title} {artist}".strip(), title, f"{artist} {title}".strip()):
-        r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode(
-            {"s": q, "type": 1, "limit": limit}))
+        try:
+            r = _get("https://music.163.com/api/search/get?" + urllib.parse.urlencode(
+                {"s": q, "type": 1, "limit": limit}))
+        except LyricsNetworkError:
+            continue
         if not r:
             continue
         try:
@@ -130,8 +133,8 @@ def fetch_candidate(c: dict) -> dict | None:
     lr = _get(f"https://music.163.com/api/song/lyric?id={c['id']}&lv=-1&kv=-1&tv=-1")
     try:
         j = json.loads(lr)
-    except Exception:
-        return None
+    except Exception as e:
+        raise LyricsNetworkError("歌词详情响应无效") from e
     lyr = j.get("lrc", {}).get("lyric", "") or ""
     if not valid_lrc(lyr):
         return None
@@ -157,7 +160,10 @@ def auto_match_status(title: str, artist: str,
     for c in cands[:int(CFG["auto_try"])]:
         if not accept_candidate(c, title, artist, duration):
             continue
-        hit = fetch_candidate(c)
+        try:
+            hit = fetch_candidate(c)
+        except LyricsNetworkError:
+            return None, MATCH_NETWORK
         if hit:
             return hit, MATCH_OK
     return None, MATCH_NO_LYRICS
@@ -216,11 +222,15 @@ def get_lrc(title: str, artist: str, use_cache: bool = True, duration: float = 0
 def fetch_lyrics_by_id(song_id) -> dict:
     """按网易云歌曲 id 取原文与翻译，一次调用显式返回。"""
     out = {"lrc": "", "tlyric": ""}
-    lr = _get(f"https://music.163.com/api/song/lyric?id={song_id}&lv=-1&kv=-1&tv=-1")
+    try:
+        lr = _get(f"https://music.163.com/api/song/lyric?id={song_id}&lv=-1&kv=-1&tv=-1")
+    except LyricsNetworkError:
+        out["network_error"] = True
+        return out
     try:
         j = json.loads(lr)
         out["lrc"] = j.get("lrc", {}).get("lyric", "") or ""
         out["tlyric"] = j.get("tlyric", {}).get("lyric", "") or ""
     except Exception:
-        pass
+        out["network_error"] = True
     return out

@@ -101,3 +101,39 @@ class TestLangAndExclude(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestLyricsNetworkStatus(unittest.TestCase):
+    def test_detail_network_error_does_not_write_negative_cache(self):
+        import tempfile
+        from unittest.mock import patch
+        from pathlib import Path
+        from momo_player.core import lyrics_fetch as LF
+
+        c = {"id": 1, "name": "曲", "artist": "歌手", "duration": 60.0}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "miss.json"
+            with patch.object(LF, "cache_path", return_value=p), \
+                 patch.object(LF, "search_candidates_status", return_value=([c], LF.MATCH_OK)), \
+                 patch.object(LF, "fetch_candidate", side_effect=LF.LyricsNetworkError("timeout")):
+                hit, status = LF.get_lrc_status("曲", "歌手", use_cache=False,
+                                                force=True, duration=60)
+            self.assertIsNone(hit)
+            self.assertEqual(status, LF.MATCH_NETWORK)
+            self.assertFalse(p.exists())
+
+    def test_empty_valid_response_still_reaches_no_lyrics(self):
+        from unittest.mock import patch
+        from momo_player.core import lyrics_fetch as LF
+
+        c = {"id": 1, "name": "曲", "artist": "歌手", "duration": 60.0}
+        with patch.object(LF, "search_candidates_status", return_value=([c], LF.MATCH_OK)), \
+             patch.object(LF, "fetch_candidate", return_value=None):
+            hit, status = LF.auto_match_status("曲", "歌手", 60)
+        self.assertIsNone(hit)
+        self.assertEqual(status, LF.MATCH_NO_LYRICS)
+
+    def test_fetch_by_id_reports_network_error(self):
+        from unittest.mock import patch
+        from momo_player.core import lyrics_fetch as LF
+        with patch.object(LF, "_get", side_effect=LF.LyricsNetworkError("down")):
+            self.assertTrue(LF.fetch_lyrics_by_id(1).get("network_error"))

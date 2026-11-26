@@ -589,6 +589,8 @@ def pick(uid, song_id) -> dict:
         return {"ok": False, "error": "缺少歌曲或候选 id"}
     artist, title = LY.split_name(item["stem"])
     hit = LY.fetch_lyrics_by_id(song_id)
+    if hit.get("network_error"):
+        return {"ok": False, "error": "网络请求失败，请稍后重试"}
     lrc = hit.get("lrc") or ""
     if not LY.valid_lrc(lrc):
         return {"ok": False, "error": "这个候选没有带时间轴的可用歌词"}
