@@ -5,7 +5,7 @@
 <h1 align="center">桃歌 · momo uta</h1>
 
 <p align="center">
-  <strong>v1.1.1</strong>
+  <strong>v1.1.2</strong>
   <br>
 
   本地日语歌曲播放器
