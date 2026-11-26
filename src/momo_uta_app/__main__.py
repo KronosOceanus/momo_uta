@@ -20,6 +20,7 @@ from momo_player.core import library as LIB
 from momo_player.core import vocals as VOC
 from momo_player.http.server import make_server
 from momo_player.core import jobs as JOBS
+from momo_player.core import tools as TOOLS
 from momo_player.service import soundtouch as SVC_ST
 
 from momo_uta_app import logsetup
@@ -113,6 +114,9 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
         print(f"日志：{log_path}")
     diag.log("app", f"frozen={getattr(sys, 'frozen', False)} exe={sys.executable} bundle={BUNDLE}")
     _bundle_path()
+    missing = TOOLS.missing_tools()
+    if missing:
+        diag.log("tools", "missing: " + ", ".join(missing))
     bootstrap()
     LIB.load_cache_for_playlists()
     VOC.cleanup(protected={v.get("uid") for v in LIB.CACHE.values()})

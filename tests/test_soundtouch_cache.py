@@ -201,8 +201,7 @@ class TestSoundTouchCache(unittest.TestCase):
             p.write_text("#!/bin/sh\n", encoding="utf-8")
             p.chmod(0o644)
             with patch.dict(os.environ, {"MOMO_SOUNDSTRETCH": str(p)}, clear=False), \
-                 patch.object(ST.shutil, "which", return_value=None), \
-                 patch.object(ST.sys, "frozen", False, create=True):
+                 patch.object(ST.TOOLS, "_candidates", return_value=[]):
                 self.assertIsNone(ST._tool("soundstretch", "MOMO_SOUNDSTRETCH"))
 
     def test_cancel_idle_uid_does_not_accumulate(self):

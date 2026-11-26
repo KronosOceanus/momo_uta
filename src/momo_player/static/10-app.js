@@ -768,5 +768,6 @@ async function prepareBackgroundFlush(){
 NH.prepareBackgroundFlush=prepareBackgroundFlush;
 NH.prepareShutdown=prepareShutdown;
 if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
+if(window.__MOMO_TOOL_WARNING) setTimeout(()=>toast(window.__MOMO_TOOL_WARNING), 500);
 Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime, flash});
 })();

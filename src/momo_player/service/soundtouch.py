@@ -19,6 +19,7 @@ from momo_yomi.paths import BUNDLE, CACHE
 
 from ..core import diag
 from ..core import library as LIB
+from ..core import tools as TOOLS
 
 _CACHE_LOCK = threading.Lock()
 _STATE_LOCK = threading.Lock()
@@ -35,23 +36,8 @@ CLEANUP_INTERVAL = 5
 _LAST_CLEANUP = 0.0
 
 
-def _executable(path: Path) -> bool:
-    try:
-        return path.is_file() and os.access(path, os.X_OK)
-    except OSError:
-        return False
-
-
 def _tool(name: str, env: str | None = None) -> str | None:
-    if env:
-        value = os.environ.get(env)
-        if value and _executable(Path(value)):
-            return value
-    if getattr(sys, "frozen", False):
-        p = BUNDLE / "bin" / name
-        if _executable(p):
-            return str(p)
-    return shutil.which(name)
+    return TOOLS.find_tool(name, env)
 
 
 class Cancelled(RuntimeError):

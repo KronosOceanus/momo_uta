@@ -24,6 +24,7 @@ from queue import Queue
 from momo_yomi.config import VC
 from . import diag
 from . import fsio as FS
+from . import tools as TOOLS
 from momo_yomi.paths import VOCALS
 
 TMP_ROOT = VOCALS.parent / "tmp" / "vocals"
@@ -221,7 +222,7 @@ def installed() -> bool:
         importlib.import_module("demucs")
         return True
     except Exception:
-        return bool(shutil.which("demucs"))
+        return bool(TOOLS.find_tool("demucs", "MOMO_DEMUCS"))
 
 
 def _demucs_cmd() -> list[str]:
@@ -234,7 +235,7 @@ def _demucs_cmd() -> list[str]:
             return [sys.executable, "--momo-demucs"]
     except Exception:
         pass
-    found = shutil.which("demucs")
+    found = TOOLS.find_tool("demucs", "MOMO_DEMUCS")
     if found:
         return [found]
     return [sys.executable, "-m", "demucs"]
@@ -317,7 +318,10 @@ def _separate(uid: str, audio: str) -> dict:
 
         if _is_canceled(uid):
             raise Cancelled()
-        r = _run_process(["ffmpeg", "-y", "-v", "quiet", "-i", str(src),
+        ffmpeg = TOOLS.find_tool("ffmpeg", "MOMO_FFMPEG")
+        if not ffmpeg:
+            raise RuntimeError("未找到 ffmpeg，请安装或设置 MOMO_FFMPEG")
+        r = _run_process([ffmpeg, "-y", "-v", "quiet", "-i", str(src),
                           "-ac", "1", "-ar", str(SAMPLE_RATE), str(wav)],
                          timeout=float(VC["run_timeout_s"]),
                          timeout_message="人声分离转码超时", uid=uid)

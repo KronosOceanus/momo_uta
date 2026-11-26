@@ -17,6 +17,7 @@ from momo_yomi.config import WV
 from momo_yomi.paths import CACHE
 
 from . import fsio as FS
+from . import tools as TOOLS
 
 WAVE_DIR = CACHE / "wave"
 STEP = WV["step"]    # 峰值步长（秒）
@@ -46,9 +47,12 @@ def _build(wav: Path, st, p: Path, source: str) -> dict:
     peaks: list[list[int]] = []
     cur_min, cur_max, cur_n = 0, 0, 0
     total = 0
+    ffmpeg = TOOLS.find_tool("ffmpeg", "MOMO_FFMPEG")
+    if not ffmpeg:
+        return {"error": "没有 ffmpeg"}
     try:
         proc = subprocess.Popen(
-            ["ffmpeg", "-v", "quiet", "-i", str(wav), "-ac", "1",
+            [ffmpeg, "-v", "quiet", "-i", str(wav), "-ac", "1",
              "-ar", str(RATE), "-f", "s16le", "-"],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
