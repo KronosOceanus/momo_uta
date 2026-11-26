@@ -8,6 +8,7 @@ NH.TOKEN = window.__MOMO_TOKEN || '';
 //   10-app.js     状态、工具、歌单、载入单曲、右侧面板
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
+const _ERR_SEEN = new Map();
 NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false;
 NH.ST_ON = false; NH.ST_URL = null; NH.ST_UID = null; NH.ST_SPEED = 1; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
@@ -298,7 +299,7 @@ document.querySelectorAll('.off button').forEach(b=>b.onclick=async()=>{
   NH.OFFSET=Math.round((NH.OFFSET+parseFloat(b.dataset.off))*100)/100;
   NH.S.offset=NH.OFFSET;
   document.getElementById('offval').textContent=NH.OFFSET.toFixed(2)+'s';
-  NH.syncModes(); drawWave();
+  NH.syncModes(); drawWave(); NH.paintTicks?.();
   const i=NH.idxAt(NH.au.currentTime);
   if(i>=0) NH.highlight(i);
   const r=await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
@@ -311,7 +312,7 @@ document.getElementById('offval').onclick=()=>{
     NH.OFFSET=Math.round(v*100)/100;
     if(NH.S) NH.S.offset=NH.OFFSET;
     el.textContent=NH.OFFSET.toFixed(2)+'s';
-    NH.syncModes(); drawWave();
+    NH.syncModes(); drawWave(); NH.paintTicks?.();
     const i=NH.idxAt(NH.au.currentTime); if(i>=0) NH.highlight(i);
     if(NH.S){
       const r=await api('/api/pl',{action:'ui_offset', uid:NH.S.uid, offset:NH.OFFSET});
@@ -447,6 +448,7 @@ async function load(ref, autoplay, nextMode){
     NH.OFFSET = d.offset || 0;
     document.getElementById('offval').textContent = NH.OFFSET.toFixed(2)+'s';
     NH.syncModes();
+    NH.paintTicks?.();
     if(NH.VIEW_MODE==='lrc') NH.renderLrcTable();
     else NH.WAVE=null;
     if(NH.PLAYING_UID===null) NH.commitAudio();                 // 第一次载入才绑定音频

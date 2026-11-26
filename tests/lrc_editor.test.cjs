@@ -996,3 +996,38 @@ test('continuous seekPlayback stays on the latest target at non-1x speed', async
   await p.run('seekPlayback(10)');
   assert.equal(p.run('au.currentTime'), 10);
 });
+
+test('client error reporting uses the shared dedupe map', () => {
+  const p = player();
+  const before = p.calls.length;
+  p.run("reportClientError('probe', 'boom')");
+  assert.equal(p.calls.length, before + 1);
+  assert.equal(p.calls.at(-1).path, '/api/log');
+  p.run("reportClientError('probe', 'boom')");
+  assert.equal(p.calls.length, before + 1);
+});
+
+test('paintTicks maps source lines through offset and SoundTouch', () => {
+  const p = player();
+  const made = [];
+  p.document.createElement = () => {
+    const el = {style: {}, appendChild() {}};
+    made.push(el);
+    return el;
+  };
+  p.document.createDocumentFragment = () => ({appendChild() {}});
+  p.run("VIEW_MODE='normal'; S={uid:'u0'}; PLAYING_UID='u0'; ST_ON=true; ST_SPEED=0.80; OFFSET=1; LINES=[{t:2},{t:4}];");
+  p.run("au={duration:10};");
+  p.run('paintTicks()');
+  assert.equal(made[0].style.left, '37.5%');
+  assert.equal(made[1].style.left, '62.5%');
+});
+
+test('seekPlayback waits for audio preload before setting time', async () => {
+  const p = player();
+  p.run("ST_ON=false; PLAYING_UID='u0';");
+  p.run("au={currentTime:0,paused:false,duration:0,readyState:0,preload(){this.duration=100;this.readyState=4;return Promise.resolve();},addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();}}");
+  const ok = await p.run('seekPlayback(5)');
+  assert.equal(ok, true);
+  assert.equal(p.run('au.currentTime'), 5);
+});

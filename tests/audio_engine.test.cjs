@@ -140,3 +140,11 @@ test('pause during play preload prevents automatic start', async () => {
   assert.equal(starts.length, 0);
   assert.equal(engine._playing, false);
 });
+
+test('seek before audio decode preserves the requested offset', () => {
+  const {engine} = makeEngine();
+  engine.src = 'a';
+  engine.seek(3);
+  assert.equal(engine.currentTime, 3);
+  assert.equal(engine.readyState, 0);
+});

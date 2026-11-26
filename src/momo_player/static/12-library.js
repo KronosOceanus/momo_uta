@@ -329,7 +329,6 @@ document.getElementById('newlist').onclick=async e=>{
   const r=await NH.api('/api/pl',{action:'list_create',name});
   NH.applyLists(r);
 };
-const _ERR_SEEN = new Map();
 
 NH.loadLib=loadLib;
 NH.applyLists=applyLists;

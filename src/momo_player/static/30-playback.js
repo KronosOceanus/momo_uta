@@ -153,6 +153,16 @@ function audioReady(){
   return onceEvent('loadedmetadata', UI.canplay_wait_ms||900);
 }
 NH.SEEK_ACTIVE = false; NH.SEEK_WAS_PLAYING = false;
+async function ensureAudioLoaded(){
+  if(typeof NH.au.preload!=='function') return true;
+  try{
+    await NH.au.preload();
+    return true;
+  }catch(e){
+    NH.reportClientError?.('audio_preload', e.message, e.stack);
+    return false;
+  }
+}
 async function seekPrecise(t){
   const song = NH.S;
   if(!song) return false;
@@ -165,6 +175,8 @@ async function seekPrecise(t){
     && String(NH.PLAYING_UID) === uid;
   try {
     if(NH.SEEK_WAS_PLAYING) NH.au.pause();         // 画面与旧声音都在此停下
+    if(!await ensureAudioLoaded()) return false;
+    if(!current()) return false;
     await audioReady();
     if(!current()) return false;
     const seeked=onceEvent('seeked', UI.canplay_wait_ms||900);
@@ -195,6 +207,8 @@ async function seekPlayback(t){
     && String(NH.PLAYING_UID) === String(uid);
   try {
     if(NH.SEEK_WAS_PLAYING) NH.au.pause();
+    if(!await ensureAudioLoaded()) return false;
+    if(!current()) return false;
     await audioReady();
     if(!current()) return false;
     const seeked=onceEvent('seeked', UI.canplay_wait_ms||900);
@@ -344,9 +358,11 @@ function paintTicks(){
   const rows=NH.VIEW_MODE==='lrc' ? (NH.EROWS||[]) : (NH.LINES||[]);
   const frag=document.createDocumentFragment();
   rows.forEach(l=>{
-    if(!l || l.t==null) return;
+    const at=lineT(l);
+    if(at===null) return;
     const i=document.createElement('i');
-    i.style.left=(l.t/dur*100)+'%';
+    const pct=NH.audioTime(at)/dur*100;
+    i.style.left=Math.max(0, Math.min(100, pct))+'%';
     frag.appendChild(i);
   });
   box.appendChild(frag);

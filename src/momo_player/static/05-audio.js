@@ -113,7 +113,9 @@ class AudioEngine {
     this._emit('pause');
   }
   seek(t){
-    t=Math.max(0, Math.min(this._dur||0, +t||0));
+    t=Math.max(0, +t||0);
+    if(!this._buf){ this._offset=t; this._emit('seeked'); return; }
+    t=Math.min(this._dur||0, t);
     const was=this._playing;
     if(was){ this._stop(); this._offset=t; this._startSrc(); }
     else this._offset=t;
