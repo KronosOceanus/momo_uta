@@ -12,6 +12,7 @@ dependencies = [
     "sudachidict_core==20261015",
     "mutagen==1.48.1",
     "pywebview==6.2.1",
+    "pyflakes>=3.2",
     "pyobjc-core==13.0; sys_platform == 'darwin'",
     "pyobjc-framework-Cocoa==13.0; sys_platform == 'darwin'",
 ]

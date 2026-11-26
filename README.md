@@ -302,9 +302,11 @@ dist/VERSIONS.txt
 测试依赖：
 
 ```bash
-.venv/bin/pip install -e '.[dev]'
+.venv/bin/pip install -e .
 make test
 ```
+
+（`pyflakes` 已在基础依赖里；开发额外工具仍可用 `.[dev]`。）
 
 包含：
 
@@ -328,7 +330,7 @@ make test-python
 pip install -e .
 pip install -e '.[dev]'
 make test
-  → 440 Python（UI smoke 视桌面环境）
+  → 442 Python（UI smoke 视桌面环境）
   → 96 前端
 
 ./packaging/build.sh thin

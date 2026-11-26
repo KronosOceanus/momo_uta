@@ -478,6 +478,12 @@ class TestPlayerHttp(unittest.TestCase):
             path.unlink(missing_ok=True)
 
 
+    def test_audio_open_failure_is_404_not_stream_500(self):
+        with patch("builtins.open", side_effect=OSError("gone")):
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                self.get("/audio/" + CACHE_ITEM["uid"])
+        self.assertEqual(cm.exception.code, 404)
+
     def test_soundtouch_error_has_code(self):
         req = urllib.request.Request(
             self.url("/api/soundtouch"), data=json.dumps({"uid": "uidtest000001",

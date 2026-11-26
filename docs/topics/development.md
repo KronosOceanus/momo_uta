@@ -11,7 +11,7 @@ make arch          # 当前实现包含 check_arch + check_js
 make app           # 启动桌面应用
 make api           # 命令行验证引擎
 # 首次测试：
-pip install -e '.[dev]'
+pip install -e .
 
 ./packaging/build.sh thin|full  # 构建 .app
 ```
