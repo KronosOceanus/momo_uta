@@ -40,12 +40,13 @@ data/curated、data/lyrics、data/config.json
 
 | 路径 | 键 | 写入者 | 失效方式 | 删除后 |
 |---|---|---|---|---|
-| `data/cache/lyrics/*.json` | title\|artist | `lyrics_fetch` | force / re-match / 删 | 重新联网 |
-| `data/cache/annotations/*.json` | version + text + stored | `annotation_cache` | 源码变化 / 删 | 重新注音 |
-| `data/cache/wave/*.json` | path + source + rate + step | `waveform` | size/mtime / 参数 / 删 | 重新 ffmpeg |
+| `data/cache/lyrics/*.json` | title\|artist | `lyrics_fetch` | force / re-match / 7 天负缓存 / 180 天正缓存 / 删 | 重新联网 |
+| `data/cache/annotations/*.json` | version + text + stored | `annotation_cache` | 源码变化 / 90 天 / 删 | 重新注音 |
+| `data/cache/wave/*.json` | path + source + rate + step | `waveform` | size/mtime / 参数 / 30 天 / 删 | 重新 ffmpeg |
 | `data/cache/library_index.json` | 文件路径 | `library_index` | size/mtime / 删 | 重新扫库 |
 | `data/cache/fingerprints.json` | 文件路径 | `fingerprint` | size/mtime / 删 | 重新算指纹 |
-| `data/vocals/<uid>/` | uid | `vocals` | 手动 / LRU | 重新 demucs（很贵） |
+| `data/vocals/<uid>/` | uid | `vocals` | 完整性清理 / 2GB LRU | 重新 demucs（很贵） |
+| `data/cache/soundtouch/*.wav` | uid + speed | `soundtouch` | 损坏校验 / 2GB LRU | 重新生成 |
 | `data/tmp/` | 进程/任务 | 各任务 | 任务结束 / 启动清理 | 无 |
 
 ## 3. 歌词缓存
@@ -69,7 +70,8 @@ data/cache/lyrics/<md5(title|artist)>.json
 
 ```text
 删除 → 重新联网匹配。
-负缓存带 checked_at，默认 7 天后过期；过期后会自动重试。
+负缓存带 checked_at，默认 7 天后过期；启动清理会删除过期负缓存。
+正缓存默认 180 天后清理。
 ```
 
 ## 4. 注音缓存
@@ -92,6 +94,7 @@ VERSION 改变 → 全部失效。
 
 ```text
 引擎、词典、渲染规则或源码变化时，VERSION 自动变化。
+启动清理删除旧 VERSION 和超过 90 天的注音缓存。
 ```
 
 ## 5. 波形缓存
@@ -118,6 +121,7 @@ data/cache/wave/<md5(path)>.<source>.<rate>.<step>.json
 
 ```text
 删除 → 重新 ffmpeg 解码。
+启动清理删除旧 rate/step 文件和超过 30 天的波形缓存。
 ```
 
 ## 6. 曲库索引
@@ -281,3 +285,17 @@ nhlrc 格式 → nhlrc.md
 人声缓存 → vocals-jobs.md
 曲库索引 → library.md
 ```
+
+
+## 11. 启动清理
+
+启动时 `cache_cleanup.cleanup_startup()` 处理：
+
+```text
+wave：旧 rate/step、超过 30 天
+annotations：旧 VERSION、损坏 JSON、超过 90 天
+lyrics：过期负缓存、超过 180 天的正缓存
+```
+
+SoundTouch / vocals 由各自模块的容量 LRU 处理。  
+其余缓存仍可用 `make clean-cache` 手动清空。
