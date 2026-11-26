@@ -27,6 +27,8 @@ from . import static as STATIC
 TOKEN = secrets.token_urlsafe(32)
 HTTP = CFG.get("http") or {}
 MAX_BODY = int(HTTP.get("max_body_bytes", 2 * 1024 * 1024) or 2 * 1024 * 1024)
+MAX_CONCURRENT = max(1, int(HTTP.get("max_concurrent", 8) or 8))
+_SLOTS = threading.BoundedSemaphore(MAX_CONCURRENT)
 
 
 class H(BaseHTTPRequestHandler):
@@ -99,7 +101,7 @@ class H(BaseHTTPRequestHandler):
 
     def _token_ok(self) -> bool:
         token = self.headers.get("X-Momo-Token") or ""
-        return bool(token) and hmac.compare_digest(token, TOKEN)
+        return bool(token) and token.isascii() and hmac.compare_digest(token, TOKEN)
 
     def _guard(self, protected: bool) -> bool:
         if not self._origin_host_ok():
@@ -138,6 +140,14 @@ class H(BaseHTTPRequestHandler):
                 return None
 
     def _do_GET(self):
+        if not _SLOTS.acquire(blocking=False):
+            return self._json({"ok": False, "error": "busy"}, 503)
+        try:
+            return self._do_GET_inner()
+        finally:
+            _SLOTS.release()
+
+    def _do_GET_inner(self):
         p = urllib.parse.urlparse(self.path).path
         protected = p.startswith("/api/") or p.startswith("/audio/")
         if not self._guard(protected):
@@ -148,7 +158,7 @@ class H(BaseHTTPRequestHandler):
                    "object-src 'none'; script-src 'self' 'unsafe-eval' 'nonce-" + nonce + "'; "
                    "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
                    "media-src 'self' blob:; connect-src 'self'; font-src 'self'")
-            return self._send(200, page(TOKEN, nonce), "text/html; charset=utf-8",
+            return self._send(200, page(nonce), "text/html; charset=utf-8",
                               {"Content-Security-Policy": csp})
         if p.startswith("/static/"):
             it = STATIC.static_file(p)
@@ -271,6 +281,20 @@ class H(BaseHTTPRequestHandler):
         return None
 
     def do_POST(self):
+        if not _SLOTS.acquire(blocking=False):
+            return self._json({"ok": False, "error": "busy"}, 503)
+        try:
+            return self._do_POST_inner()
+        except Exception as e:
+            diag.exception("http", e, method="POST", path=self.path)
+            try:
+                return self._json({"ok": False, "error": "内部错误"}, 500)
+            except Exception:
+                return None
+        finally:
+            _SLOTS.release()
+
+    def _do_POST_inner(self):
         p = urllib.parse.urlparse(self.path).path
         if not self._guard(True):
             return

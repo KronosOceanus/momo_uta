@@ -98,10 +98,12 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertIn("momo uta", html)
         self.assertIn("resetall", html)
 
-    def test_page_injects_token_and_has_no_cors(self):
+    def test_page_does_not_leak_token_or_paths_and_has_no_cors(self):
         r = self.get("/")
         html = r.read().decode()
-        self.assertIn(ROUTES.TOKEN, html)
+        self.assertNotIn(ROUTES.TOKEN, html)
+        self.assertNotIn("music_dirs", html)
+        self.assertIn("URLSearchParams", html)
         self.assertIsNone(r.headers.get("Access-Control-Allow-Origin"))
         self.assertEqual(r.headers.get("X-Frame-Options"), "DENY")
         self.assertEqual(r.headers.get("X-Content-Type-Options"), "nosniff")
@@ -167,6 +169,26 @@ class TestPlayerHttp(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(cm.exception.code, 403)
         self.assertIsNone(cm.exception.headers.get("Access-Control-Allow-Origin"))
+
+    def test_non_ascii_token_is_rejected_without_disconnect(self):
+        req = urllib.request.Request(self.url("/api/library"),
+                                     headers={"X-Momo-Token": "é"})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 403)
+
+    def test_http_concurrency_limit_returns_503(self):
+        old = ROUTES._SLOTS
+        ROUTES._SLOTS = threading.BoundedSemaphore(1)
+        ROUTES._SLOTS.acquire()
+        try:
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(self.url("/"))
+            self.assertEqual(cm.exception.code, 503)
+        finally:
+            ROUTES._SLOTS.release()
+            ROUTES._SLOTS = old
+
 
     def test_audio_response_has_security_headers(self):
         with tempfile.TemporaryDirectory() as tmp:

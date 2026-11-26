@@ -19,6 +19,7 @@ from momo_yomi.paths import BUNDLE, bootstrap
 from momo_player.core import library as LIB
 from momo_player.core import vocals as VOC
 from momo_player.http.server import make_server
+from momo_player.http.routes import TOKEN
 from momo_player.core import cache_cleanup as CACHE_CLEAN
 from momo_player.core import jobs as JOBS
 from momo_player.core import tools as TOOLS
@@ -260,7 +261,7 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
             pass
 
     window = webview.create_window(
-        "桃歌", f"http://127.0.0.1:{port}/",
+        "桃歌", f"http://127.0.0.1:{port}/#token={TOKEN}",
         width=APP["window_width"], height=APP["window_height"],
         min_size=tuple(APP["window_min"]), js_api=Api(),
     )

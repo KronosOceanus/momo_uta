@@ -23,6 +23,7 @@ from momo_player.core import lrc_files as LRF
 from momo_player.core import vocals as VOC
 from momo_player.core.library import CACHE
 from momo_player.http.server import make_server
+from momo_player.http.routes import TOKEN
 
 
 @unittest.skipUnless(HAVE_WEBVIEW, "没有 pywebview")
@@ -69,7 +70,7 @@ class TestUiSmoke(unittest.TestCase):
             out["err"] = window.evaluate_js("(__err||[]).join(' | ')")
 
         window = webview.create_window(
-            "ui-smoke", f"http://127.0.0.1:{self.port}/", width=1000, height=700)
+            "ui-smoke", f"http://127.0.0.1:{self.port}/#token={TOKEN}", width=1000, height=700)
 
         def safe_worker(w):
             try:
