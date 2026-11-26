@@ -1,13 +1,5 @@
 # Changelog
 
-## [Unreleased]
-
-### 修复
-
-- 无播放时先调速度/升降 key，再播放歌曲时等待音频 preload 完成后再套用，
-  避免启动阶段的 seek 失败被误报为 SoundTouch 生成失败。
-- SoundTouch 切换失败但成功回滚时只记客户端日志，不再弹失败 toast。
-
 ## [1.2.1] - 2026-11-26
 
 ### 文档
