@@ -88,15 +88,21 @@ function commitAudio(song){
   const wantSpeed = +(rateEl && rateEl.value) || 1;
   NH.au.playbackRate = 1;
   const wantKey = NH.ST_KEY || 0;
-  if(!stSrc && (wantSpeed !== 1 || wantKey !== 0) && !stBusy && !stQueued){
-    stQueued=true;
-    setTimeout(()=>{
-      stQueued=false;
-      const now=+(rateEl && rateEl.value) || 1;
-      applyTransform(now, NH.ST_KEY || 0);
-    },0);
-  }
-  NH.au.preload().catch(()=>fallbackToOriginal(song, stSrc));  // 整首解码进内存：之后跳转没有解码器 flush
+  const pending = !stSrc && (wantSpeed !== 1 || wantKey !== 0)
+    && !stBusy && !stQueued;
+  if(pending) stQueued=true;
+  // 先等音频真正 preload 完成，再套用待处理的 speed/key；否则新歌刚开播时
+  // seekPlayback 会在 loadedmetadata 之前失败，产生假的“生成失败”toast。
+  NH.au.preload().then(()=>{
+    if(!pending) return;
+    stQueued=false;
+    if(String(NH.PLAYING_UID)!==String(song.uid) || stBusy) return;
+    const now=+(rateEl && rateEl.value) || 1;
+    applyTransform(now, NH.ST_KEY || 0);
+  }).catch(()=>{
+    if(pending) stQueued=false;
+    fallbackToOriginal(song, stSrc);
+  });  // 整首解码进内存：之后跳转没有解码器 flush
   NH.paintTicks?.();                      // src 切换后旧时长/旧歌词不能留着
   document.getElementById('ttl').textContent = '▶ ' + song.title + (song.artist?' · '+song.artist:'');
   syncPlayBtn(); syncPlayControls();
@@ -658,8 +664,12 @@ async function applyTransform(speed, key){
             {uid:target.uid, speed:snap.speed, key:snap.key});
           try{ await forceOriginal(target, pos, token); }catch(e3){}
         }
-        NH.done(restored ? 'SoundTouch 切换失败：'+e.message
-                         : 'SoundTouch 恢复失败，已回到 1.00×');
+        if(restored){
+          NH.reportClientError?.('soundtouch_switch', e.message, '',
+            {uid:target.uid, speed:snap.speed, key:snap.key});
+        }else{
+          NH.done('SoundTouch 恢复失败，已回到 1.00×');
+        }
       }
     }finally{
       if(token===stToken){
@@ -739,8 +749,12 @@ async function applyTransform(speed, key){
           setSpeedUI(shown, false);
           setKeyUI(snap.key || 0, false);
         }
-        NH.done(restored ? 'SoundTouch 生成失败：'+e.error.message
-                         : 'SoundTouch 恢复失败，已回到 1.00×');
+        if(restored){
+          NH.reportClientError?.('soundtouch_switch', e.error.message, '',
+            {uid:target.uid, speed:snap.speed, key:snap.key});
+        }else{
+          NH.done('SoundTouch 恢复失败，已回到 1.00×');
+        }
       }
     }
   }finally{

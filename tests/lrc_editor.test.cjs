@@ -1001,6 +1001,20 @@ test('SoundTouch seek failure restores the previous audio state', async () => {
   assert.equal(p.run("document.getElementById('rate').value"), '1.00');
 });
 
+test('pending speed waits for audio preload before starting', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID=null; PLAY_ITEM=null; ST_ON=false; ST_SPEED=1; ST_KEY=2; document.getElementById('rate').value='1.2';");
+  p.run("au={paused:true,readyState:0,duration:0,currentTime:0,src:'',addEventListener(){},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return new Promise(r=>{resolvePreload=r;});}}");
+  p.run("commitAudio({uid:'u0',title:'A'})");
+  assert.equal(p.calls.length, 0);
+  p.run('resolvePreload()');
+  await nextTurn();
+  assert.equal(p.calls[0].path, '/api/soundtouch');
+  assert.equal(p.calls[0].body.key, 2);
+  p.requests[0].resolve({ok:false, error:'stop'});
+  await nextTurn();
+});
+
 test('speed change without playback only updates the slider', async () => {
   const p = player();
   p.run("S={uid:'u0',title:'A'}; PLAYING_UID=null; PLAY_ITEM=null; ST_ON=false; ST_SPEED=1; document.getElementById('rate').value='0.80';");
