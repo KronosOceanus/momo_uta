@@ -19,6 +19,7 @@ from pathlib import Path
 
 from momo_yomi.paths import CACHE
 
+from . import diag
 from . import fsio as FS
 
 INDEX = CACHE / "fingerprints.json"
@@ -103,8 +104,8 @@ def flush() -> None:
             data = {"_v": INDEX_VERSION, **_CACHE}
             FS.atomic_write_json(INDEX, data, indent=None)
             _DIRTY = False
-        except Exception:
-            pass
+        except Exception as e:
+            diag.log("library", f"fingerprint flush failed: {e}")
 
 
 def _duration(path: Path) -> float | None:

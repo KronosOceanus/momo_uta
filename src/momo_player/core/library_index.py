@@ -12,6 +12,7 @@ from pathlib import Path
 
 from momo_yomi.paths import CACHE
 
+from . import diag
 from . import fsio as FS
 
 INDEX = CACHE / "library_index.json"
@@ -128,5 +129,5 @@ def flush() -> None:
             FS.atomic_write_json(INDEX, {"_v": VERSION, "meta": _data.get("_meta") or {},
                                          "records": recs}, indent=None)
             _dirty = False
-        except Exception:
-            pass
+        except Exception as e:
+            diag.log("library", f"index flush failed: {e}")

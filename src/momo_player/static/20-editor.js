@@ -37,7 +37,7 @@ function markDirty(){
   if(h){ h.textContent='未保存…'; h.className='savehint dirty'; }
   clearTimeout(NH.SAVE_T);
   if(!NH.LRC_CONFLICT)
-    NH.SAVE_T=setTimeout(()=>saveLrc(true), NH.UI.autosave_ms||1500); // 冲突时暂停自动保存
+    NH.SAVE_T=setTimeout(()=>saveLrc(true), NH.UI.autosave_ms||5000); // 冲突时暂停自动保存
   NH.paintTicks?.();
 }
 function newLid(){

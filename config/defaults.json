@@ -33,7 +33,7 @@
       "wave_span_min": 2,
       "wave_span_max": 10,
       "wave_height": 120,
-      "autosave_ms": 1500,
+      "autosave_ms": 5000,
       "undo_steps": 50,
       "toast_ms": 4200,
       "canplay_wait_ms": 900,

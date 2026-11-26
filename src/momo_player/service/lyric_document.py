@@ -38,7 +38,7 @@ def save_rows(ref, rows, expected_version=None, trans_lang=None) -> dict:
                         trans_lang=trans_lang)
     if res.get("ok"):
         try:
-            res["library"] = LIB.refresh(item.get("uid"))
+            res["library"] = LIB.refresh(item.get("uid"), flush=False)
             res["refresh_ok"] = True
         except Exception as e:
             diag.log("library", f"v2 保存后刷新失败 uid={item.get('uid')}: {e}")
@@ -83,7 +83,7 @@ def edit_reading(ref, lid, tid, reading, expected_version=None) -> dict:
                             trans_lang=doc.get("trans_lang") or "zh")
     if res.get("ok"):
         try:
-            res["library"] = LIB.refresh(item.get("uid"))
+            res["library"] = LIB.refresh(item.get("uid"), flush=False)
             res["refresh_ok"] = True
         except Exception as e:
             diag.log("library", f"v2 改读音后刷新失败 uid={item.get('uid')}: {e}")

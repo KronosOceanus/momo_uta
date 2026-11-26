@@ -62,7 +62,7 @@ def lrc_action(req):
                                  expected_version=req.get("version"))
         if res.get("ok"):
             try:
-                LIB.refresh(item.get("uid"))
+                LIB.refresh(item.get("uid"), flush=False)
                 res["refresh_ok"] = True
             except Exception as e:
                 res["refresh_ok"] = False
@@ -73,7 +73,7 @@ def lrc_action(req):
                                expected_version=req.get("version"))
         if res.get("ok"):
             try:
-                LIB.refresh(item.get("uid"))
+                LIB.refresh(item.get("uid"), flush=False)
                 res["refresh_ok"] = True
             except Exception as e:
                 res["refresh_ok"] = False

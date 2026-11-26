@@ -99,6 +99,17 @@ class TestCacheRefresh(unittest.TestCase):
                 CACHE.clear(); CACHE.update(old_cache)
                 LIB.BY_UID.clear(); LIB.BY_UID.update(old_by)
 
+    def test_refresh_can_defer_index_flush(self):
+        with patch.object(LIB, "_entry", return_value=item("u1", "A2")), \
+             patch.object(LIB.LI, "flush") as li_flush, \
+             patch.object(LIB.FP, "flush") as fp_flush:
+            LIB.refresh("u1", flush=False)
+            li_flush.assert_not_called()
+            fp_flush.assert_not_called()
+            LIB.flush_indexes()
+            li_flush.assert_called_once()
+            fp_flush.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

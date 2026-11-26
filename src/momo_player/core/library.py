@@ -146,8 +146,12 @@ def _resolve_uid(uid: str) -> tuple[Path, str] | None:
     return None
 
 
-def refresh(uid: str | None = None) -> int:
-    """重建 CACHE。uid 不在 CACHE 时只尝试已有索引，不扫全库。"""
+def refresh(uid: str | None = None, *, force_fp: bool = False,
+            flush: bool = True) -> int:
+    """重建 CACHE。uid 不在 CACHE 时只尝试已有索引，不扫全库。
+
+    保存歌词时用 flush=False：只更新内存，退出/扫描时统一落盘。
+    """
     global LAST_MISSING
     with _LOCK:
         lost: set[str] = set()
@@ -155,7 +159,8 @@ def refresh(uid: str | None = None) -> int:
             stored = LRC.store_index({str(uid)})
             for k, v in list(CACHE.items()):
                 if str(v.get("uid")) == str(uid):
-                    e = _entry(Path(v["file"]), v.get("group", ""), stored=stored, force_fp=True)
+                    e = _entry(Path(v["file"]), v.get("group", ""), stored=stored,
+                               force_fp=force_fp)
                     old_uid = str(v.get("uid") or "")
                     if e:
                         new_uid = str(e["uid"])
@@ -182,13 +187,14 @@ def refresh(uid: str | None = None) -> int:
                         FP.prune_paths([v["file"]])
                     if lost:
                         LAST_MISSING = sorted(set(LAST_MISSING) | lost)
-                    LI.flush()
-                    FP.flush()
+                    if flush:
+                        LI.flush()
+                        FP.flush()
                     return len(CACHE)
             found = _resolve_uid(str(uid))
             if found:
                 p, group = found
-                e = _entry(p, group, stored=stored, force_fp=True)
+                e = _entry(p, group, stored=stored, force_fp=force_fp)
                 if e:
                     nums = [int(k) for k in CACHE if str(k).isdigit()]
                     CACHE[str(max(nums) + 1 if nums else 0)] = e
@@ -207,7 +213,9 @@ def refresh(uid: str | None = None) -> int:
                     FP.prune_paths([str(p)])
             if lost:
                 LAST_MISSING = sorted(set(LAST_MISSING) | lost)
-            LI.flush()
+            if flush:
+                LI.flush()
+                FP.flush()
             return len(CACHE)
         lib = scan_library()
         _publish(lib)
@@ -436,6 +444,12 @@ def rebuild_library() -> dict:
     diag.log("library", f"rebuild loaded={len(CACHE)} missing={len(LAST_MISSING)} recovered={recovered}")
     return {"ok": True, "library": len(CACHE), "missing": len(LAST_MISSING),
             "recovered": recovered}
+
+
+def flush_indexes() -> None:
+    """把延迟的索引/指纹更新落盘；应用退出和全量扫描时调用。"""
+    LI.flush()
+    FP.flush()
 
 
 def load_cache_for_playlists() -> int:

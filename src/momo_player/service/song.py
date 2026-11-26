@@ -309,7 +309,7 @@ def _reset_v2(item: dict, expected_version=None) -> dict | None:
                         trans_lang=doc.get("trans_lang") or "zh")
     if res.get("ok"):
         try:
-            res["library"] = LIB.refresh(item.get("uid"))
+            res["library"] = LIB.refresh(item.get("uid"), flush=False)
             res["refresh_ok"] = True
         except Exception as e:
             res["refresh_ok"] = False
@@ -370,7 +370,7 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
         res["ids"] = saved_ids
     if uid and res.get("ok") and not res.get("skipped"):
         try:
-            res["library"] = LIB.refresh(uid)
+            res["library"] = LIB.refresh(uid, flush=False)
             for _, v in LIB.snapshot():
                 if v.get("uid") == uid:
                     v["has_lyric"] = True
@@ -615,7 +615,7 @@ def lazy_match(item: dict) -> str:
     artist, title = LY.split_name(item["stem"])
     _hit, status = LY.get_lrc_status(
         title, artist, duration=LY.audio_duration(item["file"]), force=True)
-    LIB.refresh(item.get("uid"))
+    LIB.refresh(item.get("uid"), flush=False)
     fresh = LIB.resolve(item.get("uid"))
     if fresh:
         fresh["match_status"] = status

@@ -350,6 +350,10 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
         except Exception:
             pass
         try:
+            LIB.flush_indexes()
+        except Exception as e:
+            diag.log("library", f"shutdown flush failed: {e}")
+        try:
             srv.shutdown()
             srv.server_close()
         except Exception:
