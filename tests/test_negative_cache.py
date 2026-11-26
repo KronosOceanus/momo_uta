@@ -37,10 +37,6 @@ class TestNegativeCache(unittest.TestCase):
                 LC.set_cache_dir(old_dir)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestMatchStatus(unittest.TestCase):
     def test_network_error_is_not_negative_cached(self):
         from unittest.mock import patch
@@ -73,3 +69,26 @@ class TestMatchStatus(unittest.TestCase):
                 self.assertEqual(raw["reason"], "no_match")
             finally:
                 LC.set_cache_dir(old_dir)
+
+    def test_no_lyrics_is_negative_cached_with_reason(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            old_dir = LC.CACHE
+            LC.set_cache_dir(Path(tmp))
+            try:
+                c = {"id": 1, "name": "曲", "artist": "歌手", "duration": 60.0}
+                with patch.object(LF, "search_candidates_status",
+                                  return_value=([c], LF.MATCH_OK)), \
+                     patch.object(LF, "fetch_candidate", return_value=None):
+                    hit, status = LF.get_lrc_status("曲", "歌手", use_cache=False,
+                                                    force=True, duration=60)
+                self.assertIsNone(hit)
+                self.assertEqual(status, LF.MATCH_NO_LYRICS)
+                raw = json.loads(LC.cache_path("曲", "歌手").read_text(encoding="utf-8"))
+                self.assertTrue(raw["miss"])
+                self.assertEqual(raw["reason"], "no_lyrics")
+            finally:
+                LC.set_cache_dir(old_dir)
+
+if __name__ == "__main__":
+    unittest.main()
