@@ -429,6 +429,23 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertEqual(d["url"], payload["url"])
         info.assert_called_once_with("u", 0.8)
 
+    def test_soundtouch_info_with_key(self):
+        payload = {"uid": "u", "speed": 0.8, "key": 2,
+                   "url": "/audio/u?st=0.80&key=2", "duration": 1.0, "bytes": 2}
+        with patch.object(ROUTES.SVC_ST, "info", return_value=payload) as info:
+            d = json.loads(self.post("/api/soundtouch",
+                                     {"uid": "u", "speed": 0.8, "key": 2}).read())
+        self.assertTrue(d["ok"])
+        self.assertEqual(d["url"], payload["url"])
+        info.assert_called_once_with("u", 0.8, 2)
+
+    def test_soundtouch_audio_uses_key_cache(self):
+        with patch.object(ROUTES.SVC_ST, "cached_path", return_value=None) as cached:
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                self.get(f"/audio/{CACHE_ITEM['uid']}?st=0.80&key=2")
+        self.assertEqual(cm.exception.code, 404)
+        cached.assert_called_once_with(CACHE_ITEM["uid"], 0.8, 2)
+
     def test_soundtouch_cancel(self):
         with patch.object(ROUTES.SVC_ST, "cancel") as cancel:
             r = self.post("/api/soundtouch/cancel", {"uid": "u"})

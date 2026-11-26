@@ -110,6 +110,12 @@ Accept-Ranges: bytes
 ```
 
 ```text
+SoundTouch 缓存：?st=0.80&key=2
+key 为 -6..+6；key=0 可省略。
+只读缓存，不触发生成。
+```
+
+```text
 前端 abort 时服务端捕获 BrokenPipe/Reset，
 不写错误日志。
 ```
@@ -272,7 +278,29 @@ export 直接序列化 rows，返回 nhlrc + 纯 lrc
 trans_lang 原样带出
 ```
 
-### 2.8 `/api/jobs`
+### 2.8 `/api/soundtouch`
+
+```json
+{"uid": "...", "speed": 0.8, "key": 2}
+```
+
+```text
+speed: 0.5..1.25
+key:   -6..+6，可省略，默认 0
+
+返回 {ok, uid, speed, key, url, duration, bytes}
+key=0 时保持旧调用 {uid, speed} 兼容
+```
+
+```text
+error_code:
+  invalid_speed
+  invalid_key
+  song_missing
+  soundtouch_failed
+```
+
+### 2.9 `/api/jobs`
 
 ```json
 {"kind": "vocals|match|rebuild", "uid": "..."}

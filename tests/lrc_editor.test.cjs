@@ -1085,6 +1085,18 @@ test('speed choices use one canonical 10 percent list', () => {
   assert.equal(p.run('speedLabel(0.5)'), '0.5×');
 });
 
+test('speed shortcut follows canonical list endpoints', () => {
+  const p = player();
+  p.run("PLAYING_UID=null; PLAY_ITEM=null; document.getElementById('rate').value='1.2';");
+  p.dispatch('keydown', {target:{tagName:'BODY'}, key:']', preventDefault(){}});
+  assert.equal(Number(p.run("document.getElementById('rate').value")), 1.25);
+  p.dispatch('keydown', {target:{tagName:'BODY'}, key:']', preventDefault(){}});
+  assert.equal(Number(p.run("document.getElementById('rate').value")), 1.25);
+  p.run("document.getElementById('rate').value='0.5';");
+  p.dispatch('keydown', {target:{tagName:'BODY'}, key:'[', preventDefault(){}});
+  assert.equal(Number(p.run("document.getElementById('rate').value")), 0.5);
+});
+
 test('speed shortcut dispatches change and starts SoundTouch', async () => {
   const p = player();
   p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=false; ST_SPEED=1; document.getElementById('rate').value='1.00';");

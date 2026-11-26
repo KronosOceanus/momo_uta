@@ -5,7 +5,7 @@
 <h1 align="center">桃歌 · momo uta</h1>
 
 <p align="center">
-  <strong>v1.1.2</strong>
+  <strong>v1.2.0</strong>
   <br>
 
   本地日语歌曲播放器
@@ -16,9 +16,9 @@
 </p>
 
 <p align="center">
-  <img src="assets/momo-uta-screenshot.png" alt="momo uta 歌词与播放界面">
+  <img src="assets/momo-uta-screenshot-key.webp" width="100%" alt="桃歌 播放界面与升降 key 列表">
   <br><br>
-  <img src="assets/momo-uta-screenshot-editor.png" alt="momo uta LRC 编辑界面">
+  <img src="assets/momo-uta-screenshot-lrc.webp" width="100%" alt="桃歌 LRC 编辑与波形对轴">
 </p>
 
 ## 它是什么
@@ -68,16 +68,28 @@ lyric / blank / metadata 统一为 rows
 关闭窗口后继续播放
 ```
 
-### SoundTouch 原调
+### SoundTouch 原调 / 升降 key
 
-速度不是 `1.0×` 时自动生效，不需要开关：
+底部播放栏提供两个按钮：
 
 ```text
-0.50–0.95× / 1.05–1.25×
+[原调]  [1.0×]
 ```
 
-播放器会预生成一份 SoundTouch 变速 WAV 再播放。  
-回到 `1.0×` 自动切回原始音频。
+速度按 10% 档：
+
+```text
+0.5× / 0.6× / ... / 1.2× / 1.25×
+```
+
+升降 key 范围：
+
+```text
+-6 ～ +6 半音
+```
+
+速度或 key 不是默认值时，播放器会预生成一份 SoundTouch 处理后的 WAV 再播放；  
+速度和 key 合并为同一个文件，切歌自动回到 `[原调] [1.0×]`。
 
 限制：
 
@@ -330,8 +342,8 @@ make test-python
 pip install -e .
 pip install -e '.[dev]'
 make test
-  → 443 Python（UI smoke 视桌面环境）
-  → 99 前端
+  → 445 Python（UI smoke 视桌面环境）
+  → 100 前端
 
 ./packaging/build.sh thin
   → dist/thin/momo-uta-thin.app

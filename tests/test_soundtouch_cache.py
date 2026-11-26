@@ -221,7 +221,8 @@ class TestSoundTouchCache(unittest.TestCase):
 
             def fake_run(cmd, _uid, _gen):
                 cmds.append(cmd)
-                Path(cmd[2]).write_bytes(b"x")
+                out = cmd[-1] if "-hide_banner" in cmd else cmd[2]
+                Path(out).write_bytes(b"x")
 
             with patch.object(ST, "CACHE", root), \
                  patch.object(ST, "CACHE_DIR", cache), \

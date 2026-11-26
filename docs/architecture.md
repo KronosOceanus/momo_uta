@@ -142,7 +142,7 @@ annotate / romaji / render / kana / counters / invariants / thresholds
 | `data/cache/wave/*.json` | 音频 + source + 参数 | `waveform` | 重新算峰值 |
 | `data/cache/library_index.json` | 文件路径 | `library_index` | 重新扫库 |
 | `data/cache/fingerprints.json` | 文件路径 | `fingerprint` | 重新算指纹 |
-| `data/cache/soundtouch/<uid>-<speed>.wav` | uid + speed | `service.soundtouch` | 重新生成；2GB LRU |
+| `data/cache/soundtouch/<uid>-<speed>[-key].wav` | uid + speed + key | `service.soundtouch` | 重新生成；2GB LRU |
 | `data/vocals/<uid>/` | uid | `vocals` | 重新分离（很贵） |
 
 ```text
@@ -264,7 +264,7 @@ lyric_document  nhlrc rows 读写、播放派生、按 lid 改读音
 lrc        编辑、导入导出、备份、nhlrc/旧 API
 playlist   歌单动作、导入、ui_offset
 jobs       任务编排
-soundtouch 预生成变速 WAV、缓存、取消
+soundtouch 预生成变速/变调 WAV、缓存、取消
 settings   主题 / 播放模式校验与持久化编排
 ```
 
