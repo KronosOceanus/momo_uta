@@ -139,11 +139,13 @@ class TestImportToList(unittest.TestCase):
             try:
                 with patch.object(IMP, "import_paths",
                                   return_value={"added": [str(audio)], "pending": [],
-                                                "overwritten": 0, "unpaired": 0}), \
+                                                "overwritten": 0, "unpaired": 0}) as imp, \
                      patch.object(LIB, "save_import"), \
                      patch.object(LIB, "refresh", return_value=1), \
                      patch.object(FP, "fingerprint", return_value="fp1"):
-                    res = SVC.import_to_list({"list": "default", "paths": [str(audio)]})
+                    res = SVC.import_to_list({"list": "default", "paths": [str(audio)],
+                                              "versions": {str(audio): "v1"}})
+                self.assertEqual(imp.call_args.kwargs["versions"], {str(audio): "v1"})
             finally:
                 PL.set_file(old)
             self.assertTrue(res["ok"])

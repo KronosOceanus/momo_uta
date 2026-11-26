@@ -15,6 +15,12 @@ MOMO_VARIANT="$VARIANT" .venv/bin/pyinstaller --clean --noconfirm \
   packaging/momo_uta.spec
 
 APP="dist/$VARIANT/$NAME.app"
+IDENTITY="${MOMO_CODESIGN_IDENTITY:-}"
+if [ -n "$IDENTITY" ]; then
+  codesign --force --deep --options runtime --timestamp --sign "$IDENTITY" "$APP"
+else
+  codesign --force --deep --sign - "$APP"
+fi
 ZIP="dist/$NAME.zip"
 rm -f "$ZIP"
 if command -v ditto >/dev/null 2>&1; then
@@ -37,5 +43,9 @@ fi
     fi
   done
 } > dist/VERSIONS.txt
+if [ -n "${MOMO_NOTARY_PROFILE:-}" ]; then
+  xcrun notarytool submit "$ZIP" --keychain-profile "$MOMO_NOTARY_PROFILE" --wait
+  xcrun stapler staple "$APP"
+fi
 echo "built $APP"
 echo "built $ZIP"

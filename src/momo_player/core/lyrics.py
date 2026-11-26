@@ -10,6 +10,46 @@
 """
 from __future__ import annotations
 
+__all__ = [
+    'CFG',
+    '_cached',
+    'cache_path',
+    'set_cache_dir',
+    'MATCH_NETWORK',
+    'MATCH_NO_LYRICS',
+    'MATCH_NO_MATCH',
+    'MATCH_OK',
+    'LyricsNetworkError',
+    'audio_duration',
+    'auto_match',
+    'auto_match_status',
+    'accept_candidate',
+    'fetch_candidate',
+    'fetch_lyrics_by_id',
+    'get_lrc',
+    'get_lrc_status',
+    'score_candidate',
+    'search_candidates',
+    'search_candidates_status',
+    'valid_lrc',
+    'JP',
+    'KANA_RE',
+    'HAN_RE',
+    'LAT_RE',
+    'LRC',
+    'clean_artist',
+    'content_lines',
+    'has_timed',
+    'is_excluded',
+    'is_likely_song',
+    'kind',
+    'lang_guess',
+    'split_name',
+    '_match',
+    '_norm',
+    '_key',
+]
+
 from momo_yomi.config import LY as CFG  # noqa: F401
 
 from .lyrics_cache import _cached, cache_path, set_cache_dir  # noqa: F401

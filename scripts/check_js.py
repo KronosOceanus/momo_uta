@@ -2,11 +2,13 @@
 """前端脚本的完整性检查：
 
 1. 每个文件单独语法检查（node --check）
-2. 五个文件按加载顺序拼起来再检查一次（抓跨文件重复定义/漏声明）
+2. 所有文件按加载顺序拼起来再检查一次（合并后的语法）
 3. 命名空间检查：每个脚本必须是 IIFE，且只通过 window.NH 暴露东西
+4. 跨文件重复导出检查：Object.assign(NH, {...}) 的键不能重复
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -42,6 +44,27 @@ def check_namespace(name: str, src: str) -> bool:
     return True
 
 
+EXPORT_RE = re.compile(r"Object\.assign\(NH,\s*\{(.*?)\}\)", re.S)
+EXPORT_NAME_RE = re.compile(r"(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)")
+
+
+def check_exports() -> bool:
+    seen: dict[str, str] = {}
+    ok = True
+    for name in ORDER:
+        p = STATIC / name
+        if not p.is_file():
+            continue
+        for body in EXPORT_RE.findall(p.read_text(encoding="utf-8")):
+            for key in EXPORT_NAME_RE.findall(body):
+                if key in seen:
+                    print(f"✗ 重复导出 NH.{key}: {seen[key]} / {name}")
+                    ok = False
+                else:
+                    seen[key] = name
+    return ok
+
+
 def main() -> int:
     ok = True
     for name in ORDER:
@@ -55,7 +78,8 @@ def main() -> int:
         ok &= node_check(src, name)
     joined = "\n".join((STATIC / n).read_text(encoding="utf-8") for n in ORDER
                        if (STATIC / n).is_file())
-    ok &= node_check(joined, "三个文件合并后（检查跨文件重复定义）")
+    ok &= node_check(joined, "所有文件合并后（语法）")
+    ok &= check_exports()
     for name in ("demo_driver.js",):
         p = DEMO / name
         if not p.is_file():

@@ -1,6 +1,7 @@
 # 本机 HTTP API
 
-> 本机桌面应用使用，不对外暴露、不做鉴权。
+> 本机桌面应用使用，只绑定 127.0.0.1。
+> 需要 `X-Momo-Token`；页面 token 通过 URL fragment 传递，不出现在 HTML 里。
 > 总线和分层见 [architecture](../architecture.md)。
 
 ## 0. 基本约定
@@ -9,6 +10,8 @@
 服务绑定 127.0.0.1 的随机端口
 桌面壳启动服务
 前端通过相对路径 /api/* 调用
+API/音频请求带 X-Momo-Token
+HTTP 默认最多 8 个并发 handler，超限 503
 ```
 
 ```text

@@ -45,7 +45,7 @@ app:
 api:
 	@$(PY) -c "import momo_yomi; print(momo_yomi.Annotator().annotate('今日は雨が降る')['romaji']['text'])"
 
-test: arch test-python
+test: arch test-python lint-python
 	node --test tests/lrc_editor.test.cjs tests/state_machine.test.cjs tests/audio_engine.test.cjs
 
 test-python: arch-python
@@ -56,6 +56,9 @@ arch: arch-python
 
 arch-python:
 	$(PY) scripts/check_arch.py
+
+lint-python:
+	$(PY) -m pyflakes src scripts tests
 
 build-tables:
 	$(PY) -m tools.build.build_tables

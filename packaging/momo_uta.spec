@@ -5,6 +5,7 @@
   MOMO_VARIANT=full  bundles demucs + torch + ffmpeg
 """
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -12,6 +13,8 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ROOT = Path(SPECPATH).resolve().parent
+VERSION = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+                    re.M).group(1)
 VARIANT = os.environ.get("MOMO_VARIANT", "thin")
 assert VARIANT in ("thin", "full"), VARIANT
 NAME = f"momo-uta-{VARIANT}"
@@ -25,6 +28,8 @@ datas = [
     (str(ROOT / "data" / "corpus" / "ndl_reading_stats.json"), "data/corpus"),
     (str(ROOT / "src" / "momo_player" / "static"), "momo_player/static"),
     (str(ROOT / "packaging" / "licenses"), "licenses"),
+    (str(ROOT / "LICENSE"), "."),
+    (str(ROOT / "THIRD_PARTY_NOTICES.md"), "."),
 ]
 datas += collect_data_files("sudachidict_core")
 datas += collect_data_files("sudachipy")
@@ -152,7 +157,7 @@ exe = EXE(
     console=False,
     argv_emulation=False,
     target_arch="arm64",
-    codesign_identity=None,
+    codesign_identity=os.environ.get("MOMO_CODESIGN_IDENTITY") or None,
     entitlements_file=None,
     icon=str(ROOT / "assets" / "momo-uta-logo.icns"),
 )
@@ -174,8 +179,8 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "桃歌",
         "CFBundleDisplayName": "桃歌",
-        "CFBundleShortVersionString": "1.1.0",
-        "CFBundleVersion": "1.1.0",
+        "CFBundleShortVersionString": VERSION,
+        "CFBundleVersion": VERSION,
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "12.0",
     },

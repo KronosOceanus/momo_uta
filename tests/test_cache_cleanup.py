@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 from momo_player.core import annotation_cache as ANNO
 from momo_player.core import cache_cleanup as C
-from momo_player.core import lyrics_cache as LYC
 
 
 class TestCacheCleanup(unittest.TestCase):

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import sys
+import queue
 import threading
 from pathlib import Path
 
@@ -270,24 +271,34 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
         from momo_uta_app import demo as DEMO
         DEMO.install(window, auto=demo_auto)
 
-    def on_hotkey(name):
-        js = {"prev": "NH.mediaPrev && NH.mediaPrev()",
-              "next": "NH.mediaNext && NH.mediaNext()",
-              "toggle": "NH.mediaToggle && NH.mediaToggle()"}.get(name)
-        if not js:
-            return
-        # Carbon 回调在主线程；evaluate_js 会等待主线程执行，
-        # 直接调用会死锁。切到后台线程，让主线程继续跑 WebView。
-        def run():
-            try:
-                window.evaluate_js(js)
-            except Exception:
-                pass
-        threading.Thread(target=run, daemon=True).start()
+    hotkey_q: "queue.Queue[str]" = queue.Queue()
+    hotkey_js = {"prev": "NH.mediaPrev && NH.mediaPrev()",
+                 "next": "NH.mediaNext && NH.mediaNext()",
+                 "toggle": "NH.mediaToggle && NH.mediaToggle()"}
 
+    def hotkey_worker():
+        while True:
+            name = hotkey_q.get()
+            js = hotkey_js.get(name)
+            if js:
+                try:
+                    window.evaluate_js(js)
+                except Exception:
+                    pass
+
+    threading.Thread(target=hotkey_worker, daemon=True, name="hotkeys").start()
+
+    def on_hotkey(name):
+        # Carbon 回调在主线程；evaluate_js 不能在主线程等自己。排队给单个 worker。
+        hotkey_q.put(name)
+
+    GLOBAL_KEYS = None
     try:
         from momo_uta_app import hotkeys as GLOBAL_KEYS
-        GLOBAL_KEYS.install(on_hotkey)
+        hk = GLOBAL_KEYS.install(on_hotkey)
+        if hk.get("failed"):
+            from momo_player.core import diag
+            diag.log("hotkeys", f"registered={hk.get('registered')} failed={hk.get('failed')}")
     except Exception:
         pass
 
@@ -359,6 +370,11 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
     try:
         webview.start(menu=[Menu("窗口", [MenuAction("显示窗口", show_window)])])
     finally:
+        try:
+            if GLOBAL_KEYS is not None:
+                GLOBAL_KEYS.uninstall()
+        except Exception:
+            pass
         try:
             JOBS.cancel_all()
         except Exception:

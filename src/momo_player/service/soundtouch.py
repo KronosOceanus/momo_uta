@@ -8,14 +8,13 @@ import os
 import shutil
 import signal
 import subprocess
-import sys
 import tempfile
 import threading
 import time
 import wave
 from pathlib import Path
 
-from momo_yomi.paths import BUNDLE, CACHE
+from momo_yomi.paths import CACHE
 
 from ..core import diag
 from ..core import library as LIB
@@ -88,7 +87,6 @@ def _cancel_gen(uid: str) -> int:
 
 def cancel(uid: str | None = None) -> None:
     """取消指定歌曲当前/排队中的生成；不传 uid 时取消当前进程。"""
-    global _CURRENT
     uid = str(uid or "")
     with _STATE_LOCK:
         if uid:

@@ -274,7 +274,7 @@ settings   主题 / 播放模式校验与持久化编排
 routes     路由、参数校验、JSON 结果
 server     ThreadingHTTPServer
 static     静态文件与 Range
-web        页面装配 + __CFG + __MOMO_TOKEN + 配置警告 + data-theme
+web        页面装配 + 白名单 __CFG + fragment token + 配置警告 + data-theme
 ```
 
 ### app

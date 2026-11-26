@@ -11,7 +11,7 @@
 ```
 
 ```text
-2026-11-24 已重建：
+2026-11-26 v1.1.1 已重建：
   thin / full 两种 .app
   thin / full 两种 zip
   VERSIONS.txt（commit + sha256）
@@ -262,14 +262,20 @@ CFBundleName / CFBundleDisplayName：桃歌
 ## 9. 签名与公证
 
 ```text
-codesign
-notarytool
-staple
+默认：ad-hoc codesign
+正式分发：MOMO_CODESIGN_IDENTITY + MOMO_NOTARY_PROFILE
+```
+
+```bash
+MOMO_CODESIGN_IDENTITY="Developer ID Application: ..." \
+MOMO_NOTARY_PROFILE="momo-notary" \
+./packaging/build.sh thin
 ```
 
 ```text
-需要 Developer ID 证书。
-没有公证的 .app 在其他机器会被 Gatekeeper 拦。
+有 MOMO_CODESIGN_IDENTITY 时使用 hardened runtime + timestamp；
+有 MOMO_NOTARY_PROFILE 时提交 notarytool 并 staple。
+没有证书时仍是 ad-hoc 签名，只能本机/自用。
 ```
 
 ```text

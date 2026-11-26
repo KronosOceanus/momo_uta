@@ -118,7 +118,7 @@ def _too_many(audios, lrcs, msg: str) -> dict:
 
 
 def import_paths(paths: list[str], pool_audio: list[str] | None = None,
-                 with_lrc: bool = False) -> dict:
+                 with_lrc: bool = False, versions: dict[str, str] | None = None) -> dict:
     """按用户选中的路径导一批。
 
     with_lrc=False：只收音频，不扫描/不配对目录里的歌词。
@@ -242,9 +242,11 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
                                "error": "显式选择的歌词无效"})
             continue
         had = LRC.exists(str(a))
+        expected = (versions or {}).get(str(a))
         try:
             imported = LRC.import_text(str(a), raw, uid=FP.fingerprint(a),
-                                       title=title, artist=artist)
+                                       title=title, artist=artist,
+                                       expected_version=expected)
         except Exception as e:
             imported = {"ok": False, "error": str(e)}
         if imported.get("ok"):
@@ -287,9 +289,11 @@ def import_paths(paths: list[str], pool_audio: list[str] | None = None,
             unpaired += 1
             continue
         had = LRC.exists(target)
+        expected = (versions or {}).get(str(target))
         try:
             imported = LRC.import_text(str(target), raw, uid=FP.fingerprint(target),
-                                       title=title, artist=artist)
+                                       title=title, artist=artist,
+                                       expected_version=expected)
         except Exception as e:
             imported = {"ok": False, "error": str(e)}
         used_lrc.add(lrc)

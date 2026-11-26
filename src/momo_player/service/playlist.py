@@ -109,7 +109,11 @@ def import_to_list(req) -> dict:
                 "error": f"一次最多导入 {IMP.MAX_IMPORT_PATHS} 个路径",
                 "lists": _lists()}
     pool = [it["file"] for g in PL.build(cached_items()) if g["id"] == lid for it in g["items"]]
-    res = IMP.import_paths(paths, pool, with_lrc=bool(req.get("with_lrc")))
+    versions = req.get("versions")
+    if not isinstance(versions, dict):
+        versions = None
+    res = IMP.import_paths(paths, pool, with_lrc=bool(req.get("with_lrc")),
+                           versions=versions)
     if res.get("ok") is False:
         return {"ok": False, "error": res.get("error") or "导入失败",
                 "lists": _lists()}
