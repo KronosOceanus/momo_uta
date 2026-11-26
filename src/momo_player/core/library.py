@@ -152,9 +152,10 @@ def refresh(uid: str | None = None) -> int:
     with _LOCK:
         lost: set[str] = set()
         if uid is not None:
+            stored = LRC.store_index({str(uid)})
             for k, v in list(CACHE.items()):
                 if str(v.get("uid")) == str(uid):
-                    e = _entry(Path(v["file"]), v.get("group", ""), force_fp=True)
+                    e = _entry(Path(v["file"]), v.get("group", ""), stored=stored, force_fp=True)
                     old_uid = str(v.get("uid") or "")
                     if e:
                         new_uid = str(e["uid"])
@@ -187,7 +188,7 @@ def refresh(uid: str | None = None) -> int:
             found = _resolve_uid(str(uid))
             if found:
                 p, group = found
-                e = _entry(p, group, force_fp=True)
+                e = _entry(p, group, stored=stored, force_fp=True)
                 if e:
                     nums = [int(k) for k in CACHE if str(k).isdigit()]
                     CACHE[str(max(nums) + 1 if nums else 0)] = e

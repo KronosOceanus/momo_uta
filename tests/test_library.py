@@ -73,6 +73,26 @@ class TestLibrary(unittest.TestCase):
         self.assertTrue(seen)
         self.assertTrue(all(v is False for v in seen))
 
+    def test_refresh_keeps_v2_has_lyric(self):
+        audio = self.dir / "歌手A - 曲A.mp3"
+        with patch.object(LRF, "LYRICS", self.dir / "lyrics"), \
+             patch.object(LRF.LY, "audio_duration", return_value=60):
+            LRF.save(audio, [{"t": 1.0, "text": "あの日"},
+                             {"t": 2.0, "text": "今も"},
+                             {"t": 3.0, "text": "空を"}], {})
+            rows = [r for r in LIB.scan_library(self.dir) if r["stem"].endswith("曲A")]
+        self.assertTrue(rows)
+        self.assertTrue(rows[0]["has_lyric"])
+        old = dict(LIB.CACHE)
+        LIB.CACHE.clear()
+        try:
+            LIB.CACHE["0"] = dict(rows[0])
+            LIB.refresh(rows[0]["uid"])
+            self.assertTrue(LIB.CACHE["0"]["has_lyric"])
+        finally:
+            LIB.CACHE.clear()
+            LIB.CACHE.update(old)
+
     def test_cache_only_entry_after_index_has_lyric(self):
         """索引命中 rec 时也必须按 title, artist 查缓存，不能只看 nhlrc。"""
         self._write_hit("曲A", "歌手A")
