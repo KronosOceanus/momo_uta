@@ -360,6 +360,33 @@ class TestV2EditLine(unittest.TestCase):
                 got = LRF.load_rows(audio)
                 self.assertEqual(got["rows"][0]["tokens"][0]["ruby"], "きみだ")
 
+    def test_tokenless_v2_reading_refreshes_library_without_flush(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from momo_player.core import lrc_files as LRF
+        from momo_player.core import library as LIB
+        from momo_player.core.library import CACHE
+        from momo_player.service import song as SONG
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "曲.mp3"
+            audio.touch()
+            uid = LRF.uid_of(audio)
+            item = {"key": "k", "uid": uid, "file": str(audio),
+                    "stem": "曲", "orig": "曲", "title": "曲", "artist": "歌手",
+                    "has_lyric": True, "group": ""}
+            CACHE.clear(); CACHE["0"] = item; LIB.BY_UID[uid] = item
+            rows = [{"kind": "lyric", "text": "君", "t": 1.0, "lid": "l_aaa",
+                     "tokens": [], "trans": ""}]
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LIB, "refresh") as refresh:
+                self.assertTrue(LRF.save_rows(audio, rows)["ok"])
+                out = SONG.edit_line(uid, 0, 0, "きみだ")
+            self.assertTrue(out)
+            refresh.assert_called_once_with(uid, flush=False)
+
 
 class TestUtf16Spans(unittest.TestCase):
     def test_token_spans_after_surrogate_are_utf16(self):

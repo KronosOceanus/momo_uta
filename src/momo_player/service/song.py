@@ -494,6 +494,10 @@ def edit_line(uid, li, start, reading, lid=None, expected_version=None):
                                   trans_lang=v2.get("trans_lang") or "zh")
             if not saved.get("ok"):
                 return None
+            try:
+                LIB.refresh(item.get("uid"), flush=False)
+            except Exception as e:
+                diag.log("library", f"v2 改读音后刷新失败 uid={item.get('uid')}: {e}")
             return {"line": li, "lid": row.get("lid"),
                     "ruby": ruby_html(r),
                     "rm": r.get("romaji", {}).get("text", ""),
