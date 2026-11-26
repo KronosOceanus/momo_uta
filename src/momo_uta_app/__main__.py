@@ -293,6 +293,39 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
 
     allow_quit = {"value": False}
     quitting = {"value": False}
+    quit_failures = {"value": 0}
+
+    def force_quit():
+        allow_quit["value"] = True
+        try:
+            from AppKit import NSApplication
+            from PyObjCTools import AppHelper
+            AppHelper.callAfter(lambda: NSApplication.sharedApplication().terminate_(None))
+        except Exception:
+            try:
+                window.destroy()
+            except Exception:
+                pass
+
+    def quit_failed(message: str) -> None:
+        """保存失败时把隐藏的窗口拉回来；连续失败 3 次才强制退出。"""
+        quit_failures["value"] += 1
+        try:
+            show_window()
+        except Exception:
+            pass
+        try:
+            window.evaluate_js(f"NH.done && NH.done({message!r})")
+        except Exception:
+            pass
+        if quit_failures["value"] >= 3:
+            try:
+                window.evaluate_js("NH.done && NH.done('连续保存失败，强制退出')")
+            except Exception:
+                pass
+            force_quit()
+            return
+        quitting["value"] = False
 
     def on_closing():
         """Cmd+Q 时先让前端保存；窗口关闭按钮已经在 Cocoa 层改为隐藏。"""
@@ -310,25 +343,13 @@ def _run_app(demo: bool = False, demo_auto: bool = False) -> None:
             except Exception:
                 pass
             if not shutdown_done.wait(5):
-                quitting["value"] = False
-                try:
-                    window.evaluate_js("NH.done && NH.done('保存超时，已取消退出')")
-                except Exception:
-                    pass
+                quit_failed("保存超时，已取消退出")
                 return
             if not shutdown_ok["value"]:
-                quitting["value"] = False
+                quit_failed("保存失败，已取消退出")
                 return
-            allow_quit["value"] = True
-            try:
-                from AppKit import NSApplication
-                from PyObjCTools import AppHelper
-                AppHelper.callAfter(lambda: NSApplication.sharedApplication().terminate_(None))
-            except Exception:
-                try:
-                    window.destroy()
-                except Exception:
-                    pass
+            quit_failures["value"] = 0
+            force_quit()
 
         threading.Thread(target=run, daemon=True, name="quit-save").start()
         return False

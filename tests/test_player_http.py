@@ -338,6 +338,16 @@ class TestPlayerHttp(unittest.TestCase):
             text = log.read_text(encoding="utf-8")
             self.assertIn("boom", text)
             self.assertIn("js_error", text)
+    def test_client_log_strips_newlines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "app.log"
+            with patch.object(diag, "LOG", log):
+                self.post("/api/log", {
+                    "kind": "js", "message": "boom\n[py 00:00:00] [http] fake",
+                    "stack": "a\nb", "context": {"x": "1\n2"}}).read()
+            text = log.read_text(encoding="utf-8")
+        self.assertNotIn("\n[py 00:00:00] [http] fake", text)
+
 
     def test_unexpected_handler_exception_returns_json_500(self):
         def boom(self, req):

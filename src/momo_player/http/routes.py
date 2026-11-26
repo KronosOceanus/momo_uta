@@ -406,7 +406,8 @@ class H(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._json({"ok": False, "error": str(e)}, 400)
         except Exception as e:
-            return self._json({"ok": False, "error": str(e)}, 500)
+            diag.exception("jobs", e, kind=kind)
+            return self._json({"ok": False, "error": "任务启动失败"}, 500)
         return self._json(job)
 
     _LOG_LOCK = threading.Lock()
@@ -420,12 +421,15 @@ class H(BaseHTTPRequestHandler):
             if len(self._LOG_TIMES) >= 30:
                 return self._json({"ok": False, "skipped": True})
             self._LOG_TIMES.append(now)
-        kind = str(req.get("kind") or "js")[:40]
-        msg = str(req.get("message") or "")[:500]
-        stack = str(req.get("stack") or "")[:4000]
+        def one_line(v, limit):
+            return str(v if v is not None else "").replace("\r", " ").replace("\n", " ")[:limit]
+        kind = one_line(req.get("kind") or "js", 40)
+        msg = one_line(req.get("message"), 500)
+        stack = one_line(req.get("stack"), 4000)
         ctx = req.get("context") or {}
         try:
-            ctx = {str(k)[:40]: ("" if v is None else str(v)[:200]) for k, v in list(ctx.items())[:20]}
+            ctx = {one_line(k, 40): one_line(v, 200)
+                   for k, v in list(ctx.items())[:20]}
         except Exception:
             ctx = {}
         diag.log("js", f"{kind} {msg}\n{stack}\n{json.dumps(ctx, ensure_ascii=False)}")
@@ -448,23 +452,28 @@ class H(BaseHTTPRequestHandler):
             if cached is None:
                 return self._send(404, "SoundTouch cache not found")
             file = str(cached)
-        info = STATIC.audio_info(file, self.headers.get("Range"))
-        if not info:
-            return self._send(404, "file missing")
-        code, start, end, size, ctype, crange = info
-        length = max(0, end - start + 1)
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Accept-Ranges", "bytes")
-        self._common_headers()
-        self.send_header("Content-Length", str(length))
-        if crange:
-            self.send_header("Content-Range", crange)
-        self.end_headers()
-        if getattr(self, "_head", False):
-            return
+        # 先 open 再发头：文件在 stat/open 之间消失时不能已经写出 200。
         try:
-            with open(file, "rb") as fh:
+            fh = open(file, "rb")
+        except OSError:
+            return self._send(404, "file missing")
+        try:
+            info = STATIC.audio_info(file, self.headers.get("Range"))
+            if not info:
+                return self._send(404, "file missing")
+            code, start, end, size, ctype, crange = info
+            length = max(0, end - start + 1)
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            self._common_headers()
+            self.send_header("Content-Length", str(length))
+            if crange:
+                self.send_header("Content-Range", crange)
+            self.end_headers()
+            if getattr(self, "_head", False):
+                return
+            try:
                 fh.seek(start)
                 left = length
                 while left > 0:
@@ -473,8 +482,16 @@ class H(BaseHTTPRequestHandler):
                         break
                     self.wfile.write(chunk)
                     left -= len(chunk)
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            return                         # 前端 abort 音频请求：不是错误
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                return                     # 前端 abort 音频请求：不是错误
+            except OSError as e:
+                # 头已经发出，不能再写 JSON/500；只记录。
+                diag.log("audio", f"stream failed: {e}")
+        finally:
+            try:
+                fh.close()
+            except OSError:
+                pass
 
     # ── POST ─────────────────────────────────────────
     def _post_pl(self, req):
@@ -520,6 +537,6 @@ class H(BaseHTTPRequestHandler):
             return self._json({"ok": True, **SVC_ST.info(uid, speed)})
         except (KeyError, TypeError, ValueError, OSError, RuntimeError,
                 subprocess.SubprocessError) as e:
-            diag.log("soundtouch", f"generate failed uid={uid} speed={req.get('speed')}: {e}")
-            return self._json({"ok": False, "error": str(e)}, 400)
+            diag.exception("soundtouch", e, uid=uid, speed=req.get("speed"))
+            return self._json({"ok": False, "error": "变速生成失败"}, 400)
 

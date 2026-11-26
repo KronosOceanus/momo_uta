@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import io
+import os
 import sys
 import threading
 import time
@@ -60,7 +61,16 @@ class _LogSink:
         self.lock = threading.RLock()
         self._warned = False
         self._warn_at = 0.0
-        self.file = open(self.path, "a", encoding="utf-8", buffering=1)
+        self.file = self._open()
+
+    def _open(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(self.path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        try:
+            os.chmod(self.path, 0o600)
+        except OSError:
+            pass
+        return os.fdopen(fd, "a", encoding="utf-8", buffering=1)
 
     def _warn(self, message: str) -> None:
         now = time.monotonic()
@@ -102,7 +112,7 @@ class _LogSink:
         except Exception as e:
             self._warn(f"日志轮转失败：{e}")
         try:
-            self.file = open(self.path, "a", encoding="utf-8", buffering=1)
+            self.file = self._open()
             self._recovered()
         except Exception as e:
             self.file = None
