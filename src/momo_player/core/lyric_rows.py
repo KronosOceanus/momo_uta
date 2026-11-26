@@ -110,6 +110,13 @@ def parse_rows(text: str) -> list[dict]:
         row = {"id": _new_row_id(), **row, "lid": None, "tokens": [], "trans": ""}
         rows.append(row)
 
+    # 正文被外部改动后，尾部行号会整体错位；不能继续按旧 i 套用。
+    body_ok = True
+    if tail is not None and tail.get("body"):
+        body_ok = tail.get("body") == _hash8(body)
+
+    if not body_ok:
+        tail = None
 
     for ent in _tail_list(tail, "lines"):
         if not isinstance(ent, dict):

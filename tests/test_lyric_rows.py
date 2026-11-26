@@ -416,3 +416,21 @@ class TestNhlrcEmptyPayload(unittest.TestCase):
             self.assertFalse(out["pending"])
             self.assertEqual(out["lines"], [])
             self.assertFalse(item["has_lyric"])
+
+    def test_external_body_change_invalidates_tail_mapping(self):
+        rows = [
+            {"kind": "lyric", "text": "同じ行", "t": 1.0, "lid": "l_a",
+             "tokens": [], "trans": "A"},
+            {"kind": "lyric", "text": "同じ行", "t": 2.0, "lid": "l_b",
+             "tokens": [], "trans": "B"},
+        ]
+        text = R.render_rows(rows)
+        head, sep, tail = text.partition(R.DOC.NHLRC_MARK)
+        changed = "[00:00.50]新しい行\n" + head + sep + tail
+        got = R.parse_rows(changed)
+        self.assertEqual([r["text"] for r in got],
+                         ["新しい行", "同じ行", "同じ行"])
+        self.assertNotEqual(got[1]["lid"], "l_a")
+        self.assertNotEqual(got[2]["lid"], "l_b")
+        self.assertEqual(got[1]["trans"], "")
+        self.assertEqual(got[2]["trans"], "")
