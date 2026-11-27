@@ -76,6 +76,18 @@ class TestLyricRows(unittest.TestCase):
         with self.assertRaises(ValueError):
             R.parse_rows("[00:01.00]君\n\n#NHLRC 1\n{\"v\":1}\n")
 
+    def test_timed_credit_is_metadata_and_keeps_timestamp(self):
+        text = "[00:00.00]作詞: 星野源\n[00:10.00]君\n"
+        rows = R.parse_rows(text)
+        self.assertEqual([r["kind"] for r in rows], ["metadata", "lyric"])
+        self.assertEqual((rows[0]["t"], rows[0]["text"]), (0.0, "作詞: 星野源"))
+        self.assertIn("[00:00.00]作詞: 星野源", R.body_text(rows))
+        self.assertEqual([r["text"] for r in R.playable(rows)], ["君"])
+
+    def test_credit_without_colon_stays_lyric(self):
+        rows = R.parse_rows("[00:10.00]作詞の歌を歌う\n")
+        self.assertEqual(rows[0]["kind"], "lyric")
+
     def test_playable_sorts_by_time_then_document_order(self):
         rows = [
             {"kind": "lyric", "text": "late", "t": 9.0},

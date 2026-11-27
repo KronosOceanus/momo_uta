@@ -30,6 +30,17 @@ class TestLrcDoc(unittest.TestCase):
         rows = D.parse('{"t":1234,"c":[{"tx":"あの日"}]}\n')
         self.assertEqual(rows, [{"t": 1.23, "text": "あの日"}])
 
+    def test_credit_lines_are_metadata_and_keep_body_timestamp(self):
+        self.assertTrue(D.is_metadata_text("作詞: 星野源"))
+        self.assertTrue(D.is_metadata_text("[ar:X]作詞: Y"))
+        self.assertFalse(D.is_metadata_text("作詞の歌を歌う"))
+        rows, meta, body = D._parse_rows(
+            "[00:00.00]作詞: 星野源\n[00:10.00]君\n")
+        self.assertEqual([r["text"] for r in rows], ["君"])
+        self.assertEqual([r["text"] for r in body], ["作詞: 星野源", "君"])
+        self.assertEqual(body[0]["t"], 0.0)
+        self.assertEqual(meta, [])
+
     def test_render_roundtrip(self):
         rows = [{"t": 5.0, "text": "君"}, {"t": None, "text": "草稿"}]
         text = D.render(rows, [{"before": 0, "text": "[ar:X]"}])

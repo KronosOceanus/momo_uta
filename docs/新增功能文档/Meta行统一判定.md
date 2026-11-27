@@ -1,6 +1,6 @@
 # Meta 行统一判定
 
-> 状态：设计稿，未实现。
+> 状态：已实现（2026-11-27）。
 > 目标：让后端、编辑器、播放层共用同一套 meta 行判定，避免同一种行在不同层得到不同结果。
 
 ## 1. 背景
@@ -482,3 +482,38 @@ kind == "metadata"
 
 文本正则只作为旧数据兜底，  
 不再承担主判据。
+
+## 15. 实现结果
+
+已落地：
+
+```text
+lrc_doc.is_metadata_text       统一判定函数
+lrc_doc._parse_rows            带时间制作信息不再进入 compact lines
+lyric_rows._row_from_line       标签行 / 制作信息行写入 kind=metadata
+lyric_rows.body_text            metadata 行保留时间戳
+lrc_files._rows_from_body       旧 body 入口同样分类
+20-editor.rowKind               前端同步制作信息判定
+20-editor.lrcText               metadata 行保留时间戳
+30-playback.isMetaLine          优先看 kind，文本正则仅旧数据兜底
+```
+
+新增覆盖：
+
+```text
+[00:00]作詞/作词/編曲/Lyrics → metadata
+作詞の歌 → lyric
+metadata 保留 [00:00.00]
+metadata 不进入 playable
+编辑器 rowKind 与 lrcText
+```
+
+验证：
+
+```text
+448 Python
+108 前端
+pyflakes 通过
+架构检查通过
+前端检查通过
+```

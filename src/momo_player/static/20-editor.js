@@ -56,10 +56,12 @@ function newRowId(){
   else for(let i=0;i<bytes.length;i++) bytes[i]=Math.floor(Math.random()*256);
   return 'r_'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 }
+const META_TAG_RE=/^\[(ar|al|ti|au|by|offset|length|re|ve|la|id|tool):/i;
+const META_CREDIT_RE=/^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌|Lyrics|Composer|Arranger|Producer)\s*[:：]/i;
 function rowKind(text){
   const t=(text||'').trim();
   if(!t) return 'blank';
-  if(/^\[(ar|al|ti|au|by|offset|length|re|ve|la|id|tool):/i.test(t)) return 'metadata';
+  if(META_TAG_RE.test(t) || META_CREDIT_RE.test(t)) return 'metadata';
   return 'lyric';
 }
 function beginTextEdit(i){
@@ -324,8 +326,9 @@ function lrcParse(v){
 function lrcText(){
   if(NH.ROWS_MODE){
     return NH.EROWS.map(r=>{
-      if((r.kind||rowKind(r.text))==='metadata') return r.text||'';
       const stamp=lrcFmt(r.t);
+      if((r.kind||rowKind(r.text))==='metadata')
+        return `${stamp ? `[${stamp}]` : ''}${r.text||''}`;
       return `${stamp ? `[${stamp}]` : ''}${r.text||''}`;
     }).join('\n')+'\n';
   }
@@ -1000,7 +1003,7 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {editorRowIndex, timeFitsRow, timeFitsInsert, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+Object.assign(NH, {rowKind, editorRowIndex, timeFitsRow, timeFitsInsert, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncTransBtn();
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

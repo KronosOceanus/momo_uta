@@ -28,13 +28,13 @@ class TestLrcDrafts(unittest.TestCase):
                 self.assertEqual(len(entries), 1)
                 self.assertTrue(entries[0]["has_lyric"])
 
-    def test_netease_formats_remain_timed(self):
+    def test_netease_formats_and_credit_are_classified(self):
         rows = lrcio.parse(
             '[00:00.00-1] 作詞 : X\n'
             '{"t":1234,"c":[{"tx":"あの日"}]}\n'
         )
+        # 作詞 是 metadata，不进入播放 compact lines；JSON 歌词保留时间。
         self.assertEqual(rows, [
-            {"t": 0.0, "text": "作詞 : X"},
             {"t": 1.23, "text": "あの日"},
         ])
 

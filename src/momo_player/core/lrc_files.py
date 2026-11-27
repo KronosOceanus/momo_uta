@@ -23,7 +23,8 @@ from . import lyrics as LY
 from .lyric_rows import parse_rows as parse_v2_rows, render_rows as render_v2_rows
 from .lrc_doc import (NHLRC_MARK, GEN, _parse_document, _parse_rows,
                       _split_nhlrc, parse, new_line_id, new_token_ids,
-                      tokens_with_spans, translations_from_lrc)
+                      tokens_with_spans, translations_from_lrc,
+                      is_metadata_text)
 
 # 同一首歌的"读-改-写"串行化（HTTP 是多线程的）
 LOCK = threading.RLock()
@@ -760,6 +761,9 @@ def _rows_from_body(lines, metadata, annotations, translations,
         text = str(ln.get("text") or "")
         if not text.strip():
             rows.append({"kind": "blank", "text": "", "t": ln.get("t")})
+            continue
+        if is_metadata_text(text):
+            rows.append({"kind": "metadata", "text": text, "t": ln.get("t")})
             continue
         lid = (line_ids or {}).get(bi) or new_line_id()
         seg = (annotations or {}).get(bi) or []

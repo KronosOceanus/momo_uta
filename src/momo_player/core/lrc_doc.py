@@ -14,6 +14,27 @@ METADATA = re.compile(
     r"(?:\[(?:ar|al|ti|au|by|offset|length|re|ve|la|id|tool):[^\]\r\n]*\][ \t]*)+",
     re.IGNORECASE,
 )
+META_CREDIT = re.compile(
+    r"^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌"
+    r"|Lyrics|Composer|Arranger|Producer)\s*[:：]",
+    re.IGNORECASE,
+)
+
+
+def is_metadata_text(text: str) -> bool:
+    """一行（已去掉时间戳）是不是 meta：标签行或制作信息行。"""
+    s = (text or "").strip()
+    if not s:
+        return False
+    if METADATA.fullmatch(s):
+        return True
+    m = METADATA.match(s)
+    if m:
+        rest = s[m.end():].strip()
+        if not rest:
+            return True
+        return bool(META_CREDIT.match(rest))
+    return bool(META_CREDIT.match(s))
 
 
 def _split_nhlrc(text: str) -> tuple[str, dict | None]:
@@ -217,7 +238,8 @@ def _parse_rows(text: str) -> tuple[list[dict], list[dict], list[dict]]:
             parsed = {"t": None, "text": raw}
         # 编辑器保留这一行；空正文（即使带时间戳）不进入 compact lines。
         body_rows.append(dict(parsed))
-        if str(parsed.get("text") or "").strip():
+        text = str(parsed.get("text") or "")
+        if text.strip() and not is_metadata_text(text):
             lines.append(parsed)
 
     return lines, metadata, body_rows

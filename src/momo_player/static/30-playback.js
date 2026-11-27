@@ -126,10 +126,12 @@ function syncBackPlaying(){
 
 // ── 统一播放层
 // ── 统一播放层：普通视图与编辑表格共用同一套时间语义 ──
-const META_RE=/^(作词|作曲|编曲|制作|演唱|歌\s*[:：]|Lyrics|Composer|Arranger|Producer)/;
+const META_RE=/^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌|Lyrics|Composer|Arranger|Producer)\s*[:：]/i;
 function viewLines(){ return NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES; }
 function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+NH.OFFSET : null; }
-function isMetaLine(l){ return !l || l.meta || META_RE.test((l.text||'').trim()); }
+function isMetaLine(l){
+  return !l || l.kind==='metadata' || l.meta || META_RE.test((l.text||'').trim());
+}
 function idxAt(t){
   t = NH.sourceTime(t);
   const ls=viewLines(); let n=-1;

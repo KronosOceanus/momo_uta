@@ -62,18 +62,23 @@ def _row_from_line(raw: str, first: bool = False) -> dict:
     if m:
         t = round(int(m.group(1)) * 60 + float(m.group(2)), 2)
         text = m.group(3)
-        return ({"kind": "lyric", "text": text, "t": t} if text.strip()
-                else {"kind": "blank", "text": "", "t": t})
+        if not text.strip():
+            return {"kind": "blank", "text": "", "t": t}
+        return {"kind": "metadata" if DOC.is_metadata_text(text) else "lyric",
+                "text": text, "t": t}
     if stripped.startswith("{") and '"t"' in stripped:
         try:
             obj = json.loads(stripped)
             t = float(obj.get("t", 0)) / 1000.0
             text = "".join((c or {}).get("tx", "") for c in (obj.get("c") or [])).strip()
-            return ({"kind": "lyric", "text": text, "t": round(t, 2)} if text
-                    else {"kind": "blank", "text": "", "t": round(t, 2)})
+            if not text:
+                return {"kind": "blank", "text": "", "t": round(t, 2)}
+            return {"kind": "metadata" if DOC.is_metadata_text(text) else "lyric",
+                    "text": text, "t": round(t, 2)}
         except (AttributeError, TypeError, ValueError):
             pass
-    return {"kind": "lyric", "text": raw, "t": None}
+    return {"kind": "metadata" if DOC.is_metadata_text(raw) else "lyric",
+            "text": raw, "t": None}
 
 
 def _tokens(seg, tids, text: str) -> list[dict]:
@@ -182,7 +187,8 @@ def body_text(rows: list[dict]) -> str:
     for row in rows:
         kind = row.get("kind")
         if kind == "metadata":
-            out.append(row.get("text") or "")
+            stamp = DOC.fmt(row.get("t")) if row.get("t") is not None else ""
+            out.append(stamp + (row.get("text") or ""))
         elif kind == "blank":
             out.append(DOC.fmt(row.get("t")) if row.get("t") is not None else "")
         else:

@@ -79,9 +79,9 @@ const song = idx => ({idx, uid: 'u' + idx, lines: [], title: 'Test song', versio
 test('meta lines do not become the playback current line', () => {
   const p = player();
   p.run(`VIEW_MODE='normal';
-    LINES=[{t:1,text:'作词: A',meta:true},
+    LINES=[{t:1,text:'作詞: A',kind:'metadata'},
            {t:2,text:'第一句'},
-           {t:3,text:'编曲: B',meta:true},
+           {t:3,text:'編曲: B'},
            {t:4,text:'第二句'}];`);
   assert.equal(p.run('idxAt(1.5)'), -1);
   assert.equal(p.run('idxAt(2.5)'), 1);
@@ -198,6 +198,14 @@ test('undo and redo mark persisted changes dirty, and history resets on open', a
   p.requests[3].resolve({ok: true, lines: [{t: 1, text: 'reopened'}]});
   await reopen;
   assert.equal(p.run('UNDO.length + REDO.length'), 0);
+});
+
+test('editor classifies credit text and exports metadata timestamps', () => {
+  const p = player();
+  assert.equal(p.run("rowKind('作詞: X')"), 'metadata');
+  assert.equal(p.run("rowKind('作詞の歌を歌う')"), 'lyric');
+  p.run("ROWS_MODE=true; EROWS=[{kind:'metadata',t:0,text:'作詞: X'},{kind:'lyric',t:1,text:'君'}]");
+  assert.equal(p.run('lrcText()'), '[00:00.00]作詞: X\n[00:01.00]君\n');
 });
 
 test('opening the editor keeps untimed file rows absent from playback', async () => {
