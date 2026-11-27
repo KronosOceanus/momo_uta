@@ -913,9 +913,20 @@ NH.PLAY_ITEM = null;
 NH.shufflePool = [];
 NH.shuffleListKey = '';
 const songLoopBtn = document.getElementById('songloop');
+function playModeIcon(mode){
+  const a='fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"';
+  if(mode === 'shuffle'){
+    return `<svg class="pm-icon" viewBox="0 0 16 16" aria-hidden="true"><g ${a}><path d="M2.5 4.2h2c1.3 0 2.2.7 2.9 1.7l1.2 1.8c.7 1 1.6 1.7 2.9 1.7h1.7"/><path d="m11.8 2.9 2.2 2.2-2.2 2.2"/><path d="M2.5 11.8h2c1.3 0 2.2-.7 2.9-1.7l1.2-1.8c.7-1 1.6-1.7 2.9-1.7h1.7"/><path d="m11.8 8.8 2.2 2.2-2.2 2.2"/></g></svg>`;
+  }
+  if(mode === 'one'){
+    return `<svg class="pm-icon" viewBox="0 0 16 16" aria-hidden="true"><g ${a}><path d="M3 5.2h8.2a1.8 1.8 0 0 1 1.8 1.8v1"/><path d="m11.4 6.3 1.6 1.7-1.6 1.7"/><path d="M13 10.8H4.8A1.8 1.8 0 0 1 3 9v-1"/><path d="m4.6 9.7-1.6-1.7 1.6-1.7"/></g><text x="8" y="10.4" text-anchor="middle" font-size="6.5" fill="currentColor" font-family="inherit">1</text></svg>`;
+  }
+  return `<svg class="pm-icon" viewBox="0 0 16 16" aria-hidden="true"><g ${a}><path d="M3 5.2h8.2a1.8 1.8 0 0 1 1.8 1.8v1"/><path d="m11.4 6.3 1.6 1.7-1.6 1.7"/><path d="M13 10.8H4.8A1.8 1.8 0 0 1 3 9v-1"/><path d="m4.6 9.7-1.6-1.7 1.6-1.7"/></g></svg>`;
+}
 function syncPlayMode(){
   if(!songLoopBtn) return;
-  songLoopBtn.textContent = PLAY_MODE_LABEL[NH.playMode] || PLAY_MODE_LABEL.list;
+  const label = PLAY_MODE_LABEL[NH.playMode] || PLAY_MODE_LABEL.list;
+  songLoopBtn.innerHTML = `<span class="pm-label">${label}</span>${playModeIcon(NH.playMode)}`;
   songLoopBtn.classList.add('on');
 }
 let PLAY_MODE_SEQ = 0;

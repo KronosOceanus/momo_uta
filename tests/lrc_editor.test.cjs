@@ -231,6 +231,20 @@ test('meta text prefix list matches the backend samples', () => {
     assert.equal(p.run(`rowKind(${JSON.stringify(text)})`), kind, text);
 });
 
+test('play mode button keeps its label and switches mode icons', () => {
+  const p = player();
+  const read = () => p.document.getElementById('songloop').innerHTML;
+  p.run("setPlayMode('list', false)");
+  assert.match(read(), /列表循环/);
+  assert.match(read(), /pm-icon/);
+  p.run("setPlayMode('one', false)");
+  assert.match(read(), /单曲循环/);
+  assert.match(read(), />1</);
+  p.run("setPlayMode('shuffle', false)");
+  assert.match(read(), /随机播放/);
+  assert.match(read(), /pm-icon/);
+});
+
 test('normal lyrics load only syncs vocals status and does not start a job', async () => {
   const p = player();
   p.run("globalThis.vstarted=0; startVocals=async()=>{globalThis.vstarted++;};");

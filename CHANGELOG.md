@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 播放模式按钮增加当前模式小图标：列表循环 / 单曲循环 / 随机播放。
+
+## [Unreleased]
+
 ### 修复
 
 - 已有 nhlrc 时，`/api/lrc` 的 `save` / `save_rows` 必须携带 version；
