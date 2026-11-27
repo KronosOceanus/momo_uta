@@ -13,7 +13,7 @@
 ```
 
 ```text
-2026-11-26 v1.2.3 已重建：
+2026-11-27 v1.2.4 已重建：
   thin / full 两种 .app
   thin / full 两种 zip
   VERSIONS.txt（commit + sha256）

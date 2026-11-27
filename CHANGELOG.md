@@ -11,6 +11,17 @@
 - 补齐 `Lyrics by` / `Produced by` / `Composed by`，并统一“标签 + 正文”按 metadata 处理。
 - 旧文档投影保留 metadata 时间戳，补前后端规则一致性测试。
 
+## [1.2.4] - 2026-11-27
+
+### 修复
+
+- 统一 meta 行判定：标签行与 `作詞/作曲/編曲/Lyrics by` 等制作信息
+  统一写入 `kind=metadata`。
+- metadata 不进入播放、导航和高亮，但保留时间戳。
+- 旧 doc 投影保留 metadata 的 `t`，避免旧导出丢失 `[mm:ss.xx]`。
+- 补齐 `Lyrics by` / `Produced by` / `Composed by`。
+- 前后端增加同一组 meta 规则一致性测试。
+
 ## [1.2.3] - 2026-11-26
 
 ### 新增
