@@ -13,7 +13,27 @@ job.state 管任务
 job.stage 管人声真实阶段
 ```
 
-## 1. 两层结构
+## 1. 触发时机
+
+```text
+普通歌词页
+  → /api/song 只同步 vocals 状态
+  → 不创建 job
+
+进入 LRC 编辑模式
+  → openLrcEditor(entering=true)
+  → startVocals(uid)
+
+已有 done / running
+  → 不重复创建
+```
+
+```text
+普通页切歌只更新状态；
+LRC 编辑模式切歌会回到普通页，不触发。
+```
+
+## 2. 两层结构
 
 ```text
 service.jobs
@@ -26,7 +46,7 @@ core.jobs 不执行 demucs。
 core.vocals 不知道 HTTP。
 ```
 
-## 2. job.state
+## 3. job.state
 
 ```text
 queued
@@ -46,7 +66,7 @@ failed      异常
 canceled    取消完成
 ```
 
-## 3. job.stage
+## 4. job.stage
 
 ```text
 stage = 执行器真实阶段
@@ -71,7 +91,7 @@ job 线程已经在等它。
 前端列表显示 stage。
 ```
 
-## 4. VOC 队列
+## 5. VOC 队列
 
 ```text
 core.vocals.ensure(uid, audio)
@@ -94,7 +114,7 @@ core.vocals.ensure(uid, audio)
 同一 uid 幂等，不会重复排队。
 ```
 
-## 5. 执行流程
+## 6. 执行流程
 
 ```text
 worker:
@@ -112,7 +132,7 @@ worker:
 全程串行，一条一条跑。
 ```
 
-## 6. demucs / ffmpeg 子进程
+## 7. demucs / ffmpeg 子进程
 
 ```text
 POSIX:
@@ -131,7 +151,7 @@ POSIX:
 HF 端点默认走 hf-mirror.com。
 ```
 
-## 7. 超时
+## 8. 超时
 
 ```text
 queue_timeout_s
@@ -145,7 +165,7 @@ run_timeout_s
 超时写 failed，原因保留在 state/error。
 ```
 
-## 8. 取消
+## 9. 取消
 
 ```text
 cancel(uid)
@@ -176,7 +196,7 @@ canceling 时按钮禁用。
 不影响 match / rebuild。
 ```
 
-## 9. job 取消与 VOC 取消
+## 10. job 取消与 VOC 取消
 
 ```text
 POST /api/jobs/<id>/cancel
@@ -192,7 +212,7 @@ job.cancel 是入口；
 VOC.cancel 是执行器动作。
 ```
 
-## 10. 结果与失败
+## 11. 结果与失败
 
 ```text
 成功：
@@ -212,7 +232,7 @@ VOC.cancel 是执行器动作。
   保留 meta.json
 ```
 
-## 11. VAD 结果
+## 12. VAD 结果
 
 ```text
 16k 单声道
@@ -229,7 +249,7 @@ has_vocals = ratio >= ratio_min
 不是高精度 VAD。
 ```
 
-## 12. 缓存布局
+## 13. 缓存布局
 
 ```text
 data/vocals/<uid>/vocals.wav
@@ -243,7 +263,7 @@ data/tmp/vocals/<uid>-<pid>-<ms>/
   LRU + max_bytes
 ```
 
-## 13. 清理
+## 14. 清理
 
 ```text
 cleanup(protected, max_bytes)
@@ -261,7 +281,7 @@ queued/running/canceling 跳过
 纯音乐只有 meta 也是有效缓存。
 ```
 
-## 14. API
+## 15. API
 
 ```text
 GET  /api/jobs/active
@@ -279,7 +299,7 @@ kind = vocals | match | rebuild
 人声取消只接受 vocals。
 ```
 
-## 15. 已知限制
+## 16. 已知限制
 
 ```text
 1. 人声串行，没有优先级。
@@ -290,7 +310,7 @@ kind = vocals | match | rebuild
 6. 依赖 demucs / ffmpeg 外部环境。
 ```
 
-## 16. 相关
+## 17. 相关
 
 ```text
 cache.md

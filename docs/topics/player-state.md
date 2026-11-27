@@ -158,7 +158,8 @@ NH.S 是当前查看页面。
 d.pending
   → 立即 commitAudio()
   → autoplay 或当前无播放源时开始播放
-  → 后台 startVocals + match job
+  → 后台 match job
+  → vocals 只在进入 LRC 编辑模式时触发
 ```
 
 ```text
@@ -355,6 +356,15 @@ S.version     普通页改读音请求/响应使用的同一版本
 SAVE_PENDING 是保存队列。
 LRC_REPLACING 是排他锁。
 两者不是请求 token。
+```
+
+普通歌词页 `Cmd+S`：
+
+```text
+只处理当前查看歌曲 NH.S
+只保存缓存歌词
+已有 nhlrc → 只提示，不重写
+成功后更新 S.version / LRC_VERSION，并重新加载当前查看歌曲
 ```
 
 ## 8. 组合示例

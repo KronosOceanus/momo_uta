@@ -256,7 +256,7 @@ lyrics/
   "format": "momo-uta-bundle",
   "format_version": 1,
   "created_at": "2026-11-27T14:00:00+08:00",
-  "app_version": "1.2.5",
+  "app_version": "1.2.7",
   "audio_included": false,
   "tracks": [
     {

@@ -83,6 +83,10 @@ HTTP 层由 http/routes.py 分发；
   {uid, idx, key, title, artist, lines, trans, version, ...}
   nhlrc 文档的 lines 从 rows 派生，按时间排序
 
+额外字段：
+  credits  歌词页顶部制作信息（metadata 中的制作信息，不含标签行）
+  vocals   人声状态（none / queued / running / done / failed）
+
 pending：
   {..., pending:true, lines:[]}
 
@@ -278,6 +282,14 @@ export 直接序列化 rows，返回 nhlrc + 纯 lrc
 trans_lang 原样带出
 ```
 
+```text
+persist：把当前缓存歌词落成 nhlrc
+  只对 cache 生效；已有 nhlrc 返回 {ok:true, already:true}
+  冲突 → 409 {ok:false, conflict:true}
+  成功后返回新 version
+  普通歌词页 Cmd+S 使用；成功后前端重新加载当前查看歌曲
+```
+
 ### 2.8 `/api/soundtouch`
 
 ```json
@@ -316,7 +328,7 @@ rebuild 不需要
 返回 job 对象：id / kind / state / stage
 ```
 
-### 2.9 job 取消
+### 2.10 job 取消
 
 ```text
 POST /api/jobs/<id>/cancel
@@ -327,7 +339,7 @@ POST /api/jobs/cancel_all
 cancel_all 只接受 {"kind":"vocals"}
 ```
 
-### 2.10 `/api/theme`
+### 2.11 `/api/theme`
 
 必填：
 
@@ -340,7 +352,7 @@ theme = dark | light
 更新当前进程 PUI
 ```
 
-### 2.11 `/api/play_mode`
+### 2.12 `/api/play_mode`
 
 ```text
 POST /api/play_mode
@@ -365,7 +377,7 @@ mode = list | one | shuffle
 
 前端会回滚到切换前的模式。
 
-### 2.12 `/api/log`
+### 2.13 `/api/log`
 
 ```text
 前端未捕获错误上报

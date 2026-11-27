@@ -13,7 +13,10 @@
 ```
 
 ```text
-2026-11-27 v1.2.7 文档版；安装包仍为 v1.2.6：
+2026-11-27 v1.2.7 已重建：
+  commit 054bd7e
+  thin sha256=b82cb4ef085324a60abe3c3817167e5f525904e98836cf74b37975d3c588acd1
+  full sha256=3342e28cebf262eadde4c0519b8f799f463c035887e5159549cad6235252e29c
   thin / full 两种 .app
   thin / full 两种 zip
   VERSIONS.txt（commit + sha256）
@@ -38,7 +41,6 @@
   dist/VERSIONS.txt
 ```
 
-```text
 thin / full 都随包：
 
 ```text
@@ -50,7 +52,9 @@ Resources/licenses/SoundTouch-LGPL-2.1.txt
 full 另外随包 ffmpeg 和 `ffmpeg-GPLv3.txt`。  
 第三方说明见 `THIRD_PARTY_NOTICES.md`。
 
-尚未签名 / 公证。
+```text
+当前为 ad-hoc 签名，未公证。
+正式分发需要 Developer ID + notarization。
 ```
 
 ```text

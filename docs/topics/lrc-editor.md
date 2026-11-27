@@ -358,6 +358,21 @@ nhlrc 编辑器不再依赖响应 ids 合并；
 lid/tid 已在 rows 中。
 ```
 
+### 普通歌词页 Cmd+S
+
+```text
+普通 / 振假名歌词页
+  → 只保存当前查看歌曲 NH.S
+  → /api/lrc action=persist
+  → 只把缓存歌词落成 nhlrc
+  → 已有 nhlrc：只提示，不重写
+  → 成功后更新 S.version / LRC_VERSION
+  → 重新加载当前查看歌曲
+```
+
+不跟随 `NH.PLAYING_UID`。
+LRC 编辑模式仍走 `saveLrc()`，两者不共用编辑行。
+
 ### 保存提示
 
 ```text
