@@ -914,14 +914,14 @@ NH.shufflePool = [];
 NH.shuffleListKey = '';
 const songLoopBtn = document.getElementById('songloop');
 function playModeIcon(mode){
-  const a='fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"';
+  const a='fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   if(mode === 'shuffle'){
-    return `<svg class="pm-icon" viewBox="0 0 16 16" aria-hidden="true"><g ${a}><path d="M2.5 4.2h2c1.3 0 2.2.7 2.9 1.7l1.2 1.8c.7 1 1.6 1.7 2.9 1.7h1.7"/><path d="m11.8 2.9 2.2 2.2-2.2 2.2"/><path d="M2.5 11.8h2c1.3 0 2.2-.7 2.9-1.7l1.2-1.8c.7-1 1.6-1.7 2.9-1.7h1.7"/><path d="m11.8 8.8 2.2 2.2-2.2 2.2"/></g></svg>`;
+    return `<svg class="pm-icon" viewBox="0 0 24 24" aria-hidden="true"><g ${a}><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.8-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></g></svg>`;
   }
   if(mode === 'one'){
-    return `<svg class="pm-icon" viewBox="0 0 16 16" aria-hidden="true"><g ${a}><path d="M3 5.2h8.2a1.8 1.8 0 0 1 1.8 1.8v1"/><path d="m11.4 6.3 1.6 1.7-1.6 1.7"/><path d="M13 10.8H4.8A1.8 1.8 0 0 1 3 9v-1"/><path d="m4.6 9.7-1.6-1.7 1.6-1.7"/></g><text x="8" y="10.4" text-anchor="middle" font-size="6.5" fill="currentColor" font-family="inherit">1</text></svg>`;
+    return `<svg class="pm-icon" viewBox="0 0 24 24" aria-hidden="true"><g ${a}><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></g></svg>`;
   }
-  return `<svg class="pm-icon" viewBox="0 0 16 16" aria-hidden="true"><g ${a}><path d="M3 5.2h8.2a1.8 1.8 0 0 1 1.8 1.8v1"/><path d="m11.4 6.3 1.6 1.7-1.6 1.7"/><path d="M13 10.8H4.8A1.8 1.8 0 0 1 3 9v-1"/><path d="m4.6 9.7-1.6-1.7 1.6-1.7"/></g></svg>`;
+  return `<svg class="pm-icon" viewBox="0 0 24 24" aria-hidden="true"><g ${a}><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></g></svg>`;
 }
 function syncPlayMode(){
   if(!songLoopBtn) return;

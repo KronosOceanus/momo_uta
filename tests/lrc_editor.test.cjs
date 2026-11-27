@@ -239,7 +239,7 @@ test('play mode button keeps its label and switches mode icons', () => {
   assert.match(read(), /pm-icon/);
   p.run("setPlayMode('one', false)");
   assert.match(read(), /单曲循环/);
-  assert.match(read(), />1</);
+  assert.match(read(), /M11 10h1v4/);
   p.run("setPlayMode('shuffle', false)");
   assert.match(read(), /随机播放/);
   assert.match(read(), /pm-icon/);
