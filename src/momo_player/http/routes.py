@@ -88,6 +88,15 @@ class H(BaseHTTPRequestHandler):
                 code = 409
         return self._send(code, json.dumps(obj, ensure_ascii=False))
 
+    def _slow_http(self, method: str, started: float) -> None:
+        try:
+            ms=(time.perf_counter()-started)*1000
+            if ms>=300:
+                path=(self.path or '').split('?',1)[0][:200]
+                diag.log("http_slow", f"{method} {path} {ms:.0f}ms")
+        except Exception:
+            pass
+
     def _origin_host_ok(self) -> bool:
         port = self.server.server_address[1]
         host = self.headers.get("Host", "")
@@ -119,6 +128,7 @@ class H(BaseHTTPRequestHandler):
     # ── 分发 ─────────────────────────────────────────
     def do_HEAD(self):
         self._head = True
+        started=time.perf_counter()
         try:
             return self._do_GET()
         except Exception as e:
@@ -127,9 +137,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"ok": False, "error": "内部错误"}, 500)
             except Exception:
                 return None
+        finally:
+            self._slow_http("HEAD", started)
 
     def do_GET(self):
         self._head = False
+        started=time.perf_counter()
         try:
             return self._do_GET()
         except Exception as e:
@@ -138,6 +151,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"ok": False, "error": "内部错误"}, 500)
             except Exception:
                 return None
+        finally:
+            self._slow_http("GET", started)
 
     def _do_GET(self):
         if not _SLOTS.acquire(blocking=False):
@@ -282,7 +297,9 @@ class H(BaseHTTPRequestHandler):
         return None
 
     def do_POST(self):
+        started=time.perf_counter()
         if not _SLOTS.acquire(blocking=False):
+            self._slow_http("POST", started)
             return self._json({"ok": False, "error": "busy"}, 503)
         try:
             return self._do_POST_inner()
@@ -294,6 +311,7 @@ class H(BaseHTTPRequestHandler):
                 return None
         finally:
             _SLOTS.release()
+            self._slow_http("POST", started)
 
     def _do_POST_inner(self):
         p = urllib.parse.urlparse(self.path).path

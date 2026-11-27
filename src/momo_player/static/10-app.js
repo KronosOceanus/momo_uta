@@ -547,17 +547,44 @@ function authHeaders(extra){
   if(NH.TOKEN) h['X-Momo-Token'] = NH.TOKEN;
   return h;
 }
+const SLOW_MS=300;
+function perfNow(){
+  return (typeof performance!=='undefined' && performance.now)
+    ? performance.now() : Date.now();
+}
+function logSlowApi(path, status, started){
+  try{
+    const ms=Math.round(perfNow()-started);
+    if(ms<SLOW_MS) return;
+    reportClientError('api_slow', `${path} ${status||''} ${ms}ms`, '', {
+      path:String(path).slice(0,200), status, ms,
+      visibility:(typeof document!=='undefined' && document.visibilityState) || '',
+      hidden:!!(typeof document!=='undefined' && document.hidden),
+      state:NH.au && NH.au._ctx ? NH.au._ctx.state : 'none'
+    });
+  }catch(e){}
+}
 async function api(path, body){
   const headers = authHeaders(body ? {'Content-Type':'application/json'} : {});
   const opts = body ? {method:'POST',headers,body:JSON.stringify(body)}
                     : (Object.keys(headers).length ? {headers} : undefined);
-  const r=await fetch(path, opts);
+  const started=perfNow();
+  let r;
+  try{
+    r=await fetch(path, opts);
+  }catch(e){
+    logSlowApi(path, 0, started);
+    throw e;
+  }
   if(!r.ok){
     let d=null;
     try{
       d=await r.clone().json();
     }catch(e){}
-    if(r.status===409 && d && d.ok===false) return d;   // 版本冲突是业务结果，不是网络失败
+    if(r.status===409 && d && d.ok===false){
+      logSlowApi(path, r.status, started);
+      return d;   // 版本冲突是业务结果，不是网络失败
+    }
     let msg=(d && (d.error||d.detail||d.message)) || ('HTTP '+r.status);
     if(!d){
       try{
@@ -565,11 +592,14 @@ async function api(path, body){
         if(t) msg=t.length>200?t.slice(0,200):t;
       }catch(e2){}
     }
+    logSlowApi(path, r.status, started);
     const err=new Error(msg);
     if(d && d.error_code) err.code=d.error_code;
     throw err;
   }
-  return r.json();
+  const data=await r.json();
+  logSlowApi(path, r.status, started);
+  return data;
 }
 
 function openDialog(opts){
@@ -716,6 +746,38 @@ function reportClientError(kind, message, stack, extra){
   }catch(e){}
 }
 NH.reportClientError=reportClientError;
+
+(function watchLatency(){
+  const now=perfNow;
+  const visible=()=> !(typeof document!=='undefined' && document.hidden);
+  let last=now();
+  if(typeof setInterval==='function'){
+    setInterval(()=>{
+      const t=now(), lag=t-last-500;
+      last=t;
+      if(visible() && lag>=SLOW_MS)
+        reportClientError('loop_lag', `lag=${Math.round(lag)}ms`, '', {
+          lag:Math.round(lag), visibility:document.visibilityState,
+          state:NH.au && NH.au._ctx ? NH.au._ctx.state : 'none'
+        });
+    },500);
+  }
+  if(typeof document!=='undefined' && document.addEventListener &&
+     typeof requestAnimationFrame==='function'){
+    document.addEventListener('pointerdown', e=>{
+      const t=now();
+      requestAnimationFrame(()=>{
+        const ms=Math.round(now()-t);
+        if(visible() && ms>=SLOW_MS)
+          reportClientError('input_lag', `pointerdown ${ms}ms`, '', {
+            ms, target:(e.target && e.target.id) || (e.target && e.target.className) || '',
+            visibility:document.visibilityState,
+            state:NH.au && NH.au._ctx ? NH.au._ctx.state : 'none'
+          });
+      });
+    }, true);
+  }
+})();
 
 window.addEventListener('error', e=>{
   if(e.target && e.target!==window) return;      // 资源加载失败不当作 JS 异常

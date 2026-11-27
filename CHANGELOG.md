@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### 诊断
+
+- 增加耗时日志：`api_slow`、`loop_lag`、`input_lag`、`http_slow`，
+  记录慢请求、事件循环延迟、点击到下一帧延迟和服务端处理耗时。
+
 ## [1.2.9] - 2026-11-27
 
 ### 修复
