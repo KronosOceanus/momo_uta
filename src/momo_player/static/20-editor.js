@@ -211,13 +211,13 @@ async function persistCurrentLyrics(){
   // 只处理歌词页（普通/振假名），不跟随当前播放歌曲，也不在别的页面写歌词。
   if(NH.VIEW_MODE!=='normal' && NH.VIEW_MODE!=='kana') return false;
   if(PERSIST_PENDING) return PERSIST_PENDING;
-  const song=NH.S;
+  const song=NH.S, mode=NH.VIEW_MODE;
   PERSIST_PENDING=(async()=>{
     try{
       const r=await NH.api('/api/lrc',{action:'persist', uid:song.uid, version:NH.S?.version});
       if(NH.S!==song) return false;
       if(r.conflict){
-        const ok=await NH.load(song.uid, false, NH.VIEW_MODE);
+        const ok=await NH.load(song.uid, false, mode);
         if(ok !== false && NH.S && String(NH.S.uid)===String(song.uid))
           NH.done('歌词已在别处保存，已重新加载');
         else if(ok === false)
@@ -226,7 +226,14 @@ async function persistCurrentLyrics(){
       }
       if(!r.ok) throw new Error(r.error||'保存失败');
       if(r.version){ NH.S.version=r.version; NH.LRC_VERSION=r.version; }
-      NH.done(r.already ? '歌词已是 nhlrc' : '歌词已保存');
+      if(r.already){
+        NH.done('歌词已是 nhlrc');
+        return true;
+      }
+      // 保存后按当前查看歌曲重新加载，让 ruby/credits/LINES 与服务端一致。
+      const ok=await NH.load(song.uid, false, mode);
+      if(NH.S && String(NH.S.uid)===String(song.uid))
+        NH.done(ok === false ? '歌词已保存，但页面刷新失败' : '歌词已保存');
       return true;
     }catch(e){
       NH.done('保存失败：'+e.message);
