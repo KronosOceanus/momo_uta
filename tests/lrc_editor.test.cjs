@@ -902,6 +902,37 @@ test('key shortcuts are no-op without playback', () => {
   assert.equal(p.calls.length, 0);
 });
 
+test('equals and plus raise key even with a button focused', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'}; ST_ON=false; ST_SPEED=1; ST_KEY=0; document.getElementById('rate').value='1.0';");
+  p.run("au={paused:false,readyState:4,duration:100,currentTime:2,src:'',addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return Promise.resolve();}}");
+  p.dispatch('keydown', {target:{tagName:'BUTTON'}, key:'=', code:'Equal', preventDefault(){}});
+  assert.equal(p.calls[0].body.key, 1);
+  p.requests[0].resolve({ok:false, error:'stop'});
+  await nextTurn();
+
+  const q = player();
+  q.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'}; ST_ON=false; ST_SPEED=1; ST_KEY=0; document.getElementById('rate').value='1.0';");
+  q.run("au={paused:false,readyState:4,duration:100,currentTime:2,src:'',addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return Promise.resolve();}}");
+  q.dispatch('keydown', {target:{tagName:'BODY'}, key:'+', code:'Equal', shiftKey:true, preventDefault(){}});
+  assert.equal(q.calls[0].body.key, 1);
+  q.requests[0].resolve({ok:false, error:'stop'});
+  await nextTurn();
+});
+
+test('key shortcut stops at the range endpoint', () => {
+  const p = player();
+  p.run("PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_KEY=6;");
+  p.dispatch('keydown', {target:{tagName:'BODY'}, key:'=', code:'Equal', preventDefault(){}});
+  assert.equal(p.calls.length, 0);
+});
+
+test('shortcut help contains the key controls', () => {
+  const src = readFileSync(join(staticDir, '40-shortcuts.js'), 'utf8');
+  assert.match(src, /降 \/ 升 key/);
+  assert.match(src, /k\('-'\)/);
+});
+
 test('switching playback song resets key to original', () => {
   const p = player();
   p.run("S={uid:'u0'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=true; ST_KEY=2; ST_URL='/audio/u0?st=1.00&key=2'; ST_UID='u0';");

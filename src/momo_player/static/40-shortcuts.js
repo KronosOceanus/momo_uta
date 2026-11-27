@@ -96,7 +96,11 @@ document.addEventListener('keydown', e=>{
   if(e.key==='?' || ((e.key==='/' || e.code==='Slash' || e.keyCode===191) && e.shiftKey)){
     e.preventDefault(); toggleHelp(); return;
   }
-  if(isButton(t)) return;
+  const passthrough = e.key === '-' || e.key === '=' || e.key === '+'
+    || e.key === '[' || e.key === ']'
+    || e.code === 'Minus' || e.code === 'Equal'
+    || e.code === 'BracketLeft' || e.code === 'BracketRight';
+  if(isButton(t) && !passthrough) return;
   if(e.key==='b' || e.key==='B'){
     const back=document.getElementById('backplaying');
     if(back && !back.hidden){ e.preventDefault(); back.click(); }

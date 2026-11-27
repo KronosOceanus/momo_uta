@@ -763,6 +763,8 @@ async function applySpeed(speed){
   return applyTransform(speed, NH.ST_KEY || 0);
 }
 async function applyKey(key){
+  key = Math.max(KEY_MIN, Math.min(KEY_MAX, parseInt(key, 10) || 0));
+  if(key === (NH.ST_KEY || 0)) return false;
   return applyTransform(currentTransformSpeed(), key);
 }
 
