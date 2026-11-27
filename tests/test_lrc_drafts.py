@@ -39,6 +39,24 @@ class TestLrcDrafts(unittest.TestCase):
         ])
 
 
+    def test_timed_credit_is_saved_as_metadata_with_timestamp(self):
+        rows = [
+            {"t": 0.0, "text": "作詞: X"},
+            {"t": 5.0, "text": "君"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            with patch.object(lrcio, "LYRICS", root / "lyrics"), \
+                 patch.object(lrcio.LY, "audio_duration", return_value=60):
+                self.assertTrue(lrcio.save(audio, rows)["ok"])
+                raw = lrcio.store_path(audio).read_text(encoding="utf-8")
+                self.assertIn("[00:00.00]作詞: X", raw)
+                doc = lrcio.load(audio)
+                self.assertEqual([x["text"] for x in doc["lines"]], ["君"])
+                self.assertEqual([x["text"] for x in doc["metadata"]], ["作詞: X"])
+
     def test_save_preserves_metadata_but_keeps_lyric_markers_editable(self):
         raw = "\ufeff [ar:歌手][ti:曲] \n[Chorus]\n[offset:500]\n[00:05.00]あの日\n[Note: keep singing]\n"
         with tempfile.TemporaryDirectory() as tmp:

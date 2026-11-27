@@ -511,7 +511,7 @@ metadata 不进入 playable
 验证：
 
 ```text
-448 Python
+449 Python
 108 前端
 pyflakes 通过
 架构检查通过
