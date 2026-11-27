@@ -38,6 +38,10 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
 def persist_cache(item: dict, expected_version: str | None = None) -> dict:
     """把当前缓存歌词落成 nhlrc；已有 nhlrc 时只返回状态，不重写。"""
     doc, _usable = load_lyrics(item)
+    if not doc.get("ok"):
+        return {"ok": False,
+                "error": doc.get("error") or "无法读取歌词",
+                "uid": item.get("uid")}
     if doc.get("disabled"):
         return {"ok": False, "error": "歌词已禁用", "uid": item.get("uid")}
     if doc.get("kind") == "nhlrc":

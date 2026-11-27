@@ -62,7 +62,7 @@ class TestLrcDrafts(unittest.TestCase):
         from unittest.mock import patch
         from momo_player.service import song as SVC
         item = {"uid": "u0", "file": "/tmp/x.mp3", "title": "x", "artist": ""}
-        cache = {"kind": "cache", "version": "none", "disabled": False,
+        cache = {"ok": True, "kind": "cache", "version": "none", "disabled": False,
                  "body_rows": [{"t": 1.0, "text": "君"}],
                  "lines": [{"t": 1.0, "text": "君"}],
                  "metadata": [{"before": 0, "text": "[ar:X]"}],
@@ -88,12 +88,45 @@ class TestLrcDrafts(unittest.TestCase):
     def test_persist_cache_rejects_empty_lyrics(self):
         from unittest.mock import patch
         from momo_player.service import song as SVC
-        empty = {"kind": "cache", "version": "none", "disabled": False,
+        empty = {"ok": True, "kind": "cache", "version": "none", "disabled": False,
                  "body_rows": [], "lines": [], "metadata": []}
         with patch.object(SVC, "load_lyrics", return_value=(empty, False)):
             res = SVC.persist_cache({"uid": "u0"})
         self.assertFalse(res["ok"])
         self.assertIn("没有可保存", res["error"])
+
+    def test_persist_cache_rejects_unreadable_doc(self):
+        from unittest.mock import patch
+        from momo_player.service import song as SVC
+        with patch.object(SVC, "load_lyrics",
+                          return_value=({"ok": False, "error": "bad nhlrc"}, False)):
+            res = SVC.persist_cache({"uid": "u0"})
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["error"], "bad nhlrc")
+
+    def test_persist_cache_creates_real_nhlrc(self):
+        from unittest.mock import patch
+        from momo_player.service import song as SVC
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            item = {"uid": "u0", "file": str(audio), "title": "曲", "artist": "歌手"}
+            lrc = "[ar:歌手]\n[00:01.00]君\n[00:02.00]花\n"
+            tlyric = "[00:01.00]你\n[00:02.00]花\n"
+            with patch.object(lrcio, "LYRICS", root / "lyrics"), \
+                 patch.object(lrcio.LY, "get_lrc",
+                              return_value={"lrc": lrc, "tlyric": tlyric,
+                                            "source": "test"}), \
+                 patch.object(SVC.LIB, "refresh", return_value={}):
+                res = SVC.persist_cache(item)
+                self.assertTrue(res["ok"])
+                self.assertFalse(res["already"])
+                path = lrcio.store_path(audio, "u0", "曲", "歌手")
+                self.assertTrue(path.is_file())
+                doc = lrcio.load(audio, "u0", "曲", "歌手")
+                self.assertEqual(doc["kind"], "nhlrc")
+                self.assertEqual([x["text"] for x in doc["lines"]], ["君", "花"])
 
     def test_save_preserves_metadata_but_keeps_lyric_markers_editable(self):
         raw = "\ufeff [ar:歌手][ti:曲] \n[Chorus]\n[offset:500]\n[00:05.00]あの日\n[Note: keep singing]\n"
