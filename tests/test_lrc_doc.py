@@ -33,6 +33,9 @@ class TestLrcDoc(unittest.TestCase):
     def test_credit_lines_are_metadata_and_keep_body_timestamp(self):
         self.assertTrue(D.is_metadata_text("作詞: 星野源"))
         self.assertTrue(D.is_metadata_text("[ar:X]作詞: Y"))
+        self.assertTrue(D.is_metadata_text("[ar:X]hello"))
+        self.assertTrue(D.is_metadata_text("Lyrics by: X"))
+        self.assertTrue(D.is_metadata_text("Produced by: X"))
         self.assertFalse(D.is_metadata_text("作詞の歌を歌う"))
         rows, meta, body = D._parse_rows(
             "[00:00.00]作詞: 星野源\n[00:10.00]君\n")

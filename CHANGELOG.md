@@ -8,6 +8,8 @@
   `kind=metadata`，不再由播放层单独猜测。
 - 带时间戳的制作信息行保留时间戳，但不再进入播放、导航和高亮。
 - 编辑器保存 metadata 时不再丢失 `[mm:ss.xx]`。
+- 补齐 `Lyrics by` / `Produced by` / `Composed by`，并统一“标签 + 正文”按 metadata 处理。
+- 旧文档投影保留 metadata 时间戳，补前后端规则一致性测试。
 
 ## [1.2.3] - 2026-11-26
 

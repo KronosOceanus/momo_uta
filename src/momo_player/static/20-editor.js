@@ -57,7 +57,7 @@ function newRowId(){
   return 'r_'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 }
 const META_TAG_RE=/^\[(ar|al|ti|au|by|offset|length|re|ve|la|id|tool):/i;
-const META_CREDIT_RE=/^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌|Lyrics|Composer|Arranger|Producer)\s*[:：]/i;
+const META_CREDIT_RE=/^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌|Lyrics|Composer|Arranger|Producer|Composed|Produced)\s*(?:by\s*)?[:：]/i;
 function rowKind(text){
   const t=(text||'').trim();
   if(!t) return 'blank';

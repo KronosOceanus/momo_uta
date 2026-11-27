@@ -208,6 +208,21 @@ test('editor classifies credit text and exports metadata timestamps', () => {
   assert.equal(p.run('lrcText()'), '[00:00.00]作詞: X\n[00:01.00]君\n');
 });
 
+test('meta text prefix list matches the backend samples', () => {
+  const p = player();
+  const samples = {
+    '作詞: X': 'metadata',
+    '作詞の歌を歌う': 'lyric',
+    'Lyrics by: X': 'metadata',
+    'Produced by: X': 'metadata',
+    'Composed by: X': 'metadata',
+    '[ar:X]hello': 'metadata',
+    '普通歌词': 'lyric',
+  };
+  for (const [text, kind] of Object.entries(samples))
+    assert.equal(p.run(`rowKind(${JSON.stringify(text)})`), kind, text);
+});
+
 test('opening the editor keeps untimed file rows absent from playback', async () => {
   const p = player();
   p.run(`LINES=[{t:1,text:'timed'}]`);

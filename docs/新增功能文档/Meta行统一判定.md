@@ -158,6 +158,9 @@ kind = "metadata"
 [00:00.00]Composer: 某人
 [00:00.00]Arranger: 某人
 [00:00.00]Producer: 某人
+[00:00.00]Lyrics by: 某人
+[00:00.00]Produced by: 某人
+[00:00.00]Composed by: 某人
 ```
 
 ### 3.2 不算 metadata 的行
@@ -466,6 +469,15 @@ metadata 不参与当前行高亮
 
 ## 14. 结论
 
+补充实现：
+
+```text
+[ar:X]hello 这类“标签 + 普通正文”统一按标签判为 metadata
+metadata 旧投影保留 t，不再丢 [mm:ss.xx]
+Lyrics by / Produced by / Composed by 已纳入
+前后端用同一组样例做行为一致性测试
+```
+
 统一后只有一个权威判定：
 
 ```text
@@ -512,7 +524,7 @@ metadata 不进入 playable
 
 ```text
 449 Python
-108 前端
+109 前端
 pyflakes 通过
 架构检查通过
 前端检查通过

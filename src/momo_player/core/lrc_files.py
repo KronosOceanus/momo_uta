@@ -272,7 +272,9 @@ def _doc_from_v2_rows(rows: list[dict], path: Path, version: str,
     for row in rows:
         kind = row.get("kind")
         if kind == "metadata":
-            metadata.append({"before": len(lines), "text": row.get("text") or ""})
+            metadata.append({"before": len(lines),
+                             "text": row.get("text") or "",
+                             "t": row.get("t")})
             continue
         text = row.get("text") or ""
         body_rows.append({"t": row.get("t"), "text": text})
@@ -740,7 +742,8 @@ def _metadata_for_body(metadata, annotation_index, body_len):
             body_before = body_len
         else:
             body_before = by_lyric.get(before, body_len)
-        out.append({"before": body_before, "text": tag.get("text", "")})
+        out.append({"before": body_before, "text": tag.get("text", ""),
+                    "t": tag.get("t")})
     return out
 
 
@@ -757,7 +760,8 @@ def _rows_from_body(lines, metadata, annotations, translations,
     rows = []
     for bi, ln in enumerate(lines or []):
         for tag in by_before.pop(bi, []):
-            rows.append({"kind": "metadata", "text": tag.get("text", ""), "t": None})
+            rows.append({"kind": "metadata", "text": tag.get("text", ""),
+                         "t": tag.get("t")})
         text = str(ln.get("text") or "")
         if not text.strip():
             rows.append({"kind": "blank", "text": "", "t": ln.get("t")})
@@ -774,7 +778,8 @@ def _rows_from_body(lines, metadata, annotations, translations,
                      "trans": (translations or {}).get(bi) or ""})
     for before in sorted(by_before):
         for tag in by_before[before]:
-            rows.append({"kind": "metadata", "text": tag.get("text", ""), "t": None})
+            rows.append({"kind": "metadata", "text": tag.get("text", ""),
+                         "t": tag.get("t")})
     return rows
 
 

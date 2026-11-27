@@ -126,7 +126,7 @@ function syncBackPlaying(){
 
 // ── 统一播放层
 // ── 统一播放层：普通视图与编辑表格共用同一套时间语义 ──
-const META_RE=/^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌|Lyrics|Composer|Arranger|Producer)\s*[:：]/i;
+const META_RE=/^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌|Lyrics|Composer|Arranger|Producer|Composed|Produced)\s*(?:by\s*)?[:：]/i;
 function viewLines(){ return NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES; }
 function lineT(l){ return (l && l.t!==null && l.t!==undefined) ? l.t+NH.OFFSET : null; }
 function isMetaLine(l){

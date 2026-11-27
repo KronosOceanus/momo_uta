@@ -56,6 +56,7 @@ class TestLrcDrafts(unittest.TestCase):
                 doc = lrcio.load(audio)
                 self.assertEqual([x["text"] for x in doc["lines"]], ["君"])
                 self.assertEqual([x["text"] for x in doc["metadata"]], ["作詞: X"])
+                self.assertEqual(doc["metadata"][0]["t"], 0.0)
 
     def test_save_preserves_metadata_but_keeps_lyric_markers_editable(self):
         raw = "\ufeff [ar:歌手][ti:曲] \n[Chorus]\n[offset:500]\n[00:05.00]あの日\n[Note: keep singing]\n"

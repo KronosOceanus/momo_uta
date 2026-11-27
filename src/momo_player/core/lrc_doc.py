@@ -16,7 +16,8 @@ METADATA = re.compile(
 )
 META_CREDIT = re.compile(
     r"^(?:作詞|作词|作曲|編曲|编曲|訳詞|訳词|制作|製作|演唱|歌"
-    r"|Lyrics|Composer|Arranger|Producer)\s*[:：]",
+    r"|Lyrics|Composer|Arranger|Producer|Composed|Produced)"
+    r"\s*(?:by\s*)?[:：]",
     re.IGNORECASE,
 )
 
@@ -28,12 +29,10 @@ def is_metadata_text(text: str) -> bool:
         return False
     if METADATA.fullmatch(s):
         return True
-    m = METADATA.match(s)
-    if m:
-        rest = s[m.end():].strip()
-        if not rest:
-            return True
-        return bool(META_CREDIT.match(rest))
+    # 行首有 metadata 标签时整行都算 metadata，和前端 rowKind 保持一致；
+    # 不再根据标签后的正文二次判断。
+    if METADATA.match(s):
+        return True
     return bool(META_CREDIT.match(s))
 
 
