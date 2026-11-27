@@ -208,6 +208,14 @@ test('editor classifies credit text and exports metadata timestamps', () => {
   assert.equal(p.run('lrcText()'), '[00:00.00]作詞: X\n[00:01.00]君\n');
 });
 
+test('lyrics page credits are rendered separately from lyric lines', () => {
+  const p = player();
+  const html = p.run("creditHtml([{text:'作詞: X'},{text:'作曲: Y'}])");
+  assert.match(html, /class="lmeta"/);
+  assert.match(html, /作詞: X/);
+  assert.match(html, /作曲: Y/);
+});
+
 test('meta text prefix list matches the backend samples', () => {
   const p = player();
   const samples = {

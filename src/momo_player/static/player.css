@@ -112,6 +112,7 @@ body.fak .ew:hover rt{color:var(--a)}
 .flash{box-shadow:0 0 0 2px var(--flash-ring)!important;border-radius:6px;
   display:inline-block;padding:.55em .12em .12em;margin:-.55em 0 -.12em}
 .kin{background:var(--input);border:1px solid var(--line-strong);color:var(--fg);border-radius:6px;padding:2px 8px;font-size:12px;width:7em;font-family:inherit}
+.lmeta{padding:4px 10px;font-size:14px;line-height:1.9;color:var(--muted);cursor:default}
 .ln{padding:7px 10px;border-radius:8px;font-size:20px;line-height:1.9;cursor:pointer;color:var(--muted)}
 .ln:hover{background:var(--hover)}
 .ln.on{background:var(--selected);color:var(--fg)}

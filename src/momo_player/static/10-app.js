@@ -9,7 +9,7 @@ NH.TOKEN = window.__MOMO_TOKEN || '';
 //   20-editor.js  LRC 编辑表格（对齐、增删、粘贴、保存）
 //   30-playback.js 统一时间语义、自绘播放条、波形跟随、键盘
 const _ERR_SEEN = new Map();
-NH.S = null; NH.LINES = []; NH.NAV = []; NH.CUR = -1; NH.loop = false;
+NH.S = null; NH.LINES = []; NH.CREDITS = []; NH.NAV = []; NH.CUR = -1; NH.loop = false;
 NH.ST_ON = false; NH.ST_URL = null; NH.ST_UID = null; NH.ST_SPEED = 1; NH.MODE = 'rm'; NH.PLAYING_UID = null; NH.VIEW_MODE = 'normal'; NH.LRC_VERSION = null; NH.NO_MATCH = new Set(); NH.AUTO_REBUILD = false;
 NH.isSelfPlaying = () => !!(NH.S && NH.PLAYING_UID !== null && String(NH.PLAYING_UID) === String(NH.S.uid));
 function esc(v){
@@ -18,6 +18,9 @@ function esc(v){
   }[c]));
 }
 const lyr=document.getElementById('lyr');
+function creditHtml(credits){
+  return (credits||[]).map(c=>`<div class="lmeta">${esc(c.text||'')}</div>`).join('');
+}
 NH.LIB = []; NH.PLS = []; NH.DRAG = null;
 NH.SELU = new Set(); NH.SEL_LIST = null; NH.SEL_ANCHOR = null;
 NH.WMARK = {};   // 查看歌曲的波形播放头（静止时用）
@@ -390,7 +393,7 @@ async function load(ref, autoplay, nextMode){
       NH.viewDispatch({type:'MATCH_START', idx:d.uid, request});
     }
     NH.syncModes?.();
-    NH.S=d; NH.LINES=[]; NH.CUR=-1; NH.NAV=[];
+    NH.S=d; NH.LINES=[]; NH.CREDITS=[]; NH.CUR=-1; NH.NAV=[];
     NH.syncBackPlaying?.();
     NH.paintTicks?.();
     NH.syncModes?.();   // 已有查看歌曲：开始可用，匹配中其他入口仍禁用
@@ -451,7 +454,7 @@ async function load(ref, autoplay, nextMode){
   {
     NH.viewDispatch({type:'LOAD_READY', idx:d.uid, request});
     NH.NO_MATCH.delete(String(d.uid));
-    NH.S=d; NH.LINES=d.lines; NH.CUR=-1;
+    NH.S=d; NH.LINES=d.lines; NH.CREDITS=d.credits||[]; NH.CUR=-1;
     NH.syncBackPlaying?.();
     NH.paintTicks?.();
     if(String(NH.PLAYING_UID) !== String(d.uid)){
@@ -459,7 +462,7 @@ async function load(ref, autoplay, nextMode){
     }
     NH.NAV=NH.LINES.map((l,i)=>l.meta?-1:i).filter(i=>i>=0);
     document.getElementById('vtitle').textContent=d.title+(d.artist?' · '+d.artist:'');
-    lyr.innerHTML=NH.LINES.map((l,n)=>{
+    lyr.innerHTML=creditHtml(NH.CREDITS)+NH.LINES.map((l,n)=>{
       const tr=l.trans ? `<div class="lntrans">${String(l.trans).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
       return `<div class="ln" data-n="${n}" data-lid="${l.lid||''}"><span class="tx">${String(n+1).padStart(2,'0')}</span> ${l.ruby}${tr}</div>`;
     }).join('');
@@ -795,5 +798,5 @@ NH.prepareBackgroundFlush=prepareBackgroundFlush;
 NH.prepareShutdown=prepareShutdown;
 if(window.__MOMO_CONFIG_WARNING) setTimeout(()=>toast(window.__MOMO_CONFIG_WARNING), 300);
 if(window.__MOMO_TOOL_WARNING) setTimeout(()=>toast(window.__MOMO_TOOL_WARNING), 500);
-Object.assign(NH, {lyr, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime, flash, esc});
+Object.assign(NH, {lyr, creditHtml, CFG, UI, clampStart, waveTime, waveMarker, waveStep, setWaveMarker, viewStart, spanText, updateWaveHint, syncWaveLabels, syncFollow, setWaveSpan, inlineEdit, measureCanvas, fitCanvas, drawWave, fmt, waitJob, loadWave, saveOpen, load, _toastEl, _showToast, _nextToast, toast, clearToast, lock, busy, done, api, reportClientError, themeColor, applyTheme, audioTime, sourceTime, flash, esc});
 })();

@@ -495,7 +495,26 @@ kind == "metadata"
 文本正则只作为旧数据兜底，  
 不再承担主判据。
 
-## 15. 实现结果
+## 15. 歌词页显示
+
+metadata 仍然：
+
+```text
+不进入 playable
+不进入导航
+不参与高亮
+```
+
+但 `/api/song` 额外返回：
+
+```json
+"credits": [{"text": "作詞: X", "t": 0.0}]
+```
+
+歌词页在顶部渲染为静态 `.lmeta` 行，  
+LRC 编辑器仍然从 `rows` 中正常显示和编辑。
+
+## 16. 实现结果
 
 已落地：
 
@@ -508,6 +527,8 @@ lrc_files._rows_from_body       旧 body 入口同样分类
 20-editor.rowKind               前端同步制作信息判定
 20-editor.lrcText               metadata 行保留时间戳
 30-playback.isMetaLine          优先看 kind，文本正则仅旧数据兜底
+service/song.credits            歌词页顶部静态制作信息
+10-app.creditHtml               不进入 LINES，不影响索引
 ```
 
 新增覆盖：
@@ -517,6 +538,8 @@ lrc_files._rows_from_body       旧 body 入口同样分类
 作詞の歌 → lyric
 metadata 保留 [00:00.00]
 metadata 不进入 playable
+歌词页顶部显示 credits
+LRC 编辑器可编辑 metadata
 编辑器 rowKind 与 lrcText
 ```
 
@@ -524,7 +547,7 @@ metadata 不进入 playable
 
 ```text
 449 Python
-109 前端
+110 前端
 pyflakes 通过
 架构检查通过
 前端检查通过

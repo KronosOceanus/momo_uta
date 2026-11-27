@@ -18,7 +18,8 @@ from ..core import song_meta as META
 from ..core.annotation import (AN,  # noqa: F401
                                annotate_line_with_notes, annotate_line_with_token_overrides,
                                ruby_html, segs_of, strip_paren_ruby, words_html_of)
-from ..core.lrc_doc import new_line_id, new_token_ids, tokens_with_spans
+from ..core.lrc_doc import (new_line_id, new_token_ids, tokens_with_spans,
+                            METADATA, is_metadata_text)
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")
 HAN_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -410,6 +411,19 @@ def _payload_base(item: dict, idx, uid, doc: dict) -> dict:
     }
 
 
+def _credit_lines(rows: list[dict]) -> list[dict]:
+    """歌词页顶部的制作信息；标签行本身不作为歌词显示。"""
+    out = []
+    for row in rows:
+        if row.get("kind") != "metadata":
+            continue
+        text = row.get("text") or ""
+        if METADATA.fullmatch(text.strip()):
+            continue
+        out.append({"text": text, "t": row.get("t")})
+    return out
+
+
 def _nhlrc_payload(item: dict, idx, uid, rows_doc: dict) -> dict:
     from .lyric_document import playable_rows
     rows = rows_doc.get("rows") or []
@@ -428,7 +442,7 @@ def _nhlrc_payload(item: dict, idx, uid, rows_doc: dict) -> dict:
     # 不再触发懒匹配。
     has_doc = bool(rows_doc.get("exists"))
     return {**base, "pending": (not lines) and not has_doc, "lines": lines,
-            "nhlrc": True, "disabled": False}
+            "credits": _credit_lines(rows), "nhlrc": True, "disabled": False}
 
 
 def song_payload(ref, _item=None) -> dict:
@@ -453,6 +467,11 @@ def song_payload(ref, _item=None) -> dict:
                 "match_status": item.get("match_status") or "",
                 "nhlrc": doc.get("kind") == "nhlrc"}
     item["has_lyric"] = True
+    credits = []
+    for row in (doc.get("body_rows") or []):
+        text = row.get("text") or ""
+        if is_metadata_text(text) and not METADATA.fullmatch(text.strip()):
+            credits.append({"text": text, "t": row.get("t")})
     lines = doc["lines"]
     stored = doc.get("annotations") or {}
     for li, ln in enumerate(lines):
@@ -463,7 +482,7 @@ def song_payload(ref, _item=None) -> dict:
         ln.update(fields)
         ln["raw"] = ln["text"]
         ln["trans"] = ((doc.get("translations") or {}).get(li) or "")
-    return {**base, "pending": False, "lines": lines,
+    return {**base, "pending": False, "lines": lines, "credits": credits,
             "nhlrc": doc.get("kind") == "nhlrc", "disabled": False}
 
 
