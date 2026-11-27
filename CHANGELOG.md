@@ -1,12 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.5] - 2026-11-27
 
 ### 修复
 
 - 歌词页重新显示 metadata 制作信息，但只作为顶部静态 credits；
   不进入上一句/下一句，也不参与高亮。
 - LRC 编辑模式仍可编辑 metadata 行。
+- 单曲 payload 增加 `credits`，歌词页按静态块渲染，不改变 `LINES` 索引。
 
 ## [Unreleased]
 
