@@ -58,6 +58,43 @@ class TestLrcDrafts(unittest.TestCase):
                 self.assertEqual([x["text"] for x in doc["metadata"]], ["作詞: X"])
                 self.assertEqual(doc["metadata"][0]["t"], 0.0)
 
+    def test_persist_cache_writes_full_doc_and_is_noop_for_nhlrc(self):
+        from unittest.mock import patch
+        from momo_player.service import song as SVC
+        item = {"uid": "u0", "file": "/tmp/x.mp3", "title": "x", "artist": ""}
+        cache = {"kind": "cache", "version": "none", "disabled": False,
+                 "body_rows": [{"t": 1.0, "text": "君"}],
+                 "lines": [{"t": 1.0, "text": "君"}],
+                 "metadata": [{"before": 0, "text": "[ar:X]"}],
+                 "trans_lang": "zh"}
+        with patch.object(SVC, "load_lyrics", return_value=(cache, True)), \
+             patch.object(SVC, "save_lyrics", return_value={"ok": True, "version": "v2"}) as save:
+            res = SVC.persist_cache(item)
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["already"])
+        self.assertEqual(res["version"], "v2")
+        self.assertEqual(save.call_args.args[1], cache["body_rows"])
+        self.assertEqual(save.call_args.args[2], "align")
+
+        nhlrc = {**cache, "kind": "nhlrc", "version": "v1"}
+        with patch.object(SVC, "load_lyrics", return_value=(nhlrc, True)), \
+             patch.object(SVC, "save_lyrics") as save:
+            res = SVC.persist_cache(item)
+        self.assertTrue(res["ok"])
+        self.assertTrue(res["already"])
+        self.assertEqual(res["version"], "v1")
+        save.assert_not_called()
+
+    def test_persist_cache_rejects_empty_lyrics(self):
+        from unittest.mock import patch
+        from momo_player.service import song as SVC
+        empty = {"kind": "cache", "version": "none", "disabled": False,
+                 "body_rows": [], "lines": [], "metadata": []}
+        with patch.object(SVC, "load_lyrics", return_value=(empty, False)):
+            res = SVC.persist_cache({"uid": "u0"})
+        self.assertFalse(res["ok"])
+        self.assertIn("没有可保存", res["error"])
+
     def test_save_preserves_metadata_but_keeps_lyric_markers_editable(self):
         raw = "\ufeff [ar:歌手][ti:曲] \n[Chorus]\n[offset:500]\n[00:05.00]あの日\n[Note: keep singing]\n"
         with tempfile.TemporaryDirectory() as tmp:

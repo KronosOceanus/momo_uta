@@ -35,6 +35,27 @@ def load_lyrics(item: dict) -> tuple[dict, bool]:
     return doc, LRC.usable_doc(doc)
 
 
+def persist_cache(item: dict, expected_version: str | None = None) -> dict:
+    """把当前缓存歌词落成 nhlrc；已有 nhlrc 时只返回状态，不重写。"""
+    doc, _usable = load_lyrics(item)
+    if doc.get("disabled"):
+        return {"ok": False, "error": "歌词已禁用", "uid": item.get("uid")}
+    if doc.get("kind") == "nhlrc":
+        return {"ok": True, "already": True, "version": doc.get("version"),
+                "uid": item.get("uid")}
+    rows = doc.get("body_rows") or doc.get("lines") or []
+    if not any((ln.get("text") or "").strip() for ln in rows):
+        return {"ok": False, "error": "没有可保存的歌词", "uid": item.get("uid")}
+    if expected_version is None:
+        expected_version = doc.get("version")
+    res = save_lyrics(item, rows, "align", expected_version=expected_version,
+                      trans_lang=doc.get("trans_lang") or "zh")
+    if res.get("ok"):
+        res["already"] = False
+        res["uid"] = item.get("uid")
+    return res
+
+
 def _annotate_lines(lines, stored=None, reuse=None, old_texts=None,
                     tokens=None, old_token_values=None):
     """按行生成读音；行内正文变化时按 token id 保留读音。"""

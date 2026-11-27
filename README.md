@@ -256,6 +256,7 @@ config.json 本机配置
 | `Space` | 播放 / 暂停 |
 | `←` / `→` | 上一句 / 下一句 |
 | `B` | 回到正在播放歌曲 |
+| `Cmd+S` | 保存当前查看歌曲的歌词 |
 | `[` / `]` | 速度 − / + |
 | `-` / `=` | 降 / 升 key |
 | `⌃⌥←` / `⌃⌥→` | 上一首 / 下一首（全局） |
@@ -355,8 +356,8 @@ make test-python
 pip install -e .
 pip install -e '.[dev]'
 make test
-  → 449 Python（UI smoke 视桌面环境）
-  → 110 前端
+  → 451 Python（UI smoke 视桌面环境）
+  → 113 前端
 
 ./packaging/build.sh thin
   → dist/thin/momo-uta-thin.app

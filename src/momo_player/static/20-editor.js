@@ -204,6 +204,38 @@ function syncTransBtn(){
   b.textContent='翻译：'+(NH.TRANS_EDIT?'开':'关');
   b.classList.toggle('on', NH.TRANS_EDIT);
 }
+let PERSIST_PENDING = null;
+async function persistCurrentLyrics(){
+  if(!NH.S) return false;
+  if(NH.VIEW_MODE==='lrc') return saveLrc(false, true);
+  // 只处理歌词页（普通/振假名），不跟随当前播放歌曲，也不在别的页面写歌词。
+  if(NH.VIEW_MODE!=='normal' && NH.VIEW_MODE!=='kana') return false;
+  if(PERSIST_PENDING) return PERSIST_PENDING;
+  const song=NH.S;
+  PERSIST_PENDING=(async()=>{
+    try{
+      const r=await NH.api('/api/lrc',{action:'persist', uid:song.uid, version:NH.S?.version});
+      if(NH.S!==song) return false;
+      if(r.conflict){
+        const ok=await NH.load(song.uid, false, NH.VIEW_MODE);
+        if(ok !== false && NH.S && String(NH.S.uid)===String(song.uid))
+          NH.done('歌词已在别处保存，已重新加载');
+        else if(ok === false)
+          NH.done('歌词已在别处保存，但重新加载失败');
+        return false;
+      }
+      if(!r.ok) throw new Error(r.error||'保存失败');
+      if(r.version){ NH.S.version=r.version; NH.LRC_VERSION=r.version; }
+      NH.done(r.already ? '歌词已是 nhlrc' : '歌词已保存');
+      return true;
+    }catch(e){
+      NH.done('保存失败：'+e.message);
+      return false;
+    }finally{ PERSIST_PENDING=null; }
+  })();
+  return PERSIST_PENDING;
+}
+
 async function saveLrc(silent, force){
   if(!NH.S || NH.VIEW_MODE!=='lrc' || (NH.LRC_REPLACING && !NH.LRC_FLUSHING)) return false;
   const song=NH.S;
@@ -1003,7 +1035,7 @@ function paint2(n){
   if(el2)el2.scrollIntoView({block:'center'});
 }
 
-Object.assign(NH, {rowKind, editorRowIndex, timeFitsRow, timeFitsInsert, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
+Object.assign(NH, {persistCurrentLyrics, rowKind, editorRowIndex, timeFitsRow, timeFitsInsert, updateTextRow, updateTransRow, saveBeforeReplace, resolveLrcConflict, reloadLrcFromServer, overwriteLrc, setLrcLocked, snapshot, markDirty, beginTextEdit, retokenizeRow, newLid, ensureLid, sliceTokens, splitRow, mergeRows, mergeSavedIds, lrcPayload, saveLrc, flushLrc, undo, redo, lrcFmt, lrcParse, lrcText, openLrcEditor, rowHtml, renderLrcTable, paintSelection, insertPos, insertLines, addRow, delRows, selectAll, bindMark, replaceLrc, syncModes, openPicker, doEdit, flashAt, applyEdit, renderSide, paint2});
 syncTransBtn();
 syncModes();   // 启动时没有 S：三个入口和“开始”都置灰
 })();

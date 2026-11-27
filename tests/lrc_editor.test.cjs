@@ -964,6 +964,41 @@ test('shortcut help contains the key controls', () => {
   assert.match(src, /k\('-'\)/);
 });
 
+test('Cmd+S on the lyrics page persists cache lyrics and updates version', async () => {
+  const p = player();
+  p.run("S={uid:'u0',version:'old'}; PLAYING_UID='playing'; VIEW_MODE='normal'; LRC_VERSION=null;");
+  p.dispatch('keydown', {target:{tagName:'BUTTON'}, metaKey:true, key:'s', preventDefault(){}});
+  assert.equal(p.calls[0].path, '/api/lrc');
+  assert.equal(p.calls[0].body.action, 'persist');
+  assert.equal(p.calls[0].body.version, 'old');
+  assert.equal(p.calls[0].body.uid, 'u0');
+  p.requests[0].resolve({ok:true, version:'v2'});
+  await nextTurn();
+  assert.equal(p.run('S.version'), 'v2');
+  assert.equal(p.run('LRC_VERSION'), 'v2');
+  assert.match(p.run('messages.at(-1)'), /歌词已保存/);
+});
+
+test('Cmd+S on the lyrics page reports an existing nhlrc', async () => {
+  const p = player();
+  p.run("S={uid:'u0',version:'v1'}; VIEW_MODE='normal'; LRC_VERSION='v1';");
+  p.dispatch('keydown', {target:{tagName:'BODY'}, metaKey:true, key:'s', preventDefault(){}});
+  p.requests[0].resolve({ok:true, already:true, version:'v1'});
+  await nextTurn();
+  assert.match(p.run('messages.at(-1)'), /nhlrc/);
+  assert.equal(p.calls.length, 1);
+});
+
+test('persist conflict reloads the viewed song instead of overwriting', async () => {
+  const p = player();
+  p.run("S={uid:'u0',version:'old'}; VIEW_MODE='normal'; LRC_VERSION=null; globalThis.reloaded=false; load=async()=>{globalThis.reloaded=true; return true;}");
+  p.dispatch('keydown', {target:{tagName:'BODY'}, metaKey:true, key:'s', preventDefault(){}});
+  p.requests[0].resolve({ok:false, conflict:true, error:'lyrics changed'});
+  await nextTurn();
+  assert.equal(p.run('globalThis.reloaded'), true);
+  assert.match(p.run('messages.at(-1)'), /重新加载/);
+});
+
 test('switching playback song resets key to original', () => {
   const p = player();
   p.run("S={uid:'u0'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=true; ST_KEY=2; ST_URL='/audio/u0?st=1.00&key=2'; ST_UID='u0';");

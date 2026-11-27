@@ -7,7 +7,7 @@ from ..core import library as LIB
 from ..core import lrc_files as LRC
 from ..core.lrc_doc import tokens_with_spans
 from . import lyric_document as LD
-from .song import load_lyrics, save_lyrics
+from .song import load_lyrics, persist_cache, save_lyrics
 
 
 def lrc_action(req):
@@ -55,6 +55,8 @@ def lrc_action(req):
         if rows_extra is not None:
             out.update({"model": 2, "rows": rows_extra})
         return out
+    if act == "persist":
+        return persist_cache(item, expected_version=req.get("version"))
     if act == "backup":
         return LRC.backup_status(item["file"], uid, title, artist)
     if act == "restore":

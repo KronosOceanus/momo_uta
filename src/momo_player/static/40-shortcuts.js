@@ -25,7 +25,7 @@ function helpEl(){
       [combo('Shift','L'), '播放模式'],
     ]],
     ['LRC 编辑', [
-      [combo('Cmd','S'), '保存'],
+      [combo('Cmd','S'), '保存歌词（普通页 / 编辑页）'],
       [k('T'), '翻译列开关'],
       [k('Enter'), '新增一行'],
       [k('Delete'), '删除选中行'],
@@ -96,6 +96,23 @@ document.addEventListener('keydown', e=>{
   if(e.key==='?' || ((e.key==='/' || e.code==='Slash' || e.keyCode===191) && e.shiftKey)){
     e.preventDefault(); toggleHelp(); return;
   }
+  // 组合键先于 isButton：点过播放按钮后焦点仍在按钮上时，Cmd+S 也要能用。
+  if(e.metaKey || e.ctrlKey){
+    const k=(e.key||'').toLowerCase();
+    if(k==='s'){
+      e.preventDefault();
+      if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED)
+        NH.saveLrc(false,true);
+      else if(NH.VIEW_MODE==='normal' || NH.VIEW_MODE==='kana')
+        NH.persistCurrentLyrics?.();
+      return;
+    }
+    if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED){
+      if(k==='a'){ e.preventDefault(); NH.selectAll(); return; }
+      if(k==='z'){ e.preventDefault(); e.shiftKey?NH.redo():NH.undo(); return; }
+    }
+    return;
+  }
   const passthrough = e.key === '-' || e.key === '=' || e.key === '+'
     || e.key === '[' || e.key === ']'
     || e.code === 'Minus' || e.code === 'Equal'
@@ -104,15 +121,6 @@ document.addEventListener('keydown', e=>{
   if(e.key==='b' || e.key==='B'){
     const back=document.getElementById('backplaying');
     if(back && !back.hidden){ e.preventDefault(); back.click(); }
-    return;
-  }
-  if(e.metaKey || e.ctrlKey){
-    const k=(e.key||'').toLowerCase();
-    if(NH.VIEW_MODE==='lrc' && !NH.LRC_LOCKED){
-      if(k==='s'){ e.preventDefault(); NH.saveLrc(false,true); return; }
-      if(k==='a'){ e.preventDefault(); NH.selectAll(); return; }
-      if(k==='z'){ e.preventDefault(); e.shiftKey?NH.redo():NH.undo(); return; }
-    }
     return;
   }
   if(e.altKey){
