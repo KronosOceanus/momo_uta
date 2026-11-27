@@ -13,11 +13,9 @@
 ```
 
 ```text
-2026-11-27 v1.2.7 已重建：
-  commit 054bd7e
-  thin sha256=b82cb4ef085324a60abe3c3817167e5f525904e98836cf74b37975d3c588acd1
-  full sha256=3342e28cebf262eadde4c0519b8f799f463c035887e5159549cad6235252e29c
+2026-11-27 v1.2.8 已重建：
   thin / full 两种 .app
+  具体 commit / sha256 见 dist/VERSIONS.txt
   thin / full 两种 zip
   VERSIONS.txt（commit + sha256）
 ```
