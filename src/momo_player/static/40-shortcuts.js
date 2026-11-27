@@ -20,6 +20,7 @@ function helpEl(){
       [k('B'), '回到正在播放歌曲'],
       [k('M'), '静音'],
       [combo('[') + sep + combo(']'), '速度 − / +'],
+      [k('-') + sep + k('='), '降 / 升 key'],
       [k('L'), '单句循环'],
       [combo('Shift','L'), '播放模式'],
     ]],
@@ -126,6 +127,15 @@ document.addEventListener('keydown', e=>{
   if(e.key==='m' || e.key==='M'){ e.preventDefault(); NH.au.muted=!NH.au.muted; NH.paintTransport(); return; }
   if(e.key==='['){ e.preventDefault(); speed(-1); return; }
   if(e.key===']'){ e.preventDefault(); speed(1); return; }
+  const keyDown = (e.key === '-' || e.code === 'Minus') && !e.shiftKey;
+  const keyUp = e.key === '=' || e.key === '+' || e.code === 'Equal';
+  if(keyDown || keyUp){
+    e.preventDefault();
+    if(e.repeat) return;
+    if(NH.PLAYING_UID===null || NH.PLAYING_UID===undefined) return;
+    NH.applyKey((NH.ST_KEY || 0) + (keyUp ? 1 : -1));
+    return;
+  }
   if(e.key==='l' || e.key==='L'){
     e.preventDefault();
     if(e.shiftKey) document.getElementById('songloop').click();

@@ -256,9 +256,12 @@ config.json 本机配置
 | `Space` | 播放 / 暂停 |
 | `←` / `→` | 上一句 / 下一句 |
 | `B` | 回到正在播放歌曲 |
+| `[` / `]` | 速度 − / + |
+| `-` / `=` | 降 / 升 key |
 | `⌃⌥←` / `⌃⌥→` | 上一首 / 下一首（全局） |
 | `⌃⌥P` | 播放 / 暂停（全局） |
-| `L` | LRC 编辑模式 |
+| `L` | 单句循环 |
+| `Shift+L` | 播放模式 |
 | `?` | 快捷键帮助 |
 
 完整快捷键在应用内按 `?` 查看。
@@ -353,7 +356,7 @@ pip install -e .
 pip install -e '.[dev]'
 make test
   → 445 Python（UI smoke 视桌面环境）
-  → 102 前端
+  → 104 前端
 
 ./packaging/build.sh thin
   → dist/thin/momo-uta-thin.app

@@ -884,6 +884,24 @@ test('key change sends speed and key together', async () => {
   assert.equal(p.run("document.getElementById('keypick').textContent"), '+2');
 });
 
+test('minus and equals transpose the playing song', async () => {
+  const p = player();
+  p.run("S={uid:'u0',title:'A'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0',title:'A'}; ST_ON=false; ST_SPEED=1; ST_KEY=0; document.getElementById('rate').value='1.0';");
+  p.run("au={paused:false,readyState:4,duration:100,currentTime:2,src:'',addEventListener(n,fn){if(n==='seeked'||n==='canplay')fn();},removeEventListener(){},pause(){},play(){return Promise.resolve();},preload(){return Promise.resolve();}}");
+  p.dispatch('keydown', {target:{tagName:'BODY'}, key:'-', code:'Minus', preventDefault(){}});
+  assert.equal(p.calls[0].path, '/api/soundtouch');
+  assert.equal(p.calls[0].body.key, -1);
+  p.requests[0].resolve({ok:false, error:'stop'});
+  await nextTurn();
+});
+
+test('key shortcuts are no-op without playback', () => {
+  const p = player();
+  p.run("PLAYING_UID=null; PLAY_ITEM=null;");
+  p.dispatch('keydown', {target:{tagName:'BODY'}, key:'=', code:'Equal', preventDefault(){}});
+  assert.equal(p.calls.length, 0);
+});
+
 test('switching playback song resets key to original', () => {
   const p = player();
   p.run("S={uid:'u0'}; PLAYING_UID='u0'; PLAY_ITEM={uid:'u0'}; ST_ON=true; ST_KEY=2; ST_URL='/audio/u0?st=1.00&key=2'; ST_UID='u0';");
