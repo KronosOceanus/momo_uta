@@ -553,17 +553,21 @@ async function api(path, body){
                     : (Object.keys(headers).length ? {headers} : undefined);
   const r=await fetch(path, opts);
   if(!r.ok){
-    let msg='HTTP '+r.status;
+    let d=null;
     try{
-      const d=await r.clone().json();
-      if(r.status===409 && d && d.ok===false) return d;   // 版本冲突是业务结果，不是网络失败
-      msg=d.error||d.detail||d.message||msg;
-      const err=new Error(msg); err.code=d.error_code; throw err;
-    }catch(e){
-      if(e && e.code) throw e;
-      try{ const t=await r.text(); if(t) msg=t.length>200?t.slice(0,200):t; }catch(e2){}
+      d=await r.clone().json();
+    }catch(e){}
+    if(r.status===409 && d && d.ok===false) return d;   // 版本冲突是业务结果，不是网络失败
+    let msg=(d && (d.error||d.detail||d.message)) || ('HTTP '+r.status);
+    if(!d){
+      try{
+        const t=await r.text();
+        if(t) msg=t.length>200?t.slice(0,200):t;
+      }catch(e2){}
     }
-    throw new Error(msg);
+    const err=new Error(msg);
+    if(d && d.error_code) err.code=d.error_code;
+    throw err;
   }
   return r.json();
 }

@@ -245,6 +245,26 @@ test('play mode button keeps its label and switches mode icons', () => {
   assert.match(read(), /pm-icon/);
 });
 
+test('api shows parsed JSON error text instead of raw body', async () => {
+  const p = player();
+  p.run("fetch=async()=>({ok:false,status:400,clone(){return this},async json(){return {ok:false,error:'这个候选没有带时间轴的可用歌词'}},async text(){return '{\"ok\":false,\"error\":\"raw\"}'}})");
+  await assert.rejects(p.run("api('/api/pick',{})"), /这个候选没有带时间轴的可用歌词/);
+});
+
+test('api returns conflict objects without throwing', async () => {
+  const p = player();
+  p.run("fetch=async()=>({ok:false,status:409,clone(){return this},async json(){return {ok:false,conflict:true,error:'歌词已更新'}},async text(){return 'raw'}})");
+  const d = await p.run("api('/api/lrc',{})");
+  assert.equal(d.conflict, true);
+  assert.equal(d.error, '歌词已更新');
+});
+
+test('api falls back to text only when the error body is not JSON', async () => {
+  const p = player();
+  p.run("fetch=async()=>({ok:false,status:500,clone(){return this},async json(){throw new Error('bad json')},async text(){return 'Internal Server Error'}})");
+  await assert.rejects(p.run("api('/api/bad')"), /Internal Server Error/);
+});
+
 test('normal lyrics load only syncs vocals status and does not start a job', async () => {
   const p = player();
   p.run("globalThis.vstarted=0; startVocals=async()=>{globalThis.vstarted++;};");

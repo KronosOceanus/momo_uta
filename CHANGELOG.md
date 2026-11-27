@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### 修复
+
+- 统一 `api()` 的错误解析：HTTP 非 2xx 的 JSON 错误显示 `error` 文本，
+  不再把整段 JSON 当 toast；409 仍作为冲突对象返回。
+
 ## [1.2.8] - 2026-11-27
 
 ### 新增
