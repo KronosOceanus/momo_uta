@@ -2,6 +2,8 @@
 
 > 已配置 PyInstaller onedir，构建 thin / full 两种 `.app`。
 
+> Intel / x86_64 支持计划见 [Intel Mac 支持](../新增功能文档/Intel Mac支持.md)。
+
 ## 0. 当前状态
 
 ```text
