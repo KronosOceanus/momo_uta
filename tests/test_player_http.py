@@ -256,6 +256,7 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertIsInstance(d["idx"], str)
         self.assertFalse(d["pending"])
         self.assertEqual([c["text"] for c in d["credits"]], ["作词 : X"])
+        self.assertIn("vocals", d)
 
     def test_song_idx_is_not_accepted(self):
         with self.assertRaises(urllib.error.HTTPError) as cm:

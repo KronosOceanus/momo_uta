@@ -458,6 +458,7 @@ async function openLrcEditor(entering=false, opts={}){
   }
   NH.paintTicks?.();
   if(entering){ NH.measureCanvas(); NH.syncWaveLabels(); NH.syncFollow(); if(!NH.WAVE) NH.loadWave(); }
+  if(entering) NH.startVocals?.(song.uid);
   return true;
 }
 

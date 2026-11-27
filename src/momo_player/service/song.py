@@ -15,6 +15,7 @@ from ..core import diag
 from ..core import fsio as FS
 from ..core import lyrics as LY
 from ..core import song_meta as META
+from ..core import vocals as VOC
 from ..core.annotation import (AN,  # noqa: F401
                                annotate_line_with_notes, annotate_line_with_token_overrides,
                                ruby_html, segs_of, strip_paren_ruby, words_html_of)
@@ -438,6 +439,7 @@ def _payload_base(item: dict, idx, uid, doc: dict) -> dict:
         "duration": LY.audio_duration(item["file"]),
         "audio": f"/audio/{uid}",
         "offset": float(META.get(uid, "offset", 0.0) or 0.0),
+        "vocals": VOC.status(uid),
     }
 
 

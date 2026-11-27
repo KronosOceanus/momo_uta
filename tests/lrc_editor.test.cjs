@@ -231,6 +231,16 @@ test('meta text prefix list matches the backend samples', () => {
     assert.equal(p.run(`rowKind(${JSON.stringify(text)})`), kind, text);
 });
 
+test('entering LRC mode starts vocals for the viewed song', async () => {
+  const p = player();
+  p.run("S={uid:'u0',version:'v'}; VIEW_MODE='normal'; globalThis.vstarted=null; startVocals=async uid=>{globalThis.vstarted=uid;}; measureCanvas=()=>{}; syncWaveLabels=()=>{}; syncFollow=()=>{}; loadWave=()=>{};");
+  const opening = p.run('openLrcEditor(true)');
+  p.requests[0].resolve({ok:true, lines:[]});
+  await opening;
+  await nextTurn();
+  assert.equal(p.run('globalThis.vstarted'), 'u0');
+});
+
 test('opening the editor keeps untimed file rows absent from playback', async () => {
   const p = player();
   p.run(`LINES=[{t:1,text:'timed'}]`);

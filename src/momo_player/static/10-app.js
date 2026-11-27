@@ -339,6 +339,13 @@ function saveOpen(){
     .catch(err=>reportClientError('ui_open', err.message));
 }
 
+function syncVocalStatus(d){
+  if(!d) return;
+  NH.VSTAT = d.vocals || {state:'none'};
+  NH.VSTAT_IDX = String(d.uid);
+  NH.paintVStatus?.();
+}
+
 async function load(ref, autoplay, nextMode){
   if(NH.LRC_REPLACING) return false;
   clearToast();                                   // 换歌前不留下上一首的提示
@@ -394,6 +401,7 @@ async function load(ref, autoplay, nextMode){
     }
     NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CREDITS=[]; NH.CUR=-1; NH.NAV=[];
+    syncVocalStatus(d);
     NH.syncBackPlaying?.();
     NH.paintTicks?.();
     NH.syncModes?.();   // 已有查看歌曲：开始可用，匹配中其他入口仍禁用
@@ -406,11 +414,9 @@ async function load(ref, autoplay, nextMode){
     if(knownNoMatch){                             // 已确认没歌词：不再重跑匹配
       NH.syncModes?.();
       lyr.innerHTML='';
-      NH.startVocals(d.uid);
       return true;
     }
     lyr.innerHTML='';
-    NH.startVocals(d.uid);
     busy('匹配歌词中…');
     let d2=null, jobId=null, matchError=null;
     try{
@@ -482,9 +488,8 @@ async function load(ref, autoplay, nextMode){
 
     if(autoplay){ NH.commitAudio(); NH.playFromStart?.(); }
   }
-  NH.VSTAT=null; NH.VSTAT_IDX=null; NH.paintVStatus?.();
+  syncVocalStatus(d);
   if(NH.VIEW_MODE!=='lrc') NH.WAVE=null;
-  NH.startVocals(d.uid);
   return true;
 }
 
