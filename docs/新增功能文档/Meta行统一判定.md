@@ -546,7 +546,7 @@ LRC 编辑器可编辑 metadata
 验证：
 
 ```text
-454 Python
+456 Python
 115 前端
 pyflakes 通过
 架构检查通过

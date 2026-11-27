@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### 修复
+
+- 已有 nhlrc 时，`/api/lrc` 的 `save` / `save_rows` 必须携带 version；
+  缺失时返回 409，避免外部调用静默覆盖。
+- README 的签名说明改为 ad-hoc 签名、未公证。
+
 ## [1.2.7] - 2026-11-27
 
 ### 新增

@@ -188,7 +188,7 @@ thin / full 同时只建议运行一个。
 
 ## 安装
 
-当前仓库可以构建 `.app`，但还没有签名、公证的正式发行包。
+当前仓库可以构建 `.app`，但还没有 Developer ID 签名和公证的正式发行包。
 
 本地构建后：
 
@@ -206,7 +206,7 @@ dist/full/momo-uta-full.app
 ```
 
 ```text
-当前构建未签名，macOS 可能提示无法验证开发者。
+当前构建为 ad-hoc 签名、未公证，macOS 可能提示无法验证开发者。
 当前只提供 Apple Silicon（arm64）构建。
 ```
 
@@ -356,7 +356,7 @@ make test-python
 pip install -e .
 pip install -e '.[dev]'
 make test
-  → 454 Python（UI smoke 视桌面环境）
+  → 456 Python（UI smoke 视桌面环境）
   → 115 前端
 
 ./packaging/build.sh thin
@@ -368,7 +368,7 @@ make test
 ```text
 只提供 arm64 构建
 暂不支持 Intel / universal2
-未签名 / 未公证
+ad-hoc 签名 / 未公证
 没有自动更新
 歌词来源目前只有网易云
 full 首次人声分离需要下载模型

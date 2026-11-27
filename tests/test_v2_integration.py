@@ -119,6 +119,7 @@ class TestV2Contract(unittest.TestCase):
                 self.assertTrue(LRF.save_rows(audio, rows, trans_lang="en")["ok"])
                 out = SVC_LRC.lrc_action({
                     "action": "save_rows", "uid": item["uid"],
+                    "version": LRF.load_rows(audio)["version"],
                     "rows": [{**rows[0], "trans": "you!"}]})
                 self.assertTrue(out["ok"], out)
                 self.assertEqual(LRF.load_rows(audio)["trans_lang"], "en")

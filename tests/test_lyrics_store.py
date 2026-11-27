@@ -314,6 +314,7 @@ class TestManualReading(unittest.TestCase):
                     {"t": 13.0, "text": "また会おう", "trans": ""},
                 ]
                 saved = SVC_LRC.lrc_action({"action": "save", "uid": uid,
+                                            "version": before["version"],
                                             "lines": lines})
                 self.assertTrue(saved.get("ok"), saved)
                 loaded = SVC_LRC.lrc_action({"action": "load", "uid": uid})
@@ -399,11 +400,13 @@ class TestManualReading(unittest.TestCase):
                 # lines 不带 trans：缺省，沿用旧翻译。
                 no_trans = [{"t": 5.0, "text": "君"}]
                 saved = SVC_LRC.lrc_action({"action": "save", "uid": uid,
+                                            "version": LRF.load(audio, uid)["version"],
                                             "lines": no_trans})
                 self.assertTrue(saved.get("ok"), saved)
                 self.assertEqual(LRF.load(audio, uid)["translations"], {0: "you"})
                 # 显式 {}：清空全部。
                 saved = SVC_LRC.lrc_action({"action": "save", "uid": uid,
+                                            "version": LRF.load(audio, uid)["version"],
                                             "lines": rows_with,
                                             "translations": {}})
                 self.assertTrue(saved.get("ok"), saved)
@@ -635,7 +638,9 @@ class TestSaveAlignment(unittest.TestCase):
                 LRF.save(audio, rows()[:2], seed)
                 before = LRF.load(audio)["annotations"]
                 from momo_player.service import lrc as SVC
-                res = SVC.lrc_action({"action": "save", "uid": LRF.uid_of(audio), "lines": [
+                res = SVC.lrc_action({"action": "save", "uid": LRF.uid_of(audio),
+                    "version": LRF.load(audio)["version"],
+                    "lines": [
                     {"t": 1.0, "text": "新しい行"},
                     {"t": 5.0, "text": "君の名前"},
                     {"t": 9.0, "text": "呼んでくれた"},

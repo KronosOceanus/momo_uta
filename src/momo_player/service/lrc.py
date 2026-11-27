@@ -55,6 +55,11 @@ def lrc_action(req):
         if rows_extra is not None:
             out.update({"model": 2, "rows": rows_extra})
         return out
+    if act in ("save", "save_rows") and not req.get("version"):
+        current = LRC.current_version(item["file"], uid, title, artist)
+        if current is not None:
+            return {"ok": False, "conflict": True,
+                    "error": "缺少歌词版本，请重新加载", "version": current}
     if act == "persist":
         return persist_cache(item, expected_version=req.get("version"))
     if act == "backup":
