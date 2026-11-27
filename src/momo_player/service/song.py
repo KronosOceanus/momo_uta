@@ -115,9 +115,14 @@ def _body_layout(rows):
     lyric_rows = []
     body_to_lyric = {}
     for bi, ln in enumerate(rows or []):
-        if (ln.get("text") or "").strip():
-            body_to_lyric[bi] = len(lyric_rows)
-            lyric_rows.append(ln)
+        text = (ln.get("text") or "").strip()
+        if not text:
+            continue
+        # metadata 不参与 compact 歌词下标；否则缓存翻译会整体错位。
+        if ln.get("kind") == "metadata" or is_metadata_text(text):
+            continue
+        body_to_lyric[bi] = len(lyric_rows)
+        lyric_rows.append(ln)
     return lyric_rows, body_to_lyric
 
 

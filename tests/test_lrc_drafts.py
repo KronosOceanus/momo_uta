@@ -112,7 +112,7 @@ class TestLrcDrafts(unittest.TestCase):
             audio = root / "歌手 - 曲.mp3"
             audio.touch()
             item = {"uid": "u0", "file": str(audio), "title": "曲", "artist": "歌手"}
-            lrc = "[ar:歌手]\n[00:01.00]君\n[00:02.00]花\n"
+            lrc = "[00:00.00]作詞: 某人\n[00:01.00]君\n[00:02.00]花\n"
             tlyric = "[00:01.00]你\n[00:02.00]花\n"
             with patch.object(lrcio, "LYRICS", root / "lyrics"), \
                  patch.object(lrcio.LY, "get_lrc",
@@ -127,6 +127,7 @@ class TestLrcDrafts(unittest.TestCase):
                 doc = lrcio.load(audio, "u0", "曲", "歌手")
                 self.assertEqual(doc["kind"], "nhlrc")
                 self.assertEqual([x["text"] for x in doc["lines"]], ["君", "花"])
+                self.assertEqual(doc["translations"], {0: "你", 1: "花"})
 
     def test_save_preserves_metadata_but_keeps_lyric_markers_editable(self):
         raw = "\ufeff [ar:歌手][ti:曲] \n[Chorus]\n[offset:500]\n[00:05.00]あの日\n[Note: keep singing]\n"
