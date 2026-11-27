@@ -1,11 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.9] - 2026-11-27
 
 ### 修复
 
 - 统一 `api()` 的错误解析：HTTP 非 2xx 的 JSON 错误显示 `error` 文本，
   不再把整段 JSON 当 toast；409 仍作为冲突对象返回。
+
+### 诊断
+
+- 增加 AudioContext 创建、statechange、非 running、muted、
+  window focus/blur、document visibilitychange 日志，便于定位后台播放静音。
+- 音频生命周期日志包含 state / playing / muted / volume。
 
 ## [1.2.8] - 2026-11-27
 

@@ -50,15 +50,31 @@ class AudioEngine {
   get volume(){ return this._vol; }
   set volume(v){ this._vol=Math.max(0,Math.min(1,+v||0)); this._gainSet(); }
   get muted(){ return this._muted; }
-  set muted(m){ this._muted=!!m; this._gainSet(); }
+  set muted(m){
+    const v=!!m;
+    if(v!==this._muted) this._diag('muted', {value:v});
+    this._muted=v; this._gainSet();
+  }
   _gainSet(){ if(this._gain) this._gain.gain.value=this._muted?0:this._vol; }
+  _diag(kind, extra){
+    try{
+      const ctx=this._ctx;
+      const state=ctx ? ctx.state : 'none';
+      NH.reportClientError?.('audio_'+kind, kind+' state='+state, '',
+        Object.assign({state, muted:this._muted, volume:this._vol,
+                       playing:!this.paused}, extra||{}));
+    }catch(e){}
+  }
   _ctxGet(){
     if(!this._ctx){
       const C=window.AudioContext||window.webkitAudioContext;
       if(!C) throw new Error('WebAudio 不可用');
       this._ctx=new C();
       this._gain=this._ctx.createGain(); this._gain.connect(this._ctx.destination);
+      this._ctx.addEventListener?.('statechange', ()=> this._diag('statechange'));
+      this._diag('created');
     }
+    if(this._ctx.state!=='running') this._diag('not_running');
     if(this._ctx.state==='suspended') this._ctx.resume().catch(()=>{});
     return this._ctx;
   }
@@ -149,6 +165,27 @@ class AudioEngine {
   }
 }
 const au = new AudioEngine();
+
+function audioLifecycle(reason){
+  try{
+    NH.reportClientError?.('audio_lifecycle', reason, '', {
+      visibility: (typeof document!=='undefined' && document.visibilityState) || '',
+      hidden: !!(typeof document!=='undefined' && document.hidden),
+      state: NH.au && NH.au._ctx ? NH.au._ctx.state : 'none',
+      playing: !!(NH.au && !NH.au.paused),
+      muted: !!(NH.au && NH.au.muted),
+      volume: NH.au ? NH.au.volume : null,
+    });
+  }catch(e){}
+}
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('visibilitychange',
+    ()=>audioLifecycle('visibility_'+(document.visibilityState||'unknown')));
+}
+if(typeof window!=='undefined' && window.addEventListener){
+  window.addEventListener('focus', ()=>audioLifecycle('focus'));
+  window.addEventListener('blur', ()=>audioLifecycle('blur'));
+}
 
 Object.assign(NH, {AudioEngine, au});
 })();
