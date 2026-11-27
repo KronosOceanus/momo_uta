@@ -231,6 +231,17 @@ test('meta text prefix list matches the backend samples', () => {
     assert.equal(p.run(`rowKind(${JSON.stringify(text)})`), kind, text);
 });
 
+test('normal lyrics load only syncs vocals status and does not start a job', async () => {
+  const p = player();
+  p.run("globalThis.vstarted=0; startVocals=async()=>{globalThis.vstarted++;};");
+  const loading = p.run("load('u0')");
+  await nextTurn();
+  p.requests[0].resolve(song('0'));
+  await loading;
+  await nextTurn();
+  assert.equal(p.run('globalThis.vstarted'), 0);
+});
+
 test('entering LRC mode starts vocals for the viewed song', async () => {
   const p = player();
   p.run("S={uid:'u0',version:'v'}; VIEW_MODE='normal'; globalThis.vstarted=null; startVocals=async uid=>{globalThis.vstarted=uid;}; measureCanvas=()=>{}; syncWaveLabels=()=>{}; syncFollow=()=>{}; loadWave=()=>{};");

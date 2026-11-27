@@ -515,6 +515,20 @@ class TestPlayerHttp(unittest.TestCase):
         self.assertEqual(body["error_code"], "invalid_speed")
 
 
+class TestSongPayloadVocals(unittest.TestCase):
+    def test_payload_carries_each_vocals_state(self):
+        from unittest.mock import patch
+        from momo_player.service import song as SVC
+        item = {"uid": "u0", "file": "/tmp/x.mp3", "key": "k", "title": "x",
+                "artist": "", "stem": "x - x"}
+        for state in ("none", "queued", "running", "done", "failed"):
+            with patch.object(SVC.VOC, "status",
+                              return_value={"state": state, "has_vocals": state == "done"}), \
+                 patch.object(SVC.LY, "audio_duration", return_value=60):
+                base = SVC._payload_base(item, "0", "u0", {})
+            self.assertEqual(base["vocals"]["state"], state)
+
+
 class TestLrcNestedTypes(unittest.TestCase):
     def test_bad_lrc_lines(self):
         # reuse an isolated server through the existing fixture-style setup

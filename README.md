@@ -356,8 +356,8 @@ make test-python
 pip install -e .
 pip install -e '.[dev]'
 make test
-  → 453 Python（UI smoke 视桌面环境）
-  → 114 前端
+  → 454 Python（UI smoke 视桌面环境）
+  → 115 前端
 
 ./packaging/build.sh thin
   → dist/thin/momo-uta-thin.app
