@@ -19,6 +19,11 @@ function markPlaying(){
   document.querySelectorAll('.it').forEach(x=>{
     x.dataset.playing = (String(x.dataset.u)===String(NH.PLAYING_UID)) ? '1' : ''; });
 }
+function markViewing(){
+  const u=NH.S && NH.S.uid;
+  document.querySelectorAll('.it').forEach(x=>{
+    x.dataset.viewing = (u!==null && u!==undefined && String(x.dataset.u)===String(u)) ? '1' : ''; });
+}
 function syncPlayControls(){
   const on = NH.PLAYING_UID !== null && NH.PLAYING_UID !== undefined;
   ['prev','next','loop','play2','back10','fwd10'].forEach(id=>{
@@ -1018,7 +1023,7 @@ NH.au.addEventListener('ended', () => {
 NH.mediaPrev = () => stepSong(-1);
 NH.mediaNext = () => stepSong(1);
 NH.mediaToggle = () => togglePlayPause();
-Object.assign(NH, {markPlaying, applySpeed, applyKey, setKeyUI, setSpeedUI,
+Object.assign(NH, {markPlaying, markViewing, applySpeed, applyKey, setKeyUI, setSpeedUI,
   SPEED_VALUES, normalizeSpeed, speedLabel,
   openKeyPicker, openSpeedPicker, closeValueMenu, commitAudio, playTarget, syncBackPlaying, findSongItem, syncPlayControls, stepSong, togglePlayPause, viewLines, lineT, isMetaLine, idxAt, navItems, onceEvent, audioReady, seekPrecise, seekPlayback, seekIdx, selectLine, playLine, nextIdx, highlight, seek, fmtTime, paintTransport, paintTicks, seekToClientX, syncPlayBtn, stepPlaying, setPlayMode, cyclePlayMode, syncPlayMode, takeShuffleUid, resetShufflePool, markShufflePlayed, currentPlayUid});
 })();

@@ -56,7 +56,7 @@ function renderList(){
         <span class="car">${open?'▾':'▸'}</span><span class="pln">${gname}</span>
         <span class="plc">${its.length}</span></div>
       <div class="plb" ${open?'':'hidden'}>`
-      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" tabindex="0" data-i="${NH.esc(x.idx)}" data-u="${NH.esc(x.uid)}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING_UID)===String(x.uid)?'1':''}" draggable="true">
+      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" tabindex="0" data-i="${NH.esc(x.idx)}" data-u="${NH.esc(x.uid)}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING_UID)===String(x.uid)?'1':''}" data-viewing="${String(NH.S && NH.S.uid)===String(x.uid)?'1':''}" draggable="true">
           <div class="t1"><span class="orig">${NH.esc(x.orig||x.title)}</span>
             ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${NH.esc(x.title)}</span>`}</div>
           <div class="ar">${NH.esc(x.artist)}</div>
@@ -67,6 +67,7 @@ function renderList(){
   });
   document.getElementById('list').innerHTML=html||'<div class="empty">没有歌</div>';
   NH.markPlaying?.();
+  NH.markViewing?.();
 }
 
 function syncLyricMark(uid, has){

@@ -401,6 +401,7 @@ async function load(ref, autoplay, nextMode){
     }
     NH.syncModes?.();
     NH.S=d; NH.LINES=[]; NH.CREDITS=[]; NH.CUR=-1; NH.NAV=[];
+    NH.markViewing?.();
     syncVocalStatus(d);
     NH.syncBackPlaying?.();
     NH.paintTicks?.();
@@ -461,6 +462,7 @@ async function load(ref, autoplay, nextMode){
     NH.viewDispatch({type:'LOAD_READY', idx:d.uid, request});
     NH.NO_MATCH.delete(String(d.uid));
     NH.S=d; NH.LINES=d.lines; NH.CREDITS=d.credits||[]; NH.CUR=-1;
+    NH.markViewing?.();
     NH.syncBackPlaying?.();
     NH.paintTicks?.();
     if(String(NH.PLAYING_UID) !== String(d.uid)){

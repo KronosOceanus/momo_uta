@@ -1353,6 +1353,15 @@ test('moveSongs keeps selection when the backend moved nothing', async () => {
   assert.match(p.run('messages.join("|")'), /没有可移动的歌曲/);
 });
 
+test('viewed song gets a viewing marker and playing marker stays exclusive', () => {
+  const p = player();
+  p.run("window.NH.S={uid:'u1'}; window.NH.PLAYING_UID='u2'; window.NH.OPEN=new Set(['x']); window.NH.PLS=[{id:'x',name:'X',items:[{uid:'u1',idx:'1',orig:'viewed',title:'viewed',artist:'a'},{uid:'u2',idx:'2',orig:'playing',title:'playing',artist:'b'}]}]; renderList();");
+  const html=p.document.getElementById('list').innerHTML;
+  assert.match(html, /data-u="u1"[^>]*data-viewing="1"/);
+  assert.match(html, /data-u="u2"[^>]*data-playing="1"/);
+  assert.match(html, /data-u="u2"[^>]*data-viewing=""/);
+});
+
 test('playlist rendering escapes remote and user text', () => {
   const p = player();
   p.run("PLS=[{id:'<img>',name:'<b>list</b>',items:[{idx:0,uid:'<u>',orig:'<img src=x>',title:'<b>title</b>',artist:'&',has_lyric:false}]}]; OPEN=new Set(); SELECTED=null; PLAYING_UID=null;");
