@@ -567,3 +567,60 @@ Python 业务、LRC、曲库、歌单不动
 WebAudio 保留 fallback
 先做 CLI POC，再接 UI
 ```
+
+## 15. 当前 POC 实现
+
+已落地：
+
+```text
+native/momo-audio/main.swift
+native/momo-audio/build.sh
+src/momo_player/static/04-native-audio.js
+src/momo_player/service/native_audio.py
+GET/POST /api/native_audio
+packaging/build.sh
+```
+
+构建 helper：
+
+```bash
+./native/momo-audio/build.sh
+```
+
+启用：
+
+```json
+{
+  "player": {
+    "ui": {
+      "native_audio": true
+    }
+  }
+}
+```
+
+当前 POC 支持：
+
+```text
+load
+play
+pause
+seek
+current time
+volume
+```
+
+当前不包含：
+
+```text
+原生 rate / pitch
+原生单句循环
+vocals 播放轨
+helper 崩溃自动降级到 WebAudio
+```
+
+打包时 helper 位于：
+
+```text
+momo-uta-*.app/Contents/Helpers/momo-audio
+```
