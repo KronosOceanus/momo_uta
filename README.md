@@ -5,7 +5,7 @@
 <h1 align="center">桃歌 · momo uta</h1>
 
 <p align="center">
-  <strong>v1.2.9</strong>
+  <strong>v1.2.10</strong>
   <br>
 
   日语歌练习神器
@@ -357,7 +357,7 @@ pip install -e .
 pip install -e '.[dev]'
 make test
   → 457 Python（UI smoke 视桌面环境）
-  → 124 前端
+  → 129 前端
 
 ./packaging/build.sh thin
   → dist/thin/momo-uta-thin.app

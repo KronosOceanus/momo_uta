@@ -1362,6 +1362,76 @@ test('viewed song gets a viewing marker and playing marker stays exclusive', () 
   assert.match(html, /data-u="u2"[^>]*data-viewing=""/);
 });
 
+function fakePlaylist(rows, head) {
+  return {
+    dataset: {id: 'a'},
+    querySelectorAll(sel) { return sel === '.it' ? rows : []; },
+    querySelector(sel) { return sel === '.plh' ? head : null; }
+  };
+}
+
+function fakeRow(uid, focused) {
+  return {dataset: {u: uid}, focus() { focused.push(uid); },
+          scrollIntoView() {}};
+}
+
+test('nextVisibleUid picks the following row, then the previous row', () => {
+  const p = player();
+  const focused=[];
+  const rows=[fakeRow('a',focused),fakeRow('b',focused),fakeRow('c',focused),fakeRow('d',focused)];
+  const pl=fakePlaylist(rows,null);
+  p.document.querySelectorAll=sel=>sel==='.pl'?[pl]:[];
+  assert.equal(p.run("window.NH.nextVisibleUid('a',['b','c'])"), 'd');
+  assert.equal(p.run("window.NH.nextVisibleUid('a',['c','d'])"), 'b');
+});
+
+test('nextVisibleUid only considers visible rows', () => {
+  const p = player();
+  const focused=[];
+  const rows=[fakeRow('a',focused),fakeRow('c',focused),fakeRow('d',focused)];
+  const pl=fakePlaylist(rows,null);
+  p.document.querySelectorAll=sel=>sel==='.pl'?[pl]:[];
+  assert.equal(p.run("window.NH.nextVisibleUid('a',['a'])"), 'c');
+});
+
+test('focusAfterListChange focuses the next row', () => {
+  const p = player();
+  const focused=[];
+  const rows=[fakeRow('a',focused),fakeRow('b',focused)];
+  const pl=fakePlaylist(rows,{focus(){focused.push('head');},hasAttribute(){return false;},setAttribute(){},scrollIntoView(){}});
+  p.document.querySelectorAll=sel=>sel==='.pl'?[pl]:[];
+  p.run("window.NH.focusAfterListChange('a','b')");
+  assert.equal(focused.at(-1), 'b');
+});
+
+test('focusAfterListChange falls back to the source playlist header', () => {
+  const p = player();
+  const focused=[];
+  const head={focus(){focused.push('head');},hasAttribute(){return true;},setAttribute(){},scrollIntoView(){}};
+  const pl=fakePlaylist([],head);
+  p.document.querySelectorAll=sel=>sel==='.pl'?[pl]:[];
+  p.run("window.NH.focusAfterListChange('a',null)");
+  assert.equal(focused.at(-1), 'head');
+});
+
+test('late move response does not steal focus after a user focus change', async () => {
+  const p = player();
+  const focused=[];
+  const rows=[fakeRow('a',focused),fakeRow('b',focused)];
+  const pl=fakePlaylist(rows,{focus(){focused.push('head');},hasAttribute(){return true;},setAttribute(){},scrollIntoView(){}});
+  p.document.querySelectorAll=sel=>sel==='.pl'?[pl]:[];
+  p.run("window.NH.PLS=[{id:'a',name:'A',items:[{uid:'a'},{uid:'b'}]},{id:'b',name:'B',items:[]}];");
+  const at=p.calls.length;
+  const pending=p.run("moveSongs('a',['a'],{id:'b',name:'B'})");
+  p.dispatch('focusin',{target:{closest:()=> '#songctx'}});
+  p.requests[at].resolve({ok:true,moved:1,lists:[
+    {id:'a',name:'A',items:[{uid:'b'}]},
+    {id:'b',name:'B',items:[{uid:'a'}]}
+  ]});
+  await pending;
+  assert.equal(focused.length, 0);
+});
+
 test('playlist rendering escapes remote and user text', () => {
   const p = player();
   p.run("PLS=[{id:'<img>',name:'<b>list</b>',items:[{idx:0,uid:'<u>',orig:'<img src=x>',title:'<b>title</b>',artist:'&',has_lyric:false}]}]; OPEN=new Set(); SELECTED=null; PLAYING_UID=null;");

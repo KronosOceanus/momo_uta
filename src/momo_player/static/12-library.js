@@ -152,7 +152,7 @@ document.getElementById('q').addEventListener('input', () => {
 });
 
 // 歌单右键菜单：导入 / 重命名 / 清空 / 删除
-let MOVE_CLOSE_T=null, MOVE_OPEN_T=null, MENU_RETURN=null;
+let MOVE_CLOSE_T=null, MOVE_OPEN_T=null, MENU_RETURN=null, FOCUS_SEQ=0;
 function cancelMoveOpen(){
   if(MOVE_OPEN_T){ clearTimeout(MOVE_OPEN_T); MOVE_OPEN_T=null; }
 }
@@ -284,14 +284,16 @@ function openMoveMenu(anchor, lid, uids, focus=false){
 async function moveSongs(lid, uids, target){
   if(!uids.length) return;
   const nextUid=nextVisibleUid(lid, uids);
+  const focusSeq=FOCUS_SEQ;
   try{
     const r=await NH.api('/api/pl',{action:'entries_move',from:lid,to:target.id,uids});
     if(!r || r.ok===false){ NH.done((r && r.error) || '移动失败'); return; }
     const n=Number.isFinite(r.moved) ? r.moved : uids.length;
     if(n===0){ NH.done('没有可移动的歌曲'); return; }
+    const keepFocus=FOCUS_SEQ===focusSeq;
     clearSongSel();
     NH.applyLists(r);
-    focusAfterListChange(lid, nextUid);
+    if(keepFocus) focusAfterListChange(lid, nextUid);
     NH.done(`已移动 ${n} 首到「${target.name}」`);
   }catch(e){
     NH.done('移动失败：'+e.message);
@@ -334,11 +336,13 @@ function openSongMenu(x, y, lid, uids, returnEl=null){
       const ok=await NH.uiConfirm(`移除选中的 ${n} 首？`, '歌本身不会丢', true);
       if(!ok) return;
     }
+    const focusSeq=FOCUS_SEQ;
     const r=await NH.api('/api/pl',{action:'entries_remove',list:lid,uids});
     if(r && r.ok===false){ NH.done(r.error||'移除失败'); return; }
+    const keepFocus=FOCUS_SEQ===focusSeq;
     NH.SELU.clear(); NH.SEL_LIST=null; NH.SEL_ANCHOR=null;
     NH.applyLists(r);
-    focusAfterListChange(lid, nextUid);
+    if(keepFocus) focusAfterListChange(lid, nextUid);
   };
   box.appendChild(b);
   box.addEventListener('keydown', e=>{
@@ -399,6 +403,7 @@ document.getElementById('list').addEventListener('keydown', e=>{
 });
 document.addEventListener('click', ()=>closeCtx(false));
 document.addEventListener('focusin', e=>{
+  FOCUS_SEQ++;
   if(e.target && e.target.closest &&
      e.target.closest('#songctx, #songctx-sub, #ctxmenu')) return;
   if(!document.getElementById('songctx') &&
@@ -557,6 +562,8 @@ NH.openSongMenu=openSongMenu;
 NH.openMoveMenu=openMoveMenu;
 NH.moveTargets=moveTargets;
 NH.moveSongs=moveSongs;
+NH.nextVisibleUid=nextVisibleUid;
+NH.focusAfterListChange=focusAfterListChange;
 NH.doImport=doImport;
 loadLib().catch(async()=>{
   await new Promise(r=>setTimeout(r,600));
