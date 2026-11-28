@@ -32,7 +32,7 @@ class TestMoveMany(unittest.TestCase):
     def test_cross_playlist_without_before_appends(self):
         lid = PL.create("目标")
         PL.add(lid, ["x"])
-        PL.move_many("default", lid, ["b", "d"])
+        self.assertEqual(PL.move_many("default", lid, ["b", "d"]), 2)
         d = PL.load()
         self.assertEqual(d["members"]["default"], ["a", "c"])
         self.assertEqual(d["members"][lid], ["x", "b", "d"])

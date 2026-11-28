@@ -223,19 +223,19 @@ def reorder_lists(ids: list[str]) -> None:
 
 
 def move_many(lid_from: str, lid_to: str, uids: list[str],
-              before: str | None = None) -> None:
-    """批量移动；before 是目标歌单里插到它前面的 uid。"""
+              before: str | None = None) -> int:
+    """批量移动；before 是目标歌单里插到它前面的 uid。返回实际移动数。"""
     moved = [u for u in dict.fromkeys(str(x) for x in uids if x)]
     if not moved or not lid_from or not lid_to:
-        return
+        return 0
     with _locked():
         d = load()
         if not any(x.get("id") == lid_to for x in d.get("lists", [])):
-            return
+            return 0
         src = d["members"].get(lid_from, [])
         moved = [u for u in moved if u in src]
         if not moved:
-            return
+            return 0
         moved_set = set(moved)
         base = [u for u in src if u not in moved_set]
         dst = base if lid_from == lid_to else [
@@ -246,6 +246,7 @@ def move_many(lid_from: str, lid_to: str, uids: list[str],
             d["members"][lid_from] = base
         d["members"][lid_to] = dst
         save(d)
+        return len(moved)
 
 
 def move(lid_from: str, lid_to: str, uid: str) -> None:

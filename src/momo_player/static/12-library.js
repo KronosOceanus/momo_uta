@@ -117,10 +117,21 @@ document.getElementById('q').addEventListener('input', () => {
 });
 
 // 歌单右键菜单：导入 / 重命名 / 清空 / 删除
+let MOVE_CLOSE_T=null;
+function closeMoveSub(){
+  if(MOVE_CLOSE_T){ clearTimeout(MOVE_CLOSE_T); MOVE_CLOSE_T=null; }
+  document.getElementById('songctx-sub')?.remove();
+  document.querySelector('#songctx button[aria-controls="songctx-sub"]')
+    ?.setAttribute('aria-expanded','false');
+}
+function closeMoveSoon(){
+  if(MOVE_CLOSE_T) clearTimeout(MOVE_CLOSE_T);
+  MOVE_CLOSE_T=setTimeout(closeMoveSub, 180);
+}
 function closeCtx(){
   document.getElementById('ctxmenu')?.remove();
   document.getElementById('songctx')?.remove();
-  document.getElementById('songctx-sub')?.remove();
+  closeMoveSub();
 }
 function openPlMenu(x, y, g){
   closeCtx();
@@ -155,20 +166,38 @@ function openPlMenu(x, y, g){
   box.style.left=Math.min(x, window.innerWidth-r.width-8)+'px';
   box.style.top=Math.min(y, window.innerHeight-r.height-8)+'px';
 }
-function openMoveMenu(anchor, lid, uids){
-  document.getElementById('songctx-sub')?.remove();
+function moveTargets(lid){
+  return (NH.PLS || []).filter(g=>g.id!==lid);
+}
+
+function openMoveMenu(anchor, lid, uids, focus=false){
+  const old=document.getElementById('songctx-sub');
+  if(old){
+    if(focus){
+      const first=old.querySelector('button:not(:disabled)');
+      if(first && first.focus) first.focus();
+    }
+    return;
+  }
   const sub=document.createElement('div');
   sub.className='menu'; sub.id='songctx-sub'; sub.style.minWidth='170px';
-  const targets=(NH.PLS || []).filter(g=>g.id!==lid);
+  sub.setAttribute('role','menu');
+  sub.setAttribute('aria-label','移动到歌单');
+  sub.onmouseenter=()=>{ if(MOVE_CLOSE_T){ clearTimeout(MOVE_CLOSE_T); MOVE_CLOSE_T=null; } };
+  sub.onmouseleave=closeMoveSoon;
+  anchor.setAttribute('aria-expanded','true');
+  const targets=moveTargets(lid);
   if(!targets.length){
     const b=document.createElement('button');
     b.textContent='没有其他歌单'; b.disabled=true;
+    b.setAttribute('role','menuitem');
     sub.appendChild(b);
   }else{
     targets.forEach(g=>{
       const b=document.createElement('button');
       b.textContent=`${g.name} (${g.items.length})`;
       b.title=`移动到「${g.name}」`;
+      b.setAttribute('role','menuitem');
       b.onclick=ev=>{ ev.stopPropagation(); closeCtx();
         moveSongs(lid, uids, g); };
       sub.appendChild(b);
@@ -184,6 +213,10 @@ function openMoveMenu(anchor, lid, uids){
   if(top+sr.height>vh-8) top=vh-sr.height-8;
   sub.style.left=Math.max(8,left)+'px';
   sub.style.top=Math.max(8,top)+'px';
+  if(focus){
+    const first=sub.querySelector('button:not(:disabled)');
+    if(first && first.focus) first.focus();
+  }
 }
 
 async function moveSongs(lid, uids, target){
@@ -191,9 +224,10 @@ async function moveSongs(lid, uids, target){
   try{
     const r=await NH.api('/api/pl',{action:'entries_move',from:lid,to:target.id,uids});
     if(!r || r.ok===false){ NH.done((r && r.error) || '移动失败'); return; }
+    const n=Number.isFinite(r.moved) ? r.moved : uids.length;
     clearSongSel();
     NH.applyLists(r);
-    NH.done(`已移动 ${uids.length} 首到「${target.name}」`);
+    NH.done(`已移动 ${n} 首到「${target.name}」`);
   }catch(e){
     NH.done('移动失败：'+e.message);
   }
@@ -206,7 +240,12 @@ function openSongMenu(x, y, lid, uids){
   const n=uids.length;
   const move=document.createElement('button');
   move.textContent = n===1 ? '移动到歌单  ▸' : `移动选中的 ${n} 首  ▸`;
-  move.onclick=ev=>{ ev.stopPropagation(); openMoveMenu(move, lid, uids); };
+  move.setAttribute('aria-haspopup','menu');
+  move.setAttribute('aria-expanded','false');
+  move.setAttribute('aria-controls','songctx-sub');
+  move.onclick=ev=>{ ev.stopPropagation(); openMoveMenu(move, lid, uids, true); };
+  move.onmouseenter=()=>{ openMoveMenu(move, lid, uids, false); };
+  move.onmouseleave=closeMoveSoon;
   box.appendChild(move);
   const sep=document.createElement('div');
   sep.className='menu-sep';
@@ -252,6 +291,8 @@ document.getElementById('list').addEventListener('contextmenu', e=>{
 document.addEventListener('click', closeCtx);
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') closeCtx(); });
+window.addEventListener('resize', closeMoveSoon, {passive:true});
+document.addEventListener('scroll', closeMoveSoon, true);
 
 // 一次事件委托，避免重复绑定
 document.getElementById('list').addEventListener('click', async e=>{
@@ -395,6 +436,10 @@ NH.renderList=renderList;
 NH.syncLyricMark=syncLyricMark;
 NH.closeCtx=closeCtx;
 NH.openPlMenu=openPlMenu;
+NH.openSongMenu=openSongMenu;
+NH.openMoveMenu=openMoveMenu;
+NH.moveTargets=moveTargets;
+NH.moveSongs=moveSongs;
 NH.doImport=doImport;
 loadLib().catch(async()=>{
   await new Promise(r=>setTimeout(r,600));

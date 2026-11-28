@@ -131,6 +131,7 @@ rt{font-size:.5em;color:var(--muted)}
 .menu button:hover{background:var(--hover)}
 .menu button:disabled{opacity:.45;cursor:default}
 .menu-sep{height:1px;background:var(--line);margin:3px 4px}
+#songctx-sub{max-height:220px}
 audio{width:100%;margin:0;position:sticky;bottom:0}
 .pl{border-bottom:1px solid var(--line)}
 .plh{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none}

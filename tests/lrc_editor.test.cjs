@@ -1307,6 +1307,38 @@ test('audio engine errors surface a message and a client log', () => {
   assert.equal(p.calls.at(-1).path, '/api/log');
 });
 
+test('moveTargets excludes the source playlist', () => {
+  const p = player();
+  p.run("window.NH.PLS=[{id:'a',name:'A',items:[]},{id:'b',name:'B',items:[]}]");
+  assert.equal(p.run("moveTargets('a').map(g=>g.id).join(',')"), 'b');
+});
+
+test('moveSongs sends entries_move, uses moved count and clears selection', async () => {
+  const p = player();
+  p.run("window.NH.PLS=[{id:'a',name:'A',items:[{uid:'u1'}]},{id:'b',name:'B',items:[]}]; SELU=new Set(['u1']); SEL_LIST='a'; SEL_ANCHOR='u1';");
+  const at=p.calls.length;
+  const pending=p.run("moveSongs('a',['u1'],{id:'b',name:'B'})");
+  p.requests[at].resolve({ok:true,moved:1,lists:[
+    {id:'a',name:'A',items:[]},
+    {id:'b',name:'B',items:[{uid:'u1'}]}
+  ]});
+  await pending;
+  assert.deepEqual(p.calls[at].body, {action:'entries_move',from:'a',to:'b',uids:['u1']});
+  assert.equal(p.run('SELU.size'), 0);
+  assert.match(p.run('messages.join("|")'), /已移动 1 首/);
+});
+
+test('moveSongs keeps selection when the API reports failure', async () => {
+  const p = player();
+  p.run("window.NH.PLS=[{id:'a',name:'A',items:[{uid:'u1'}]},{id:'b',name:'B',items:[]}]; SELU=new Set(['u1']); SEL_LIST='a'; SEL_ANCHOR='u1';");
+  const at=p.calls.length;
+  const pending=p.run("moveSongs('a',['u1'],{id:'b',name:'B'})");
+  p.requests[at].resolve({ok:false,error:'移动失败'});
+  await pending;
+  assert.equal(p.run('SELU.size'), 1);
+  assert.match(p.run('messages.join("|")'), /移动失败/);
+});
+
 test('playlist rendering escapes remote and user text', () => {
   const p = player();
   p.run("PLS=[{id:'<img>',name:'<b>list</b>',items:[{idx:0,uid:'<u>',orig:'<img src=x>',title:'<b>title</b>',artist:'&',has_lyric:false}]}]; OPEN=new Set(); SELECTED=null; PLAYING_UID=null;");

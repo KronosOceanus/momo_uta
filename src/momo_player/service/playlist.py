@@ -50,9 +50,9 @@ def playlists_action(req) -> dict:
     elif act == "entry_move":
         PL.move(str(req.get("from")), str(req.get("to")), str(req.get("uid")))
     elif act == "entries_move":
-        PL.move_many(str(req.get("from")), str(req.get("to")),
-                     [str(x) for x in (req.get("uids") or []) if x],
-                     str(req.get("before") or "") or None)
+        moved = PL.move_many(str(req.get("from")), str(req.get("to")),
+                            [str(x) for x in (req.get("uids") or []) if x],
+                            str(req.get("before") or "") or None)
     elif act == "list_reorder":
         PL.reorder_lists([x for x in (req.get("ids") or []) if x])
     elif act == "entry_reorder":
@@ -95,9 +95,12 @@ def playlists_action(req) -> dict:
         r = LIB.rebuild_library()
         return {**r, "lists": _lists(),
                 "missing_count": len(LIB.LAST_MISSING)}
-    return {"ok": True, "lists": _lists(),
-            "missing_count": len(LIB.LAST_MISSING),
-            "auto_rebuild": LIB.should_auto_rebuild()}
+    out = {"ok": True, "lists": _lists(),
+           "missing_count": len(LIB.LAST_MISSING),
+           "auto_rebuild": LIB.should_auto_rebuild()}
+    if act == "entries_move":
+        out["moved"] = moved
+    return out
 
 
 def import_to_list(req) -> dict:
