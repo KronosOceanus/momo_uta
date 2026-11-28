@@ -5,7 +5,7 @@
 <h1 align="center">桃歌 · momo uta</h1>
 
 <p align="center">
-  <strong>v1.2.11</strong>
+  <strong>v1.2.12</strong>
   <br>
 
   日语歌练习神器
