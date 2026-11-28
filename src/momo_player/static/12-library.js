@@ -120,6 +120,7 @@ document.getElementById('q').addEventListener('input', () => {
 function closeCtx(){
   document.getElementById('ctxmenu')?.remove();
   document.getElementById('songctx')?.remove();
+  document.getElementById('songctx-sub')?.remove();
 }
 function openPlMenu(x, y, g){
   closeCtx();
@@ -154,11 +155,62 @@ function openPlMenu(x, y, g){
   box.style.left=Math.min(x, window.innerWidth-r.width-8)+'px';
   box.style.top=Math.min(y, window.innerHeight-r.height-8)+'px';
 }
+function openMoveMenu(anchor, lid, uids){
+  document.getElementById('songctx-sub')?.remove();
+  const sub=document.createElement('div');
+  sub.className='menu'; sub.id='songctx-sub'; sub.style.minWidth='170px';
+  const targets=(NH.PLS || []).filter(g=>g.id!==lid);
+  if(!targets.length){
+    const b=document.createElement('button');
+    b.textContent='没有其他歌单'; b.disabled=true;
+    sub.appendChild(b);
+  }else{
+    targets.forEach(g=>{
+      const b=document.createElement('button');
+      b.textContent=`${g.name} (${g.items.length})`;
+      b.title=`移动到「${g.name}」`;
+      b.onclick=ev=>{ ev.stopPropagation(); closeCtx();
+        moveSongs(lid, uids, g); };
+      sub.appendChild(b);
+    });
+  }
+  document.body.appendChild(sub);
+  const ar=anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : {left:0,right:0,top:0,bottom:0};
+  const sr=sub.getBoundingClientRect();
+  const vw=window.innerWidth || 1024, vh=window.innerHeight || 768;
+  let left=ar.right-4;
+  if(left+sr.width>vw-8) left=ar.left-sr.width+4;
+  let top=ar.top;
+  if(top+sr.height>vh-8) top=vh-sr.height-8;
+  sub.style.left=Math.max(8,left)+'px';
+  sub.style.top=Math.max(8,top)+'px';
+}
+
+async function moveSongs(lid, uids, target){
+  if(!uids.length) return;
+  try{
+    const r=await NH.api('/api/pl',{action:'entries_move',from:lid,to:target.id,uids});
+    if(!r || r.ok===false){ NH.done((r && r.error) || '移动失败'); return; }
+    clearSongSel();
+    NH.applyLists(r);
+    NH.done(`已移动 ${uids.length} 首到「${target.name}」`);
+  }catch(e){
+    NH.done('移动失败：'+e.message);
+  }
+}
+
 function openSongMenu(x, y, lid, uids){
   closeCtx();
   const box=document.createElement('div');
   box.className='menu'; box.id='songctx'; box.style.minWidth='170px';
   const n=uids.length;
+  const move=document.createElement('button');
+  move.textContent = n===1 ? '移动到歌单  ▸' : `移动选中的 ${n} 首  ▸`;
+  move.onclick=ev=>{ ev.stopPropagation(); openMoveMenu(move, lid, uids); };
+  box.appendChild(move);
+  const sep=document.createElement('div');
+  sep.className='menu-sep';
+  box.appendChild(sep);
   const b=document.createElement('button');
   b.textContent = n===1 ? '从歌单移除' : `移除选中的 ${n} 首`;
   b.style.color='var(--danger)';

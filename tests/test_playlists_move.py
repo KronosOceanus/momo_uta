@@ -29,6 +29,14 @@ class TestMoveMany(unittest.TestCase):
         PL.move_many("default", "default", ["b", "d"], "c")
         self.assertEqual(PL.load()["members"]["default"], ["a", "b", "d", "c"])
 
+    def test_cross_playlist_without_before_appends(self):
+        lid = PL.create("目标")
+        PL.add(lid, ["x"])
+        PL.move_many("default", lid, ["b", "d"])
+        d = PL.load()
+        self.assertEqual(d["members"]["default"], ["a", "c"])
+        self.assertEqual(d["members"][lid], ["x", "b", "d"])
+
     def test_missing_uids_ignored(self):
         lid = PL.create("目标")
         PL.move_many("default", lid, ["nope", "b"])

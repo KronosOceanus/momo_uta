@@ -129,6 +129,8 @@ rt{font-size:.5em;color:var(--muted)}
 .menu{position:fixed;max-height:60vh;overflow:auto;z-index:50;background:var(--panel);border:1px solid var(--line-strong);border-radius:8px;padding:4px;display:flex;flex-direction:column;gap:2px;box-shadow:0 8px 24px var(--shadow)}
 .menu button{background:none;border:0;color:var(--fg);font-size:13px;padding:4px 14px;border-radius:5px;cursor:pointer;text-align:left;font-family:inherit}
 .menu button:hover{background:var(--hover)}
+.menu button:disabled{opacity:.45;cursor:default}
+.menu-sep{height:1px;background:var(--line);margin:3px 4px}
 audio{width:100%;margin:0;position:sticky;bottom:0}
 .pl{border-bottom:1px solid var(--line)}
 .plh{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none}

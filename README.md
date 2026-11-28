@@ -356,7 +356,7 @@ make test-python
 pip install -e .
 pip install -e '.[dev]'
 make test
-  → 456 Python（UI smoke 视桌面环境）
+  → 457 Python（UI smoke 视桌面环境）
   → 119 前端
 
 ./packaging/build.sh thin
