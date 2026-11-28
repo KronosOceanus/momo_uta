@@ -597,11 +597,15 @@ def plain_lrc_rows(text: str) -> list[dict]:
     body_to_lyric = {}
     lyric = 0
     for bi, ln in enumerate(body_rows):
-        if (ln.get("text") or "").strip():
-            body_to_lyric[bi] = lyric
-            lyric += 1
+        text = (ln.get("text") or "").strip()
+        if not text:
+            continue
+        if ln.get("kind") == "metadata" or is_metadata_text(text):
+            continue
+        body_to_lyric[bi] = lyric
+        lyric += 1
     meta_body = _metadata_for_body(metadata, body_to_lyric, len(body_rows))
-    rows = _rows_from_body(body_rows, meta_body, {}, {}, {}, {}, body_to_lyric)
+    rows = _rows_from_body(body_rows, meta_body, {}, {}, {}, {})
     _annotate_missing_tokens(rows)
     return rows
 
@@ -748,7 +752,7 @@ def _metadata_for_body(metadata, annotation_index, body_len):
 
 
 def _rows_from_body(lines, metadata, annotations, translations,
-                    line_ids, token_ids, annotation_index) -> list[dict]:
+                    line_ids, token_ids) -> list[dict]:
     """旧 body/compact 入参 → v2 rows；供旧保存入口一次性转换。"""
     by_before = {}
     for tag in metadata or []:
@@ -821,12 +825,16 @@ def save(audio: str | Path, lines: list[dict],
             annotation_index = {}
             lyric = 0
             for bi, ln in enumerate(lines):
-                if (ln.get("text") or "").strip():
-                    annotation_index[bi] = lyric
-                    lyric += 1
+                text = (ln.get("text") or "").strip()
+                if not text:
+                    continue
+                if ln.get("kind") == "metadata" or is_metadata_text(text):
+                    continue
+                annotation_index[bi] = lyric
+                lyric += 1
         body_meta = _metadata_for_body(metadata, annotation_index, len(lines))
         rows = _rows_from_body(lines, body_meta, annotations, translations,
-                               line_ids, token_ids, annotation_index)
+                               line_ids, token_ids)
         text, backed = _write_v2(sp, bak, rows, trans_lang)
         return {"ok": True, "path": str(sp), "lines": len(lines),
                 "backed_up": backed, "version": _version(text)}

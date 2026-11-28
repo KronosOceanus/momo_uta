@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### 修复
+
+- 旧 `LRC.save` 路径生成 `annotation_index` 时排除 metadata 行，
+  避免 metadata 位置在带空行/元数据的保存中错位；service 现在显式传入 body 映射。
+
 ## [1.2.10] - 2026-11-27
 
 ### 新增

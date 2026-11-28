@@ -546,6 +546,29 @@ class TestManualReading(unittest.TestCase):
                 self.assertEqual(after["line_ids"][0], before["line_ids"][1])
                 self.assertEqual(after["line_ids"][1], before["line_ids"][0])
 
+    def test_save_keeps_metadata_before_second_lyric_when_body_has_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            lines = [
+                {"kind": "metadata", "text": "[ar:X]"},
+                {"kind": "lyric", "text": "君", "t": 1.0},
+                {"kind": "lyric", "text": "花", "t": 2.0},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                self.assertTrue(LRF.save(
+                    audio, lines, {},
+                    metadata=[{"before": 1, "text": "[ar:X]"}])["ok"])
+                text = LRF.store_path(audio).read_text(encoding="utf-8")
+            first_meta = text.find("[ar:X]")
+            second_meta = text.find("[ar:X]", first_meta + 1)
+            second_lyric = text.find("[00:02.00]花")
+            self.assertGreater(first_meta, -1)
+            self.assertGreater(second_meta, first_meta)
+            self.assertLess(second_meta, second_lyric)
+
     def test_first_save_preserves_cached_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
