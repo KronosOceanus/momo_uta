@@ -10,6 +10,8 @@
   窗口重新可见或获得焦点时，正在播放的音频会主动唤醒。
 - 音频恢复成功/失败写入 `resume_attempt` / `resume_done` / `resume_failed` 日志。
 - metadata 去重改为按“文本 + body 位置”，不同位置的同名标签不再互相吞掉。
+- 减少音频生命周期日志：正常 focus/blur 不记录，
+  `audio_not_running` 不再重复写入，visibility 仅在 AudioContext 非 running 时记录。
 
 ## [1.2.11] - 2026-11-27
 

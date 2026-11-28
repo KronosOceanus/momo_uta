@@ -93,7 +93,6 @@ class AudioEngine {
       this._ctx.addEventListener?.('statechange', ()=> this._diag('statechange'));
       this._diag('created');
     }
-    if(this._ctx.state!=='running') this._diag('not_running');
     this._resumeCtx();
     return this._ctx;
   }
@@ -191,10 +190,12 @@ function audioWake(){
 
 function audioLifecycle(reason){
   try{
+    const state=NH.au && NH.au._ctx ? NH.au._ctx.state : 'none';
+    if(state==='running') return;   // 正常切窗口不写生命周期日志
     NH.reportClientError?.('audio_lifecycle', reason, '', {
       visibility: (typeof document!=='undefined' && document.visibilityState) || '',
       hidden: !!(typeof document!=='undefined' && document.hidden),
-      state: NH.au && NH.au._ctx ? NH.au._ctx.state : 'none',
+      state,
       playing: !!(NH.au && !NH.au.paused),
       muted: !!(NH.au && NH.au.muted),
       volume: NH.au ? NH.au.volume : null,
@@ -208,8 +209,7 @@ if(typeof document!=='undefined' && document.addEventListener){
   });
 }
 if(typeof window!=='undefined' && window.addEventListener){
-  window.addEventListener('focus', ()=>{ audioLifecycle('focus'); audioWake(); });
-  window.addEventListener('blur', ()=>audioLifecycle('blur'));
+  window.addEventListener('focus', ()=>audioWake());
 }
 
 Object.assign(NH, {AudioEngine, au});
