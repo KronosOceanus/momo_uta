@@ -357,6 +357,14 @@ document.getElementById('list').addEventListener('keydown', e=>{
   openSongMenu(r.left+24, r.top+20, lid, [...NH.SELU], row);
 });
 document.addEventListener('click', closeCtx);
+document.addEventListener('focusin', e=>{
+  if(e.target && e.target.closest &&
+     e.target.closest('#songctx, #songctx-sub, #ctxmenu')) return;
+  if(!document.getElementById('songctx') &&
+     !document.getElementById('songctx-sub') &&
+     !document.getElementById('ctxmenu')) return;
+  closeCtx();
+});
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') closeCtx(); });
 window.addEventListener('resize', closeMoveSub, {passive:true});
