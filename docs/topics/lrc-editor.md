@@ -358,6 +358,14 @@ nhlrc 编辑器不再依赖响应 ids 合并；
 lid/tid 已在 rows 中。
 ```
 
+```text
+保存实现边界：
+  save_rows(rows) 是新功能唯一写入入口
+
+  LRC.save(lines, ...) 仅保留旧兼容适配；
+  新字段不得只加在旧入口
+```
+
 ### 普通歌词页 Cmd+S
 
 ```text

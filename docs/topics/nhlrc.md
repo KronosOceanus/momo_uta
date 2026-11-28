@@ -385,6 +385,17 @@ disabled nhlrc
 只有主动替换整份歌词或删除歌词才清空它们。
 ```
 
+```text
+核心写入入口：
+  save_rows(rows)
+  → 新功能、新字段唯一入口
+
+旧兼容入口：
+  LRC.save(lines, ...)
+  → 只做旧 body 参数到 rows 的适配
+  → 不再新增保存语义
+```
+
 ## 11. disabled
 
 ```text

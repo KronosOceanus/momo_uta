@@ -810,7 +810,11 @@ def save(audio: str | Path, lines: list[dict],
          line_ids: dict[int, str] | None = None,
          token_ids: dict[int, list[str]] | None = None,
          metadata: list[dict] | None = None) -> dict:
-    """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
+    """旧 lines 兼容写入入口。
+
+    锁内校验版本、备份并原子替换。新字段/新保存语义只能加到
+    save_rows()；不要把这里继续扩展成第二套写入模型。
+    """
     if not lines and not metadata:
         return {"ok": False, "error": "没有歌词行"}
     if not any((ln.get("text") or "").strip() for ln in (lines or [])) and not metadata:
