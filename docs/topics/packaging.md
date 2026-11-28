@@ -50,6 +50,15 @@ Resources/licenses/SoundTouch-LGPL-2.1.txt
 full 另外随包 ffmpeg 和 `ffmpeg-GPLv3.txt`。  
 第三方说明见 `THIRD_PARTY_NOTICES.md`。
 
+原生音频 helper：
+
+```text
+Contents/Helpers/momo-audio
+```
+
+由 `native/momo-audio/build.sh` 编译，
+`packaging/build.sh` 放入 app 并单独签名。
+
 ```text
 当前为 ad-hoc 签名，未公证。
 正式分发需要 Developer ID + notarization。

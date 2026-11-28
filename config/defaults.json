@@ -38,7 +38,8 @@
       "toast_ms": 4200,
       "canplay_wait_ms": 900,
       "theme": "light",
-      "play_mode": "list"
+      "play_mode": "list",
+      "native_audio": false
     },
     "speed_step": 0.05
   },

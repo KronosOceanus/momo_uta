@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### 新增
+
+- 新增 Swift 原生音频 helper POC：通过 `/api/native_audio` 播放本地音频，
+  绕过 WebKit 后台媒体挂起；默认关闭，配置项 `player.ui.native_audio`。
+- 新增 `native/momo-audio` Swift 音频引擎、IPC、Python bridge 和前端 facade。
+- 打包时把 `momo-audio` 放入 `Contents/Helpers` 并单独签名。
+
 ## [1.2.12] - 2026-11-28
 
 ### 修复

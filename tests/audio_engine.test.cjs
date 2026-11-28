@@ -172,3 +172,44 @@ test('audio context resume failure does not reject playback setup', async () => 
   ctx.resume = () => Promise.reject(new Error('resume failed'));
   await assert.doesNotReject(engine._resumeCtx());
 });
+
+function makeNativeEngine() {
+  const calls = [];
+  const ctx = {
+    window: {__MOMO_TOKEN: 't'},
+    fetch: async (path, opts) => {
+      calls.push({path, body: JSON.parse(opts.body), headers: opts.headers});
+      const body = calls[calls.length - 1].body;
+      return {ok: true, json: async () => ({
+        ok: true, state: body.action === 'play' ? 'playing' : 'paused',
+        current: body.action === 'seek' ? body.seconds : 0,
+        duration: 10, ended: false
+      })};
+    },
+    setInterval() { return 0; }, clearInterval() {},
+  };
+  vm.runInNewContext(fs.readFileSync('src/momo_player/static/04-native-audio.js', 'utf8'), ctx);
+  return {engine: new ctx.window.NH.NativeAudioEngine(), calls};
+}
+
+test('native audio facade loads through the Python bridge', async () => {
+  const {engine, calls} = makeNativeEngine();
+  engine.src = '/audio/abc';
+  await engine.preload();
+  assert.equal(calls[0].path, '/api/native_audio');
+  assert.deepEqual(calls[0].body, {action: 'load', src: '/audio/abc'});
+  assert.equal(calls[0].headers['X-Momo-Token'], 't');
+  assert.equal(engine.duration, 10);
+  assert.equal(engine.readyState, 4);
+});
+
+test('native audio facade queues seek and play in order', async () => {
+  const {engine, calls} = makeNativeEngine();
+  engine.src = '/audio/abc';
+  await engine.preload();
+  engine.currentTime = 3;
+  assert.equal(engine.currentTime, 3);
+  await engine.play();
+  engine._stopPoll();
+  assert.deepEqual(calls.slice(1).map(c => c.body.action), ['seek', 'play']);
+});

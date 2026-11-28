@@ -10,18 +10,24 @@ esac
 
 NAME="momo-uta-$VARIANT"
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -n 1)
+./native/momo-audio/build.sh
 MOMO_VARIANT="$VARIANT" .venv/bin/pyinstaller --clean --noconfirm \
   --distpath "dist/$VARIANT" --workpath "build/$VARIANT" \
   packaging/momo_uta.spec
 
 APP="dist/$VARIANT/$NAME.app"
+mkdir -p "$APP/Contents/Helpers"
+cp dist/native/momo-audio "$APP/Contents/Helpers/momo-audio"
 IDENTITY="${MOMO_CODESIGN_IDENTITY:-}"
 ENTITLEMENTS="packaging/entitlements.plist"
+HELPER="$APP/Contents/Helpers/momo-audio"
 if [ -n "$IDENTITY" ]; then
+  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$HELPER"
   codesign --force --deep --options runtime --timestamp \
     --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP"
 else
   # ad-hoc 签名不能携带 restricted entitlement，否则 AMFI 会拒绝启动。
+  codesign --force --sign - "$HELPER"
   codesign --force --deep --sign - "$APP"
 fi
 ZIP="dist/$NAME.zip"

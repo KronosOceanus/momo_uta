@@ -1,6 +1,6 @@
 # Swift 原生音频迁移
 
-> 状态：设计稿，未实现。
+> 状态：POC 已实现（默认关闭，`player.ui.native_audio=true` 启用）。
 > 分支：`feature/native-audio`。
 > 目标：只替换音频播放层，绕过 WKWebView/WebAudio 的后台挂起问题，不重写 Python 业务和前端 UI。
 

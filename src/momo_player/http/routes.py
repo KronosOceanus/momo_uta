@@ -17,6 +17,7 @@ from ..core import diag
 from ..core import library as LIB
 from ..web import page
 from ..service import jobs as SVC_JOBS
+from ..service import native_audio as SVC_AUDIO
 from ..service import lrc as SVC_LRC
 from ..service import playlist as SVC_PL
 from ..service import settings as SVC_SETTINGS
@@ -36,6 +37,7 @@ class H(BaseHTTPRequestHandler):
     GET = {
         "/api/pl": "_get_playlists",
         "/api/library": "_get_library",
+        "/api/native_audio": "_get_native_audio",
     }
     POST = {
         "/api/pl": "_post_pl",
@@ -51,6 +53,7 @@ class H(BaseHTTPRequestHandler):
         "/api/play_mode": "_post_play_mode",
         "/api/soundtouch": "_post_soundtouch",
         "/api/soundtouch/cancel": "_post_soundtouch_cancel",
+        "/api/native_audio": "_post_native_audio",
     }
 
     # ── 基础 ─────────────────────────────────────────
@@ -202,6 +205,7 @@ class H(BaseHTTPRequestHandler):
         "/api/theme": ("theme",),
         "/api/play_mode": ("mode",),
         "/api/soundtouch": ("uid", "speed"),
+        "/api/native_audio": ("action",),
     }
 
     def _is_int(self, v):
@@ -539,6 +543,18 @@ class H(BaseHTTPRequestHandler):
 
     def _post_play_mode(self, req):
         return self._json(SVC_SETTINGS.set_play_mode(req))
+
+    def _get_native_audio(self):
+        try:
+            return self._json(SVC_AUDIO.status())
+        except (KeyError, OSError, RuntimeError) as e:
+            return self._json({"ok": False, "error": str(e)}, 400)
+
+    def _post_native_audio(self, req):
+        try:
+            return self._json(SVC_AUDIO.action(req))
+        except (KeyError, OSError, RuntimeError, ValueError, TypeError) as e:
+            return self._json({"ok": False, "error": str(e)}, 400)
 
     def _post_soundtouch_cancel(self, req):
         uid = str(req.get("uid") or "")

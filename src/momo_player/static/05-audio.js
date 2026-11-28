@@ -182,7 +182,9 @@ class AudioEngine {
     this._watch=requestAnimationFrame(tick);
   }
 }
-const au = new AudioEngine();
+const nativeAudio = !!(window.__CFG && window.__CFG.player &&
+  window.__CFG.player.ui && window.__CFG.player.ui.native_audio);
+const au = (nativeAudio && NH.NativeAudioEngine) ? new NH.NativeAudioEngine() : new AudioEngine();
 
 function audioWake(){
   if(NH.au && !NH.au.paused) NH.au._resumeCtx?.();
