@@ -40,6 +40,8 @@ aside .it:hover{background:var(--hover)}
 aside .it .ar{color:var(--dim);font-size:11px;padding-right:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 aside .it{position:relative}
 .it.picked{background:var(--selected-strong)}
+.it:focus-visible{outline:2px solid var(--a);outline-offset:-2px}
+.menu button:focus-visible{outline:2px solid var(--a);outline-offset:-2px}
 .it.picked .orig{color:var(--text-soft)}
 .t1{display:flex;align-items:baseline;gap:6px;min-width:0;padding-right:72px}
 .t1 .orig{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}

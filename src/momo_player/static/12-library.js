@@ -56,7 +56,7 @@ function renderList(){
         <span class="car">${open?'▾':'▸'}</span><span class="pln">${gname}</span>
         <span class="plc">${its.length}</span></div>
       <div class="plb" ${open?'':'hidden'}>`
-      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" data-i="${NH.esc(x.idx)}" data-u="${NH.esc(x.uid)}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING_UID)===String(x.uid)?'1':''}" draggable="true">
+      + its.map(x=>`<div class="it${NH.SEL_LIST===g.id && NH.SELU.has(x.uid)?' picked':''}" tabindex="0" data-i="${NH.esc(x.idx)}" data-u="${NH.esc(x.uid)}" data-hl="${x.has_lyric===false?0:1}" data-playing="${String(NH.PLAYING_UID)===String(x.uid)?'1':''}" draggable="true">
           <div class="t1"><span class="orig">${NH.esc(x.orig||x.title)}</span>
             ${(x.orig||'')===(x.title||'')?'':`<span class="mch">${NH.esc(x.title)}</span>`}</div>
           <div class="ar">${NH.esc(x.artist)}</div>
@@ -117,21 +117,29 @@ document.getElementById('q').addEventListener('input', () => {
 });
 
 // 歌单右键菜单：导入 / 重命名 / 清空 / 删除
-let MOVE_CLOSE_T=null;
+let MOVE_CLOSE_T=null, MOVE_OPEN_T=null, MENU_RETURN=null;
+function cancelMoveOpen(){
+  if(MOVE_OPEN_T){ clearTimeout(MOVE_OPEN_T); MOVE_OPEN_T=null; }
+}
 function closeMoveSub(){
+  cancelMoveOpen();
   if(MOVE_CLOSE_T){ clearTimeout(MOVE_CLOSE_T); MOVE_CLOSE_T=null; }
   document.getElementById('songctx-sub')?.remove();
   document.querySelector('#songctx button[aria-controls="songctx-sub"]')
     ?.setAttribute('aria-expanded','false');
 }
 function closeMoveSoon(){
+  cancelMoveOpen();
   if(MOVE_CLOSE_T) clearTimeout(MOVE_CLOSE_T);
   MOVE_CLOSE_T=setTimeout(closeMoveSub, 180);
 }
 function closeCtx(){
+  const ret=MENU_RETURN;
+  MENU_RETURN=null;
   document.getElementById('ctxmenu')?.remove();
   document.getElementById('songctx')?.remove();
   closeMoveSub();
+  if(ret && ret.isConnected && ret.focus) ret.focus();
 }
 function openPlMenu(x, y, g){
   closeCtx();
@@ -171,6 +179,7 @@ function moveTargets(lid){
 }
 
 function openMoveMenu(anchor, lid, uids, focus=false){
+  cancelMoveOpen();
   if(MOVE_CLOSE_T){ clearTimeout(MOVE_CLOSE_T); MOVE_CLOSE_T=null; }
   const old=document.getElementById('songctx-sub');
   if(old){
@@ -184,8 +193,25 @@ function openMoveMenu(anchor, lid, uids, focus=false){
   sub.className='menu'; sub.id='songctx-sub'; sub.style.minWidth='170px';
   sub.setAttribute('role','menu');
   sub.setAttribute('aria-label','移动到歌单');
-  sub.onmouseenter=()=>{ if(MOVE_CLOSE_T){ clearTimeout(MOVE_CLOSE_T); MOVE_CLOSE_T=null; } };
+  sub.onmouseenter=()=>{ cancelMoveOpen(); if(MOVE_CLOSE_T){ clearTimeout(MOVE_CLOSE_T); MOVE_CLOSE_T=null; } };
   sub.onmouseleave=closeMoveSoon;
+  sub.addEventListener('keydown', e=>{
+    const items=[...sub.querySelectorAll('button:not(:disabled)')];
+    const cur=items.indexOf(document.activeElement);
+    if(e.key==='Escape' || e.key==='ArrowLeft'){
+      e.preventDefault(); e.stopPropagation(); closeMoveSub();
+      if(anchor && anchor.focus) anchor.focus();
+    }else if(e.key==='ArrowDown' || e.key==='ArrowUp' || e.key==='Home' || e.key==='End'){
+      e.preventDefault(); e.stopPropagation();
+      if(!items.length) return;
+      let at=cur<0 ? 0 : cur;
+      if(e.key==='ArrowDown') at=(at+1)%items.length;
+      else if(e.key==='ArrowUp') at=(at-1+items.length)%items.length;
+      else if(e.key==='Home') at=0;
+      else at=items.length-1;
+      items[at].focus();
+    }
+  });
   anchor.setAttribute('aria-expanded','true');
   const targets=moveTargets(lid);
   if(!targets.length){
@@ -235,24 +261,32 @@ async function moveSongs(lid, uids, target){
   }
 }
 
-function openSongMenu(x, y, lid, uids){
+function openSongMenu(x, y, lid, uids, returnEl=null){
   closeCtx();
   const box=document.createElement('div');
   box.className='menu'; box.id='songctx'; box.style.minWidth='170px';
+  box.setAttribute('role','menu');
+  MENU_RETURN=returnEl || null;
   const n=uids.length;
   const move=document.createElement('button');
   move.textContent = n===1 ? '移动到歌单  ▸' : `移动选中的 ${n} 首  ▸`;
   move.setAttribute('aria-haspopup','menu');
   move.setAttribute('aria-expanded','false');
   move.setAttribute('aria-controls','songctx-sub');
-  move.onclick=ev=>{ ev.stopPropagation(); openMoveMenu(move, lid, uids, true); };
-  move.onmouseenter=()=>{ openMoveMenu(move, lid, uids, false); };
-  move.onmouseleave=closeMoveSoon;
+  move.setAttribute('role','menuitem');
+  move.onclick=ev=>{ ev.stopPropagation(); cancelMoveOpen(); openMoveMenu(move, lid, uids, true); };
+  move.onmouseenter=()=>{
+    cancelMoveOpen();
+    MOVE_OPEN_T=setTimeout(()=>{ MOVE_OPEN_T=null;
+      openMoveMenu(move, lid, uids, false); },100);
+  };
+  move.onmouseleave=()=>{ cancelMoveOpen(); closeMoveSoon(); };
   box.appendChild(move);
   const sep=document.createElement('div');
   sep.className='menu-sep';
   box.appendChild(sep);
   const b=document.createElement('button');
+  b.setAttribute('role','menuitem');
   b.textContent = n===1 ? '从歌单移除' : `移除选中的 ${n} 首`;
   b.style.color='var(--danger)';
   b.onclick=async ev=>{
@@ -266,10 +300,28 @@ function openSongMenu(x, y, lid, uids){
     NH.applyLists(r);
   };
   box.appendChild(b);
+  box.addEventListener('keydown', e=>{
+    const btns=[...box.querySelectorAll('button')];
+    const cur=btns.indexOf(document.activeElement);
+    if(e.key==='Escape'){
+      e.preventDefault(); e.stopPropagation(); closeCtx();
+    }else if(e.key==='ArrowDown' || e.key==='ArrowUp' || e.key==='Home' || e.key==='End'){
+      e.preventDefault();
+      let at=cur<0 ? 0 : cur;
+      if(e.key==='ArrowDown') at=(at+1)%btns.length;
+      else if(e.key==='ArrowUp') at=(at-1+btns.length)%btns.length;
+      else if(e.key==='Home') at=0;
+      else at=btns.length-1;
+      btns[at].focus();
+    }else if(e.key==='ArrowRight' && e.target===move){
+      e.preventDefault(); openMoveMenu(move, lid, uids, true);
+    }
+  });
   document.body.appendChild(box);
   const r=box.getBoundingClientRect();
   box.style.left=Math.min(x, window.innerWidth-r.width-8)+'px';
   box.style.top=Math.min(y, window.innerHeight-r.height-8)+'px';
+  if(returnEl && move.focus) move.focus();
 }
 
 document.getElementById('list').addEventListener('contextmenu', e=>{
@@ -290,11 +342,25 @@ document.getElementById('list').addEventListener('contextmenu', e=>{
   const g=NH.PLS.find(x=>x.id===h.dataset.id);
   if(g) openPlMenu(e.clientX, e.clientY, g);
 });
+
+document.getElementById('list').addEventListener('keydown', e=>{
+  const row=e.target.closest('.it');
+  if(!row) return;
+  if(!((e.key==='F10' && e.shiftKey) || e.key==='ContextMenu')) return;
+  e.preventDefault();
+  const pl=row.closest('.pl');
+  const lid=pl.dataset.id, uid=row.dataset.u;
+  if(NH.SEL_LIST!==lid || !NH.SELU.has(uid)){
+    NH.SELU=new Set([uid]); NH.SEL_LIST=lid; NH.SEL_ANCHOR=uid; paintSongSel();
+  }
+  const r=row.getBoundingClientRect();
+  openSongMenu(r.left+24, r.top+20, lid, [...NH.SELU], row);
+});
 document.addEventListener('click', closeCtx);
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') closeCtx(); });
-window.addEventListener('resize', closeMoveSoon, {passive:true});
-document.addEventListener('scroll', closeMoveSoon, true);
+window.addEventListener('resize', closeMoveSub, {passive:true});
+document.addEventListener('scroll', closeMoveSub, true);
 
 // 一次事件委托，避免重复绑定
 document.getElementById('list').addEventListener('click', async e=>{
