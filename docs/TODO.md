@@ -4,8 +4,7 @@
 
 ## Todo
 
-- [ ] 歌单 + nhlrc ZIP 导出/导入（见 `docs/新增功能文档/歌单与NHLRC导入导出.md`）。
-- [ ] 歌单缺失歌曲灰显、保留 `missing_items`（同上文档）。
+- [ ] 歌单缺失歌曲灰显、保留 `missing_items`。
 
 ## 长期
 
