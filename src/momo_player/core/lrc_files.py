@@ -577,6 +577,21 @@ def _annotate_missing_tokens(rows: list[dict]) -> None:
             continue
 
 
+def _body_to_lyric(lines) -> dict[int, int]:
+    """body 行下标 → compact 歌词下标；metadata / 空行不占歌词下标。"""
+    out = {}
+    lyric = 0
+    for bi, ln in enumerate(lines or []):
+        text = (ln.get("text") or "").strip()
+        if not text:
+            continue
+        if ln.get("kind") == "metadata" or is_metadata_text(text):
+            continue
+        out[bi] = lyric
+        lyric += 1
+    return out
+
+
 def plain_lrc_rows(text: str) -> list[dict]:
     """外部普通 LRC → v2 rows；不读取任何 nhlrc 尾部。"""
     body, _tail = _split_nhlrc(text)
@@ -594,16 +609,7 @@ def plain_lrc_rows(text: str) -> list[dict]:
         if t is not None:
             last_t = t
     body_rows = cleaned
-    body_to_lyric = {}
-    lyric = 0
-    for bi, ln in enumerate(body_rows):
-        text = (ln.get("text") or "").strip()
-        if not text:
-            continue
-        if ln.get("kind") == "metadata" or is_metadata_text(text):
-            continue
-        body_to_lyric[bi] = lyric
-        lyric += 1
+    body_to_lyric = _body_to_lyric(body_rows)
     meta_body = _metadata_for_body(metadata, body_to_lyric, len(body_rows))
     rows = _rows_from_body(body_rows, meta_body, {}, {}, {}, {})
     _annotate_missing_tokens(rows)
@@ -727,12 +733,12 @@ def import_text(audio: str | Path, text: str, uid: str | None = None,
                 "backed_up": backed, "version": _version(out)}
 
 
-def _metadata_for_body(metadata, annotation_index, body_len):
+def _metadata_for_body(metadata, body_to_lyric, body_len):
     """把 compact 行前的 metadata 位置映射到 body 行前。"""
     tags = list(metadata or ())
     if not tags:
         return []
-    by_lyric = {int(li): int(bi) for bi, li in (annotation_index or {}).items()}
+    by_lyric = {int(li): int(bi) for bi, li in (body_to_lyric or {}).items()}
     lyric_count = len(by_lyric)
     out = []
     for tag in tags:
@@ -755,6 +761,7 @@ def _rows_from_body(lines, metadata, annotations, translations,
                     line_ids, token_ids) -> list[dict]:
     """旧 body/compact 入参 → v2 rows；供旧保存入口一次性转换。"""
     by_before = {}
+    meta_texts = {str(tag.get("text") or "").strip() for tag in (metadata or [])}
     for tag in metadata or []:
         try:
             before = int(tag.get("before", 0))
@@ -771,7 +778,9 @@ def _rows_from_body(lines, metadata, annotations, translations,
             rows.append({"kind": "blank", "text": "", "t": ln.get("t")})
             continue
         if is_metadata_text(text):
-            rows.append({"kind": "metadata", "text": text, "t": ln.get("t")})
+            # metadata 列表已给出位置时，不再从 lines 重复追加同一标签。
+            if text.strip() not in meta_texts:
+                rows.append({"kind": "metadata", "text": text, "t": ln.get("t")})
             continue
         lid = (line_ids or {}).get(bi) or new_line_id()
         seg = (annotations or {}).get(bi) or []
@@ -795,7 +804,6 @@ def save(audio: str | Path, lines: list[dict],
          expected_version: str | None = None, trans_lang: str | None = None,
          line_ids: dict[int, str] | None = None,
          token_ids: dict[int, list[str]] | None = None,
-         annotation_index: dict[int, int] | None = None,
          metadata: list[dict] | None = None) -> dict:
     """写权威 nhlrc；锁内校验版本、备份并原子替换。不写共享缓存。"""
     if not lines and not metadata:
@@ -821,18 +829,7 @@ def save(audio: str | Path, lines: list[dict],
             annotations = {}
         if translations is None:
             translations = {}
-        if annotation_index is None:
-            annotation_index = {}
-            lyric = 0
-            for bi, ln in enumerate(lines):
-                text = (ln.get("text") or "").strip()
-                if not text:
-                    continue
-                if ln.get("kind") == "metadata" or is_metadata_text(text):
-                    continue
-                annotation_index[bi] = lyric
-                lyric += 1
-        body_meta = _metadata_for_body(metadata, annotation_index, len(lines))
+        body_meta = _metadata_for_body(metadata, _body_to_lyric(lines), len(lines))
         rows = _rows_from_body(lines, body_meta, annotations, translations,
                                line_ids, token_ids)
         text, backed = _write_v2(sp, bak, rows, trans_lang)

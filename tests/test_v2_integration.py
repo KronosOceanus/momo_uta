@@ -581,6 +581,14 @@ class TestV2PlainLrcPlan(unittest.TestCase):
         self.assertTrue(rows[0]["tokens"])
         self.assertTrue(any(t.get("ruby") for t in rows[0]["tokens"]))
 
+    def test_plain_lrc_metadata_between_lyrics_keeps_position(self):
+        from momo_player.core import lrc_files as LRF
+
+        rows = LRF.plain_lrc_rows("[00:01.00]君\n[ar:X]\n[00:02.00]花\n")
+        self.assertEqual([r["kind"] for r in rows],
+                         ["lyric", "metadata", "lyric"])
+        self.assertEqual([r.get("text") for r in rows], ["君", "[ar:X]", "花"])
+
     def test_plain_lrc_drops_only_out_of_order_empty_timed_rows(self):
         from momo_player.core import lrc_files as LRF
 

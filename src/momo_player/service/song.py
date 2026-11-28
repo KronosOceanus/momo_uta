@@ -406,7 +406,6 @@ def save_lyrics(item: dict, lines=None, mode="align", annotations=None,
                            artist=artist, expected_version=expected_version,
                            translations=trans, trans_lang=trans_lang,
                            line_ids=out_lids, token_ids=out_tids,
-                           annotation_index=body_to_lyric,
                            metadata=doc.get("metadata"))
             if res.get("ok"):
                 saved_ids = _saved_identities(body_rows, ann, out_lids, out_tids)
