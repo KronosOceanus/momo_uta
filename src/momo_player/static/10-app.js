@@ -29,7 +29,7 @@ NH.WMARK = {};   // 查看歌曲的波形播放头（静止时用）
 const CFG=(window.__CFG)||{};
 const UI=(CFG.player&&CFG.player.ui)||{};
 const JOB=(CFG.jobs)||{};
-const WAVE_DRAW_MS = 32;   // 波形播放时的重绘节流；实现常量，不进配置
+const WAVE_DRAW_MS = 16;   // 波形播放头重绘节流；静态波形另缓存
 NH.WAVE = null; NH.VIEW = {span:UI.wave_span||5}; NH.OFFSET = 0; NH.FOLLOW = true; NH.DRAWN = null;
 const cv=document.getElementById('wave'), cx=cv.getContext('2d');
 if(cv.style) cv.style.height=(UI.wave_height||120)+'px';
@@ -178,42 +178,79 @@ function fitCanvas(){
   }
   return NH.CV_W;
 }
-function drawWave(){
+let WAVE_STATIC=null, WAVE_STATIC_W=0, WAVE_STATIC_H=0, WAVE_COLORS=null;
+function waveColors(){
+  if(WAVE_COLORS) return WAVE_COLORS;
+  WAVE_COLORS={
+    fill: themeColor('--wave-fill','#4a7f6b'),
+    amber: themeColor('--amber','#c8843f'),
+    play: themeColor('--accent-soft','#7fbfa6'),
+  };
+  return WAVE_COLORS;
+}
+function drawWaveStatic(){
   const h=UI.wave_height||120;
   const w=fitCanvas();
-  cx.clearRect(0,0,w,h);                 // 透明底：少写一层全画布填充
-  if(!NH.WAVE || !NH.WAVE.peaks){ return; }
+  if(!WAVE_STATIC){
+    if(typeof document.createElement!=='function') return;
+    WAVE_STATIC=document.createElement('canvas');
+    const scx=WAVE_STATIC.getContext && WAVE_STATIC.getContext('2d');
+    if(!scx) { WAVE_STATIC=null; return; }
+    WAVE_STATIC._cx=scx;
+  }
+  if(WAVE_STATIC.width!==cv.width || WAVE_STATIC.height!==cv.height){
+    WAVE_STATIC.width=cv.width; WAVE_STATIC.height=cv.height;
+    WAVE_STATIC_W=WAVE_STATIC.width; WAVE_STATIC_H=WAVE_STATIC.height;
+  }
+  const scx=WAVE_STATIC._cx;
+  scx.clearRect(0,0,w,h);
+  if(!NH.WAVE || !NH.WAVE.peaks){ WAVE_STATIC=null; return; }
   const {start, span}=viewStart();
   NH.DRAWN={start, span};
   const {step, peaks}=NH.WAVE;
   const perPx=span/w, mid=h/2;
   const i0=Math.max(0,Math.floor(start/step)), i1=Math.min(peaks.length, Math.ceil((start+span)/step));
-  cx.strokeStyle=themeColor('--wave-fill','#4a7f6b'); cx.beginPath();
+  const colors=waveColors();
+  scx.strokeStyle=colors.fill; scx.beginPath();
   for(let i=i0;i<i1;i++){
     const x=Math.round((i*step-start)/perPx);
     const [mn,mx]=peaks[i];
-    cx.moveTo(x+0.5, mid-mx*mid*0.95);
-    cx.lineTo(x+0.5, mid-mn*mid*0.95);
+    scx.moveTo(x+0.5, mid-mx*mid*0.95);
+    scx.lineTo(x+0.5, mid-mn*mid*0.95);
   }
-  cx.stroke();
-  // 只要"每一句开头的线"，其他辅助线一律不画
+  scx.stroke();
   {
     const ls = NH.VIEW_MODE==='lrc' ? NH.EROWS : NH.LINES;
-    cx.strokeStyle=themeColor('--amber','#c8843f'); cx.globalAlpha=.62;   // 暖橙色，和绿色波形、亮绿播放头区分开
-    cx.lineWidth=1; cx.beginPath();
+    scx.strokeStyle=colors.amber; scx.globalAlpha=.62;
+    scx.lineWidth=1; scx.beginPath();
     (ls||[]).forEach(l=>{
       if(!l || l.t==null) return;
       const lt=l.t+NH.OFFSET;
       if(lt<start || lt>start+span) return;
       const lx=Math.round((lt-start)/perPx)+0.5;
-      cx.moveTo(lx,0); cx.lineTo(lx,h);
+      scx.moveTo(lx,0); scx.lineTo(lx,h);
     });
-    cx.stroke();
-    cx.globalAlpha=1;
+    scx.stroke();
+    scx.globalAlpha=1;
   }
-  // 播放头：B 在播跟音频，否则跟选中行
+}
+function drawWaveFrame(){
+  const h=UI.wave_height||120;
+  const w=fitCanvas();
+  if(!WAVE_STATIC || WAVE_STATIC_W!==cv.width || WAVE_STATIC_H!==cv.height){
+    drawWaveStatic();
+    if(!WAVE_STATIC) return;
+  }
+  cx.clearRect(0,0,w,h);
+  cx.drawImage(WAVE_STATIC,0,0);
+  const {start, span}=NH.DRAWN || {start:0, span:Math.max(.01,w)};
+  const perPx=span/w;
   const x=Math.round((waveTime()-start)/perPx);
-  cx.strokeStyle=themeColor('--accent-soft','#7fbfa6'); cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
+  cx.strokeStyle=waveColors().play; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
+}
+function drawWave(){
+  drawWaveStatic();
+  drawWaveFrame();
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
@@ -252,7 +289,7 @@ async function loadWave(force){
 (function waveLoop(){
   let last=0;
   function tick(ts){
-    if(NH.WAVE && NH.VIEW_MODE==='lrc' && NH.isSelfPlaying() && !NH.au.paused && ts-last>=WAVE_DRAW_MS){ drawWave(); last=ts; }
+    if(NH.WAVE && NH.VIEW_MODE==='lrc' && NH.isSelfPlaying() && !NH.au.paused && ts-last>=WAVE_DRAW_MS){ drawWaveFrame(); last=ts; }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -811,6 +848,7 @@ function applyTheme(theme, persist){
   const light = theme === 'light';
   const root=document.documentElement;
   if(root && root.dataset) root.dataset.theme = light ? 'light' : 'dark';
+  WAVE_COLORS=null; WAVE_STATIC=null;
   const b=document.getElementById('theme');
   if(b) b.textContent = light ? '☀️ 日间模式' : '🌙 夜间模式';
   if(NH.WAVE && typeof drawWave==='function') drawWave();

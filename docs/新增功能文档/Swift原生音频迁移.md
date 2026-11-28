@@ -610,6 +610,14 @@ current time
 volume
 ```
 
+时间显示：
+
+```text
+HTTP status 100ms 一次
+currentTime 在两次 status 之间按本地时钟插值
+波形播放头不再只有 10Hz
+```
+
 当前不包含：
 
 ```text

@@ -213,3 +213,12 @@ test('native audio facade queues seek and play in order', async () => {
   engine._stopPoll();
   assert.deepEqual(calls.slice(1).map(c => c.body.action), ['seek', 'play']);
 });
+
+test('native audio facade interpolates currentTime while playing', () => {
+  const {engine} = makeNativeEngine();
+  engine._duration = 10; engine._current = 1; engine._playing = true;
+  engine._clockAt = engine._now() - 500;
+  assert.ok(engine.currentTime >= 1.45 && engine.currentTime <= 1.6);
+  engine._playing = false;
+  assert.equal(engine.currentTime, 1);
+});

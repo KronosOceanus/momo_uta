@@ -900,7 +900,7 @@ test('rendering the table clears the text edit cursor', () => {
 });
 
 test('wave draw throttle constant is defined', () => {
-  assert.match(scripts[2], /const WAVE_DRAW_MS\s*=\s*32\b/);
+  assert.match(scripts[2], /const WAVE_DRAW_MS\s*=\s*16\b/);
 });
 
 test('B returns to the playing song only when the back button is visible', () => {

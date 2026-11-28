@@ -7,7 +7,7 @@ class NativeAudioEngine {
     this._url=''; this._duration=0; this._current=0; this._ready=0;
     this._playing=false; this._ended=false; this._volume=1; this._muted=false;
     this._handlers={}; this._poll=0; this._busy=false;
-    this._chain=Promise.resolve();
+    this._clockAt=0; this._chain=Promise.resolve();
   }
   addEventListener(type, fn){ (this._handlers[type] ||= []).push(fn); }
   removeEventListener(type, fn){ this._handlers[type]=(this._handlers[type]||[]).filter(f=>f!==fn); }
@@ -35,12 +35,17 @@ class NativeAudioEngine {
     this._apply(d);
     return d;
   }
+  _now(){ return (typeof performance!=='undefined' && performance.now)
+    ? performance.now() : Date.now(); }
   _apply(d){
     if(!d) return;
     if(Number.isFinite(d.duration)) this._duration=d.duration;
-    if(Number.isFinite(d.current)) this._current=d.current;
+    if(Number.isFinite(d.current)){
+      this._current=d.current; this._clockAt=this._now();
+    }
     if(d.state) this._playing=d.state==='playing';
     if(typeof d.ended==='boolean') this._ended=d.ended;
+    if(this._ended) this._current=this._duration;
   }
   get src(){ return this._url; }
   set src(u){
@@ -54,7 +59,13 @@ class NativeAudioEngine {
   get readyState(){ return this._ready; }
   get paused(){ return !this._playing; }
   get ended(){ return this._ended; }
-  get currentTime(){ return this._current; }
+  get currentTime(){
+    if(this._playing && !this._ended){
+      const dt=(this._now()-this._clockAt)/1000;
+      return Math.min(this._duration||Infinity, this._current+Math.max(0,dt));
+    }
+    return this._current;
+  }
   set currentTime(t){ this.seek(t); }
   get volume(){ return this._volume; }
   set volume(v){
@@ -90,12 +101,13 @@ class NativeAudioEngine {
     this._startPoll();
   }
   pause(){
+    this._current=this.currentTime; this._clockAt=this._now();
     this._queue(()=>this._call('pause')).catch(()=>{});
     this._playing=false; this._stopPoll(); this._emit('pause');
   }
   seek(t){
     const v=Math.max(0, Math.min(this._duration||Infinity, +t||0));
-    this._current=v;
+    this._current=v; this._clockAt=this._now();
     this._queue(()=>this._call('seek',{seconds:v})).catch(()=>{});
     this._emit('seeked');
   }

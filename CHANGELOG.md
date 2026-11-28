@@ -6,6 +6,8 @@
 
 - 新增 Swift 原生音频 helper POC：通过 `/api/native_audio` 播放本地音频，
   绕过 WebKit 后台媒体挂起；默认关闭，配置项 `player.ui.native_audio`。
+- 原生音频前端增加 currentTime 插值，波形播放头从 10Hz 状态轮询提升到逐帧估算。
+- 波形拆成静态 peaks 缓存层 + 动态播放头，并将重绘节奏从 32ms 调整为 16ms。
 - 新增 `native/momo-audio` Swift 音频引擎、IPC、Python bridge 和前端 facade。
 - 打包时把 `momo-audio` 放入 `Contents/Helpers` 并单独签名。
 
