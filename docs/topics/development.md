@@ -159,6 +159,16 @@ job 失败
 前端上报异常
 ```
 
+耗时与音频生命周期诊断：
+
+```text
+api_slow     请求耗时 ≥ 300ms
+loop_lag     事件循环延迟 ≥ 300ms
+input_lag    pointerdown → 下一帧 ≥ 300ms
+http_slow    HTTP handler 耗时 ≥ 300ms
+audio_*      AudioContext 创建/statechange/生命周期
+```
+
 ```text
 日志写入失败不会抛异常。
 ```

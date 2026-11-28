@@ -287,7 +287,7 @@ nhlrc 格式 → nhlrc.md
 ```
 
 
-## 11. 启动清理
+## 17. 启动清理
 
 启动时 `cache_cleanup.cleanup_startup()` 处理：
 

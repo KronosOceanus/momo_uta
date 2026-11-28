@@ -162,6 +162,7 @@ import / library_rebuild
 
 ```text
 大多数返回 {ok, lists, missing_count, auto_rebuild}
+entries_move 额外返回 moved：实际移动数量
 ```
 
 ### 2.2 `/api/line`
@@ -250,7 +251,7 @@ uid
 动作：
 
 ```text
-load / save / export / backup / restore
+load / save / export / backup / restore / persist
 delete / import_lrc / load_rows / save_rows / edit_reading / playback
 ```
 
