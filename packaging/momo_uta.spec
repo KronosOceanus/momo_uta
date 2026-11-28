@@ -16,6 +16,7 @@ ROOT = Path(SPECPATH).resolve().parent
 VERSION = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
                     re.M).group(1)
 VARIANT = os.environ.get("MOMO_VARIANT", "thin")
+IDENTITY = os.environ.get("MOMO_CODESIGN_IDENTITY") or ""
 assert VARIANT in ("thin", "full"), VARIANT
 NAME = f"momo-uta-{VARIANT}"
 
@@ -157,8 +158,9 @@ exe = EXE(
     console=False,
     argv_emulation=False,
     target_arch="arm64",
-    codesign_identity=os.environ.get("MOMO_CODESIGN_IDENTITY") or None,
-    entitlements_file=str(ROOT / "packaging" / "entitlements.plist"),
+    codesign_identity=IDENTITY or None,
+    entitlements_file=(str(ROOT / "packaging" / "entitlements.plist")
+                       if IDENTITY else None),
     icon=str(ROOT / "assets" / "momo-uta-logo.icns"),
 )
 

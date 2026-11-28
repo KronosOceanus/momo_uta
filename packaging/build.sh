@@ -21,7 +21,8 @@ if [ -n "$IDENTITY" ]; then
   codesign --force --deep --options runtime --timestamp \
     --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP"
 else
-  codesign --force --deep --entitlements "$ENTITLEMENTS" --sign - "$APP"
+  # ad-hoc 签名不能携带 restricted entitlement，否则 AMFI 会拒绝启动。
+  codesign --force --deep --sign - "$APP"
 fi
 ZIP="dist/$NAME.zip"
 rm -f "$ZIP"

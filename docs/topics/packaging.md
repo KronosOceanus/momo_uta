@@ -280,6 +280,11 @@ CFBundleName / CFBundleDisplayName：桃歌
 用途：
   WebKit 后台媒体播放断言
   避免后台时 WebContent 被挂起导致无声
+
+限制：
+  这是 restricted entitlement
+  ad-hoc 签名不能携带，否则 AMFI 拒绝启动
+  只有 Developer ID 签名路径才会启用
 ```
 
 ```text
