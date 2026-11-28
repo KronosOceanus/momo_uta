@@ -412,5 +412,5 @@ CHANGELOG.md                    版本记录
 THIRD_PARTY_NOTICES.md          第三方许可证
 docs/topics/歌词数据模型.md     单一行模型
 docs/项目整理/代码审查.md        待处理代码问题
-docs/TODO.md                    长期优化与明确不做
+docs/TODO.md                    长期优化方向
 ```
