@@ -4,6 +4,8 @@
 
 ### 修复
 
+- 打包应用增加 `com.apple.runningboard.assertions.webkit` entitlement，
+  允许 WebKit 持有后台媒体播放断言，避免后台 WebContent 被挂起后无声。
 - 扩展 LRC API 的版本保护：`import_lrc`、`restore`、`delete`
   在已有 nhlrc 时同样必须携带 version。
 - 音频上下文在 `suspended` / `interrupted` 时统一尝试恢复；

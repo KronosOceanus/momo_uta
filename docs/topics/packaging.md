@@ -270,6 +270,24 @@ CFBundleName / CFBundleDisplayName：桃歌
 正式分发：MOMO_CODESIGN_IDENTITY + MOMO_NOTARY_PROFILE
 ```
 
+```text
+应用 entitlements：
+  packaging/entitlements.plist
+
+当前包含：
+  com.apple.runningboard.assertions.webkit
+
+用途：
+  WebKit 后台媒体播放断言
+  避免后台时 WebContent 被挂起导致无声
+```
+
+```text
+entitlements 同时写入：
+  momo_uta.spec 的 BUNDLE
+  build.sh 的最终 codesign
+```
+
 ```bash
 MOMO_CODESIGN_IDENTITY="Developer ID Application: ..." \
 MOMO_NOTARY_PROFILE="momo-notary" \

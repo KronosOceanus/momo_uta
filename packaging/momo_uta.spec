@@ -158,7 +158,7 @@ exe = EXE(
     argv_emulation=False,
     target_arch="arm64",
     codesign_identity=os.environ.get("MOMO_CODESIGN_IDENTITY") or None,
-    entitlements_file=None,
+    entitlements_file=str(ROOT / "packaging" / "entitlements.plist"),
     icon=str(ROOT / "assets" / "momo-uta-logo.icns"),
 )
 

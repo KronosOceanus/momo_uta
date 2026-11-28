@@ -16,10 +16,12 @@ MOMO_VARIANT="$VARIANT" .venv/bin/pyinstaller --clean --noconfirm \
 
 APP="dist/$VARIANT/$NAME.app"
 IDENTITY="${MOMO_CODESIGN_IDENTITY:-}"
+ENTITLEMENTS="packaging/entitlements.plist"
 if [ -n "$IDENTITY" ]; then
-  codesign --force --deep --options runtime --timestamp --sign "$IDENTITY" "$APP"
+  codesign --force --deep --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP"
 else
-  codesign --force --deep --sign - "$APP"
+  codesign --force --deep --entitlements "$ENTITLEMENTS" --sign - "$APP"
 fi
 ZIP="dist/$NAME.zip"
 rm -f "$ZIP"
