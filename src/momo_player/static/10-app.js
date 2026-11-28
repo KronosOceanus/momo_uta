@@ -179,6 +179,7 @@ function fitCanvas(){
   return NH.CV_W;
 }
 let WAVE_STATIC=null, WAVE_STATIC_W=0, WAVE_STATIC_H=0, WAVE_COLORS=null;
+let WAVE_RANGE=null;   // 静态波形覆盖的时间范围（比视口左右各多一屏）
 function waveColors(){
   if(WAVE_COLORS) return WAVE_COLORS;
   WAVE_COLORS={
@@ -188,32 +189,39 @@ function waveColors(){
   };
   return WAVE_COLORS;
 }
-function drawWaveStatic(){
+function drawWaveStatic(v){
   const h=UI.wave_height||120;
   const w=fitCanvas();
   if(!WAVE_STATIC){
-    if(typeof document.createElement!=='function') return;
+    if(typeof document.createElement!=='function') return false;
     WAVE_STATIC=document.createElement('canvas');
     const scx=WAVE_STATIC.getContext && WAVE_STATIC.getContext('2d');
-    if(!scx) { WAVE_STATIC=null; return; }
+    if(!scx){ WAVE_STATIC=null; return false; }
     WAVE_STATIC._cx=scx;
   }
-  if(WAVE_STATIC.width!==cv.width || WAVE_STATIC.height!==cv.height){
-    WAVE_STATIC.width=cv.width; WAVE_STATIC.height=cv.height;
-    WAVE_STATIC_W=WAVE_STATIC.width; WAVE_STATIC_H=WAVE_STATIC.height;
+  if(!NH.WAVE || !NH.WAVE.peaks){
+    WAVE_STATIC=null; WAVE_RANGE=null; NH.DRAWN=null;
+    return false;
+  }
+  v=v || viewStart();
+  const duration=NH.WAVE.duration || v.start+v.span;
+  const rangeStart=Math.max(0, v.start-v.span);
+  const rangeEnd=Math.min(duration+0.001, v.start+v.span*2);
+  const rangeSpan=Math.max(0.001, rangeEnd-rangeStart);
+  const sw=Math.max(1, Math.round(w*rangeSpan/v.span));
+  if(WAVE_STATIC.width!==sw || WAVE_STATIC.height!==cv.height){
+    WAVE_STATIC.width=sw; WAVE_STATIC.height=cv.height;
+    WAVE_STATIC_W=sw; WAVE_STATIC_H=cv.height;
   }
   const scx=WAVE_STATIC._cx;
-  scx.clearRect(0,0,w,h);
-  if(!NH.WAVE || !NH.WAVE.peaks){ WAVE_STATIC=null; return; }
-  const {start, span}=viewStart();
-  NH.DRAWN={start, span};
+  scx.clearRect(0,0,sw,h);
   const {step, peaks}=NH.WAVE;
-  const perPx=span/w, mid=h/2;
-  const i0=Math.max(0,Math.floor(start/step)), i1=Math.min(peaks.length, Math.ceil((start+span)/step));
+  const perPx=rangeSpan/sw, mid=h/2;
+  const i0=Math.max(0,Math.floor(rangeStart/step)), i1=Math.min(peaks.length, Math.ceil(rangeEnd/step));
   const colors=waveColors();
   scx.strokeStyle=colors.fill; scx.beginPath();
   for(let i=i0;i<i1;i++){
-    const x=Math.round((i*step-start)/perPx);
+    const x=Math.round((i*step-rangeStart)/perPx);
     const [mn,mx]=peaks[i];
     scx.moveTo(x+0.5, mid-mx*mid*0.95);
     scx.lineTo(x+0.5, mid-mn*mid*0.95);
@@ -226,30 +234,41 @@ function drawWaveStatic(){
     (ls||[]).forEach(l=>{
       if(!l || l.t==null) return;
       const lt=l.t+NH.OFFSET;
-      if(lt<start || lt>start+span) return;
-      const lx=Math.round((lt-start)/perPx)+0.5;
+      if(lt<rangeStart || lt>rangeEnd) return;
+      const lx=Math.round((lt-rangeStart)/perPx)+0.5;
       scx.moveTo(lx,0); scx.lineTo(lx,h);
     });
     scx.stroke();
     scx.globalAlpha=1;
   }
+  WAVE_RANGE={start:rangeStart, end:rangeEnd, span:rangeSpan, viewSpan:v.span};
+  NH.DRAWN={start:v.start, span:v.span};
+  return true;
 }
 function drawWaveFrame(){
   const h=UI.wave_height||120;
   const w=fitCanvas();
-  if(!WAVE_STATIC || WAVE_STATIC_W!==cv.width || WAVE_STATIC_H!==cv.height){
-    drawWaveStatic();
-    if(!WAVE_STATIC) return;
+  const v=viewStart();
+  const duration=(NH.WAVE && NH.WAVE.duration) || v.start+v.span;
+  const covered=WAVE_RANGE && WAVE_STATIC && WAVE_STATIC_W===WAVE_STATIC.width
+    && WAVE_STATIC_H===cv.height
+    && v.start>=WAVE_RANGE.start
+    && Math.min(v.start+v.span, duration+0.001)<=WAVE_RANGE.end;
+  if(!covered || WAVE_RANGE.viewSpan!==v.span){
+    if(!drawWaveStatic(v)){ cx.clearRect(0,0,w,h); NH.DRAWN=null; return; }
   }
+  const r=WAVE_RANGE;
+  if(!r) return;
   cx.clearRect(0,0,w,h);
-  cx.drawImage(WAVE_STATIC,0,0);
-  const {start, span}=NH.DRAWN || {start:0, span:Math.max(.01,w)};
-  const perPx=span/w;
-  const x=Math.round((waveTime()-start)/perPx);
+  const sx=(v.start-r.start)/r.span*WAVE_STATIC_W;
+  const sw=v.span/r.span*WAVE_STATIC_W;
+  cx.drawImage(WAVE_STATIC, sx,0,sw,WAVE_STATIC_H, 0,0,w,h);
+  const perPx=v.span/w;
+  const x=Math.round((waveTime()-v.start)/perPx);
   cx.strokeStyle=waveColors().play; cx.beginPath(); cx.moveTo(x+0.5,0); cx.lineTo(x+0.5,h); cx.stroke();
 }
 function drawWave(){
-  drawWaveStatic();
+  if(!drawWaveStatic(viewStart())){ return; }
   drawWaveFrame();
 }
 function fmt(t){ const m=Math.floor(t/60), s=Math.round(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
