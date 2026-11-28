@@ -171,6 +171,7 @@ function moveTargets(lid){
 }
 
 function openMoveMenu(anchor, lid, uids, focus=false){
+  if(MOVE_CLOSE_T){ clearTimeout(MOVE_CLOSE_T); MOVE_CLOSE_T=null; }
   const old=document.getElementById('songctx-sub');
   if(old){
     if(focus){
@@ -225,6 +226,7 @@ async function moveSongs(lid, uids, target){
     const r=await NH.api('/api/pl',{action:'entries_move',from:lid,to:target.id,uids});
     if(!r || r.ok===false){ NH.done((r && r.error) || '移动失败'); return; }
     const n=Number.isFinite(r.moved) ? r.moved : uids.length;
+    if(n===0){ NH.done('没有可移动的歌曲'); return; }
     clearSongSel();
     NH.applyLists(r);
     NH.done(`已移动 ${n} 首到「${target.name}」`);
