@@ -21,7 +21,8 @@ function makeEngine() {
     });
   };
   class FakeCtx {
-    constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+    constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; this.resumeCalls = 0; }
+    resume() { this.resumeCalls++; this.state = 'running'; return Promise.resolve(); }
     createGain() { return {gain: {value: 1}, connect() {}}; }
     createBufferSource() {
       const src = {buffer: null, playbackRate: {value: 1}, connect() {},
@@ -147,4 +148,27 @@ test('seek before audio decode preserves the requested offset', () => {
   engine.seek(3);
   assert.equal(engine.currentTime, 3);
   assert.equal(engine.readyState, 0);
+});
+
+
+test('audio context resumes suspended and interrupted states', async () => {
+  const {engine} = makeEngine();
+  const ctx = engine._ctxGet();
+  ctx.state = 'suspended';
+  await engine._resumeCtx();
+  assert.equal(ctx.resumeCalls, 1);
+  assert.equal(ctx.state, 'running');
+
+  ctx.state = 'interrupted';
+  await engine._resumeCtx();
+  assert.equal(ctx.resumeCalls, 2);
+  assert.equal(ctx.state, 'running');
+});
+
+test('audio context resume failure does not reject playback setup', async () => {
+  const {engine} = makeEngine();
+  const ctx = engine._ctxGet();
+  ctx.state = 'interrupted';
+  ctx.resume = () => Promise.reject(new Error('resume failed'));
+  await assert.doesNotReject(engine._resumeCtx());
 });

@@ -65,6 +65,25 @@ class AudioEngine {
                        playing:!this.paused}, extra||{}));
     }catch(e){}
   }
+  _resumeCtx(){
+    const ctx=this._ctx;
+    if(!ctx) return Promise.resolve();
+    if(ctx.state!=='suspended' && ctx.state!=='interrupted') return Promise.resolve();
+    if(this._resumePromise) return this._resumePromise;
+    this._diag('resume_attempt', {from:ctx.state});
+    let p;
+    try{
+      p=ctx.resume();
+    }catch(e){
+      this._diag('resume_failed', {error:String((e && e.message) || e)});
+      return Promise.resolve();
+    }
+    this._resumePromise=Promise.resolve(p)
+      .then(()=>this._diag('resume_done'))
+      .catch(e=>this._diag('resume_failed', {error:String((e && e.message) || e)}))
+      .finally(()=>{ this._resumePromise=null; });
+    return this._resumePromise;
+  }
   _ctxGet(){
     if(!this._ctx){
       const C=window.AudioContext||window.webkitAudioContext;
@@ -75,7 +94,7 @@ class AudioEngine {
       this._diag('created');
     }
     if(this._ctx.state!=='running') this._diag('not_running');
-    if(this._ctx.state==='suspended') this._ctx.resume().catch(()=>{});
+    this._resumeCtx();
     return this._ctx;
   }
   preload(){
@@ -166,6 +185,10 @@ class AudioEngine {
 }
 const au = new AudioEngine();
 
+function audioWake(){
+  if(NH.au && !NH.au.paused) NH.au._resumeCtx?.();
+}
+
 function audioLifecycle(reason){
   try{
     NH.reportClientError?.('audio_lifecycle', reason, '', {
@@ -179,11 +202,13 @@ function audioLifecycle(reason){
   }catch(e){}
 }
 if(typeof document!=='undefined' && document.addEventListener){
-  document.addEventListener('visibilitychange',
-    ()=>audioLifecycle('visibility_'+(document.visibilityState||'unknown')));
+  document.addEventListener('visibilitychange', ()=>{
+    audioLifecycle('visibility_'+(document.visibilityState||'unknown'));
+    if(!document.hidden) audioWake();
+  });
 }
 if(typeof window!=='undefined' && window.addEventListener){
-  window.addEventListener('focus', ()=>audioLifecycle('focus'));
+  window.addEventListener('focus', ()=>{ audioLifecycle('focus'); audioWake(); });
   window.addEventListener('blur', ()=>audioLifecycle('blur'));
 }
 

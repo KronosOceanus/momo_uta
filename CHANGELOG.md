@@ -6,6 +6,9 @@
 
 - 扩展 LRC API 的版本保护：`import_lrc`、`restore`、`delete`
   在已有 nhlrc 时同样必须携带 version。
+- 音频上下文在 `suspended` / `interrupted` 时统一尝试恢复；
+  窗口重新可见或获得焦点时，正在播放的音频会主动唤醒。
+- 音频恢复成功/失败写入 `resume_attempt` / `resume_done` / `resume_failed` 日志。
 
 ## [1.2.11] - 2026-11-27
 

@@ -357,7 +357,7 @@ pip install -e .
 pip install -e '.[dev]'
 make test
   → 462 Python（UI smoke 视桌面环境）
-  → 129 前端
+  → 131 前端
 
 ./packaging/build.sh thin
   → dist/thin/momo-uta-thin.app
