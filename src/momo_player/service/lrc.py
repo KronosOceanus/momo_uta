@@ -9,6 +9,8 @@ from ..core.lrc_doc import tokens_with_spans
 from . import lyric_document as LD
 from .song import load_lyrics, persist_cache, save_lyrics
 
+WRITE_ACTIONS = frozenset({"save", "save_rows", "import_lrc", "restore", "delete"})
+
 
 def lrc_action(req):
     act = req.get("action") or "load"
@@ -55,7 +57,7 @@ def lrc_action(req):
         if rows_extra is not None:
             out.update({"model": 2, "rows": rows_extra})
         return out
-    if act in ("save", "save_rows") and not req.get("version"):
+    if act in WRITE_ACTIONS and not req.get("version"):
         current = LRC.current_version(item["file"], uid, title, artist)
         if current is not None:
             return {"ok": False, "conflict": True,

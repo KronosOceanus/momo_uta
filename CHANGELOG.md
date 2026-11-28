@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### 修复
+
+- 扩展 LRC API 的版本保护：`import_lrc`、`restore`、`delete`
+  在已有 nhlrc 时同样必须携带 version。
+
 ## [1.2.11] - 2026-11-27
 
 ### 修复
