@@ -9,6 +9,7 @@
 - 音频上下文在 `suspended` / `interrupted` 时统一尝试恢复；
   窗口重新可见或获得焦点时，正在播放的音频会主动唤醒。
 - 音频恢复成功/失败写入 `resume_attempt` / `resume_done` / `resume_failed` 日志。
+- metadata 去重改为按“文本 + body 位置”，不同位置的同名标签不再互相吞掉。
 
 ## [1.2.11] - 2026-11-27
 

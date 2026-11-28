@@ -563,11 +563,13 @@ class TestManualReading(unittest.TestCase):
                     metadata=[{"before": 1, "text": "[ar:X]"}])["ok"])
                 text = LRF.store_path(audio).read_text(encoding="utf-8")
             first_meta = text.find("[ar:X]")
+            second_meta = text.find("[ar:X]", first_meta + 1)
             second_lyric = text.find("[00:02.00]花")
-            self.assertEqual(text.count("[ar:X]"), 1)
+            self.assertEqual(text.count("[ar:X]"), 2)
             self.assertGreater(first_meta, -1)
-            self.assertLess(first_meta, second_lyric)
-            self.assertGreater(first_meta, text.find("[00:01.00]君"))
+            self.assertLess(first_meta, text.find("[00:01.00]君"))
+            self.assertGreater(second_meta, text.find("[00:01.00]君"))
+            self.assertLess(second_meta, second_lyric)
 
     def test_service_save_keeps_interleaved_metadata_before_second_lyric(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -586,6 +588,24 @@ class TestManualReading(unittest.TestCase):
             self.assertEqual(text.count("[ar:X]"), 1)
             self.assertGreater(text.find("[ar:X]"), text.find("[00:01.00]君"))
             self.assertLess(text.find("[ar:X]"), text.find("[00:02.00]花"))
+
+    def test_save_deduplicates_same_metadata_at_same_body_position(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audio = root / "歌手 - 曲.mp3"
+            audio.touch()
+            lines = [
+                {"kind": "metadata", "text": "[ar:X]"},
+                {"kind": "lyric", "text": "君", "t": 1.0},
+            ]
+            with patch.object(LRF, "LYRICS", root / "lyrics"), \
+                 patch.object(LRF.LY, "audio_duration", return_value=60):
+                self.assertTrue(LRF.save(
+                    audio, lines, {},
+                    metadata=[{"before": 0, "text": "[ar:X]"}])["ok"])
+                text = LRF.store_path(audio).read_text(encoding="utf-8")
+            self.assertEqual(text.count("[ar:X]"), 1)
+            self.assertLess(text.find("[ar:X]"), text.find("[00:01.00]君"))
 
     def test_first_save_preserves_cached_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:

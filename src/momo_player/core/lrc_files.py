@@ -761,13 +761,15 @@ def _rows_from_body(lines, metadata, annotations, translations,
                     line_ids, token_ids) -> list[dict]:
     """旧 body/compact 入参 → v2 rows；供旧保存入口一次性转换。"""
     by_before = {}
-    meta_texts = {str(tag.get("text") or "").strip() for tag in (metadata or [])}
+    meta_counts = {}
     for tag in metadata or []:
         try:
             before = int(tag.get("before", 0))
         except (TypeError, ValueError):
             before = 0
         by_before.setdefault(before, []).append(tag)
+        key = (before, str(tag.get("text") or "").strip())
+        meta_counts[key] = meta_counts.get(key, 0) + 1
     rows = []
     for bi, ln in enumerate(lines or []):
         for tag in by_before.pop(bi, []):
@@ -778,9 +780,12 @@ def _rows_from_body(lines, metadata, annotations, translations,
             rows.append({"kind": "blank", "text": "", "t": ln.get("t")})
             continue
         if is_metadata_text(text):
-            # metadata 列表已给出位置时，不再从 lines 重复追加同一标签。
-            if text.strip() not in meta_texts:
-                rows.append({"kind": "metadata", "text": text, "t": ln.get("t")})
+            # 只有同一 body 位置、同一文本才算重复；不同位置同名标签保留。
+            key = (bi, text.strip())
+            if meta_counts.get(key, 0) > 0:
+                meta_counts[key] -= 1
+                continue
+            rows.append({"kind": "metadata", "text": text, "t": ln.get("t")})
             continue
         lid = (line_ids or {}).get(bi) or new_line_id()
         seg = (annotations or {}).get(bi) or []
