@@ -133,16 +133,16 @@ function closeMoveSoon(){
   if(MOVE_CLOSE_T) clearTimeout(MOVE_CLOSE_T);
   MOVE_CLOSE_T=setTimeout(closeMoveSub, 180);
 }
-function closeCtx(){
+function closeCtx(restoreFocus=true){
   const ret=MENU_RETURN;
   MENU_RETURN=null;
   document.getElementById('ctxmenu')?.remove();
   document.getElementById('songctx')?.remove();
   closeMoveSub();
-  if(ret && ret.isConnected && ret.focus) ret.focus();
+  if(restoreFocus && ret && ret.isConnected && ret.focus) ret.focus();
 }
 function openPlMenu(x, y, g){
-  closeCtx();
+  closeCtx(false);
   const box=document.createElement('div');
   box.className='menu'; box.id='ctxmenu'; box.style.minWidth='150px';
   const mk=(label, fn, danger)=>{
@@ -262,7 +262,7 @@ async function moveSongs(lid, uids, target){
 }
 
 function openSongMenu(x, y, lid, uids, returnEl=null){
-  closeCtx();
+  closeCtx(false);
   const box=document.createElement('div');
   box.className='menu'; box.id='songctx'; box.style.minWidth='170px';
   box.setAttribute('role','menu');
@@ -356,17 +356,17 @@ document.getElementById('list').addEventListener('keydown', e=>{
   const r=row.getBoundingClientRect();
   openSongMenu(r.left+24, r.top+20, lid, [...NH.SELU], row);
 });
-document.addEventListener('click', closeCtx);
+document.addEventListener('click', ()=>closeCtx(false));
 document.addEventListener('focusin', e=>{
   if(e.target && e.target.closest &&
      e.target.closest('#songctx, #songctx-sub, #ctxmenu')) return;
   if(!document.getElementById('songctx') &&
      !document.getElementById('songctx-sub') &&
      !document.getElementById('ctxmenu')) return;
-  closeCtx();
+  closeCtx(false);
 });
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape') closeCtx(); });
+  if(e.key==='Escape') closeCtx(true); });
 window.addEventListener('resize', closeMoveSub, {passive:true});
 document.addEventListener('scroll', closeMoveSub, true);
 
