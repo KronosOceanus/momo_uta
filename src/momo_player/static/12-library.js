@@ -94,6 +94,40 @@ function paintSongSel(){
 function clearSongSel(){
   NH.SELU.clear(); NH.SEL_LIST=null; NH.SEL_ANCHOR=null; paintSongSel();
 }
+function playlistEl(lid){
+  return [...document.querySelectorAll('.pl')].find(p=>p.dataset.id===String(lid)) || null;
+}
+function nextVisibleUid(lid, uids){
+  const pl=playlistEl(lid);
+  if(!pl) return null;
+  const rows=[...pl.querySelectorAll('.it')];
+  const picked=new Set((uids||[]).map(String));
+  let last=-1;
+  rows.forEach((row,i)=>{ if(picked.has(String(row.dataset.u))) last=i; });
+  if(last<0) return null;
+  for(let i=last+1;i<rows.length;i++)
+    if(!picked.has(String(rows[i].dataset.u))) return rows[i].dataset.u;
+  for(let i=last-1;i>=0;i--)
+    if(!picked.has(String(rows[i].dataset.u))) return rows[i].dataset.u;
+  return null;
+}
+function focusAfterListChange(lid, nextUid){
+  const pl=playlistEl(lid);
+  if(!pl) return;
+  const row=nextUid && [...pl.querySelectorAll('.it')]
+    .find(x=>String(x.dataset.u)===String(nextUid));
+  if(row){
+    row.focus();
+    try{ row.scrollIntoView({block:'nearest'}); }catch(e){}
+    return;
+  }
+  const head=pl.querySelector('.plh');
+  if(head){
+    if(!head.hasAttribute('tabindex')) head.setAttribute('tabindex','-1');
+    head.focus();
+    try{ head.scrollIntoView({block:'nearest'}); }catch(e){}
+  }
+}
 function songUidsVisible(lid){
   const pl=document.querySelector('.pl[data-id="'+lid+'"]');
   return pl ? [...pl.querySelectorAll('.it')].map(x=>x.dataset.u) : [];
@@ -249,6 +283,7 @@ function openMoveMenu(anchor, lid, uids, focus=false){
 
 async function moveSongs(lid, uids, target){
   if(!uids.length) return;
+  const nextUid=nextVisibleUid(lid, uids);
   try{
     const r=await NH.api('/api/pl',{action:'entries_move',from:lid,to:target.id,uids});
     if(!r || r.ok===false){ NH.done((r && r.error) || '移动失败'); return; }
@@ -256,6 +291,7 @@ async function moveSongs(lid, uids, target){
     if(n===0){ NH.done('没有可移动的歌曲'); return; }
     clearSongSel();
     NH.applyLists(r);
+    focusAfterListChange(lid, nextUid);
     NH.done(`已移动 ${n} 首到「${target.name}」`);
   }catch(e){
     NH.done('移动失败：'+e.message);
@@ -291,14 +327,18 @@ function openSongMenu(x, y, lid, uids, returnEl=null){
   b.textContent = n===1 ? '从歌单移除' : `移除选中的 ${n} 首`;
   b.style.color='var(--danger)';
   b.onclick=async ev=>{
-    ev.stopPropagation(); closeCtx();
+    ev.stopPropagation();
+    const nextUid=nextVisibleUid(lid, uids);
+    closeCtx();
     if(n>1){
       const ok=await NH.uiConfirm(`移除选中的 ${n} 首？`, '歌本身不会丢', true);
       if(!ok) return;
     }
     const r=await NH.api('/api/pl',{action:'entries_remove',list:lid,uids});
+    if(r && r.ok===false){ NH.done(r.error||'移除失败'); return; }
     NH.SELU.clear(); NH.SEL_LIST=null; NH.SEL_ANCHOR=null;
     NH.applyLists(r);
+    focusAfterListChange(lid, nextUid);
   };
   box.appendChild(b);
   box.addEventListener('keydown', e=>{

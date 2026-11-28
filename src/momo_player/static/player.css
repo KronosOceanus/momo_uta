@@ -144,6 +144,7 @@ audio{width:100%;margin:0;position:sticky;bottom:0}
 .pl{border-bottom:1px solid var(--line)}
 .plh{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none}
 .plh:hover{background:var(--hover)}
+.plh:focus-visible{outline:2px solid var(--a);outline-offset:-2px}
 .plh .car{color:var(--muted-2);font-size:11px;width:10px}
 .plh .pln{flex:1;color:var(--text-soft);font-size:13.5px}
 .plh .plc{color:var(--muted-2);font-size:12px;margin-right:6px}
